@@ -139,7 +139,7 @@ class MultiJourneyImportPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: StyleConstants.canvasColor,
-      appBar: CapsuleStyleAppBar(title: title),
+      appBar: CapsuleStyleAppBar(title: title, showTitleBackground: false),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

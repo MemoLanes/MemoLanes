@@ -4,57 +4,114 @@ import 'package:flutter/widgets.dart';
 class StyleConstants {
   StyleConstants._();
 
-  // Part 1 deliberately keeps the app dark-only. A later UI v2 PR will make
-  // these semantic roles adaptive and introduce the user-facing theme mode.
-  static const bool isDarkMode = true;
-
-  // Surface and content roles.
-  static const Color canvasColor = Color(0xFF0B100D);
-  static const Color surfaceColor = Color(0xFF171918);
-  static const Color elevatedSurfaceColor = Color(0xFF1C2620);
-  static const Color inkColor = Color(0xFFF1F5EF);
-  static const Color mutedInkColor = Color(0xFFA2ADA6);
-  static const Color subtleInkColor = Color(0xFF77837B);
-  static const Color lineColor = Color(0xFF2B3730);
-  static const Color strongLineColor = Color(0xFF44534A);
-  static const Color inverseInkColor = Color(0xFF10150F);
-  static const Color onStrongColor = Color(0xFFF8FBF6);
-  static const Color shadowColor = Color(0xFF000000);
-
-  // Translucent surfaces.
   static const bool enableBackdropFilter = false;
-  static const Color glassColor = Color(0xFF111814);
-  static const Color glassBorderColor = Color(0xFF718078);
-  static const Color glassHighlightColor = Color(0xFFE5F5E8);
+  static bool _isDarkMode = true;
 
-  // Brand, selection, and action roles.
-  static const Color primaryGreen = Color(0xFFB8EA72);
-  static const Color deepGreen = Color(0xFF8ACB55);
-  static const Color softGreen = Color(0xFF21331F);
-  static const Color journeyYellow = Color(0xFFFFD75A);
-  static const Color deepYellow = Color(0xFFF0C74B);
-  static const Color softYellow = Color(0xFF352F19);
-  static const Color primaryActionColor = primaryGreen;
-  static const Color onPrimaryActionColor = inverseInkColor;
-  static const Color selectedSurfaceColor = softGreen;
+  static bool get isDarkMode => _isDarkMode;
 
-  // Feedback roles.
-  static const Color warningColor = journeyYellow;
-  static const Color warningInkColor = deepYellow;
-  static const Color warningSurfaceColor = softYellow;
-  static const Color dangerColor = Color(0xFFFF6F7D);
-  static const Color dangerInkColor = Color(0xFFFF9AA4);
-  static const Color dangerSurfaceColor = Color(0xFF3A2026);
-  static const Color onDangerColor = inverseInkColor;
-  static const Color recordingColor = Color(0xFFFF6268);
-  static const Color statusExcellentColor = deepGreen;
-  static const Color statusGoodColor = deepYellow;
-  static const Color statusFairColor = Color(0xFFE89A55);
-  static const Color statusPoorColor = dangerColor;
+  static void setDarkMode(bool value) {
+    _isDarkMode = value;
+  }
+
+  // Adaptive foundations. The light values are the original MemoLanes UI;
+  // the dark values are the night palette. Map fog/遮罩 colors are maintained
+  // separately and are never derived from this setting.
+  static Color get canvasColor =>
+      _isDarkMode ? const Color(0xFF0B100D) : const Color(0xFFFAFBF5);
+  static Color get surfaceColor =>
+      _isDarkMode ? const Color(0xFF171918) : const Color(0xFFFFFFFF);
+  static Color get elevatedSurfaceColor =>
+      _isDarkMode ? const Color(0xFF1C2620) : const Color(0xFFFFFFFF);
+  static Color get inkColor =>
+      _isDarkMode ? const Color(0xFFF1F5EF) : const Color(0xFF182016);
+  static Color get mutedInkColor =>
+      _isDarkMode ? const Color(0xFFA2ADA6) : const Color(0xFF6C7567);
+  static Color get subtleInkColor =>
+      _isDarkMode ? const Color(0xFF77837B) : const Color(0xFF9CA59F);
+  static Color get lineColor =>
+      _isDarkMode ? const Color(0xFF2B3730) : const Color(0xFFE7EBD9);
+  static Color get strongLineColor =>
+      _isDarkMode ? const Color(0xFF44534A) : const Color(0xFFC8D1C1);
+  static Color get inverseInkColor =>
+      _isDarkMode ? const Color(0xFF10150F) : const Color(0xFFFFFFFF);
+  static Color get onStrongColor => const Color(0xFFF8FBF6);
+  static Color get shadowColor =>
+      _isDarkMode ? const Color(0xFF000000) : const Color(0xFF182016);
+
+  static Color get glassColor =>
+      _isDarkMode ? const Color(0xFF111814) : const Color(0xFFFFFFFF);
+  static Color get glassBorderColor =>
+      _isDarkMode ? const Color(0xFF718078) : const Color(0xFFFFFFFF);
+  static Color get glassHighlightColor =>
+      _isDarkMode ? const Color(0xFFE5F5E8) : const Color(0xFFFFFFFF);
+
+  // Brand and selection. The lime is deliberately reserved for compact
+  // emphasis and primary actions instead of large decorative surfaces.
+  static Color get primaryGreen => const Color(0xFFB8EA72);
+  static Color get deepGreen =>
+      _isDarkMode ? const Color(0xFF8ACB55) : const Color(0xFF3F9154);
+  static Color get softGreen =>
+      _isDarkMode ? const Color(0xFF21331F) : const Color(0xFFECF9D9);
+  static Color get journeyYellow =>
+      _isDarkMode ? const Color(0xFFFFD75A) : const Color(0xFFFFD72E);
+  static Color get deepYellow =>
+      _isDarkMode ? const Color(0xFFF0C74B) : const Color(0xFF8B6600);
+  static Color get softYellow =>
+      _isDarkMode ? const Color(0xFF352F19) : const Color(0xFFFFF5BD);
+
+  static Color get primaryActionColor => primaryGreen;
+  static Color get onPrimaryActionColor =>
+      _isDarkMode ? const Color(0xFF10150F) : deepGreen;
+  static Color get selectedSurfaceColor => softGreen;
+
+  // Feedback colors. These are quieter than Flutter's stock red and orange,
+  // and keep status meaning separate from brand accents.
+  static Color get warningColor => journeyYellow;
+  static Color get warningInkColor => deepYellow;
+  static Color get warningSurfaceColor => softYellow;
+  static Color get dangerColor =>
+      _isDarkMode ? const Color(0xFFFF6F7D) : const Color(0xFFC7485D);
+  static Color get dangerInkColor =>
+      _isDarkMode ? const Color(0xFFFF9AA4) : const Color(0xFF8F2F42);
+  static Color get dangerSurfaceColor =>
+      _isDarkMode ? const Color(0xFF3A2026) : const Color(0xFFFBEAEC);
+  static Color get onDangerColor =>
+      _isDarkMode ? const Color(0xFF10150F) : surfaceColor;
+  static Color get recordingColor =>
+      _isDarkMode ? const Color(0xFFFF6268) : const Color(0xFFD95357);
+  static Color get statusExcellentColor => deepGreen;
+  static Color get statusGoodColor => deepYellow;
+  static Color get statusFairColor =>
+      _isDarkMode ? const Color(0xFFE89A55) : const Color(0xFFB56C32);
+  static Color get statusPoorColor => dangerColor;
+
+  // Achievement colors remain gold so the category keeps its own identity,
+  // while using one shared hue instead of several unrelated yellows.
+  static Color get achievementGoldColor =>
+      _isDarkMode ? const Color(0xFFE1B84A) : const Color(0xFFB88722);
+  static Color get achievementGoldSurfaceStart =>
+      _isDarkMode ? const Color(0xFF3A311B) : const Color(0xFFFFF7D9);
+  static Color get achievementGoldSurfaceEnd =>
+      _isDarkMode ? const Color(0xFF272619) : const Color(0xFFF1E5B5);
+  static Color get profileAccentStartColor => deepGreen;
+  static Color get profileAccentEndColor => deepYellow;
+
+  // Active switches use the soft green surface tone used across settings.
+  // Keeping these colors role-specific lets settings controls be tuned without
+  // changing buttons, GPS status indicators, or other selected states.
+  static Color get switchActiveTrackColor => softGreen;
+  static Color get switchActiveThumbColor => deepGreen;
+  static Color get switchInactiveTrackColor =>
+      _isDarkMode ? elevatedSurfaceColor : const Color(0xFFDDE2DC);
+  static Color get switchInactiveThumbColor => subtleInkColor;
+  static Color get switchTrackOutlineColor => strongLineColor;
+  static const double switchActiveThumbSize = 18;
+  static const double switchInactiveThumbSize = 16;
+  static const double switchTrackOutlineWidth = 1;
 
   // navBar
-  // Kept here so map overlays can share the same layout metrics without
-  // depending on the BottomNavBar widget implementation.
+  // Kept in the layout constants layer so shared safe-area calculations do
+  // not need to depend on the BottomNavBar widget implementation.
   static const double navBarHeight = 58;
 
   // Visual bottom inset for the floating nav bar on gesture/home-indicator
@@ -103,22 +160,21 @@ class StyleConstants {
   static double mapPrimaryControlBottomInsetForContext(BuildContext context) =>
       navBarSafeAreaForContext(context) + mapPrimaryControlNavBarSpacing;
 
-  // colors
-  // Compatibility alias for pages that have not migrated to semantic roles.
-  static const Color defaultColor = primaryGreen;
-  static const Color loadingMaskColor = Color.fromRGBO(0, 0, 0, 0.35);
+  // Overlays
+  static Color get loadingMaskColor =>
+      _isDarkMode ? const Color(0xAD000000) : const Color(0x59182016);
   static const double overlayFloatingRadius = 16.0;
 
-  // Shared elevation for glass controls displayed over the map.
-  static const double mapOverlayShadowAlpha = 0.42;
+  // Shared elevation for glass buttons and cards displayed over the map.
+  static double get mapOverlayShadowAlpha => _isDarkMode ? 0.42 : 0.18;
   static const double mapOverlayShadowBlurRadius = 26;
   static const double mapOverlayShadowSpreadRadius = -3;
   static const Offset mapOverlayShadowOffset = Offset(0, 8);
 
-  // Calm, readable glass used by the time-machine ruler and secondary map
-  // controls. These stay fixed while UI v2 remains dark-only.
-  static const double timelineGlassBackgroundAlpha = 0.84;
-  static const double timelineGlassBorderAlpha = 0.46;
+  // Calm, readable glass used by the time-machine ruler and other secondary
+  // map controls that should remain visible without looking like solid cards.
+  static double get timelineGlassBackgroundAlpha => _isDarkMode ? 0.84 : 0.60;
+  static double get timelineGlassBorderAlpha => _isDarkMode ? 0.46 : 0.84;
   static const double timelineGlassBlurSigma = 24;
-  static const double timelineGlassReflectionAlpha = 0.12;
+  static double get timelineGlassReflectionAlpha => 0.12;
 }

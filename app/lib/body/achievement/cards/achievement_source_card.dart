@@ -3,10 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:memolanes/body/achievement/shared/achievement_common.dart';
 import 'package:memolanes/common/component/cards/option_card.dart';
+import 'package:memolanes/common/journey_kind_visuals.dart';
 import 'package:memolanes/constants/index.dart';
+import 'package:memolanes/src/rust/journey_header.dart';
 
-const _groundExploreColor = Color(0xFFFFB86B);
-const _flightExploreColor = Color(0xFF4E8BFF);
+Color get _groundExploreColor => StyleConstants.deepGreen;
+Color get _flightExploreColor => StyleConstants.achievementGoldColor;
 
 class AchievementSourceCard extends StatelessWidget {
   const AchievementSourceCard({super.key, required this.stats});
@@ -31,9 +33,8 @@ class AchievementSourceCard extends StatelessWidget {
               const SizedBox(height: 12),
               Text(
                 context.tr('achievement.source.description'),
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.58),
-                  fontSize: 14,
+                style: AppTypography.body.copyWith(
+                  color: StyleConstants.mutedInkColor,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -62,10 +63,10 @@ class _TotalAreaSummary extends StatelessWidget {
           ? const EdgeInsets.fromLTRB(12, 12, 12, 14)
           : const EdgeInsets.fromLTRB(16, 14, 16, 16),
       decoration: BoxDecoration(
-        color: StyleConstants.defaultColor.withValues(alpha: 0.045),
+        color: StyleConstants.deepGreen.withValues(alpha: 0.045),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: StyleConstants.defaultColor.withValues(alpha: 0.12),
+          color: StyleConstants.deepGreen.withValues(alpha: 0.12),
         ),
       ),
       child: Column(
@@ -76,17 +77,15 @@ class _TotalAreaSummary extends StatelessWidget {
             children: [
               Icon(
                 Icons.area_chart_rounded,
-                color: StyleConstants.defaultColor.withValues(alpha: 0.78),
+                color: StyleConstants.deepGreen.withValues(alpha: 0.78),
                 size: 16,
               ),
               const SizedBox(width: 6),
               Text(
                 context.tr('achievement.overview.title'),
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.68),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
-                  height: 1,
+                style: AppTypography.sectionLabel.copyWith(
+                  color: StyleConstants.mutedInkColor,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ],
@@ -120,7 +119,7 @@ class _TotalAreaNumber extends StatelessWidget {
             Text(
               area.value,
               style: TextStyle(
-                color: StyleConstants.defaultColor,
+                color: StyleConstants.deepGreen,
                 fontSize: compact ? 46 : 52,
                 fontWeight: FontWeight.w900,
                 letterSpacing: 0,
@@ -133,7 +132,7 @@ class _TotalAreaNumber extends StatelessWidget {
               child: Text(
                 area.unit,
                 style: TextStyle(
-                  color: StyleConstants.defaultColor,
+                  color: StyleConstants.deepGreen,
                   fontSize: compact ? 18 : 21,
                   fontWeight: FontWeight.w800,
                   height: 1,
@@ -166,7 +165,7 @@ class _SourceCardsRow extends StatelessWidget {
           Expanded(
             child: _SourceMetricCard(
               compact: compact,
-              icon: FontAwesomeIcons.shoePrints,
+              icon: journeyKindIconData(JourneyKind.defaultKind),
               title: context.tr('journey_kind.default'),
               value: groundArea.value,
               unit: groundArea.unit,
@@ -181,7 +180,7 @@ class _SourceCardsRow extends StatelessWidget {
           Expanded(
             child: _SourceMetricCard(
               compact: compact,
-              icon: FontAwesomeIcons.planeUp,
+              icon: journeyKindIconData(JourneyKind.flight),
               title: context.tr('journey_kind.flight'),
               value: flightArea.value,
               unit: flightArea.unit,
@@ -298,11 +297,11 @@ class _MetricHeader extends StatelessWidget {
                 title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
+                style: AppTypography.itemTitle.copyWith(
                   color: accent,
                   fontSize: titleSize,
-                  fontWeight: FontWeight.w800,
-                  height: 1,
+                  fontWeight: FontWeight.w700,
+                  height: 1.2,
                 ),
               ),
               const SizedBox(height: 6),
@@ -393,26 +392,22 @@ class _PercentText extends StatelessWidget {
         ? shareTemplate.substring(percentPlaceholderIndex + 2)
         : '';
 
-    return FittedBox(
-      fit: BoxFit.scaleDown,
-      alignment: Alignment.centerLeft,
-      child: RichText(
-        maxLines: 1,
-        text: TextSpan(
-          style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.64),
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-          ),
-          children: [
-            TextSpan(text: sharePrefix),
-            TextSpan(
-              text: hasPercentPlaceholder ? percentText : '',
-              style: TextStyle(color: accent, fontWeight: FontWeight.w900),
-            ),
-            TextSpan(text: shareSuffix),
-          ],
+    return RichText(
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      text: TextSpan(
+        style: AppTypography.supporting.copyWith(
+          color: StyleConstants.mutedInkColor,
+          fontWeight: FontWeight.w600,
         ),
+        children: [
+          TextSpan(text: sharePrefix),
+          TextSpan(
+            text: hasPercentPlaceholder ? percentText : '',
+            style: TextStyle(color: accent, fontWeight: FontWeight.w800),
+          ),
+          TextSpan(text: shareSuffix),
+        ],
       ),
     );
   }
@@ -472,10 +467,7 @@ class _PlusDivider extends StatelessWidget {
         children: [
           Positioned.fill(
             child: Center(
-              child: Container(
-                width: 1,
-                color: Colors.white.withValues(alpha: 0.09),
-              ),
+              child: Container(width: 1, color: StyleConstants.lineColor),
             ),
           ),
           _PlusBubble(compact: compact),
@@ -498,13 +490,13 @@ class _PlusBubble extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: const Color(0xFF17212B),
+        color: StyleConstants.softGreen,
         shape: BoxShape.circle,
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        border: Border.all(color: StyleConstants.lineColor),
       ),
       child: Icon(
         Icons.add_rounded,
-        color: Colors.white.withValues(alpha: 0.72),
+        color: StyleConstants.deepGreen,
         size: compact ? 16 : 21,
       ),
     );

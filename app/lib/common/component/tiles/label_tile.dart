@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:memolanes/constants/app_typography.dart';
+import 'package:memolanes/constants/style_constants.dart';
 
 enum LabelTilePosition { single, top, middle, bottom }
 
@@ -73,39 +75,53 @@ class LabelTile extends StatelessWidget {
     }
 
     List<Widget> children = [
-      GestureDetector(
-        onTap: infoLabelOnTap,
-        child: Row(
-          children: [
-            Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
-                if (desc.isNotEmpty)
-                  Text(
-                    desc,
-                    maxLines: descMaxLines,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-              ],
-            ),
-            if (infoLabelOnTap != null) ...[
-              const SizedBox(width: 6),
-              const Icon(
-                Icons.info_outline,
-                size: 18.0,
-                color: Color(0x99FFFFFF),
+      Flexible(
+        child: GestureDetector(
+          onTap: infoLabelOnTap,
+          child: Row(
+            children: [
+              Flexible(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.itemTitle.copyWith(
+                        color: StyleConstants.inkColor,
+                      ),
+                    ),
+                    if (desc.isNotEmpty)
+                      Text(
+                        desc,
+                        maxLines: descMaxLines,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.caption.copyWith(
+                          color: StyleConstants.mutedInkColor,
+                        ),
+                      ),
+                  ],
+                ),
               ),
+              if (infoLabelOnTap != null) ...[
+                const SizedBox(width: 6),
+                Icon(
+                  Icons.info_outline,
+                  size: 18.0,
+                  color: StyleConstants.mutedInkColor,
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     ];
     if (prefix != null) children.insert(0, prefix!);
     if (suffix != null) children.add(suffix!);
     if (trailing != null) {
-      children.addAll([Expanded(child: SizedBox.shrink()), trailing!]);
+      children.add(trailing!);
     }
 
     return Container(
@@ -121,14 +137,24 @@ class LabelTile extends StatelessWidget {
               borderRadius: borderRadius,
               child: ConstrainedBox(
                 constraints: BoxConstraints(
-                  maxHeight: maxHeight ?? 54.0,
+                  maxHeight: maxHeight ?? double.infinity,
                   minHeight: minHeight,
                 ),
                 child: Ink(
-                  padding: EdgeInsets.symmetric(horizontal: 16.0),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
-                    color: const Color(0x1AFFFFFF),
+                    color: StyleConstants.surfaceColor,
                     borderRadius: borderRadius,
+                    border: Border(
+                      bottom:
+                          position == LabelTilePosition.top ||
+                              position == LabelTilePosition.middle
+                          ? BorderSide(color: StyleConstants.lineColor)
+                          : BorderSide.none,
+                    ),
                   ),
                   child: IntrinsicHeight(
                     child: Row(

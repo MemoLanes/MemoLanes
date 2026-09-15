@@ -306,6 +306,14 @@
       "reset_local_prefs": "Reset Preferences",
       "reset_local_prefs_message": "This will reset all preferences and immediately shut down the app. Journey data will not be deleted.",
       "render_diagnostics": "Render Diagnostics"
+    },
+    "interface_settings": {
+      "title": "Interface Settings",
+      "mode_name": {
+        "system": "Follow System",
+        "light": "Light Mode",
+        "dark": "Dark Mode"
+      }
     }
   },
   "data": {
@@ -317,7 +325,8 @@
       "delete_backup_data": "Delete backup data"
     },
     "import_data": {
-      "title": "Import data"
+      "title": "Import data",
+      "description": "Choose the data source and format you want to import."
     },
     "export_data": {
       "export_all": "Export All Data",
@@ -342,7 +351,8 @@
   },
   "settings": {
     "other": "Other",
-    "about": "About"
+    "about": "About",
+    "page_title": "Settings"
   },
   "beta_testing_notice": {
     "title": "Welcome to MemoLanes Public Beta",

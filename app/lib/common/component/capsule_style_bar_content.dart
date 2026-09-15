@@ -1,25 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:memolanes/common/component/custom_popup.dart';
+import 'package:memolanes/common/component/liquid_glass_surface.dart';
+import 'package:memolanes/common/component/map_glass_back_button.dart';
+import 'package:memolanes/constants/app_typography.dart';
 import 'package:memolanes/constants/style_constants.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
+
+enum CapsuleBarSurfaceStyle { solid, mapGlass }
 
 class CapsuleBarConstants {
   CapsuleBarConstants._();
 
-  static const double barContentHeight = 44.0;
+  static const double barContentHeight = 48.0;
   static const double barBottomInset = 4.0;
   static const double maxSafeTop = 80.0;
   static const double pillRadius = 18.0;
   static const double iconButtonSize = 36.0;
 
-  static const Color defaultForeground = Color(0xFFE5E5E7);
-  static const Color defaultPill = Color(0xFF2C2C2E);
-  static const Color defaultSubtitleFg = Color(0xFF8E8E93);
-  static const Color defaultBackground = Color(0xFF1C1C1E);
-  static const Color barBorderColor = Color(0xFF2C2C2E);
-  static const Color barBorderColorLight = Color(0xFFD1D1D6);
-  static const Color lightPillBackground = Color(0xFFE5E5E7);
-  static const Color subtitleColorLight = Color(0xFF636366);
+  static Color get defaultForeground => StyleConstants.inkColor;
+  static Color get defaultPill => StyleConstants.surfaceColor;
+  static Color get defaultSubtitleFg => StyleConstants.mutedInkColor;
+  static Color get defaultBackground => StyleConstants.canvasColor;
+  static Color get barBorderColor => StyleConstants.lineColor;
+  static Color get barBorderColorLight => StyleConstants.lineColor;
+  static Color get lightPillBackground => StyleConstants.surfaceColor;
+  static Color get subtitleColorLight => StyleConstants.mutedInkColor;
 }
 
 /// Capsule-style bar content: back button, optional title pill, optional more button.
@@ -37,6 +42,8 @@ class CapsuleBarContent extends StatelessWidget {
     this.foregroundColor,
     this.pillColor,
     this.subtitleFg,
+    this.surfaceStyle = CapsuleBarSurfaceStyle.solid,
+    this.showTitleBackground = true,
   });
 
   final bool showOnlyBackButton;
@@ -51,6 +58,8 @@ class CapsuleBarContent extends StatelessWidget {
   final Color? foregroundColor;
   final Color? pillColor;
   final Color? subtitleFg;
+  final CapsuleBarSurfaceStyle surfaceStyle;
+  final bool showTitleBackground;
 
   Color get _fg => foregroundColor ?? CapsuleBarConstants.defaultForeground;
   Color get _pill => pillColor ?? CapsuleBarConstants.defaultPill;
@@ -78,6 +87,67 @@ class CapsuleBarContent extends StatelessWidget {
     );
   }
 
+  Widget _titleContent() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        if (title != null && title!.isNotEmpty)
+          Text(
+            title!,
+            style: AppTypography.subpageTitle.copyWith(color: _fg),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+          ),
+        if (subtitle != null && subtitle!.isNotEmpty) ...[
+          const SizedBox(height: 1),
+          Text(
+            subtitle!,
+            style: AppTypography.micro.copyWith(color: _subFg),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _titlePill() {
+    final titleContent = _titleContent();
+    if (!showTitleBackground) return titleContent;
+
+    if (surfaceStyle == CapsuleBarSurfaceStyle.mapGlass) {
+      final hasSubtitle = subtitle != null && subtitle!.isNotEmpty;
+      return LiquidGlassSurface(
+        borderRadius: BorderRadius.circular(CapsuleBarConstants.pillRadius),
+        backgroundAlpha: 0.72,
+        borderAlpha: 0.86,
+        blurSigma: 18,
+        reflectionAlpha: 0,
+        shadowAlpha: 0.12,
+        shadowBlurRadius: 18,
+        shadowSpreadRadius: 0,
+        shadowOffset: const Offset(0, 6),
+        padding: EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: hasSubtitle ? 3 : 7,
+        ),
+        child: titleContent,
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      decoration: BoxDecoration(
+        color: _pill,
+        borderRadius: BorderRadius.circular(CapsuleBarConstants.pillRadius),
+      ),
+      child: titleContent,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final onBackCallback = onBack ?? () => Navigator.maybePop(context);
@@ -91,56 +161,16 @@ class CapsuleBarContent extends StatelessWidget {
         ),
         child: Row(
           children: [
-            _pillButton(
-              const Icon(Icons.arrow_back_ios_new, size: 20),
-              onBackCallback,
-            ),
+            if (surfaceStyle == CapsuleBarSurfaceStyle.mapGlass)
+              MapGlassBackButton(onPressed: onBackCallback)
+            else
+              _pillButton(
+                const Icon(Icons.arrow_back_ios_new, size: 20),
+                onBackCallback,
+              ),
             if (!showOnlyBackButton) ...[
               const SizedBox(width: 12),
-              Expanded(
-                child: Center(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 5,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _pill,
-                      borderRadius: BorderRadius.circular(
-                        CapsuleBarConstants.pillRadius,
-                      ),
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        if (title != null && title!.isNotEmpty)
-                          Text(
-                            title!,
-                            style: TextStyle(
-                              color: _fg,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            textAlign: TextAlign.center,
-                          ),
-                        if (subtitle != null && subtitle!.isNotEmpty) ...[
-                          const SizedBox(height: 1),
-                          Text(
-                            subtitle!,
-                            style: TextStyle(color: _subFg, fontSize: 11),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
-              ),
+              Expanded(child: Center(child: _titlePill())),
               const SizedBox(width: 12),
               if (moreMenuContent != null)
                 CustomPopup(
@@ -164,7 +194,11 @@ class CapsuleBarContent extends StatelessWidget {
                   onMoreTap,
                 )
               else
-                const SizedBox(width: CapsuleBarConstants.iconButtonSize),
+                SizedBox(
+                  width: surfaceStyle == CapsuleBarSurfaceStyle.mapGlass
+                      ? 42
+                      : CapsuleBarConstants.iconButtonSize,
+                ),
             ],
           ],
         ),

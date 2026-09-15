@@ -6,6 +6,7 @@ import 'package:memolanes/body/journey/editor/journey_editor_operation_queue.dar
 import 'package:memolanes/body/journey/editor/journey_track_edit_mode_bar.dart';
 import 'package:memolanes/body/journey/editor/top_persistent_toast.dart';
 import 'package:memolanes/common/component/capsule_style_overlay_app_bar.dart';
+import 'package:memolanes/common/component/capsule_style_bar_content.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
@@ -471,6 +472,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
               const Center(child: CircularProgressIndicator()),
             CapsuleStyleOverlayAppBar.overlayBar(
               title: context.tr("journey.editor.page_title"),
+              surfaceStyle: CapsuleBarSurfaceStyle.mapGlass,
             ),
             Positioned(
               left: 0,

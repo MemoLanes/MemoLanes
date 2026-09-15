@@ -3,8 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:memolanes/common/component/app_button.dart';
 import 'package:memolanes/common/component/basic_dialog_card.dart';
 import 'package:memolanes/common/component/capsule_style_app_bar.dart';
-import 'package:memolanes/common/component/cards/card_label_tile.dart';
-import 'package:memolanes/common/component/cards/option_card.dart';
+import 'package:memolanes/common/component/app_option_tile.dart';
 import 'package:memolanes/common/component/common_export.dart';
 import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/utils.dart';
@@ -20,15 +19,33 @@ class RawDataSwitch extends StatefulWidget {
 
 class _RawDataSwitchState extends State<RawDataSwitch> {
   bool enabled = false;
+  bool _busy = true;
 
   @override
-  initState() {
+  void initState() {
     super.initState();
-    api.getRawDataMode().then(
-      (value) => setState(() {
-        enabled = value;
-      }),
-    );
+    _loadMode();
+  }
+
+  Future<void> _loadMode() async {
+    final value = await api.getRawDataMode();
+    if (!mounted) return;
+    setState(() {
+      enabled = value;
+      _busy = false;
+    });
+  }
+
+  Future<void> _setMode(bool value) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      await api.toggleRawDataMode(enable: value);
+      if (!mounted) return;
+      setState(() => enabled = value);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   @override
@@ -38,15 +55,7 @@ class _RawDataSwitchState extends State<RawDataSwitch> {
       child: LabelTile(
         label: context.tr("general.advanced_settings.raw_data_mode"),
         position: LabelTilePosition.single,
-        trailing: Switch(
-          value: enabled,
-          onChanged: (bool value) async {
-            await api.toggleRawDataMode(enable: value);
-            setState(() {
-              enabled = value;
-            });
-          },
-        ),
+        trailing: Switch(value: enabled, onChanged: _busy ? null : _setMode),
       ),
     );
   }
@@ -68,32 +77,33 @@ class _RawDataPage extends State<RawDataPage> {
     _loadList();
   }
 
-  void _loadList() async {
-    var list = await api.listAllRawData();
-    setState(() {
-      items = list;
-    });
+  Future<void> _loadList() async {
+    final list = await api.listAllRawData();
+    if (!mounted) return;
+    setState(() => items = list);
   }
 
   void _showExportCard(BuildContext context, String filePath) {
     showBasicCard(
       context,
-      builder: (_) => OptionCard(
-        useSafeArea: false,
-        embedded: true,
+      title: context.tr("common.export"),
+      builder: (dialogContext) => Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          CardLabelTile(
-            position: CardLabelTilePosition.top,
-            label: context.tr("general.advanced_settings.raw_data_export_csv"),
+          AppOptionTile(
+            icon: Icons.table_chart_outlined,
+            title: context.tr("general.advanced_settings.raw_data_export_csv"),
             onTap: () {
+              Navigator.of(dialogContext).pop();
               showCommonExport(context, filePath, deleteFile: false);
             },
-            top: false,
           ),
-          CardLabelTile(
-            position: CardLabelTilePosition.bottom,
-            label: context.tr("general.advanced_settings.raw_data_export_gpx"),
+          const SizedBox(height: 8),
+          AppOptionTile(
+            icon: Icons.route_outlined,
+            title: context.tr("general.advanced_settings.raw_data_export_gpx"),
             onTap: () async {
+              Navigator.of(dialogContext).pop();
               final gpxPath = await api.exportRawDataGpxFile(
                 csvFilepath: filePath,
               );
@@ -128,7 +138,10 @@ class _RawDataPage extends State<RawDataPage> {
                   onTap: () {
                     _showExportCard(context, item.path);
                   },
-                  trailing: ElevatedButton(
+                  trailing: AppIconButton(
+                    icon: Icons.delete_outline_rounded,
+                    variant: AppButtonVariant.danger,
+                    size: 38,
                     onPressed: () async {
                       if (await showCommonDialog(
                         context,
@@ -139,10 +152,9 @@ class _RawDataPage extends State<RawDataPage> {
                         confirmVariant: AppButtonVariant.danger,
                       )) {
                         await api.deleteRawDataFile(filename: item.name);
-                        _loadList();
+                        await _loadList();
                       }
                     },
-                    child: const Icon(Icons.delete),
                   ),
                 );
               }).toList(),

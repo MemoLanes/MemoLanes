@@ -95,7 +95,7 @@ void main() {
       );
       expect(
         button.style!.side!.resolve({}),
-        const BorderSide(color: StyleConstants.lineColor),
+        BorderSide(color: StyleConstants.lineColor),
       );
       await tester.tap(find.text(label));
     }

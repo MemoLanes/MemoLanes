@@ -82,7 +82,7 @@ class _RecIndicatorState extends State<RecIndicator>
               ),
             ),
           ),
-          const SizedBox.square(
+          SizedBox.square(
             dimension: 7,
             child: DecoratedBox(
               decoration: BoxDecoration(

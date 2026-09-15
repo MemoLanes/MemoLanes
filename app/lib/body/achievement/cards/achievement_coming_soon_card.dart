@@ -2,6 +2,8 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/body/achievement/shared/achievement_common.dart';
 import 'package:memolanes/common/component/cards/option_card.dart';
+import 'package:memolanes/constants/app_typography.dart';
+import 'package:memolanes/constants/style_constants.dart';
 
 class AchievementComingSoonCard extends StatelessWidget {
   const AchievementComingSoonCard({super.key});
@@ -18,15 +20,17 @@ class AchievementComingSoonCard extends StatelessWidget {
                 width: 38,
                 height: 38,
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.06),
+                  color: StyleConstants.warningSurfaceColor,
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.08),
+                    color: StyleConstants.achievementGoldColor.withValues(
+                      alpha: 0.38,
+                    ),
                   ),
                 ),
                 child: Icon(
                   Icons.auto_awesome_rounded,
-                  color: Colors.white.withValues(alpha: 0.72),
+                  color: StyleConstants.achievementGoldColor,
                   size: 22,
                 ),
               ),
@@ -37,13 +41,10 @@ class AchievementComingSoonCard extends StatelessWidget {
                   children: [
                     Text(
                       context.tr('achievement.coming_soon_card.title'),
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                        height: 1.2,
+                      style: AppTypography.cardTitle.copyWith(
+                        color: StyleConstants.inkColor,
                       ),
                     ),
                     const SizedBox(height: 5),
@@ -51,11 +52,8 @@ class AchievementComingSoonCard extends StatelessWidget {
                       context.tr('achievement.coming_soon_card.description'),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.54),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        height: 1.25,
+                      style: AppTypography.caption.copyWith(
+                        color: StyleConstants.mutedInkColor,
                       ),
                     ),
                   ],

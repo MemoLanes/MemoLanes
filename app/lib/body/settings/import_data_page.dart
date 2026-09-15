@@ -12,6 +12,7 @@ import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/loading_manager.dart';
 import 'package:memolanes/common/simple_date_utils.dart';
 import 'package:memolanes/common/utils.dart';
+import 'package:memolanes/constants/style_constants.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/api/import.dart' as import_api;
 import 'package:pointer_interceptor/pointer_interceptor.dart';
@@ -235,7 +236,7 @@ class _ImportDataPage extends State<ImportDataPage> {
           : Stack(
               children: [
                 SlidingUpPanel(
-                  color: Colors.black,
+                  color: StyleConstants.canvasColor,
                   borderRadius: const BorderRadius.only(
                     topLeft: Radius.circular(16.0),
                     topRight: Radius.circular(16.0),
@@ -251,7 +252,9 @@ class _ImportDataPage extends State<ImportDataPage> {
                             child: CustomPaint(
                               size: const Size(40.0, 4.0),
                               painter: LinePainter(
-                                color: const Color(0xFFB5B5B5),
+                                color: StyleConstants.mutedInkColor.withValues(
+                                  alpha: 0.44,
+                                ),
                               ),
                             ),
                           ),
@@ -261,7 +264,8 @@ class _ImportDataPage extends State<ImportDataPage> {
                             endTime: journeyInfo.endTime,
                             journeyDate: journeyInfo.journeyDate.toSimpleDate(),
                             note: journeyInfo.note,
-                            saveData: _saveData,
+                            saveData: (journeyInfo, preprocessor) =>
+                                _saveData(journeyInfo, preprocessor),
                             previewData: _previewData,
                             importType: widget.importType,
                             preprocessor: _preprocessor,

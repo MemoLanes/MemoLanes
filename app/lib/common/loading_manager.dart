@@ -166,7 +166,7 @@ class _DefaultLoadingCard extends StatelessWidget {
       width: 80,
       height: 80,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: StyleConstants.surfaceColor,
         borderRadius: BorderRadius.circular(16),
       ),
       child: const Center(

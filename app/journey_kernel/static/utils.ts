@@ -130,13 +130,14 @@ export function displayPageMessage(
   detail?: string,
   isError: boolean = true,
 ): void {
-  const color = isError ? "red" : "#333";
+  const color = isError ? "#ff6f7d" : "#f1f5ef";
 
   // Create container div
   const container = document.createElement("div");
   container.style.padding = "20px";
   container.style.fontFamily = "Arial, sans-serif";
   container.style.color = color;
+  document.body.style.backgroundColor = "#0b100d";
 
   // Create and add heading
   const h1 = document.createElement("h1");

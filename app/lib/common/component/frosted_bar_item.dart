@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:memolanes/constants/app_typography.dart';
+import 'package:memolanes/constants/style_constants.dart';
 
 class FrostedBarItem extends StatelessWidget {
   const FrostedBarItem({
@@ -8,7 +10,7 @@ class FrostedBarItem extends StatelessWidget {
     this.isSelected = false,
     this.isEnabled = true,
     this.onTap,
-    this.selectedColor = Colors.black,
+    this.selectedColor,
     this.unselectedColor,
     this.disabledColor,
     this.horizontalPadding = 14,
@@ -21,7 +23,7 @@ class FrostedBarItem extends StatelessWidget {
   final bool isSelected;
   final bool isEnabled;
   final VoidCallback? onTap;
-  final Color selectedColor;
+  final Color? selectedColor;
   final Color? unselectedColor;
   final Color? disabledColor;
   final double horizontalPadding;
@@ -30,14 +32,16 @@ class FrostedBarItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final themeColor = selectedColor;
-    final baseUnselectedColor = unselectedColor ?? Colors.grey.shade800;
-    final baseDisabledColor = disabledColor ?? Colors.grey.shade500;
+    final themeColor = selectedColor ?? StyleConstants.inkColor;
+    final baseUnselectedColor = unselectedColor ?? StyleConstants.mutedInkColor;
+    final baseDisabledColor = disabledColor ?? StyleConstants.subtleInkColor;
 
     final Color bgColor = isSelected
         ? (isEnabled
               ? themeColor.withValues(alpha: 0.12)
-              : Colors.black.withValues(alpha: 0.05))
+              : (StyleConstants.isDarkMode
+                    ? StyleConstants.lineColor.withValues(alpha: 0.36)
+                    : StyleConstants.inkColor.withValues(alpha: 0.05)))
         : Colors.transparent;
 
     final Color contentColor = !isEnabled
@@ -79,9 +83,8 @@ class FrostedBarItem extends StatelessWidget {
               maxLines: 1,
               softWrap: false,
               overflow: TextOverflow.fade,
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+              style: AppTypography.micro.copyWith(
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
                 color: contentColor,
               ),
             ),

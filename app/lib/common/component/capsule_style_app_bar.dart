@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:memolanes/common/component/capsule_style_bar_content.dart';
 
 /// Capsule-style app bar: circular back button, center title pill (title + optional subtitle), circular more button.
-/// Use as [Scaffold.appBar]; occupies space below the status bar. Suited for dark backgrounds (e.g. scaffoldBackgroundColor 0xFF141414).
+/// Use as [Scaffold.appBar]; occupies space below the status bar.
 class CapsuleStyleAppBar extends StatelessWidget
     implements PreferredSizeWidget {
   const CapsuleStyleAppBar({
@@ -14,6 +14,7 @@ class CapsuleStyleAppBar extends StatelessWidget
     this.moreIcon,
     this.backgroundColor,
     this.foregroundColor,
+    this.showTitleBackground = true,
   });
 
   final String title;
@@ -23,6 +24,7 @@ class CapsuleStyleAppBar extends StatelessWidget
   final Widget? moreIcon;
   final Color? backgroundColor;
   final Color? foregroundColor;
+  final bool showTitleBackground;
 
   @override
   Size get preferredSize => const Size.fromHeight(
@@ -72,6 +74,7 @@ class CapsuleStyleAppBar extends StatelessWidget
               foregroundColor ?? CapsuleBarConstants.defaultForeground,
           pillColor: pillColor,
           subtitleFg: subtitleFg,
+          showTitleBackground: showTitleBackground,
         ),
       ),
     );

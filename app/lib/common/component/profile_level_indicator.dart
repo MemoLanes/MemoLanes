@@ -2,6 +2,8 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:memolanes/constants/app_typography.dart';
+import 'package:memolanes/constants/style_constants.dart';
 
 class ProfileLevelIndicator extends StatelessWidget {
   final int level;
@@ -37,10 +39,13 @@ class ProfileLevelIndicator extends StatelessWidget {
                   height: size,
                   decoration: BoxDecoration(
                     gradient: profileImage == null
-                        ? const LinearGradient(
+                        ? LinearGradient(
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
-                            colors: [Color(0xFF66B6FF), Color(0xFFFF99CC)],
+                            colors: [
+                              StyleConstants.profileAccentStartColor,
+                              StyleConstants.profileAccentEndColor,
+                            ],
                           )
                         : null,
                     image: profileImage != null
@@ -51,7 +56,13 @@ class ProfileLevelIndicator extends StatelessWidget {
                         : null,
                   ),
                   child: profileImage == null
-                      ? const Icon(Icons.person, color: Colors.white, size: 32)
+                      ? Icon(
+                          Icons.person,
+                          color: StyleConstants.isDarkMode
+                              ? StyleConstants.inverseInkColor
+                              : StyleConstants.surfaceColor,
+                          size: 32,
+                        )
                       : null,
                 ),
               ),
@@ -77,15 +88,15 @@ class ProfileLevelIndicator extends StatelessWidget {
                     vertical: 2,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.black,
+                    color: StyleConstants.isDarkMode
+                        ? StyleConstants.inverseInkColor
+                        : StyleConstants.inkColor,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     'Lv. $level',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
+                    style: AppTypography.label.copyWith(
+                      color: StyleConstants.onStrongColor,
                     ),
                   ),
                 ),
@@ -110,14 +121,14 @@ class CircularProgressPainter extends CustomPainter {
     final radius = (size.width - strokeWidth) / 2;
 
     final bgPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.3)
+      ..color = StyleConstants.onStrongColor.withValues(alpha: 0.3)
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth;
 
     canvas.drawCircle(center, radius, bgPaint);
 
     final progressPaint = Paint()
-      ..color = const Color(0xFFB4EC51)
+      ..color = StyleConstants.primaryActionColor
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth
       ..strokeCap = StrokeCap.round;

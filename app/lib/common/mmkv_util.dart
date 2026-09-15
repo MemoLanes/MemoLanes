@@ -16,6 +16,7 @@ class MMKVKey {
   static const String worldviewPreference = "Settings.worldview";
   static const String mapStyle = "mapStyle";
   static const String mapFogMode = "mapFogMode";
+  static const String interfaceThemeMode = "Settings.interfaceThemeMode";
   static const String requestedBatteryOptimization =
       'Permission.requestedBatteryOptimization';
   static const String requestedLocation = 'Permission.requestedLocation';
