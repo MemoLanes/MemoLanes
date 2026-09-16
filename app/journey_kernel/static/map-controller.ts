@@ -30,7 +30,10 @@ import { JOURNEY_LAYER_ID } from "./layers/journey-layer-interface";
 import type { JourneyLayer } from "./layers/journey-layer-interface";
 import { MAX_MAP_ZOOM } from "./layer-config";
 import { waitForRenderedFrame } from "./display-ready";
-import { StyleLoadRetry } from "./style-load-retry";
+import {
+  PLACEHOLDER_STYLE_METADATA_KEY,
+  StyleLoadRetry,
+} from "./style-load-retry";
 
 const DATA_POLL_INTERVAL_MS = 1_000;
 
@@ -108,6 +111,7 @@ export class MapController {
       maxZoom: MAX_MAP_ZOOM,
       style: {
         version: 8,
+        metadata: { [PLACEHOLDER_STYLE_METADATA_KEY]: true },
         sources: {},
         layers: [
           {
@@ -238,16 +242,11 @@ export class MapController {
    */
   private buildTransformRequest(): RequestTransformFunction {
     return (url: string, resourceType?: ResourceType) => {
-      const request =
-        this.params.requiresMapboxToken &&
+      return this.params.requiresMapboxToken &&
         this.params.accessKey &&
         isMapboxURL(url)
-          ? transformMapboxUrl(url, resourceType as any, this.params.accessKey)
-          : { url };
-      if (resourceType === "Style") {
-        this.styleLoadRetry?.requestStarted(request.url);
-      }
-      return request;
+        ? transformMapboxUrl(url, resourceType as any, this.params.accessKey)
+        : { url };
     };
   }
 
@@ -491,15 +490,13 @@ export class MapController {
    */
   private applyMapStyle(): void {
     this.map.setStyle(this.params.mapStyle, {
-      transformStyle: (previousStyle: any, nextStyle: any) => {
-        this.styleLoadRetry?.responseReceived();
-        return transformStyleWithProjection(
+      transformStyle: (previousStyle: any, nextStyle: any) =>
+        transformStyleWithProjection(
           previousStyle,
           nextStyle,
           this.params.projection,
           this.mapLocale,
-        );
-      },
+        ),
     });
   }
 
