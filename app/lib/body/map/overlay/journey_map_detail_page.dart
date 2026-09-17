@@ -2,7 +2,6 @@ import 'dart:math' as math;
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:fluttertoast/fluttertoast.dart';
 import 'package:memolanes/body/journey/journey_export.dart';
 import 'package:memolanes/body/journey/journey_track_edit_page.dart';
 import 'package:memolanes/common/component/app_dialog.dart';
@@ -120,14 +119,6 @@ class _JourneyMapDetailPageState extends State<JourneyMapDetailPage> {
         case JourneyMoreAction.delete:
           await _deleteJourney();
           break;
-        case JourneyMoreAction.copy:
-          await GlobalLoadingManager.instance.runWithLoading(
-            () => api.copyJourney(journeyId: _journey.id),
-            blockNavigation: true,
-          );
-          if (!mounted) return;
-          await _showCopySuccess();
-          break;
       }
     } catch (error, stackTrace) {
       log.error('Journey action failed: $error', stackTrace);
@@ -138,20 +129,6 @@ class _JourneyMapDetailPageState extends State<JourneyMapDetailPage> {
       );
     } finally {
       _moreActionInProgress = false;
-    }
-  }
-
-  Future<void> _showCopySuccess() async {
-    final message = context.tr('journey.copy_journey_success');
-    try {
-      await Fluttertoast.showToast(msg: message);
-    } catch (error, stackTrace) {
-      // The database operation already succeeded. A toast failure must not
-      // report that copying failed and encourage the user to create duplicates.
-      log.error('Showing copy success toast failed: $error', stackTrace);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(message)));
     }
   }
 

@@ -493,12 +493,6 @@ pub fn delete_journey(journey_id: &str) -> Result<()> {
         .with_db_txn(|txn| txn.delete_journey(journey_id))
 }
 
-pub fn copy_journey(journey_id: &str) -> Result<String> {
-    get()
-        .storage
-        .with_db_txn(|txn| txn.copy_journey(journey_id))
-}
-
 pub fn toggle_raw_data_mode(enable: bool) {
     get().storage.toggle_raw_data_mode(enable)
 }

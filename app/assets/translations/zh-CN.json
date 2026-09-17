@@ -108,8 +108,6 @@
     "journey_date_is_empty": "旅程日期是空的",
     "delete_journey_title": "删除旅程",
     "delete_journey_message": "确认删除该旅程记录？",
-    "copy_journey": "复制旅程",
-    "copy_journey_success": "已复制旅程",
     "stop_ongoing_journey": "在此操作之前，请先停止当前正在进行的旅程。",
     "delete_all_journey_message": "这将删除此应用中的所有行程，您确定吗？",
     "journey_info_page_title": "旅程信息",
