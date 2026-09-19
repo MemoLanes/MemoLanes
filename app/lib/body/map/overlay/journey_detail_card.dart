@@ -252,11 +252,8 @@ class _JourneyDetailCardState extends State<JourneyDetailCard> {
       barrierColor: StyleConstants.shadowColor.withValues(
         alpha: StyleConstants.isDarkMode ? 0.58 : 0.2,
       ),
-      builder: (dialogContext) => PointerInterceptor(
-        child: CompactJourneyTimeDialog(
-          initialTime: TimeOfDay.fromDateTime(seed),
-        ),
-      ),
+      builder: (dialogContext) =>
+          CompactJourneyTimeDialog(initialTime: TimeOfDay.fromDateTime(seed)),
     );
     if (time == null) return null;
     return DateTime(date.year, date.month, date.day, time.hour, time.minute);
@@ -280,11 +277,11 @@ class _JourneyDetailCardState extends State<JourneyDetailCard> {
       barrierColor: StyleConstants.shadowColor.withValues(
         alpha: StyleConstants.isDarkMode ? 0.58 : 0.2,
       ),
-      builder: (dialogContext) => PointerInterceptor(
-        child: Dialog(
-          elevation: 0,
-          backgroundColor: Colors.transparent,
-          insetPadding: const EdgeInsets.symmetric(horizontal: 42),
+      builder: (dialogContext) => Dialog(
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 42),
+        child: PointerInterceptor(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 340),
             child: AppDialogCard(

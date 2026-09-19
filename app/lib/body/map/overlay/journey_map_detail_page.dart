@@ -180,10 +180,8 @@ class _JourneyMapDetailPageState extends State<JourneyMapDetailPage> {
       barrierColor: StyleConstants.shadowColor.withValues(
         alpha: StyleConstants.isDarkMode ? 0.58 : 0.2,
       ),
-      builder: (dialogContext) => PointerInterceptor(
-        child: _JourneyEditChoiceDialog(
-          onSelected: (choice) => Navigator.of(dialogContext).pop(choice),
-        ),
+      builder: (dialogContext) => _JourneyEditChoiceDialog(
+        onSelected: (choice) => Navigator.of(dialogContext).pop(choice),
       ),
     );
     if (!mounted || choice == null) return;
@@ -277,30 +275,32 @@ class _JourneyEditChoiceDialog extends StatelessWidget {
       elevation: 0,
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 38),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 360),
-        child: AppDialogCard(
-          title: context.tr('common.edit'),
-          surfaceStyle: AppDialogSurfaceStyle.glass,
-          maxHeightFactor: 0.5,
-          contentPadding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              AppOptionTile(
-                backgroundAlpha: 0.5,
-                icon: Icons.description_outlined,
-                title: context.tr('journey.journey_info_edit_page_title'),
-                onTap: () => onSelected(_JourneyEditChoice.information),
-              ),
-              const SizedBox(height: 8),
-              AppOptionTile(
-                backgroundAlpha: 0.5,
-                icon: Icons.edit_road_rounded,
-                title: context.tr('journey.editor.page_title'),
-                onTap: () => onSelected(_JourneyEditChoice.track),
-              ),
-            ],
+      child: PointerInterceptor(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 360),
+          child: AppDialogCard(
+            title: context.tr('common.edit'),
+            surfaceStyle: AppDialogSurfaceStyle.glass,
+            maxHeightFactor: 0.5,
+            contentPadding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AppOptionTile(
+                  backgroundAlpha: 0.5,
+                  icon: Icons.description_outlined,
+                  title: context.tr('journey.journey_info_edit_page_title'),
+                  onTap: () => onSelected(_JourneyEditChoice.information),
+                ),
+                const SizedBox(height: 8),
+                AppOptionTile(
+                  backgroundAlpha: 0.5,
+                  icon: Icons.edit_road_rounded,
+                  title: context.tr('journey.editor.page_title'),
+                  onTap: () => onSelected(_JourneyEditChoice.track),
+                ),
+              ],
+            ),
           ),
         ),
       ),
