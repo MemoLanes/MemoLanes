@@ -202,14 +202,6 @@ void main() {
     );
     await tester.tap(find.text('Open'));
     await tester.pumpAndSettle();
-    final copy = tester
-        .widget<AppButton>(
-          find.ancestor(
-            of: find.text('Copy Journey'),
-            matching: find.byType(AppButton),
-          ),
-        )
-        .onPressed!;
     final delete = tester
         .widget<AppButton>(
           find.ancestor(
@@ -219,10 +211,9 @@ void main() {
         )
         .onPressed!;
     // Invoke stale callbacks before a frame is drawn: a confirmation must not
-    // stack twice, and the menu underneath it must not consume a copy action.
+    // stack twice.
     delete();
     delete();
-    copy();
     await tester.pumpAndSettle();
     expect(find.byType(CommonDialog), findsOneWidget);
     expect(results, isEmpty);
@@ -234,11 +225,11 @@ void main() {
     cancel();
     cancel();
     await tester.pumpAndSettle();
-    copy();
-    copy();
     delete();
     await tester.pumpAndSettle();
-    expect(results, [JourneyMoreAction.copy]);
+    invokeConfirmationAction(tester, 'Delete');
+    await tester.pumpAndSettle();
+    expect(results, [JourneyMoreAction.delete]);
     expect(find.text('Open').hitTestable(), findsOneWidget);
     expect(find.byType(Dialog), findsNothing);
   });
@@ -259,48 +250,37 @@ void main() {
           ),
         ),
       );
-      for (final label in ['Copy Journey', 'Delete Journey']) {
-        await tester.tap(find.text('Open'));
-        await tester.pumpAndSettle();
-        final delete = tester.widget<AppButton>(
-          find.ancestor(
-            of: find.text('Delete Journey'),
-            matching: find.byType(AppButton),
-          ),
-        );
-        expect(delete.variant, AppButtonVariant.danger);
-        final copy = tester.widget<AppButton>(
-          find.ancestor(
-            of: find.text('Copy Journey'),
-            matching: find.byType(AppButton),
-          ),
-        );
-        expect(copy.variant, AppButtonVariant.secondary);
-        await tester.tap(find.text(label));
-        await tester.pumpAndSettle();
-        if (label == 'Delete Journey') {
-          expect(find.text('Delete this journey record?'), findsOneWidget);
-          expect(results, [JourneyMoreAction.copy]);
-          final confirm = tester
-              .widget<CommonDialog>(find.byType(CommonDialog))
-              .buttons
-              .singleWhere((button) => button.text == 'Delete')
-              .onPressed;
-          confirm();
-          confirm();
-          await tester.pumpAndSettle();
-        }
-        expect(find.byType(Dialog), findsNothing);
-      }
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+      final delete = tester.widget<AppButton>(
+        find.ancestor(
+          of: find.text('Delete Journey'),
+          matching: find.byType(AppButton),
+        ),
+      );
+      expect(delete.variant, AppButtonVariant.danger);
+      await tester.tap(find.text('Delete Journey'));
+      await tester.pumpAndSettle();
+      expect(find.text('Delete this journey record?'), findsOneWidget);
+      expect(results, isEmpty);
+      final confirm = tester
+          .widget<CommonDialog>(find.byType(CommonDialog))
+          .buttons
+          .singleWhere((button) => button.text == 'Delete')
+          .onPressed;
+      confirm();
+      confirm();
+      await tester.pumpAndSettle();
+      expect(find.byType(Dialog), findsNothing);
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
       await tester.tapAt(const Offset(5, 5));
       await tester.pumpAndSettle();
-      expect(results, [JourneyMoreAction.copy, JourneyMoreAction.delete, null]);
+      expect(results, [JourneyMoreAction.delete, null]);
     },
   );
 
-  testWidgets('cancel deletion returns to more and allows copying', (
+  testWidgets('cancel deletion returns to more and allows retrying', (
     tester,
   ) async {
     final results = <JourneyMoreAction?>[];
@@ -331,12 +311,13 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Delete this journey record?'), findsNothing);
       expect(find.text('Delete Journey').hitTestable(), findsOneWidget);
-      expect(find.text('Copy Journey').hitTestable(), findsOneWidget);
       expect(results, isEmpty);
     }
-    await tester.tap(find.text('Copy Journey'));
+    await tester.tap(find.text('Delete Journey'));
     await tester.pumpAndSettle();
-    expect(results, [JourneyMoreAction.copy]);
+    invokeConfirmationAction(tester, 'Delete');
+    await tester.pumpAndSettle();
+    expect(results, [JourneyMoreAction.delete]);
     expect(find.byType(Dialog), findsNothing);
   });
 
