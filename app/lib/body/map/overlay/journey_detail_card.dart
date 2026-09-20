@@ -14,7 +14,6 @@ import 'package:memolanes/common/simple_date_utils.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/import.dart' show JourneyInfo;
 import 'package:memolanes/src/rust/journey_header.dart';
-import 'package:pointer_interceptor/pointer_interceptor.dart';
 
 import 'journey_time_picker_dialog.dart';
 
@@ -51,7 +50,10 @@ class _CollapsibleJourneyDetailState extends State<CollapsibleJourneyDetail> {
     final velocity = details.primaryVelocity ?? 0;
     final shouldHide =
         _dragOffset >= _dismissDistance || velocity >= _dismissVelocity;
-    if (shouldHide) AppHaptics.light();
+    if (shouldHide) {
+      FocusScope.of(context).unfocus();
+      AppHaptics.light();
+    }
     setState(() {
       _isDragging = false;
       _isHidden = shouldHide;
@@ -75,93 +77,104 @@ class _CollapsibleJourneyDetailState extends State<CollapsibleJourneyDetail> {
   Widget build(BuildContext context) {
     final title = context.tr('journey.journey_info_page_title');
 
-    return AnimatedSwitcher(
+    // Keep the form mounted while collapsed so its draft and in-flight save
+    // survive. AnimatedCrossFade also excludes the hidden child's input/focus.
+    return AnimatedCrossFade(
       duration: const Duration(milliseconds: 220),
       reverseDuration: const Duration(milliseconds: 180),
-      switchInCurve: Curves.easeOutCubic,
-      switchOutCurve: Curves.easeInCubic,
-      layoutBuilder: (currentChild, previousChildren) => Stack(
+      firstCurve: Curves.easeOutCubic,
+      secondCurve: Curves.easeOutCubic,
+      sizeCurve: Curves.easeOutCubic,
+      alignment: Alignment.bottomCenter,
+      clipBehavior: Clip.none,
+      crossFadeState: _isHidden
+          ? CrossFadeState.showFirst
+          : CrossFadeState.showSecond,
+      layoutBuilder: (topChild, topKey, bottomChild, bottomKey) => Stack(
+        clipBehavior: Clip.none,
         alignment: Alignment.bottomCenter,
-        children: [...previousChildren, ?currentChild],
+        children: [
+          Positioned(
+            key: bottomKey,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: bottomChild,
+          ),
+          Positioned(key: topKey, child: topChild),
+        ],
       ),
-      transitionBuilder: (child, animation) {
-        final slide = Tween<Offset>(
-          begin: const Offset(0, 0.12),
-          end: Offset.zero,
-        ).animate(animation);
-        return FadeTransition(
-          opacity: animation,
-          child: SlideTransition(position: slide, child: child),
-        );
-      },
-      child: _isHidden
-          ? Align(
-              key: const ValueKey('journey-detail-restore'),
-              alignment: Alignment.bottomCenter,
-              heightFactor: 1,
-              child: SizedBox(
-                width: 68,
-                height: 32,
-                child: JourneyInfoPanelSurface(
-                  backgroundAlpha: 0.76,
-                  child: Tooltip(
-                    message: title,
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: _restore,
-                        borderRadius: BorderRadius.circular(24),
-                        child: Center(
-                          child: Icon(
-                            Icons.keyboard_arrow_up_rounded,
-                            size: 23,
-                            color: StyleConstants.deepGreen,
-                          ),
+      firstChild: Align(
+        key: const ValueKey('journey-detail-restore'),
+        alignment: Alignment.bottomCenter,
+        heightFactor: 1,
+        child: SizedBox(
+          width: 68,
+          height: 32,
+          child: JourneyInfoPanelSurface(
+            backgroundAlpha: 0.76,
+            child: Tooltip(
+              message: title,
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: _restore,
+                  borderRadius: BorderRadius.circular(24),
+                  child: Center(
+                    child: Icon(
+                      Icons.keyboard_arrow_up_rounded,
+                      size: 23,
+                      color: StyleConstants.deepGreen,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+      secondChild: AnimatedContainer(
+        key: const ValueKey('journey-detail-card'),
+        duration: _isDragging
+            ? Duration.zero
+            : const Duration(milliseconds: 180),
+        curve: Curves.easeOutCubic,
+        transform: Matrix4.translationValues(0, _dragOffset, 0),
+        child: JourneyInfoPanelSurface(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                height: 19,
+                child: GestureDetector(
+                  key: const ValueKey('journey-detail-drag-handle'),
+                  behavior: HitTestBehavior.opaque,
+                  onVerticalDragStart: _onDragStart,
+                  onVerticalDragUpdate: _onDragUpdate,
+                  onVerticalDragEnd: _onDragEnd,
+                  onVerticalDragCancel: _onDragCancel,
+                  child: Center(
+                    child: Container(
+                      width: 34,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: StyleConstants.mutedInkColor.withValues(
+                          alpha: 0.42,
                         ),
+                        borderRadius: BorderRadius.circular(2),
                       ),
                     ),
                   ),
                 ),
               ),
-            )
-          : AnimatedContainer(
-              key: const ValueKey('journey-detail-card'),
-              duration: _isDragging
-                  ? Duration.zero
-                  : const Duration(milliseconds: 180),
-              curve: Curves.easeOutCubic,
-              transform: Matrix4.translationValues(0, _dragOffset, 0),
-              child: Stack(
-                children: [
-                  widget.child,
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    top: 0,
-                    height: 19,
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onVerticalDragStart: _onDragStart,
-                      onVerticalDragUpdate: _onDragUpdate,
-                      onVerticalDragEnd: _onDragEnd,
-                      onVerticalDragCancel: _onDragCancel,
-                      child: Center(
-                        child: Container(
-                          width: 34,
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: StyleConstants.mutedInkColor.withValues(
-                              alpha: 0.42,
-                            ),
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+              Flexible(
+                fit: FlexFit.loose,
+                child: SingleChildScrollView(child: widget.child),
               ),
-            ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -189,7 +202,7 @@ class JourneyDetailCard extends StatefulWidget {
 }
 
 class _JourneyDetailCardState extends State<JourneyDetailCard> {
-  static final DateTime _firstDate = DateTime(1990);
+  static final DateTime _firstDate = DateTime(1970);
 
   late SimpleDate _journeyDate;
   DateTime? _startTime;
@@ -252,11 +265,8 @@ class _JourneyDetailCardState extends State<JourneyDetailCard> {
       barrierColor: StyleConstants.shadowColor.withValues(
         alpha: StyleConstants.isDarkMode ? 0.58 : 0.2,
       ),
-      builder: (dialogContext) => PointerInterceptor(
-        child: CompactJourneyTimeDialog(
-          initialTime: TimeOfDay.fromDateTime(seed),
-        ),
-      ),
+      builder: (dialogContext) =>
+          CompactJourneyTimeDialog(initialTime: TimeOfDay.fromDateTime(seed)),
     );
     if (time == null) return null;
     return DateTime(date.year, date.month, date.day, time.hour, time.minute);
@@ -275,58 +285,48 @@ class _JourneyDetailCardState extends State<JourneyDetailCard> {
   }
 
   Future<void> _selectJourneyKind() async {
-    final selected = await showDialog<JourneyKind>(
-      context: context,
+    final selected = await showAppDialog<JourneyKind>(
+      context,
+      maxWidth: 340,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 42),
       barrierColor: StyleConstants.shadowColor.withValues(
         alpha: StyleConstants.isDarkMode ? 0.58 : 0.2,
       ),
-      builder: (dialogContext) => PointerInterceptor(
-        child: Dialog(
-          elevation: 0,
-          backgroundColor: Colors.transparent,
-          insetPadding: const EdgeInsets.symmetric(horizontal: 42),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 340),
-            child: AppDialogCard(
-              title: context.tr('journey.journey_kind'),
-              surfaceStyle: AppDialogSurfaceStyle.glass,
-              maxHeightFactor: 0.5,
-              contentPadding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  AppOptionTile(
-                    backgroundAlpha: 0.5,
-                    iconWidget: JourneyKindIcon(
-                      kind: JourneyKind.defaultKind,
-                      color: StyleConstants.deepGreen,
-                      size: 20,
-                    ),
-                    title: context.tr('journey_kind.default'),
-                    selected: _journeyKind == JourneyKind.defaultKind,
-                    trailing: AppOptionTileTrailing.selection,
-                    onTap: () =>
-                        Navigator.of(dialogContext)
-                            .pop(JourneyKind.defaultKind),
-                  ),
-                  const SizedBox(height: 8),
-                  AppOptionTile(
-                    backgroundAlpha: 0.5,
-                    iconWidget: JourneyKindIcon(
-                      kind: JourneyKind.flight,
-                      color: StyleConstants.deepGreen,
-                      size: 20,
-                    ),
-                    title: context.tr('journey_kind.flight'),
-                    selected: _journeyKind == JourneyKind.flight,
-                    trailing: AppOptionTileTrailing.selection,
-                    onTap: () =>
-                        Navigator.of(dialogContext).pop(JourneyKind.flight),
-                  ),
-                ],
+      builder: (dialogContext) => AppDialogCard(
+        title: context.tr('journey.journey_kind'),
+        surfaceStyle: AppDialogSurfaceStyle.glass,
+        maxHeightFactor: 0.5,
+        contentPadding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AppOptionTile(
+              backgroundAlpha: 0.5,
+              iconWidget: JourneyKindIcon(
+                kind: JourneyKind.defaultKind,
+                color: StyleConstants.deepGreen,
+                size: 20,
               ),
+              title: context.tr('journey_kind.default'),
+              selected: _journeyKind == JourneyKind.defaultKind,
+              trailing: AppOptionTileTrailing.selection,
+              onTap: () =>
+                  Navigator.of(dialogContext).pop(JourneyKind.defaultKind),
             ),
-          ),
+            const SizedBox(height: 8),
+            AppOptionTile(
+              backgroundAlpha: 0.5,
+              iconWidget: JourneyKindIcon(
+                kind: JourneyKind.flight,
+                color: StyleConstants.deepGreen,
+                size: 20,
+              ),
+              title: context.tr('journey_kind.flight'),
+              selected: _journeyKind == JourneyKind.flight,
+              trailing: AppOptionTileTrailing.selection,
+              onTap: () => Navigator.of(dialogContext).pop(JourneyKind.flight),
+            ),
+          ],
         ),
       ),
     );
@@ -373,144 +373,142 @@ class _JourneyDetailCardState extends State<JourneyDetailCard> {
     final end = (isEditing ? _endTime : journey.end)?.toLocal();
     final note = journey.note?.trim();
 
-    return JourneyInfoPanelSurface(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 18, 14, 13),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const JourneyInfoCardHeader(),
-            const SizedBox(height: 5),
-            CompactJourneyInfoField(
-              icon: Icons.calendar_today_rounded,
-              label: context.tr('journey.journey_date'),
-              value: isEditing
-                  ? _journeyDate.toString()
-                  : journey.journeyDate.toSimpleDate().toString(),
-              onTap: canEdit ? _selectJourneyDate : null,
-            ),
-            CompactJourneyInfoField(
-              icon: Icons.sell_outlined,
-              label: context.tr('journey.journey_kind'),
-              value: kind,
-              onTap: canEdit ? _selectJourneyKind : null,
-            ),
-            CompactJourneyInfoField(
-              icon: Icons.schedule_rounded,
-              label: context.tr('journey.start_time'),
-              value: start == null ? '—' : timeFormat.format(start),
-              onTap: canEdit
-                  ? () async {
-                      final selected = await _selectDateAndTime(_startTime);
-                      if (selected != null && mounted) {
-                        setState(() => _startTime = selected);
-                      }
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 0, 14, 13),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const JourneyInfoCardHeader(),
+          const SizedBox(height: 5),
+          CompactJourneyInfoField(
+            icon: Icons.calendar_today_rounded,
+            label: context.tr('journey.journey_date'),
+            value: isEditing
+                ? _journeyDate.toString()
+                : journey.journeyDate.toSimpleDate().toString(),
+            onTap: canEdit ? _selectJourneyDate : null,
+          ),
+          CompactJourneyInfoField(
+            icon: Icons.sell_outlined,
+            label: context.tr('journey.journey_kind'),
+            value: kind,
+            onTap: canEdit ? _selectJourneyKind : null,
+          ),
+          CompactJourneyInfoField(
+            icon: Icons.schedule_rounded,
+            label: context.tr('journey.start_time'),
+            value: start == null ? '—' : timeFormat.format(start),
+            onTap: canEdit
+                ? () async {
+                    final selected = await _selectDateAndTime(_startTime);
+                    if (selected != null && mounted) {
+                      setState(() => _startTime = selected);
                     }
-                  : null,
-            ),
-            CompactJourneyInfoField(
-              icon: Icons.schedule_rounded,
-              label: context.tr('journey.end_time'),
-              value: end == null ? '—' : timeFormat.format(end),
-              onTap: canEdit
-                  ? () async {
-                      final selected = await _selectDateAndTime(_endTime);
-                      if (selected != null && mounted) {
-                        setState(() => _endTime = selected);
-                      }
+                  }
+                : null,
+          ),
+          CompactJourneyInfoField(
+            icon: Icons.schedule_rounded,
+            label: context.tr('journey.end_time'),
+            value: end == null ? '—' : timeFormat.format(end),
+            onTap: canEdit
+                ? () async {
+                    final selected = await _selectDateAndTime(_endTime);
+                    if (selected != null && mounted) {
+                      setState(() => _endTime = selected);
                     }
-                  : null,
-            ),
-            if (isEditing)
-              CompactJourneyInfoField(
-                icon: Icons.notes_rounded,
-                label: context.tr('journey.note'),
-                trailing: TextField(
-                  controller: _noteController,
-                  readOnly: !canEdit,
-                  minLines: 1,
-                  maxLines: 2,
-                  textAlign: TextAlign.right,
-                  style: AppTypography.supporting.copyWith(
-                    color: StyleConstants.deepGreen,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  decoration: InputDecoration(
-                    isDense: true,
-                    border: InputBorder.none,
-                    hintText: context.tr('common.please_enter'),
-                    hintStyle: AppTypography.supporting.copyWith(
-                      color: StyleConstants.mutedInkColor,
-                    ),
+                  }
+                : null,
+          ),
+          if (isEditing)
+            CompactJourneyInfoField(
+              icon: Icons.notes_rounded,
+              label: context.tr('journey.note'),
+              trailing: TextField(
+                controller: _noteController,
+                readOnly: !canEdit,
+                minLines: 1,
+                maxLines: 2,
+                textAlign: TextAlign.right,
+                style: AppTypography.supporting.copyWith(
+                  color: StyleConstants.deepGreen,
+                  fontWeight: FontWeight.w600,
+                ),
+                decoration: InputDecoration(
+                  isDense: true,
+                  border: InputBorder.none,
+                  hintText: context.tr('common.please_enter'),
+                  hintStyle: AppTypography.supporting.copyWith(
+                    color: StyleConstants.mutedInkColor,
                   ),
                 ),
-              )
-            else if (note != null && note.isNotEmpty)
-              CompactJourneyInfoField(
-                icon: Icons.notes_rounded,
-                label: context.tr('journey.note'),
-                value: note,
-                maxLines: 2,
               ),
-            const SizedBox(height: 10),
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 220),
-              child: isEditing
-                  ? Center(
-                      key: const ValueKey('save-journey-information'),
-                      child: SizedBox(
-                        width: 180,
+            )
+          else if (note != null && note.isNotEmpty)
+            CompactJourneyInfoField(
+              icon: Icons.notes_rounded,
+              label: context.tr('journey.note'),
+              value: note,
+              maxLines: 2,
+            ),
+          const SizedBox(height: 10),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 220),
+            child: isEditing
+                ? Center(
+                    key: const ValueKey('save-journey-information'),
+                    child: SizedBox(
+                      width: 180,
+                      child: AppButton(
+                        size: AppButtonSize.compact,
+                        expand: true,
+                        icon: Icons.check_rounded,
+                        label: context.tr('common.save'),
+                        variant: AppButtonVariant.primary,
+                        onPressed: _saving ? null : _save,
+                        loading: _saving,
+                      ),
+                    ),
+                  )
+                : Row(
+                    key: const ValueKey('journey-actions'),
+                    children: [
+                      Expanded(
                         child: AppButton(
                           size: AppButtonSize.compact,
                           expand: true,
-                          icon: Icons.check_rounded,
-                          label: context.tr('common.save'),
-                          variant: AppButtonVariant.primary,
-                          onPressed: _saving ? null : _save,
-                          loading: _saving,
+                          icon: Icons.ios_share_rounded,
+                          label: context.tr('common.export'),
+                          variant: AppButtonVariant.secondary,
+                          onPressed: widget.onExport,
                         ),
                       ),
-                    )
-                  : Row(
-                      key: const ValueKey('journey-actions'),
-                      children: [
-                        Expanded(
-                          child: AppButton(
-                            size: AppButtonSize.compact,
-                            expand: true,
-                            icon: Icons.ios_share_rounded,
-                            label: context.tr('common.export'),
-                            variant: AppButtonVariant.secondary,
-                            onPressed: widget.onExport,
-                          ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: AppButton(
+                          size: AppButtonSize.compact,
+                          expand: true,
+                          icon: Icons.edit_outlined,
+                          label: context.tr('common.edit'),
+                          variant: AppButtonVariant.primary,
+                          onPressed: widget.onEdit,
                         ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: AppButton(
-                            size: AppButtonSize.compact,
-                            expand: true,
-                            icon: Icons.edit_outlined,
-                            label: context.tr('common.edit'),
-                            variant: AppButtonVariant.primary,
-                            onPressed: widget.onEdit,
-                          ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: AppButton(
+                          size: AppButtonSize.compact,
+                          expand: true,
+                          icon: Icons.more_horiz_rounded,
+                          label: context.tr('common.more'),
+                          variant: AppButtonVariant.secondary,
+                          onPressed: widget.onMore,
                         ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: AppButton(
-                            size: AppButtonSize.compact,
-                            expand: true,
-                            icon: Icons.more_horiz_rounded,
-                            label: context.tr('common.more'),
-                            variant: AppButtonVariant.secondary,
-                            onPressed: widget.onMore,
-                          ),
-                        ),
-                      ],
-                    ),
-            ),
-          ],
-        ),
+                      ),
+                    ],
+                  ),
+          ),
+        ],
       ),
     );
   }

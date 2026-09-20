@@ -1,6 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:memolanes/body/journey/journey_info_page.dart';
+import 'package:memolanes/body/journey/journey_import_preview_page.dart';
 import 'package:memolanes/common/component/multi_journey_import_page.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
 import 'package:memolanes/common/log.dart';
@@ -183,7 +183,7 @@ class _MldxImportPageState extends State<MldxImportPage> {
       }
       await Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (context) => JourneyInfoPage(
+          builder: (context) => JourneyImportPreviewPage(
             journeyHeader: loaded.$1,
             previewJourneyData: loaded.$2,
           ),

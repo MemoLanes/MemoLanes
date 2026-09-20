@@ -5,8 +5,7 @@
  * moved to platform.ts for better organization.
  */
 
-import { transformMapboxStyle } from "maplibregl-mapbox-request-transformer";
-import { detectMapLocale, type MapLocale } from "./map-locale";
+import type { MapLocale } from "./map-locale";
 import type { ProjectionType } from "./params";
 
 const RUNTIME_LANGUAGE_METADATA_KEY = "memolanes:runtime-language";
@@ -54,62 +53,20 @@ export function injectMapLocaleState(style: any, mapLocale: MapLocale): any {
 }
 
 /**
- * Transform map style and add globe projection (default behavior)
- * @param previousStyle - Previous map style
- * @param nextStyle - Next map style to apply
- * @param mapLocale - Browser-selected locale for opted-in map styles
- * @returns Transformed style with globe projection
- */
-export function transformStyle(
-  previousStyle: any,
-  nextStyle: any,
-  mapLocale: MapLocale = detectMapLocale(),
-): any {
-  return transformStyleWithProjection(
-    previousStyle,
-    nextStyle,
-    "globe",
-    mapLocale,
-  );
-}
-
-/**
  * Transform map style with specified projection type
- * @param previousStyle - Previous map style
  * @param nextStyle - Next map style to apply
  * @param projection - Projection type ("mercator" or "globe")
  * @param mapLocale - Browser-selected locale for opted-in map styles
  * @returns Transformed style with specified projection
  */
 export function transformStyleWithProjection(
-  previousStyle: any,
   nextStyle: any,
   projection: ProjectionType,
   mapLocale: MapLocale,
 ): any {
-  const convertedStyle = injectMapLocaleState(
-    transformMapboxStyle(previousStyle, nextStyle),
-    mapLocale,
-  );
-  // Use Mapbox's projection transition to prevent GPU precision issues at large zoom levels.
-  // TODO: remove this workaround once upstream issues are fixed.
-  // https://github.com/mapbox/mapbox-gl-js/issues/13395
-  // https://github.com/maplibre/maplibre-gl-js/issues/7419
-  const projectionValue =
-    projection === "globe"
-      ? [
-          "interpolate",
-          ["linear"],
-          ["zoom"],
-          5,
-          "vertical-perspective",
-          6,
-          "mercator",
-        ]
-      : projection;
   return {
-    ...convertedStyle,
-    projection: { type: projectionValue },
+    ...injectMapLocaleState(nextStyle, mapLocale),
+    projection: { type: projection },
     sky: {
       "sky-color": "#080820",
       "horizon-color": "#2a2a3a",

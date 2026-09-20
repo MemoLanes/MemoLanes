@@ -4,6 +4,9 @@ import 'package:flutter/widgets.dart';
 class StyleConstants {
   StyleConstants._();
 
+  // TODO: `BackdropFilter` is very expensive and uses a lot of memory.
+  // We disable it for now. We should try to optimize it, or use it only when
+  // necessary or disable it when entering background.
   static const bool enableBackdropFilter = false;
   static bool _isDarkMode = true;
 

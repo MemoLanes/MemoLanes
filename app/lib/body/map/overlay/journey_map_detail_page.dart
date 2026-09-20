@@ -2,7 +2,6 @@ import 'dart:math' as math;
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:fluttertoast/fluttertoast.dart';
 import 'package:memolanes/body/journey/journey_export.dart';
 import 'package:memolanes/body/journey/journey_track_edit_page.dart';
 import 'package:memolanes/common/component/app_dialog.dart';
@@ -10,6 +9,7 @@ import 'package:memolanes/common/component/app_option_tile.dart';
 import 'package:memolanes/common/component/base_map_webview.dart';
 import 'package:memolanes/common/component/capsule_style_overlay_app_bar.dart';
 import 'package:memolanes/common/component/map_glass_back_button.dart';
+import 'package:memolanes/common/loading_manager.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/constants/style_constants.dart';
@@ -83,15 +83,23 @@ class _JourneyMapDetailPageState extends State<JourneyMapDetailPage> {
   }
 
   Future<void> _saveJourneyInformation(JourneyInfo journeyInfo) async {
-    await api.updateJourneyMetadata(id: _journey.id, journeyInfo: journeyInfo);
-    if (!mounted) return;
-    await _refreshJourney(refreshMap: false);
+    await GlobalLoadingManager.instance.runWithLoading(() async {
+      await api.updateJourneyMetadata(
+        id: _journey.id,
+        journeyInfo: journeyInfo,
+      );
+      if (!mounted) return;
+      await _refreshJourney(refreshMap: false);
+    }, blockNavigation: true);
     if (!mounted) return;
     setState(() => _isEditingInformation = false);
   }
 
   Future<void> _deleteJourney() async {
-    await api.deleteJourney(journeyId: _journey.id);
+    await GlobalLoadingManager.instance.runWithLoading(
+      () => api.deleteJourney(journeyId: _journey.id),
+      blockNavigation: true,
+    );
     if (!mounted) return;
     popCurrentRoute(context);
   }
@@ -111,11 +119,6 @@ class _JourneyMapDetailPageState extends State<JourneyMapDetailPage> {
         case JourneyMoreAction.delete:
           await _deleteJourney();
           break;
-        case JourneyMoreAction.copy:
-          await api.copyJourney(journeyId: _journey.id);
-          if (!mounted) return;
-          await _showCopySuccess();
-          break;
       }
     } catch (error, stackTrace) {
       log.error('Journey action failed: $error', stackTrace);
@@ -129,20 +132,6 @@ class _JourneyMapDetailPageState extends State<JourneyMapDetailPage> {
     }
   }
 
-  Future<void> _showCopySuccess() async {
-    final message = context.tr('journey.copy_journey_success');
-    try {
-      await Fluttertoast.showToast(msg: message);
-    } catch (error, stackTrace) {
-      // The database operation already succeeded. A toast failure must not
-      // report that copying failed and encourage the user to create duplicates.
-      log.error('Showing copy success toast failed: $error', stackTrace);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(message)));
-    }
-  }
-
   Future<void> _openTrackEditor() async {
     final session = await EditSession.newInstance(journeyId: _journey.id);
     if (!mounted) return;
@@ -153,25 +142,25 @@ class _JourneyMapDetailPageState extends State<JourneyMapDetailPage> {
       );
       return;
     }
-    await navigatorPush<bool>(
+    final saved = await navigatorPush<bool>(
       context,
       page: JourneyTrackEditPage(editSession: session),
     );
-    if (!mounted) return;
+    if (!mounted || saved != true) return;
     await _refreshJourney(refreshMap: true);
   }
 
   Future<void> _showEditChoice() async {
     if (_moreActionInProgress) return;
-    final choice = await showDialog<_JourneyEditChoice>(
-      context: context,
+    final choice = await showAppDialog<_JourneyEditChoice>(
+      context,
+      maxWidth: 360,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 38),
       barrierColor: StyleConstants.shadowColor.withValues(
         alpha: StyleConstants.isDarkMode ? 0.58 : 0.2,
       ),
-      builder: (dialogContext) => PointerInterceptor(
-        child: _JourneyEditChoiceDialog(
-          onSelected: (choice) => Navigator.of(dialogContext).pop(choice),
-        ),
+      builder: (dialogContext) => _JourneyEditChoiceCard(
+        onSelected: (choice) => Navigator.of(dialogContext).pop(choice),
       ),
     );
     if (!mounted || choice == null) return;
@@ -211,6 +200,9 @@ class _JourneyMapDetailPageState extends State<JourneyMapDetailPage> {
           Positioned(
             left: viewPadding.left + 16,
             right: viewPadding.right + 16,
+            // Scaffold already removes the keyboard height from the body.
+            // Bound the card between the back button and the bottom inset.
+            top: viewPadding.top + 14 + 42 + 12,
             bottom: viewPadding.bottom + 16,
             child: Align(
               alignment: Alignment.bottomCenter,
@@ -254,43 +246,35 @@ class _JourneyMapDetailPageState extends State<JourneyMapDetailPage> {
 
 enum _JourneyEditChoice { information, track }
 
-class _JourneyEditChoiceDialog extends StatelessWidget {
-  const _JourneyEditChoiceDialog({required this.onSelected});
+class _JourneyEditChoiceCard extends StatelessWidget {
+  const _JourneyEditChoiceCard({required this.onSelected});
 
   final ValueChanged<_JourneyEditChoice> onSelected;
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      elevation: 0,
-      backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 38),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 360),
-        child: AppDialogCard(
-          title: context.tr('common.edit'),
-          surfaceStyle: AppDialogSurfaceStyle.glass,
-          maxHeightFactor: 0.5,
-          contentPadding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              AppOptionTile(
-                backgroundAlpha: 0.5,
-                icon: Icons.description_outlined,
-                title: context.tr('journey.journey_info_edit_page_title'),
-                onTap: () => onSelected(_JourneyEditChoice.information),
-              ),
-              const SizedBox(height: 8),
-              AppOptionTile(
-                backgroundAlpha: 0.5,
-                icon: Icons.edit_road_rounded,
-                title: context.tr('journey.editor.page_title'),
-                onTap: () => onSelected(_JourneyEditChoice.track),
-              ),
-            ],
+    return AppDialogCard(
+      title: context.tr('common.edit'),
+      surfaceStyle: AppDialogSurfaceStyle.glass,
+      maxHeightFactor: 0.5,
+      contentPadding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AppOptionTile(
+            backgroundAlpha: 0.5,
+            icon: Icons.description_outlined,
+            title: context.tr('journey.journey_info_edit_page_title'),
+            onTap: () => onSelected(_JourneyEditChoice.information),
           ),
-        ),
+          const SizedBox(height: 8),
+          AppOptionTile(
+            backgroundAlpha: 0.5,
+            icon: Icons.edit_road_rounded,
+            title: context.tr('journey.editor.page_title'),
+            onTap: () => onSelected(_JourneyEditChoice.track),
+          ),
+        ],
       ),
     );
   }

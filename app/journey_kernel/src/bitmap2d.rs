@@ -158,15 +158,26 @@ impl BitMap2D {
                 break;
             }
             let mut out = BitVec::repeat(false, new_side * new_side);
-            for y in 0..new_side {
-                for x in 0..new_side {
-                    let ox = x * 2;
-                    let oy = y * 2;
-                    let val = prev[oy * current_side + ox]
-                        || prev[oy * current_side + ox + 1]
-                        || prev[(oy + 1) * current_side + ox]
-                        || prev[(oy + 1) * current_side + ox + 1];
-                    out.set(y * new_side + x, val);
+            // Below 1/32 (3.125%) source occupancy, visit only occupied pixels.
+            // Keep a conservative cutoff: clustered pixels repeatedly write the
+            // same output bit, making this slower before coverage looks dense.
+            if prev.count_ones() < prev.len() / 32 {
+                for index in prev.iter_ones() {
+                    let x = (index % current_side) / 2;
+                    let y = (index / current_side) / 2;
+                    out.set(y * new_side + x, true);
+                }
+            } else {
+                for y in 0..new_side {
+                    for x in 0..new_side {
+                        let ox = x * 2;
+                        let oy = y * 2;
+                        let val = prev[oy * current_side + ox]
+                            || prev[oy * current_side + ox + 1]
+                            || prev[(oy + 1) * current_side + ox]
+                            || prev[(oy + 1) * current_side + ox + 1];
+                        out.set(y * new_side + x, val);
+                    }
                 }
             }
             levels.push(out);
@@ -387,6 +398,48 @@ mod tests {
         assert_eq!(bm.lod_level(1).unwrap().len(), 16); // 4×4
         assert_eq!(bm.lod_level(2).unwrap().len(), 4); // 2×2
         assert_eq!(bm.lod_level(3).unwrap().len(), 1); // 1×1
+    }
+
+    #[test]
+    fn build_lods_matches_reference_across_sparse_and_dense_inputs() {
+        // Small grids, native 64px blocks and frontend 512px tiles. Compare
+        // every LOD, including levels that switch from sparse to dense.
+        for exp in [3, 6, 9] {
+            let pixel_count = 1usize << (2 * exp);
+            let threshold = pixel_count / 32;
+            for occupied in [
+                0,
+                threshold - 1,
+                threshold,
+                threshold + 1,
+                pixel_count / 2,
+                pixel_count,
+            ] {
+                for clustered in [false, true] {
+                    let mut bitmap = BitMap2D::new(exp);
+                    for i in 0..occupied {
+                        // An odd stride visits distinct pixels in a power-of-two
+                        // grid, contrasting dispersed pixels with adjacent ones.
+                        let index = if clustered {
+                            i
+                        } else {
+                            (i * 7919) % pixel_count
+                        };
+                        bitmap.set(index % bitmap.side(), index / bitmap.side(), true);
+                    }
+                    let mut reference = bitmap.clone();
+                    bitmap.build_lods();
+                    for level in 0..exp as usize {
+                        reference = reference.downscale();
+                        assert_eq!(
+                            bitmap.lod_level(level),
+                            Some(reference.as_bitvec()),
+                            "exp={exp}, occupied={occupied}, clustered={clustered}, level={level}"
+                        );
+                    }
+                }
+            }
+        }
     }
 
     #[test]

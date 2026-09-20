@@ -223,11 +223,13 @@ Future<T?> showAppDialog<T>(
         StyleConstants.shadowColor.withValues(
           alpha: StyleConstants.isDarkMode ? 0.58 : 0.22,
         ),
-    builder: (dialogContext) => PointerInterceptor(
-      child: Dialog(
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-        insetPadding: insetPadding,
+    builder: (dialogContext) => Dialog(
+      elevation: 0,
+      backgroundColor: Colors.transparent,
+      insetPadding: insetPadding,
+      // Limit the platform-view interceptor to the card. Wrapping Dialog would
+      // cover the modal barrier and swallow outside taps above a map WebView.
+      child: PointerInterceptor(
         child: ConstrainedBox(
           constraints: BoxConstraints(maxWidth: maxWidth),
           child: SizedBox(

@@ -29,6 +29,7 @@ import 'package:memolanes/common/update_notifier.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/common/loading_manager.dart';
 import 'package:memolanes/constants/index.dart';
+import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:provider/provider.dart';
 
 void main() async {
@@ -533,13 +534,19 @@ class _MyHomePageState extends State<MyHomePage> {
                         mediaQuery.size.width -
                         BottomNavBar.designHorizontalMargin * 2,
                     height: BottomNavBar.height,
-                    child: BottomNavBar(
-                      selectedIndex: _selectedIndex,
-                      onIndexChanged: (index) =>
-                          setState(() => _selectedIndex = index),
-                      hasUpdateNotification: context
-                          .watch<UpdateNotifier>()
-                          .hasUpdateNotification,
+                    // TODO: Remove this iOS PlatformView composition workaround
+                    // once Flutter #190003 is included in the stable SDK:
+                    // https://github.com/flutter/flutter/pull/190003
+                    child: PointerInterceptor(
+                      intercepting: Platform.isIOS,
+                      child: BottomNavBar(
+                        selectedIndex: _selectedIndex,
+                        onIndexChanged: (index) =>
+                            setState(() => _selectedIndex = index),
+                        hasUpdateNotification: context
+                            .watch<UpdateNotifier>()
+                            .hasUpdateNotification,
+                      ),
                     ),
                   ),
                 ),

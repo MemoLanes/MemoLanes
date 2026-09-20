@@ -10,7 +10,7 @@ import 'package:memolanes/constants/style_constants.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:provider/provider.dart';
 
-const double _recordingControlWidth = 170;
+const double _recordingControlWidth = 208;
 const double _recordingControlHeight = 52;
 const double _recordingControlGlassBackgroundAlpha = 0.36;
 const double _recordingControlGlassBorderAlpha = 0.62;
@@ -109,8 +109,7 @@ class _StartJourneyButton extends StatelessWidget {
 
   final VoidCallback onPressed;
 
-  static const _triangleSize = Size(10, 12);
-  static const _iconGap = 10.0;
+  static const _iconGap = 7.0;
 
   @override
   Widget build(BuildContext context) {
@@ -158,11 +157,10 @@ class _StartJourneyButton extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  CustomPaint(
-                    size: _triangleSize,
-                    painter: _PlayTrianglePainter(
-                      StyleConstants.onPrimaryActionColor,
-                    ),
+                  Icon(
+                    Icons.play_arrow_rounded,
+                    size: 21,
+                    color: StyleConstants.onPrimaryActionColor,
                   ),
                   const SizedBox(width: _iconGap),
                   Flexible(
@@ -181,26 +179,6 @@ class _StartJourneyButton extends StatelessWidget {
       ),
     );
   }
-}
-
-class _PlayTrianglePainter extends CustomPainter {
-  const _PlayTrianglePainter(this.color);
-
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final path = Path()
-      ..moveTo(0, 0)
-      ..lineTo(size.width, size.height / 2)
-      ..lineTo(0, size.height)
-      ..close();
-    canvas.drawPath(path, Paint()..color = color);
-  }
-
-  @override
-  bool shouldRepaint(covariant _PlayTrianglePainter oldDelegate) =>
-      oldDelegate.color != color;
 }
 
 class _ActiveJourneyControls extends StatelessWidget {

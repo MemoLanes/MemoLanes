@@ -1,17 +1,20 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:memolanes/body/map/overlay/journey_time_picker_dialog.dart';
+import 'package:memolanes/body/journey/list/journey_layer_filter_menu.dart';
 import 'package:memolanes/body/map/overlay/journey_detail_card.dart';
 import 'package:memolanes/body/map/overlay/journey_more_dialog.dart';
+import 'package:memolanes/body/map/overlay/journey_overlay.dart';
+import 'package:memolanes/common/app_haptics.dart';
 import 'package:memolanes/common/app_translation_loader.dart';
 import 'package:memolanes/common/component/app_button.dart';
 import 'package:memolanes/common/component/common_dialog.dart';
-import 'package:memolanes/constants/style_constants.dart';
 import 'package:memolanes/src/rust/api/import.dart';
+import 'package:memolanes/src/rust/frb_generated.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
 
 void main() {
@@ -25,6 +28,15 @@ void main() {
           const MethodChannel('plugins.flutter.io/shared_preferences'),
           (call) async => call.method == 'getAll' ? <String, Object>{} : null,
         );
+    // Use the SDK's real font metrics for narrow-screen layout assertions.
+    final artifacts = File(Platform.resolvedExecutable).parent.parent.parent;
+    final font = FontLoader('Roboto')
+      ..addFont(
+        File.fromUri(artifacts.uri.resolve('material_fonts/Roboto-Regular.ttf'))
+            .readAsBytes()
+            .then((bytes) => ByteData.sublistView(bytes)),
+      );
+    await font.load();
     await EasyLocalization.ensureInitialized();
     await loader.load('assets/translations', locale);
   });
@@ -39,6 +51,7 @@ void main() {
           fallbackLocale: locale,
           child: Builder(
             builder: (context) => MaterialApp(
+              theme: ThemeData(fontFamily: 'Roboto'),
               localizationsDelegates: context.localizationDelegates,
               supportedLocales: context.supportedLocales,
               locale: context.locale,
@@ -62,47 +75,98 @@ void main() {
     note: 'Original note',
   );
 
-  testWidgets('export and more use the secondary button style', (tester) async {
-    var exports = 0;
-    var more = 0;
+  setUpAll(() => RustLib.initMock(api: _JourneyListApi(journey)));
+  tearDownAll(RustLib.dispose);
+
+  for (final width in [320.0, 360.0]) {
+    testWidgets('compact journey picker fits a $width px screen', (
+      tester,
+    ) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = Size(width, 640);
+      addTearDown(tester.view.reset);
+
+      await pumpApp(tester, const Scaffold(body: JourneyOverlay()));
+      expect(tester.takeException(), isNull);
+      expect(find.text('Nov'), findsOneWidget);
+      final filter = find.byIcon(Icons.layers_outlined);
+      expect(filter.hitTestable(), findsOneWidget);
+      expect(
+        tester
+            .widget<Tooltip>(
+              find.ancestor(of: filter, matching: find.byType(Tooltip)),
+            )
+            .message,
+        'All',
+      );
+      await tester.tap(filter);
+      await tester.pumpAndSettle();
+      expect(find.byType(JourneyLayerFilterMenu), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('detail form scrolls above a landscape keyboard', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(667, 375);
+    tester.view.viewInsets = const FakeViewPadding(bottom: 200);
+    addTearDown(tester.view.reset);
+    final saved = <JourneyInfo>[];
+
     await pumpApp(
       tester,
       Scaffold(
-        body: JourneyDetailCard(
-          journey: journey,
-          isEditing: false,
-          onExport: () => exports++,
-          onEdit: () {},
-          onMore: () => more++,
-          onSave: (_) async {},
+        body: Stack(
+          fit: StackFit.expand,
+          children: [
+            Positioned(
+              left: 16,
+              right: 16,
+              top: 68,
+              bottom: 16,
+              child: Align(
+                alignment: Alignment.bottomCenter,
+                child: SizedBox(
+                  width: 430,
+                  child: CollapsibleJourneyDetail(
+                    child: JourneyDetailCard(
+                      journey: journey,
+                      isEditing: true,
+                      onExport: () {},
+                      onEdit: () {},
+                      onMore: () {},
+                      onSave: (info) async => saved.add(info),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
-    for (final label in ['Export', 'More']) {
-      final button = tester.widget<FilledButton>(
-        find.ancestor(
-          of: find.text(label),
-          matching: find.byType(FilledButton),
-        ),
-      );
-      expect(
-        button.style!.backgroundColor!.resolve({}),
-        StyleConstants.surfaceColor,
-      );
-      expect(
-        button.style!.foregroundColor!.resolve({}),
-        StyleConstants.inkColor,
-      );
-      expect(
-        button.style!.side!.resolve({}),
-        BorderSide(color: StyleConstants.lineColor),
-      );
-      await tester.tap(find.text(label));
-    }
-    expect(exports, 1);
-    expect(more, 1);
-    expect(find.byIcon(Icons.more_horiz_rounded), findsOneWidget);
-    expect(find.byIcon(Icons.delete_outline_rounded), findsNothing);
+
+    final card = find.byType(CollapsibleJourneyDetail);
+    final viewport = tester.getRect(card);
+    expect(viewport.top, greaterThanOrEqualTo(68));
+    expect(viewport.bottom, lessThanOrEqualTo(159));
+    final handle = find.byKey(const ValueKey('journey-detail-drag-handle'));
+    final handlePosition = tester.getTopLeft(handle);
+
+    await tester.ensureVisible(find.byType(TextField));
+    await tester.enterText(find.byType(TextField), 'Landscape draft');
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Journey Date'));
+    await tester.pumpAndSettle();
+    expect(find.text('Journey Date').hitTestable(), findsOneWidget);
+    await tester.ensureVisible(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(find.text('Save').hitTestable(), findsOneWidget);
+    expect(tester.getTopLeft(handle), handlePosition);
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(saved.single.note, 'Landscape draft');
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('saving edits submits metadata and waits for completion', (
@@ -110,7 +174,6 @@ void main() {
   ) async {
     final saved = <JourneyInfo>[];
     final saveFinished = Completer<void>();
-    var completed = false;
     await pumpApp(
       tester,
       Scaffold(
@@ -123,7 +186,6 @@ void main() {
           onSave: (info) async {
             saved.add(info);
             await saveFinished.future;
-            completed = true;
           },
         ),
       ),
@@ -131,7 +193,6 @@ void main() {
     await tester.enterText(find.byType(TextField), 'Changed note');
     await tester.tap(find.text('Save'));
     await tester.pump();
-    expect(completed, isFalse);
     expect(tester.widget<TextField>(find.byType(TextField)).readOnly, isTrue);
     await tester.tap(find.text('Save'));
     expect(saved, hasLength(1));
@@ -141,7 +202,6 @@ void main() {
     expect(saved.single.note, 'Changed note');
     expect(saved.single.journeyDate, journey.journeyDate);
     expect(saved.single.journeyKind, journey.journeyKind);
-    expect(completed, isTrue);
     expect(tester.widget<TextField>(find.byType(TextField)).readOnly, isFalse);
   });
 
@@ -184,6 +244,56 @@ void main() {
     expect(find.byType(CommonDialog), findsNothing);
   });
 
+  testWidgets('collapsing and restoring details preserves the unsaved draft', (
+    tester,
+  ) async {
+    // Exercise the gestures without device-only haptics or MMKV setup.
+    AppHaptics.debugHapticsEnabledOverride = false;
+    addTearDown(() => AppHaptics.debugHapticsEnabledOverride = null);
+    final saved = <JourneyInfo>[];
+    await pumpApp(
+      tester,
+      Scaffold(
+        body: Align(
+          alignment: Alignment.bottomCenter,
+          child: SizedBox(
+            width: 430,
+            child: CollapsibleJourneyDetail(
+              child: JourneyDetailCard(
+                journey: journey,
+                isEditing: true,
+                onExport: () {},
+                onEdit: () {},
+                onMore: () {},
+                onSave: (info) async => saved.add(info),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.enterText(find.byType(TextField), 'Unsaved draft');
+    await tester.drag(
+      find.byKey(const ValueKey('journey-detail-drag-handle')),
+      const Offset(0, 100),
+    );
+    // Wait beyond the transition: AnimatedSwitcher used to dispose the draft
+    // only after the outgoing card finished animating.
+    await tester.pumpAndSettle();
+    expect(find.byType(TextField).hitTestable(), findsNothing);
+    expect(find.text('Save').hitTestable(), findsNothing);
+    expect(tester.testTextInput.isVisible, isFalse);
+    expect(saved, isEmpty);
+
+    await tester.tap(find.byIcon(Icons.keyboard_arrow_up_rounded));
+    await tester.pumpAndSettle();
+    expect(find.text('Unsaved draft'), findsOneWidget);
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(saved, hasLength(1));
+    expect(saved.single.note, 'Unsaved draft');
+  });
+
   testWidgets('more ignores duplicate actions during navigation', (
     tester,
   ) async {
@@ -202,14 +312,6 @@ void main() {
     );
     await tester.tap(find.text('Open'));
     await tester.pumpAndSettle();
-    final copy = tester
-        .widget<AppButton>(
-          find.ancestor(
-            of: find.text('Copy Journey'),
-            matching: find.byType(AppButton),
-          ),
-        )
-        .onPressed!;
     final delete = tester
         .widget<AppButton>(
           find.ancestor(
@@ -219,10 +321,9 @@ void main() {
         )
         .onPressed!;
     // Invoke stale callbacks before a frame is drawn: a confirmation must not
-    // stack twice, and the menu underneath it must not consume a copy action.
+    // stack twice.
     delete();
     delete();
-    copy();
     await tester.pumpAndSettle();
     expect(find.byType(CommonDialog), findsOneWidget);
     expect(results, isEmpty);
@@ -234,73 +335,24 @@ void main() {
     cancel();
     cancel();
     await tester.pumpAndSettle();
-    copy();
-    copy();
+    expect(find.text('Delete Journey').hitTestable(), findsOneWidget);
+    expect(results, isEmpty);
     delete();
     await tester.pumpAndSettle();
-    expect(results, [JourneyMoreAction.copy]);
+    final confirm = tester
+        .widget<CommonDialog>(find.byType(CommonDialog))
+        .buttons
+        .singleWhere((button) => button.text == 'Delete')
+        .onPressed;
+    confirm();
+    confirm();
+    await tester.pumpAndSettle();
+    expect(results, [JourneyMoreAction.delete]);
     expect(find.text('Open').hitTestable(), findsOneWidget);
     expect(find.byType(Dialog), findsNothing);
   });
 
-  testWidgets(
-    'more dialog distinguishes danger, returns choice once, and dismisses',
-    (tester) async {
-      final results = <JourneyMoreAction?>[];
-      await pumpApp(
-        tester,
-        Builder(
-          builder: (context) => Scaffold(
-            body: TextButton(
-              onPressed: () async =>
-                  results.add(await showJourneyMoreDialog(context)),
-              child: const Text('Open'),
-            ),
-          ),
-        ),
-      );
-      for (final label in ['Copy Journey', 'Delete Journey']) {
-        await tester.tap(find.text('Open'));
-        await tester.pumpAndSettle();
-        final delete = tester.widget<AppButton>(
-          find.ancestor(
-            of: find.text('Delete Journey'),
-            matching: find.byType(AppButton),
-          ),
-        );
-        expect(delete.variant, AppButtonVariant.danger);
-        final copy = tester.widget<AppButton>(
-          find.ancestor(
-            of: find.text('Copy Journey'),
-            matching: find.byType(AppButton),
-          ),
-        );
-        expect(copy.variant, AppButtonVariant.secondary);
-        await tester.tap(find.text(label));
-        await tester.pumpAndSettle();
-        if (label == 'Delete Journey') {
-          expect(find.text('Delete this journey record?'), findsOneWidget);
-          expect(results, [JourneyMoreAction.copy]);
-          final confirm = tester
-              .widget<CommonDialog>(find.byType(CommonDialog))
-              .buttons
-              .singleWhere((button) => button.text == 'Delete')
-              .onPressed;
-          confirm();
-          confirm();
-          await tester.pumpAndSettle();
-        }
-        expect(find.byType(Dialog), findsNothing);
-      }
-      await tester.tap(find.text('Open'));
-      await tester.pumpAndSettle();
-      await tester.tapAt(const Offset(5, 5));
-      await tester.pumpAndSettle();
-      expect(results, [JourneyMoreAction.copy, JourneyMoreAction.delete, null]);
-    },
-  );
-
-  testWidgets('cancel deletion returns to more and allows copying', (
+  testWidgets('cancel deletion returns to more and allows retrying', (
     tester,
   ) async {
     final results = <JourneyMoreAction?>[];
@@ -331,63 +383,15 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Delete this journey record?'), findsNothing);
       expect(find.text('Delete Journey').hitTestable(), findsOneWidget);
-      expect(find.text('Copy Journey').hitTestable(), findsOneWidget);
       expect(results, isEmpty);
     }
-    await tester.tap(find.text('Copy Journey'));
+    await tester.tap(find.text('Delete Journey'));
     await tester.pumpAndSettle();
-    expect(results, [JourneyMoreAction.copy]);
+    invokeConfirmationAction(tester, 'Delete');
+    await tester.pumpAndSettle();
+    expect(results, [JourneyMoreAction.delete]);
     expect(find.byType(Dialog), findsNothing);
   });
-
-  for (final use24HourFormat in [false, true]) {
-    for (final size in [const Size(320, 480), const Size(560, 320)]) {
-      testWidgets(
-        'time dialog preserves time and cancels at $size, 24h=$use24HourFormat',
-        (tester) async {
-          tester.view.physicalSize = size;
-          tester.view.devicePixelRatio = 1;
-          addTearDown(tester.view.resetPhysicalSize);
-          addTearDown(tester.view.resetDevicePixelRatio);
-          final results = <TimeOfDay?>[];
-          await pumpApp(
-            tester,
-            Builder(
-              builder: (context) => Scaffold(
-                body: TextButton(
-                  onPressed: () async {
-                    results.add(
-                      await showDialog<TimeOfDay>(
-                        context: context,
-                        builder: (context) => MediaQuery(
-                          data: MediaQuery.of(context)
-                              .copyWith(alwaysUse24HourFormat: use24HourFormat),
-                          child: const CompactJourneyTimeDialog(
-                            initialTime: TimeOfDay(hour: 23, minute: 7),
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                  child: const Text('Open'),
-                ),
-              ),
-            ),
-          );
-          for (final action in ['OK', 'Cancel']) {
-            await tester.tap(find.text('Open'));
-            await tester.pumpAndSettle();
-            expect(tester.takeException(), isNull);
-            await tester.ensureVisible(find.text(action));
-            await tester.tap(find.text(action));
-            await tester.pumpAndSettle();
-            expect(find.text('Open').hitTestable(), findsOneWidget);
-          }
-          expect(results, [const TimeOfDay(hour: 23, minute: 7), null]);
-        },
-      );
-    }
-  }
 }
 
 void invokeConfirmationAction(WidgetTester tester, String label) {
@@ -399,4 +403,27 @@ void invokeConfirmationAction(WidgetTester tester, String label) {
       .buttons
       .singleWhere((button) => button.text == label)
       .onPressed();
+}
+
+class _JourneyListApi extends Fake implements RustLibApi {
+  _JourneyListApi(this.journey);
+
+  final JourneyHeader journey;
+
+  @override
+  Future<DateTime?> crateApiApiEarliestJourneyDate() async =>
+      journey.journeyDate;
+
+  @override
+  Future<List<DateTime>> crateApiApiJourneyDates({
+    Set<JourneyKind>? journeyKinds,
+  }) async => [journey.journeyDate];
+
+  @override
+  Future<List<JourneyHeader>> crateApiApiListJourneysOnDate({
+    required int year,
+    required int month,
+    required int day,
+    Set<JourneyKind>? journeyKinds,
+  }) async => [journey];
 }

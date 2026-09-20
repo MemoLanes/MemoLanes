@@ -6,6 +6,8 @@ import 'package:memolanes/constants/app_typography.dart';
 import 'package:memolanes/constants/style_constants.dart';
 import 'package:memolanes/body/journey/journey_body.dart';
 import 'package:memolanes/body/journey/compact_journey_info_card.dart';
+import 'package:memolanes/common/log.dart';
+import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/journey_header.dart';
 import 'package:memolanes/utils/nav_helper.dart';
@@ -48,6 +50,13 @@ class _JourneyOverlayState extends State<JourneyOverlay> {
       );
       if (!mounted) return;
       setState(() => _pickerRevision++);
+    } catch (error, stackTrace) {
+      log.error('Loading journey map failed: $error', stackTrace);
+      if (!mounted) return;
+      await showCommonDialog(
+        context,
+        context.tr('journey.editor.operation_failed'),
+      );
     } finally {
       if (mounted) setState(() => _isLoadingJourney = false);
     }
@@ -61,7 +70,7 @@ class _JourneyOverlayState extends State<JourneyOverlay> {
       context,
     );
     final availableHeight = math.max(
-      260.0,
+      0.0,
       mediaQuery.size.height - bottom - viewPadding.top - 12,
     );
     final preferredHeight = (mediaQuery.size.height * 0.62)
@@ -158,7 +167,6 @@ class _JourneyPickerCard extends StatelessWidget {
               ),
               Expanded(
                 child: JourneyBody(
-                  compactPicker: true,
                   onJourneySelected: onJourneySelected,
                   refreshRevision: refreshRevision,
                 ),
