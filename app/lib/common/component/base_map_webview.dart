@@ -72,6 +72,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
 
   InAppWebViewController? _webViewController;
   late GpsManager _gpsManager;
+  StreamSubscription<void>? _recordingDataChangedSubscription;
   bool _readyForDisplay = false;
   bool _webGlRecoveryReloadInProgress = false;
   final List<DateTime> _webGlRecoveryReloads = [];
@@ -137,6 +138,9 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     super.initState();
     _gpsManager = Provider.of<GpsManager>(context, listen: false);
     _gpsManager.addListener(_updateLocationMarker);
+    _recordingDataChangedSubscription = _gpsManager.recordingDataChanged.listen(
+      (_) => unawaited(_refreshMapData()),
+    );
     _currentRoughMapView = widget.initialMapView;
     _selectedMapStyle = _loadMapStyleFromStorage();
     _selectedMapFogStyle = _loadMapFogStyleFromStorage();
@@ -144,6 +148,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
 
   @override
   void dispose() {
+    unawaited(_recordingDataChangedSubscription?.cancel());
     _gpsManager.removeListener(_updateLocationMarker);
     _webViewController = null;
     super.dispose();

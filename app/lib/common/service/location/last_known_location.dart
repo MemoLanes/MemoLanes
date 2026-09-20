@@ -4,8 +4,8 @@ import 'package:memolanes/common/service/location/location_service.dart';
 
 /// Returns the OS-cached last known location via `geolocator`.
 ///
-/// This helper is backend-agnostic: no matter which [LocationBackend] is active,
-/// we always read the cached fix from `geolocator`.
+/// This helper is provider-agnostic: it always reads the cached fix from
+/// `geolocator`, regardless of the active [ILocationService].
 ///
 /// The returned [LocationData] may be stale and is only for transient UI
 Future<LocationData?> getLastKnownLocation() async {

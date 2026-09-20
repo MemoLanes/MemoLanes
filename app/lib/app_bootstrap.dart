@@ -171,7 +171,11 @@ class AppBootstrap {
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _onFirstFrame();
-      gpsManager.readyToStart();
+      try {
+        await gpsManager.readyToStart();
+      } catch (error, stackTrace) {
+        log.error('GPS startup recovery failed: $error', stackTrace);
+      }
     });
 
     api.initMainMap().then(
@@ -183,7 +187,10 @@ class AppBootstrap {
         log.error("initMainMap error $e");
       },
     );
-    AppLifecycleService.instance.start();
+    AppLifecycleService.instance.start(
+      onForeground: gpsManager.handleAppForeground,
+      onBackground: gpsManager.handleAppBackground,
+    );
 
     delayedInit(updateNotifier);
   }
