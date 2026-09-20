@@ -22,6 +22,9 @@ class StyleConstants {
   static const Color shadowColor = Color(0xFF000000);
 
   // Translucent surfaces.
+  // TODO: `BackdropFilter` is very expensive and uses a lot of memory.
+  // We disable it for now. We should try to optimize it, or use it only when
+  // necessary or disable it when entering background.
   static const bool enableBackdropFilter = false;
   static const Color glassColor = Color(0xFF111814);
   static const Color glassBorderColor = Color(0xFF718078);
