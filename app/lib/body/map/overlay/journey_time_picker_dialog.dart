@@ -20,18 +20,18 @@ class CompactJourneyTimeDialog extends StatefulWidget {
 class _CompactJourneyTimeDialogState extends State<CompactJourneyTimeDialog> {
   late int _hour;
   late int _minute;
-  late bool _isPm;
   late final FixedExtentScrollController _hour24Controller;
   late final FixedExtentScrollController _hour12Controller;
   late final FixedExtentScrollController _minuteController;
   late final FixedExtentScrollController _periodController;
+
+  bool get _isPm => _hour >= 12;
 
   @override
   void initState() {
     super.initState();
     _hour = widget.initialTime.hour;
     _minute = widget.initialTime.minute;
-    _isPm = _hour >= 12;
     final displayHour = _hour % 12 == 0 ? 12 : _hour % 12;
     _hour24Controller = FixedExtentScrollController(initialItem: _hour);
     _hour12Controller = FixedExtentScrollController(
@@ -200,8 +200,8 @@ class _CompactJourneyTimeDialogState extends State<CompactJourneyTimeDialog> {
                                     onSelectedItemChanged: (index) {
                                       AppHaptics.selection();
                                       setState(() {
-                                        _isPm = index == 1;
-                                        _hour = _hour % 12 + (_isPm ? 12 : 0);
+                                        _hour =
+                                            _hour % 12 + (index == 1 ? 12 : 0);
                                       });
                                     },
                                   ),

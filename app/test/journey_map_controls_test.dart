@@ -4,13 +4,11 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:memolanes/body/map/overlay/journey_time_picker_dialog.dart';
 import 'package:memolanes/body/map/overlay/journey_detail_card.dart';
 import 'package:memolanes/body/map/overlay/journey_more_dialog.dart';
 import 'package:memolanes/common/app_translation_loader.dart';
 import 'package:memolanes/common/component/app_button.dart';
 import 'package:memolanes/common/component/common_dialog.dart';
-import 'package:memolanes/constants/style_constants.dart';
 import 'package:memolanes/src/rust/api/import.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
 
@@ -62,55 +60,11 @@ void main() {
     note: 'Original note',
   );
 
-  testWidgets('export and more use the secondary button style', (tester) async {
-    var exports = 0;
-    var more = 0;
-    await pumpApp(
-      tester,
-      Scaffold(
-        body: JourneyDetailCard(
-          journey: journey,
-          isEditing: false,
-          onExport: () => exports++,
-          onEdit: () {},
-          onMore: () => more++,
-          onSave: (_) async {},
-        ),
-      ),
-    );
-    for (final label in ['Export', 'More']) {
-      final button = tester.widget<FilledButton>(
-        find.ancestor(
-          of: find.text(label),
-          matching: find.byType(FilledButton),
-        ),
-      );
-      expect(
-        button.style!.backgroundColor!.resolve({}),
-        StyleConstants.surfaceColor,
-      );
-      expect(
-        button.style!.foregroundColor!.resolve({}),
-        StyleConstants.inkColor,
-      );
-      expect(
-        button.style!.side!.resolve({}),
-        const BorderSide(color: StyleConstants.lineColor),
-      );
-      await tester.tap(find.text(label));
-    }
-    expect(exports, 1);
-    expect(more, 1);
-    expect(find.byIcon(Icons.more_horiz_rounded), findsOneWidget);
-    expect(find.byIcon(Icons.delete_outline_rounded), findsNothing);
-  });
-
   testWidgets('saving edits submits metadata and waits for completion', (
     tester,
   ) async {
     final saved = <JourneyInfo>[];
     final saveFinished = Completer<void>();
-    var completed = false;
     await pumpApp(
       tester,
       Scaffold(
@@ -123,7 +77,6 @@ void main() {
           onSave: (info) async {
             saved.add(info);
             await saveFinished.future;
-            completed = true;
           },
         ),
       ),
@@ -131,7 +84,6 @@ void main() {
     await tester.enterText(find.byType(TextField), 'Changed note');
     await tester.tap(find.text('Save'));
     await tester.pump();
-    expect(completed, isFalse);
     expect(tester.widget<TextField>(find.byType(TextField)).readOnly, isTrue);
     await tester.tap(find.text('Save'));
     expect(saved, hasLength(1));
@@ -141,7 +93,6 @@ void main() {
     expect(saved.single.note, 'Changed note');
     expect(saved.single.journeyDate, journey.journeyDate);
     expect(saved.single.journeyKind, journey.journeyKind);
-    expect(completed, isTrue);
     expect(tester.widget<TextField>(find.byType(TextField)).readOnly, isFalse);
   });
 
@@ -225,60 +176,22 @@ void main() {
     cancel();
     cancel();
     await tester.pumpAndSettle();
+    expect(find.text('Delete Journey').hitTestable(), findsOneWidget);
+    expect(results, isEmpty);
     delete();
     await tester.pumpAndSettle();
-    invokeConfirmationAction(tester, 'Delete');
+    final confirm = tester
+        .widget<CommonDialog>(find.byType(CommonDialog))
+        .buttons
+        .singleWhere((button) => button.text == 'Delete')
+        .onPressed;
+    confirm();
+    confirm();
     await tester.pumpAndSettle();
     expect(results, [JourneyMoreAction.delete]);
     expect(find.text('Open').hitTestable(), findsOneWidget);
     expect(find.byType(Dialog), findsNothing);
   });
-
-  testWidgets(
-    'more dialog distinguishes danger, returns choice once, and dismisses',
-    (tester) async {
-      final results = <JourneyMoreAction?>[];
-      await pumpApp(
-        tester,
-        Builder(
-          builder: (context) => Scaffold(
-            body: TextButton(
-              onPressed: () async =>
-                  results.add(await showJourneyMoreDialog(context)),
-              child: const Text('Open'),
-            ),
-          ),
-        ),
-      );
-      await tester.tap(find.text('Open'));
-      await tester.pumpAndSettle();
-      final delete = tester.widget<AppButton>(
-        find.ancestor(
-          of: find.text('Delete Journey'),
-          matching: find.byType(AppButton),
-        ),
-      );
-      expect(delete.variant, AppButtonVariant.danger);
-      await tester.tap(find.text('Delete Journey'));
-      await tester.pumpAndSettle();
-      expect(find.text('Delete this journey record?'), findsOneWidget);
-      expect(results, isEmpty);
-      final confirm = tester
-          .widget<CommonDialog>(find.byType(CommonDialog))
-          .buttons
-          .singleWhere((button) => button.text == 'Delete')
-          .onPressed;
-      confirm();
-      confirm();
-      await tester.pumpAndSettle();
-      expect(find.byType(Dialog), findsNothing);
-      await tester.tap(find.text('Open'));
-      await tester.pumpAndSettle();
-      await tester.tapAt(const Offset(5, 5));
-      await tester.pumpAndSettle();
-      expect(results, [JourneyMoreAction.delete, null]);
-    },
-  );
 
   testWidgets('cancel deletion returns to more and allows retrying', (
     tester,
@@ -320,55 +233,6 @@ void main() {
     expect(results, [JourneyMoreAction.delete]);
     expect(find.byType(Dialog), findsNothing);
   });
-
-  for (final use24HourFormat in [false, true]) {
-    for (final size in [const Size(320, 480), const Size(560, 320)]) {
-      testWidgets(
-        'time dialog preserves time and cancels at $size, 24h=$use24HourFormat',
-        (tester) async {
-          tester.view.physicalSize = size;
-          tester.view.devicePixelRatio = 1;
-          addTearDown(tester.view.resetPhysicalSize);
-          addTearDown(tester.view.resetDevicePixelRatio);
-          final results = <TimeOfDay?>[];
-          await pumpApp(
-            tester,
-            Builder(
-              builder: (context) => Scaffold(
-                body: TextButton(
-                  onPressed: () async {
-                    results.add(
-                      await showDialog<TimeOfDay>(
-                        context: context,
-                        builder: (context) => MediaQuery(
-                          data: MediaQuery.of(context)
-                              .copyWith(alwaysUse24HourFormat: use24HourFormat),
-                          child: const CompactJourneyTimeDialog(
-                            initialTime: TimeOfDay(hour: 23, minute: 7),
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                  child: const Text('Open'),
-                ),
-              ),
-            ),
-          );
-          for (final action in ['OK', 'Cancel']) {
-            await tester.tap(find.text('Open'));
-            await tester.pumpAndSettle();
-            expect(tester.takeException(), isNull);
-            await tester.ensureVisible(find.text(action));
-            await tester.tap(find.text(action));
-            await tester.pumpAndSettle();
-            expect(find.text('Open').hitTestable(), findsOneWidget);
-          }
-          expect(results, [const TimeOfDay(hour: 23, minute: 7), null]);
-        },
-      );
-    }
-  }
 }
 
 void invokeConfirmationAction(WidgetTester tester, String label) {

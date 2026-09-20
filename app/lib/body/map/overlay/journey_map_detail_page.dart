@@ -152,12 +152,14 @@ class _JourneyMapDetailPageState extends State<JourneyMapDetailPage> {
 
   Future<void> _showEditChoice() async {
     if (_moreActionInProgress) return;
-    final choice = await showDialog<_JourneyEditChoice>(
-      context: context,
+    final choice = await showAppDialog<_JourneyEditChoice>(
+      context,
+      maxWidth: 360,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 38),
       barrierColor: StyleConstants.shadowColor.withValues(
         alpha: StyleConstants.isDarkMode ? 0.58 : 0.2,
       ),
-      builder: (dialogContext) => _JourneyEditChoiceDialog(
+      builder: (dialogContext) => _JourneyEditChoiceCard(
         onSelected: (choice) => Navigator.of(dialogContext).pop(choice),
       ),
     );
@@ -241,45 +243,35 @@ class _JourneyMapDetailPageState extends State<JourneyMapDetailPage> {
 
 enum _JourneyEditChoice { information, track }
 
-class _JourneyEditChoiceDialog extends StatelessWidget {
-  const _JourneyEditChoiceDialog({required this.onSelected});
+class _JourneyEditChoiceCard extends StatelessWidget {
+  const _JourneyEditChoiceCard({required this.onSelected});
 
   final ValueChanged<_JourneyEditChoice> onSelected;
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      elevation: 0,
-      backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 38),
-      child: PointerInterceptor(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 360),
-          child: AppDialogCard(
-            title: context.tr('common.edit'),
-            surfaceStyle: AppDialogSurfaceStyle.glass,
-            maxHeightFactor: 0.5,
-            contentPadding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                AppOptionTile(
-                  backgroundAlpha: 0.5,
-                  icon: Icons.description_outlined,
-                  title: context.tr('journey.journey_info_edit_page_title'),
-                  onTap: () => onSelected(_JourneyEditChoice.information),
-                ),
-                const SizedBox(height: 8),
-                AppOptionTile(
-                  backgroundAlpha: 0.5,
-                  icon: Icons.edit_road_rounded,
-                  title: context.tr('journey.editor.page_title'),
-                  onTap: () => onSelected(_JourneyEditChoice.track),
-                ),
-              ],
-            ),
+    return AppDialogCard(
+      title: context.tr('common.edit'),
+      surfaceStyle: AppDialogSurfaceStyle.glass,
+      maxHeightFactor: 0.5,
+      contentPadding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AppOptionTile(
+            backgroundAlpha: 0.5,
+            icon: Icons.description_outlined,
+            title: context.tr('journey.journey_info_edit_page_title'),
+            onTap: () => onSelected(_JourneyEditChoice.information),
           ),
-        ),
+          const SizedBox(height: 8),
+          AppOptionTile(
+            backgroundAlpha: 0.5,
+            icon: Icons.edit_road_rounded,
+            title: context.tr('journey.editor.page_title'),
+            onTap: () => onSelected(_JourneyEditChoice.track),
+          ),
+        ],
       ),
     );
   }

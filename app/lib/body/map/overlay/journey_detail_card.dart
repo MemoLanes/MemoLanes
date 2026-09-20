@@ -14,7 +14,6 @@ import 'package:memolanes/common/simple_date_utils.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/import.dart' show JourneyInfo;
 import 'package:memolanes/src/rust/journey_header.dart';
-import 'package:pointer_interceptor/pointer_interceptor.dart';
 
 import 'journey_time_picker_dialog.dart';
 
@@ -272,58 +271,48 @@ class _JourneyDetailCardState extends State<JourneyDetailCard> {
   }
 
   Future<void> _selectJourneyKind() async {
-    final selected = await showDialog<JourneyKind>(
-      context: context,
+    final selected = await showAppDialog<JourneyKind>(
+      context,
+      maxWidth: 340,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 42),
       barrierColor: StyleConstants.shadowColor.withValues(
         alpha: StyleConstants.isDarkMode ? 0.58 : 0.2,
       ),
-      builder: (dialogContext) => Dialog(
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 42),
-        child: PointerInterceptor(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 340),
-            child: AppDialogCard(
-              title: context.tr('journey.journey_kind'),
-              surfaceStyle: AppDialogSurfaceStyle.glass,
-              maxHeightFactor: 0.5,
-              contentPadding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  AppOptionTile(
-                    backgroundAlpha: 0.5,
-                    iconWidget: JourneyKindIcon(
-                      kind: JourneyKind.defaultKind,
-                      color: StyleConstants.deepGreen,
-                      size: 20,
-                    ),
-                    title: context.tr('journey_kind.default'),
-                    selected: _journeyKind == JourneyKind.defaultKind,
-                    trailing: AppOptionTileTrailing.selection,
-                    onTap: () =>
-                        Navigator.of(dialogContext)
-                            .pop(JourneyKind.defaultKind),
-                  ),
-                  const SizedBox(height: 8),
-                  AppOptionTile(
-                    backgroundAlpha: 0.5,
-                    iconWidget: JourneyKindIcon(
-                      kind: JourneyKind.flight,
-                      color: StyleConstants.deepGreen,
-                      size: 20,
-                    ),
-                    title: context.tr('journey_kind.flight'),
-                    selected: _journeyKind == JourneyKind.flight,
-                    trailing: AppOptionTileTrailing.selection,
-                    onTap: () =>
-                        Navigator.of(dialogContext).pop(JourneyKind.flight),
-                  ),
-                ],
+      builder: (dialogContext) => AppDialogCard(
+        title: context.tr('journey.journey_kind'),
+        surfaceStyle: AppDialogSurfaceStyle.glass,
+        maxHeightFactor: 0.5,
+        contentPadding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AppOptionTile(
+              backgroundAlpha: 0.5,
+              iconWidget: JourneyKindIcon(
+                kind: JourneyKind.defaultKind,
+                color: StyleConstants.deepGreen,
+                size: 20,
               ),
+              title: context.tr('journey_kind.default'),
+              selected: _journeyKind == JourneyKind.defaultKind,
+              trailing: AppOptionTileTrailing.selection,
+              onTap: () =>
+                  Navigator.of(dialogContext).pop(JourneyKind.defaultKind),
             ),
-          ),
+            const SizedBox(height: 8),
+            AppOptionTile(
+              backgroundAlpha: 0.5,
+              iconWidget: JourneyKindIcon(
+                kind: JourneyKind.flight,
+                color: StyleConstants.deepGreen,
+                size: 20,
+              ),
+              title: context.tr('journey_kind.flight'),
+              selected: _journeyKind == JourneyKind.flight,
+              trailing: AppOptionTileTrailing.selection,
+              onTap: () => Navigator.of(dialogContext).pop(JourneyKind.flight),
+            ),
+          ],
         ),
       ),
     );
