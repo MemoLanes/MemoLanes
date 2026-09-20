@@ -140,35 +140,39 @@ class _CollapsibleJourneyDetailState extends State<CollapsibleJourneyDetail> {
             : const Duration(milliseconds: 180),
         curve: Curves.easeOutCubic,
         transform: Matrix4.translationValues(0, _dragOffset, 0),
-        child: Stack(
-          children: [
-            widget.child,
-            Positioned(
-              left: 0,
-              right: 0,
-              top: 0,
-              height: 19,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onVerticalDragStart: _onDragStart,
-                onVerticalDragUpdate: _onDragUpdate,
-                onVerticalDragEnd: _onDragEnd,
-                onVerticalDragCancel: _onDragCancel,
-                child: Center(
-                  child: Container(
-                    width: 34,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: StyleConstants.mutedInkColor.withValues(
-                        alpha: 0.42,
+        child: JourneyInfoPanelSurface(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                height: 19,
+                child: GestureDetector(
+                  key: const ValueKey('journey-detail-drag-handle'),
+                  behavior: HitTestBehavior.opaque,
+                  onVerticalDragStart: _onDragStart,
+                  onVerticalDragUpdate: _onDragUpdate,
+                  onVerticalDragEnd: _onDragEnd,
+                  onVerticalDragCancel: _onDragCancel,
+                  child: Center(
+                    child: Container(
+                      width: 34,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: StyleConstants.mutedInkColor.withValues(
+                          alpha: 0.42,
+                        ),
+                        borderRadius: BorderRadius.circular(2),
                       ),
-                      borderRadius: BorderRadius.circular(2),
                     ),
                   ),
                 ),
               ),
-            ),
-          ],
+              Flexible(
+                fit: FlexFit.loose,
+                child: SingleChildScrollView(child: widget.child),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -369,144 +373,142 @@ class _JourneyDetailCardState extends State<JourneyDetailCard> {
     final end = (isEditing ? _endTime : journey.end)?.toLocal();
     final note = journey.note?.trim();
 
-    return JourneyInfoPanelSurface(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 18, 14, 13),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const JourneyInfoCardHeader(),
-            const SizedBox(height: 5),
-            CompactJourneyInfoField(
-              icon: Icons.calendar_today_rounded,
-              label: context.tr('journey.journey_date'),
-              value: isEditing
-                  ? _journeyDate.toString()
-                  : journey.journeyDate.toSimpleDate().toString(),
-              onTap: canEdit ? _selectJourneyDate : null,
-            ),
-            CompactJourneyInfoField(
-              icon: Icons.sell_outlined,
-              label: context.tr('journey.journey_kind'),
-              value: kind,
-              onTap: canEdit ? _selectJourneyKind : null,
-            ),
-            CompactJourneyInfoField(
-              icon: Icons.schedule_rounded,
-              label: context.tr('journey.start_time'),
-              value: start == null ? '—' : timeFormat.format(start),
-              onTap: canEdit
-                  ? () async {
-                      final selected = await _selectDateAndTime(_startTime);
-                      if (selected != null && mounted) {
-                        setState(() => _startTime = selected);
-                      }
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 0, 14, 13),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const JourneyInfoCardHeader(),
+          const SizedBox(height: 5),
+          CompactJourneyInfoField(
+            icon: Icons.calendar_today_rounded,
+            label: context.tr('journey.journey_date'),
+            value: isEditing
+                ? _journeyDate.toString()
+                : journey.journeyDate.toSimpleDate().toString(),
+            onTap: canEdit ? _selectJourneyDate : null,
+          ),
+          CompactJourneyInfoField(
+            icon: Icons.sell_outlined,
+            label: context.tr('journey.journey_kind'),
+            value: kind,
+            onTap: canEdit ? _selectJourneyKind : null,
+          ),
+          CompactJourneyInfoField(
+            icon: Icons.schedule_rounded,
+            label: context.tr('journey.start_time'),
+            value: start == null ? '—' : timeFormat.format(start),
+            onTap: canEdit
+                ? () async {
+                    final selected = await _selectDateAndTime(_startTime);
+                    if (selected != null && mounted) {
+                      setState(() => _startTime = selected);
                     }
-                  : null,
-            ),
-            CompactJourneyInfoField(
-              icon: Icons.schedule_rounded,
-              label: context.tr('journey.end_time'),
-              value: end == null ? '—' : timeFormat.format(end),
-              onTap: canEdit
-                  ? () async {
-                      final selected = await _selectDateAndTime(_endTime);
-                      if (selected != null && mounted) {
-                        setState(() => _endTime = selected);
-                      }
+                  }
+                : null,
+          ),
+          CompactJourneyInfoField(
+            icon: Icons.schedule_rounded,
+            label: context.tr('journey.end_time'),
+            value: end == null ? '—' : timeFormat.format(end),
+            onTap: canEdit
+                ? () async {
+                    final selected = await _selectDateAndTime(_endTime);
+                    if (selected != null && mounted) {
+                      setState(() => _endTime = selected);
                     }
-                  : null,
-            ),
-            if (isEditing)
-              CompactJourneyInfoField(
-                icon: Icons.notes_rounded,
-                label: context.tr('journey.note'),
-                trailing: TextField(
-                  controller: _noteController,
-                  readOnly: !canEdit,
-                  minLines: 1,
-                  maxLines: 2,
-                  textAlign: TextAlign.right,
-                  style: AppTypography.supporting.copyWith(
-                    color: StyleConstants.deepGreen,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  decoration: InputDecoration(
-                    isDense: true,
-                    border: InputBorder.none,
-                    hintText: context.tr('common.please_enter'),
-                    hintStyle: AppTypography.supporting.copyWith(
-                      color: StyleConstants.mutedInkColor,
-                    ),
+                  }
+                : null,
+          ),
+          if (isEditing)
+            CompactJourneyInfoField(
+              icon: Icons.notes_rounded,
+              label: context.tr('journey.note'),
+              trailing: TextField(
+                controller: _noteController,
+                readOnly: !canEdit,
+                minLines: 1,
+                maxLines: 2,
+                textAlign: TextAlign.right,
+                style: AppTypography.supporting.copyWith(
+                  color: StyleConstants.deepGreen,
+                  fontWeight: FontWeight.w600,
+                ),
+                decoration: InputDecoration(
+                  isDense: true,
+                  border: InputBorder.none,
+                  hintText: context.tr('common.please_enter'),
+                  hintStyle: AppTypography.supporting.copyWith(
+                    color: StyleConstants.mutedInkColor,
                   ),
                 ),
-              )
-            else if (note != null && note.isNotEmpty)
-              CompactJourneyInfoField(
-                icon: Icons.notes_rounded,
-                label: context.tr('journey.note'),
-                value: note,
-                maxLines: 2,
               ),
-            const SizedBox(height: 10),
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 220),
-              child: isEditing
-                  ? Center(
-                      key: const ValueKey('save-journey-information'),
-                      child: SizedBox(
-                        width: 180,
+            )
+          else if (note != null && note.isNotEmpty)
+            CompactJourneyInfoField(
+              icon: Icons.notes_rounded,
+              label: context.tr('journey.note'),
+              value: note,
+              maxLines: 2,
+            ),
+          const SizedBox(height: 10),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 220),
+            child: isEditing
+                ? Center(
+                    key: const ValueKey('save-journey-information'),
+                    child: SizedBox(
+                      width: 180,
+                      child: AppButton(
+                        size: AppButtonSize.compact,
+                        expand: true,
+                        icon: Icons.check_rounded,
+                        label: context.tr('common.save'),
+                        variant: AppButtonVariant.primary,
+                        onPressed: _saving ? null : _save,
+                        loading: _saving,
+                      ),
+                    ),
+                  )
+                : Row(
+                    key: const ValueKey('journey-actions'),
+                    children: [
+                      Expanded(
                         child: AppButton(
                           size: AppButtonSize.compact,
                           expand: true,
-                          icon: Icons.check_rounded,
-                          label: context.tr('common.save'),
-                          variant: AppButtonVariant.primary,
-                          onPressed: _saving ? null : _save,
-                          loading: _saving,
+                          icon: Icons.ios_share_rounded,
+                          label: context.tr('common.export'),
+                          variant: AppButtonVariant.secondary,
+                          onPressed: widget.onExport,
                         ),
                       ),
-                    )
-                  : Row(
-                      key: const ValueKey('journey-actions'),
-                      children: [
-                        Expanded(
-                          child: AppButton(
-                            size: AppButtonSize.compact,
-                            expand: true,
-                            icon: Icons.ios_share_rounded,
-                            label: context.tr('common.export'),
-                            variant: AppButtonVariant.secondary,
-                            onPressed: widget.onExport,
-                          ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: AppButton(
+                          size: AppButtonSize.compact,
+                          expand: true,
+                          icon: Icons.edit_outlined,
+                          label: context.tr('common.edit'),
+                          variant: AppButtonVariant.primary,
+                          onPressed: widget.onEdit,
                         ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: AppButton(
-                            size: AppButtonSize.compact,
-                            expand: true,
-                            icon: Icons.edit_outlined,
-                            label: context.tr('common.edit'),
-                            variant: AppButtonVariant.primary,
-                            onPressed: widget.onEdit,
-                          ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: AppButton(
+                          size: AppButtonSize.compact,
+                          expand: true,
+                          icon: Icons.more_horiz_rounded,
+                          label: context.tr('common.more'),
+                          variant: AppButtonVariant.secondary,
+                          onPressed: widget.onMore,
                         ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: AppButton(
-                            size: AppButtonSize.compact,
-                            expand: true,
-                            icon: Icons.more_horiz_rounded,
-                            label: context.tr('common.more'),
-                            variant: AppButtonVariant.secondary,
-                            onPressed: widget.onMore,
-                          ),
-                        ),
-                      ],
-                    ),
-            ),
-          ],
-        ),
+                      ),
+                    ],
+                  ),
+          ),
+        ],
       ),
     );
   }

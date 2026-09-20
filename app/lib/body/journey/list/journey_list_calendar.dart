@@ -110,6 +110,7 @@ class _JourneyListCalendarState extends State<JourneyListCalendar> {
               monthDate: monthDate,
               occupiesPackageMonthSlot: occupiesPackageMonthSlot,
               textStyle: controlsTextStyle,
+              abbreviateMonth: compact,
               onModeChanged: (mode) {
                 AppHaptics.selection();
                 _setCalendarViewMode(mode);
@@ -277,24 +278,30 @@ class _JourneyListCalendarState extends State<JourneyListCalendar> {
             horizontal: compact ? 2 : 4,
             vertical: compact ? 6 : 8,
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                label,
-                style:
-                    (compact
-                            ? AppTypography.sectionLabel
-                            : AppTypography.cardTitle)
-                        .copyWith(color: StyleConstants.deepGreen),
-              ),
-              Icon(
-                Icons.arrow_drop_down,
-                color: StyleConstants.deepGreen,
-                size: compact ? 20 : null,
-              ),
-            ],
-          ),
+          child: compact
+              ? Tooltip(
+                  message: label,
+                  child: Icon(
+                    Icons.layers_outlined,
+                    color: StyleConstants.deepGreen,
+                    size: 20,
+                  ),
+                )
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      label,
+                      style: AppTypography.cardTitle.copyWith(
+                        color: StyleConstants.deepGreen,
+                      ),
+                    ),
+                    Icon(
+                      Icons.arrow_drop_down,
+                      color: StyleConstants.deepGreen,
+                    ),
+                  ],
+                ),
         ),
       ),
     );

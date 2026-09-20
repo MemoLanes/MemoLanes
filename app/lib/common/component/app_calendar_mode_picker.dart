@@ -16,6 +16,7 @@ class AppCalendarModePicker extends StatelessWidget {
     required this.onModeChanged,
     this.trailing,
     this.trailingGap = 8,
+    this.abbreviateMonth = false,
   });
 
   final CalendarDatePicker2Mode viewMode;
@@ -28,6 +29,7 @@ class AppCalendarModePicker extends StatelessWidget {
   final ValueChanged<CalendarDatePicker2Mode> onModeChanged;
   final Widget? trailing;
   final double trailingGap;
+  final bool abbreviateMonth;
 
   @override
   Widget build(BuildContext context) {
@@ -35,9 +37,10 @@ class AppCalendarModePicker extends StatelessWidget {
         ? CalendarDatePicker2Mode.year
         : CalendarDatePicker2Mode.month;
     final isActive = viewMode == targetMode;
+    final locale = Localizations.localeOf(context).toString();
     final label = targetMode == CalendarDatePicker2Mode.year
         ? MaterialLocalizations.of(context).formatYear(monthDate)
-        : DateFormat.MMMM(Localizations.localeOf(context).toString())
+        : (abbreviateMonth ? DateFormat.MMM(locale) : DateFormat.MMMM(locale))
               .format(monthDate);
 
     return Row(

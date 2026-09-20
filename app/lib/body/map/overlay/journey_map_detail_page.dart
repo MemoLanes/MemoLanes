@@ -200,6 +200,9 @@ class _JourneyMapDetailPageState extends State<JourneyMapDetailPage> {
           Positioned(
             left: viewPadding.left + 16,
             right: viewPadding.right + 16,
+            // Scaffold already removes the keyboard height from the body.
+            // Bound the card between the back button and the bottom inset.
+            top: viewPadding.top + 14 + 42 + 12,
             bottom: viewPadding.bottom + 16,
             child: Align(
               alignment: Alignment.bottomCenter,
