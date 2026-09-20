@@ -91,6 +91,15 @@ test("an empty canvas becomes displayable only after its source loads", (t) => {
   assert.equal(f.layer.isReadyForDisplay(), false);
 });
 
+test("remove resets display readiness", (t) => {
+  const f = fixture(t);
+  f.draw([]);
+  assert.equal(f.layer.isReadyForDisplay(), true);
+
+  f.layer.remove();
+  assert.equal(f.layer.isReadyForDisplay(), false);
+});
+
 test("feather keeps solid track cores and untouched fog outside one cell", (t) => {
   const f = fixture(t);
   f.draw([[3, 3]]);
