@@ -142,11 +142,11 @@ class _JourneyMapDetailPageState extends State<JourneyMapDetailPage> {
       );
       return;
     }
-    await navigatorPush<bool>(
+    final saved = await navigatorPush<bool>(
       context,
       page: JourneyTrackEditPage(editSession: session),
     );
-    if (!mounted) return;
+    if (!mounted || saved != true) return;
     await _refreshJourney(refreshMap: true);
   }
 

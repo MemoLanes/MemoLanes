@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:memolanes/body/map/overlay/journey_detail_card.dart';
 import 'package:memolanes/body/map/overlay/journey_more_dialog.dart';
+import 'package:memolanes/common/app_haptics.dart';
 import 'package:memolanes/common/app_translation_loader.dart';
 import 'package:memolanes/common/component/app_button.dart';
 import 'package:memolanes/common/component/common_dialog.dart';
@@ -133,6 +134,56 @@ void main() {
     expect(saved, hasLength(2));
     expect(saved[1].note, saved[0].note);
     expect(find.byType(CommonDialog), findsNothing);
+  });
+
+  testWidgets('collapsing and restoring details preserves the unsaved draft', (
+    tester,
+  ) async {
+    // Exercise the gestures without device-only haptics or MMKV setup.
+    AppHaptics.debugHapticsEnabledOverride = false;
+    addTearDown(() => AppHaptics.debugHapticsEnabledOverride = null);
+    final saved = <JourneyInfo>[];
+    await pumpApp(
+      tester,
+      Scaffold(
+        body: Align(
+          alignment: Alignment.bottomCenter,
+          child: SizedBox(
+            width: 430,
+            child: CollapsibleJourneyDetail(
+              child: JourneyDetailCard(
+                journey: journey,
+                isEditing: true,
+                onExport: () {},
+                onEdit: () {},
+                onMore: () {},
+                onSave: (info) async => saved.add(info),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.enterText(find.byType(TextField), 'Unsaved draft');
+    final card = find.byType(JourneyDetailCard);
+    final dragHandle =
+        tester.getTopLeft(card) + Offset(tester.getSize(card).width / 2, 9);
+    await tester.dragFrom(dragHandle, const Offset(0, 100));
+    // Wait beyond the transition: AnimatedSwitcher used to dispose the draft
+    // only after the outgoing card finished animating.
+    await tester.pumpAndSettle();
+    expect(find.byType(TextField).hitTestable(), findsNothing);
+    expect(find.text('Save').hitTestable(), findsNothing);
+    expect(tester.testTextInput.isVisible, isFalse);
+    expect(saved, isEmpty);
+
+    await tester.tap(find.byIcon(Icons.keyboard_arrow_up_rounded));
+    await tester.pumpAndSettle();
+    expect(find.text('Unsaved draft'), findsOneWidget);
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(saved, hasLength(1));
+    expect(saved.single.note, 'Unsaved draft');
   });
 
   testWidgets('more ignores duplicate actions during navigation', (

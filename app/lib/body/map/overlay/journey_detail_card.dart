@@ -50,7 +50,10 @@ class _CollapsibleJourneyDetailState extends State<CollapsibleJourneyDetail> {
     final velocity = details.primaryVelocity ?? 0;
     final shouldHide =
         _dragOffset >= _dismissDistance || velocity >= _dismissVelocity;
-    if (shouldHide) AppHaptics.light();
+    if (shouldHide) {
+      FocusScope.of(context).unfocus();
+      AppHaptics.light();
+    }
     setState(() {
       _isDragging = false;
       _isHidden = shouldHide;
@@ -74,93 +77,100 @@ class _CollapsibleJourneyDetailState extends State<CollapsibleJourneyDetail> {
   Widget build(BuildContext context) {
     final title = context.tr('journey.journey_info_page_title');
 
-    return AnimatedSwitcher(
+    // Keep the form mounted while collapsed so its draft and in-flight save
+    // survive. AnimatedCrossFade also excludes the hidden child's input/focus.
+    return AnimatedCrossFade(
       duration: const Duration(milliseconds: 220),
       reverseDuration: const Duration(milliseconds: 180),
-      switchInCurve: Curves.easeOutCubic,
-      switchOutCurve: Curves.easeInCubic,
-      layoutBuilder: (currentChild, previousChildren) => Stack(
+      firstCurve: Curves.easeOutCubic,
+      secondCurve: Curves.easeOutCubic,
+      sizeCurve: Curves.easeOutCubic,
+      alignment: Alignment.bottomCenter,
+      clipBehavior: Clip.none,
+      crossFadeState: _isHidden
+          ? CrossFadeState.showFirst
+          : CrossFadeState.showSecond,
+      layoutBuilder: (topChild, topKey, bottomChild, bottomKey) => Stack(
+        clipBehavior: Clip.none,
         alignment: Alignment.bottomCenter,
-        children: [...previousChildren, ?currentChild],
+        children: [
+          Positioned(
+            key: bottomKey,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: bottomChild,
+          ),
+          Positioned(key: topKey, child: topChild),
+        ],
       ),
-      transitionBuilder: (child, animation) {
-        final slide = Tween<Offset>(
-          begin: const Offset(0, 0.12),
-          end: Offset.zero,
-        ).animate(animation);
-        return FadeTransition(
-          opacity: animation,
-          child: SlideTransition(position: slide, child: child),
-        );
-      },
-      child: _isHidden
-          ? Align(
-              key: const ValueKey('journey-detail-restore'),
-              alignment: Alignment.bottomCenter,
-              heightFactor: 1,
-              child: SizedBox(
-                width: 68,
-                height: 32,
-                child: JourneyInfoPanelSurface(
-                  backgroundAlpha: 0.76,
-                  child: Tooltip(
-                    message: title,
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: _restore,
-                        borderRadius: BorderRadius.circular(24),
-                        child: Center(
-                          child: Icon(
-                            Icons.keyboard_arrow_up_rounded,
-                            size: 23,
-                            color: StyleConstants.deepGreen,
-                          ),
-                        ),
-                      ),
+      firstChild: Align(
+        key: const ValueKey('journey-detail-restore'),
+        alignment: Alignment.bottomCenter,
+        heightFactor: 1,
+        child: SizedBox(
+          width: 68,
+          height: 32,
+          child: JourneyInfoPanelSurface(
+            backgroundAlpha: 0.76,
+            child: Tooltip(
+              message: title,
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: _restore,
+                  borderRadius: BorderRadius.circular(24),
+                  child: Center(
+                    child: Icon(
+                      Icons.keyboard_arrow_up_rounded,
+                      size: 23,
+                      color: StyleConstants.deepGreen,
                     ),
                   ),
                 ),
               ),
-            )
-          : AnimatedContainer(
-              key: const ValueKey('journey-detail-card'),
-              duration: _isDragging
-                  ? Duration.zero
-                  : const Duration(milliseconds: 180),
-              curve: Curves.easeOutCubic,
-              transform: Matrix4.translationValues(0, _dragOffset, 0),
-              child: Stack(
-                children: [
-                  widget.child,
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    top: 0,
-                    height: 19,
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onVerticalDragStart: _onDragStart,
-                      onVerticalDragUpdate: _onDragUpdate,
-                      onVerticalDragEnd: _onDragEnd,
-                      onVerticalDragCancel: _onDragCancel,
-                      child: Center(
-                        child: Container(
-                          width: 34,
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: StyleConstants.mutedInkColor.withValues(
-                              alpha: 0.42,
-                            ),
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                        ),
+            ),
+          ),
+        ),
+      ),
+      secondChild: AnimatedContainer(
+        key: const ValueKey('journey-detail-card'),
+        duration: _isDragging
+            ? Duration.zero
+            : const Duration(milliseconds: 180),
+        curve: Curves.easeOutCubic,
+        transform: Matrix4.translationValues(0, _dragOffset, 0),
+        child: Stack(
+          children: [
+            widget.child,
+            Positioned(
+              left: 0,
+              right: 0,
+              top: 0,
+              height: 19,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onVerticalDragStart: _onDragStart,
+                onVerticalDragUpdate: _onDragUpdate,
+                onVerticalDragEnd: _onDragEnd,
+                onVerticalDragCancel: _onDragCancel,
+                child: Center(
+                  child: Container(
+                    width: 34,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: StyleConstants.mutedInkColor.withValues(
+                        alpha: 0.42,
                       ),
+                      borderRadius: BorderRadius.circular(2),
                     ),
                   ),
-                ],
+                ),
               ),
             ),
+          ],
+        ),
+      ),
     );
   }
 }
