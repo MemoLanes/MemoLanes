@@ -490,9 +490,8 @@ export class MapController {
    */
   private applyMapStyle(): void {
     this.map.setStyle(this.params.mapStyle, {
-      transformStyle: (previousStyle: any, nextStyle: any) =>
+      transformStyle: (_previousStyle: any, nextStyle: any) =>
         transformStyleWithProjection(
-          previousStyle,
           nextStyle,
           this.params.projection,
           this.mapLocale,

@@ -18,6 +18,7 @@ import { FlutterBridgeEditor } from "./flutter-bridge-editor";
 import { ensurePlatformCompatibility } from "./platform";
 import { displayPageMessage } from "./utils";
 import { MapController } from "./map-controller";
+import { GPUInitializationError } from "maplibre-gl";
 
 import "./debug-panel.css";
 
@@ -99,11 +100,22 @@ async function trySetup(): Promise<void> {
 
   // Create and initialize MapController
   // MapController handles: map instance, tile provider, layers, style management
-  const mapController = new MapController({
-    containerId: "map",
-    params,
-    DisableAutoRefresh: isEditor,
-  });
+  let mapController: MapController;
+  try {
+    mapController = new MapController({
+      containerId: "map",
+      params,
+      DisableAutoRefresh: isEditor,
+    });
+  } catch (error) {
+    if (!(error instanceof GPUInitializationError)) throw error;
+
+    console.error("Map GPU initialization failed", error);
+    displayPageMessage("Map Initialization Error", error.message);
+    // Release Flutter's loading cover so the error is visible in the WebView.
+    notifyFlutterReady();
+    return;
+  }
 
   await mapController.initialize();
   console.log("MapController initialized");
