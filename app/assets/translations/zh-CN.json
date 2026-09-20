@@ -109,7 +109,8 @@
     "delete_journey_title": "删除旅程",
     "delete_journey_message": "确认删除该旅程记录？",
     "stop_ongoing_journey": "在此操作之前，请先停止当前正在进行的旅程。",
-    "delete_all_journey_message": "这将删除此应用中的所有行程，您确定吗？",
+    "delete_all_title": "删除所有旅程",
+    "delete_all_journey_message": "这将删除此应用中的所有旅程，您确定吗？",
     "journey_info_page_title": "旅程信息",
     "journey_info_edit_page_title": "编辑旅程信息",
     "import_mldx_data": "导入 MLDX 数据",
@@ -126,7 +127,7 @@
     "finalize_empty": "未检测到新旅程"
   },
   "db_optimization": {
-    "notification": "你的数据库需要优化，请前往设置选项卡并点击[优化数据库]按钮。",
+    "notification": "你的数据库需要优化，请前往「设置」>「数据管理」>「优化数据库」。",
     "button": "优化数据库",
     "already_optimized": "数据库已经是最优状态。无需再次优化。",
     "confirm": "您的数据库需要优化。建议在继续之前备份你的数据。",
@@ -315,7 +316,10 @@
       "delete_backup_data": "删除备份数据"
     },
     "import_data": {
-      "title": "导入数据"
+      "title": "导入数据",
+      "mldx_desc": "用于恢复备份或迁移迹忆数据",
+      "vector_desc": "支持 GPX、KML 和 CSV 轨迹文件",
+      "fog_of_world_desc": "支持 ZIP 和 FWSS 数据"
     },
     "export_data": {
       "export_all": "导出所有数据",
@@ -339,12 +343,40 @@
     }
   },
   "settings": {
+    "title": "设置",
     "other": "其他",
-    "about": "关于"
+    "about": "关于",
+    "categories": {
+      "journey_recording": {"title": "旅途与录制", "desc": "录制通知与中断提醒"},
+      "map": {"title": "地图设置", "desc": "地图样式、遮罩模式与地区偏好"},
+      "appearance": {"title": "界面外观", "desc": "语言与触感反馈"},
+      "data": {"title": "数据管理", "desc": "数据导入、导出与维护"},
+      "advanced": {"title": "高级设置", "desc": "诊断信息、定位状态与设置重置"},
+      "about": {"title": "关于迹忆", "desc": "版本信息、隐私政策与联系我们"}
+    },
+    "groups": {
+      "recording_protection": "录制保护",
+      "usage_settings": "使用设置",
+      "data_system": "数据与系统",
+      "appearance": "界面外观",
+      "map_display": "地图显示",
+      "region": "地区",
+      "import_export": "导入与导出",
+      "data_maintenance": "数据维护",
+      "delete_data": "删除数据",
+      "diagnostics": "诊断",
+      "recovery": "恢复"
+    },
+    "language": {
+      "title": "语言",
+      "system": "跟随系统",
+      "chinese": "简体中文",
+      "english": "English"
+    }
   },
   "beta_testing_notice": {
     "title": "欢迎体验「迹忆」公测版",
-    "content_md": "感谢您成为我们的体验官！当前版本是用于测试的非正式版本。\n\n请您知悉：\n* App 可能存在卡顿、闪退或显示异常等问题。\n* 部分功能尚在开发优化中，不代表最终品质。\n* 建议定期进行数据备份（导航栏最右侧「设置」按钮 >「导出所有数据」）。\n\n为帮助我们改进，如果您遇到任何问题，请保留问题截图以便向开发人员反馈，您的每一个反馈都至关重要！如您有任何宝贵建议，也可联系开发团队（「设置」按钮 >「联系我们」）。\n\n如果喜欢这款 App，可以推荐给身边的人，这将鼓励我们继续开发更多更完善的功能。🫶🏻\n\n祝大家旅途愉快，一起探索世界吧～🚀"
+    "content_md": "感谢您成为我们的体验官！当前版本是用于测试的非正式版本。\n\n请您知悉：\n* App 可能存在卡顿、闪退或显示异常等问题。\n* 部分功能尚在开发优化中，不代表最终品质。\n* 建议定期进行数据备份（导航栏最右侧「设置」按钮 >「数据管理」>「导出所有数据」）。\n\n为帮助我们改进，如果您遇到任何问题，请保留问题截图以便向开发人员反馈，您的每一个反馈都至关重要！如您有任何宝贵建议，也可联系开发团队（「设置」按钮 >「关于迹忆」>「联系我们」）。\n\n如果喜欢这款 App，可以推荐给身边的人，这将鼓励我们继续开发更多更完善的功能。🫶🏻\n\n祝大家旅途愉快，一起探索世界吧～🚀"
   },
   "privacy": {
     "url": "https://app.memolanes.com/zh/privacy/",

@@ -340,8 +340,8 @@ export function createReactiveParams(
     },
     renderMode,
     requiresMapboxToken,
-    // The host supplies the palette ID and its initial opacity. RGB values stay
-    // owned by fog-style.ts so Dart and TypeScript cannot drift apart.
+    // The host supplies only the palette ID; colors and opacity stay owned by
+    // fog-style.ts so Dart and TypeScript cannot drift apart.
     fogStyle: normalizeFogStyleId(externalParams.fog_style),
     fogDensity: Math.max(
       0,

@@ -105,7 +105,12 @@ class AppBootstrap {
   }
 
   static Future<Locale> applyInitialLocale(BuildContext context) async {
-    final locale = selectInitialLocale(context.deviceLocale);
+    final saved = MMKVUtil.getStringOpt(MMKVKey.localePreference);
+    final locale = saved == 'zh-CN'
+        ? const Locale('zh', 'CN')
+        : saved == 'en-US'
+        ? const Locale('en', 'US')
+        : selectInitialLocale(context.deviceLocale);
     await context.setLocale(locale);
     return locale;
   }

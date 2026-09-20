@@ -1,5 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:memolanes/body/settings/settings_section.dart';
 import 'package:memolanes/common/component/app_button.dart';
 import 'package:memolanes/common/component/basic_dialog_card.dart';
 import 'package:memolanes/common/component/capsule_style_app_bar.dart';
@@ -33,20 +34,17 @@ class _RawDataSwitchState extends State<RawDataSwitch> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 8.0),
-      child: LabelTile(
-        label: context.tr("general.advanced_settings.raw_data_mode"),
-        position: LabelTilePosition.single,
-        trailing: Switch(
-          value: enabled,
-          onChanged: (bool value) async {
-            await api.toggleRawDataMode(enable: value);
-            setState(() {
-              enabled = value;
-            });
-          },
-        ),
+    return LabelTile(
+      label: context.tr("general.advanced_settings.raw_data_mode"),
+      position: LabelTilePosition.single,
+      trailing: Switch(
+        value: enabled,
+        onChanged: (bool value) async {
+          await api.toggleRawDataMode(enable: value);
+          setState(() {
+            enabled = value;
+          });
+        },
       ),
     );
   }
@@ -112,43 +110,46 @@ class _RawDataPage extends State<RawDataPage> {
       appBar: CapsuleStyleAppBar(
         title: context.tr("general.advanced_settings.raw_data_mode"),
       ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          const SizedBox(height: 8),
-          const RawDataSwitch(),
-          const SizedBox(height: 16),
-          Expanded(
-            child: ListView(
-              shrinkWrap: true,
-              children: items.map((item) {
-                return ListTile(
-                  leading: const Icon(Icons.description),
-                  title: Text(item.name),
-                  onTap: () {
-                    _showExportCard(context, item.path);
-                  },
-                  trailing: ElevatedButton(
-                    onPressed: () async {
-                      if (await showCommonDialog(
-                        context,
-                        context.tr("journey.delete_journey_message"),
-                        hasCancel: true,
-                        title: context.tr("journey.delete_journey_title"),
-                        confirmButtonText: context.tr("common.delete"),
-                        confirmVariant: AppButtonVariant.danger,
-                      )) {
-                        await api.deleteRawDataFile(filename: item.name);
-                        _loadList();
-                      }
+      body: SettingsPageFrame(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            const RawDataSwitch(),
+            const SizedBox(height: 16),
+            Expanded(
+              child: ListView(
+                padding: EdgeInsets.zero,
+                shrinkWrap: true,
+                children: items.map((item) {
+                  return ListTile(
+                    leading: const Icon(Icons.description),
+                    title: Text(item.name),
+                    onTap: () {
+                      _showExportCard(context, item.path);
                     },
-                    child: const Icon(Icons.delete),
-                  ),
-                );
-              }).toList(),
+                    trailing: ElevatedButton(
+                      onPressed: () async {
+                        if (await showCommonDialog(
+                          context,
+                          context.tr("journey.delete_journey_message"),
+                          hasCancel: true,
+                          title: context.tr("journey.delete_journey_title"),
+                          confirmButtonText: context.tr("common.delete"),
+                          confirmVariant: AppButtonVariant.danger,
+                        )) {
+                          await api.deleteRawDataFile(filename: item.name);
+                          _loadList();
+                        }
+                      },
+                      child: const Icon(Icons.delete),
+                    ),
+                  );
+                }).toList(),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

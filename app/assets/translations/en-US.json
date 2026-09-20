@@ -109,6 +109,7 @@
     "delete_journey_title": "Delete Journey",
     "delete_journey_message": "Delete this journey record?",
     "stop_ongoing_journey": "Please stop the current ongoing journey before this operation.",
+    "delete_all_title": "Delete All Journeys",
     "delete_all_journey_message": "This will delete all journeys in this app. Are you sure?",
     "journey_info_page_title": "Journey Information",
     "journey_info_edit_page_title": "Edit Journey Information",
@@ -126,7 +127,7 @@
     "finalize_empty": "No journey detected"
   },
   "db_optimization": {
-    "notification": "Your database requires optimization, please go to Settings tab and click [Optimize database] button.",
+    "notification": "Your database requires optimization. Go to [Settings] > [Data] > [Optimize database].",
     "button": "Optimize database",
     "already_optimized": "Database is already optimized. Nothing to do.",
     "confirm": "Your database requires optimization. It is recommended to backup your data before proceeding.",
@@ -315,7 +316,10 @@
       "delete_backup_data": "Delete backup data"
     },
     "import_data": {
-      "title": "Import data"
+      "title": "Import data",
+      "mldx_desc": "Restore a backup or migrate MemoLanes data",
+      "vector_desc": "Supports GPX, KML, and CSV track files",
+      "fog_of_world_desc": "Supports ZIP and FWSS data"
     },
     "export_data": {
       "export_all": "Export All Data",
@@ -339,12 +343,40 @@
     }
   },
   "settings": {
+    "title": "Settings",
     "other": "Other",
-    "about": "About"
+    "about": "About",
+    "categories": {
+      "journey_recording": {"title": "Journey & Recording", "desc": "Recording notifications and interruption alerts"},
+      "map": {"title": "Map Settings", "desc": "Map style, fog mode, and region"},
+      "appearance": {"title": "Appearance", "desc": "Language and haptic feedback"},
+      "data": {"title": "Data", "desc": "Import, export, and maintenance"},
+      "advanced": {"title": "Advanced", "desc": "Diagnostics, location status, and reset options"},
+      "about": {"title": "About MemoLanes", "desc": "Version information, privacy, and contact"}
+    },
+    "groups": {
+      "recording_protection": "Recording Protection",
+      "usage_settings": "Usage Settings",
+      "data_system": "Data & System",
+      "appearance": "Appearance",
+      "map_display": "Map Display",
+      "region": "Region",
+      "import_export": "Import & Export",
+      "data_maintenance": "Data Maintenance",
+      "delete_data": "Delete Data",
+      "diagnostics": "Diagnostics",
+      "recovery": "Recovery"
+    },
+    "language": {
+      "title": "Language",
+      "system": "Follow system",
+      "chinese": "Simplified Chinese",
+      "english": "English"
+    }
   },
   "beta_testing_notice": {
     "title": "Welcome to MemoLanes Public Beta",
-    "content_md": "Thank you for testing MemoLanes!\n\nPlease be aware of the following:\n* The app may occasionally lag, crash, or glitch.\n* Features are still being optimized and may change in the final release, so they may not reflect their final quality.\n* We recommend backing up your data regularly (go to the far-right [Settings] icon on the navigation bar > [Export All Data]).\n\nIf you run into any issues, please take a screenshot to share with our team—it helps a lot! Suggestions are also welcome. You can find us via [Settings] > [Contact Us].\n\nIf you enjoy using MemoLanes, feel free to share it with others. Your support motivates us to keep improving. 🫶🏻\n\nWish you great journeys ahead—let’s explore the world together! 🚀"
+    "content_md": "Thank you for testing MemoLanes!\n\nPlease be aware of the following:\n* The app may occasionally lag, crash, or glitch.\n* Features are still being optimized and may change in the final release, so they may not reflect their final quality.\n* We recommend backing up your data regularly (go to the far-right [Settings] icon on the navigation bar > [Data] > [Export All Data]).\n\nIf you run into any issues, please take a screenshot to share with our team—it helps a lot! Suggestions are also welcome. You can find us via [Settings] > [About MemoLanes] > [Contact Us].\n\nIf you enjoy using MemoLanes, feel free to share it with others. Your support motivates us to keep improving. 🫶🏻\n\nWish you great journeys ahead—let’s explore the world together! 🚀"
   },
   "privacy": {
     "url": "https://app.memolanes.com/en/privacy/",

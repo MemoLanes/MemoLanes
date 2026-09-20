@@ -3,14 +3,14 @@
 /// Fog styling is intentionally independent from [MapStyle]. This allows the
 /// app to switch light and dark fog appearances without coupling them to a
 /// particular tile provider.
-enum MapFogStyle {
-  dark('dark'),
-  light('light');
+class MapFogStyle {
+  const MapFogStyle({required this.id});
 
-  const MapFogStyle(this.id);
-
-  /// Stable identifier persisted in app preferences and passed to the renderer.
+  /// Stable identifier persisted in app preferences.
   final String id;
+
+  static const dark = MapFogStyle(id: 'dark');
+  static const light = MapFogStyle(id: 'light');
 
   static const all = [dark, light];
 

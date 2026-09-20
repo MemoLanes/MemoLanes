@@ -1,7 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:memolanes/body/settings/settings_section.dart';
 import 'package:memolanes/common/component/capsule_style_app_bar.dart';
-import 'package:memolanes/common/component/scroll_views/single_child_scroll_view.dart';
 import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
 
@@ -13,8 +13,7 @@ class BackupDataPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: CapsuleStyleAppBar(title: context.tr("data.backup_data.title")),
-      body: MlSingleChildScrollView(
-        padding: EdgeInsets.all(8.0),
+      body: SettingsPageLayout(
         children: [
           LabelTile(
             label: context.tr("data.backup_data.last_backup_time"),
