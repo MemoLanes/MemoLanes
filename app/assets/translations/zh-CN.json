@@ -50,6 +50,7 @@
     "save": "保存",
     "share": "分享",
     "export": "导出",
+    "more": "更多",
     "edit": "编辑",
     "delete": "删除",
     "reset": "重置",
@@ -68,6 +69,8 @@
     "exit": "退出应用"
   },
   "journey": {
+    "picker_title": "选择旅途",
+    "picker_subtitle": "选择日期，再选择要查看或编辑的旅途",
     "editor_overview_title": "编辑旅途",
     "records_title": "当日记录",
     "editor": {
@@ -104,7 +107,7 @@
     },
     "journey_date_is_empty": "旅程日期是空的",
     "delete_journey_title": "删除旅程",
-    "delete_journey_message": "确认删除该旅程记录?",
+    "delete_journey_message": "确认删除该旅程记录？",
     "stop_ongoing_journey": "在此操作之前，请先停止当前正在进行的旅程。",
     "delete_all_journey_message": "这将删除此应用中的所有行程，您确定吗？",
     "journey_info_page_title": "旅程信息",

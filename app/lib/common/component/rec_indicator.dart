@@ -127,6 +127,7 @@ class _RecIndicatorState extends State<RecIndicator>
             child: ClipRRect(
               borderRadius: BorderRadius.circular(18),
               child: BackdropFilter(
+                enabled: StyleConstants.enableBackdropFilter,
                 filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
