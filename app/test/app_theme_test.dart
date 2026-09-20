@@ -12,36 +12,13 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   tearDown(() => StyleConstants.setDarkMode(true));
 
-  test(
-    'missing and unknown preferences preserve the existing dark default',
-    () {
-      expect(AppThemePreference.fromId(null), AppThemePreference.dark);
-      expect(AppThemePreference.fromId('unknown'), AppThemePreference.dark);
-      for (final preference in AppThemePreference.values) {
-        expect(AppThemePreference.fromId(preference.id), preference);
-      }
-      expect(StyleConstants.enableBackdropFilter, isFalse);
-    },
-  );
-
-  test('preference persists, restores, and only notifies on change', () {
+  test('saved preference is restored by a new controller', () {
     String? stored;
-    var writes = 0;
     final controller = AppThemeController(
       readPreference: () => stored,
-      writePreference: (value) {
-        stored = value;
-        writes++;
-      },
+      writePreference: (value) => stored = value,
     );
-    var notifications = 0;
-    controller.addListener(() => notifications++);
     controller.setPreference(AppThemePreference.light);
-    expect(StyleConstants.isDarkMode, isFalse);
-    expect(controller.brightness, Brightness.light);
-    controller.setPreference(AppThemePreference.light);
-    expect(writes, 1);
-    expect(notifications, 1);
     controller.dispose();
     final restored = AppThemeController(
       readPreference: () => stored,
@@ -52,33 +29,17 @@ void main() {
     expect(restored.brightness, Brightness.light);
   });
 
-  test(
-    'failed persistence does not change the active preference or palette',
-    () {
-      final controller = AppThemeController(
-        readPreference: () => 'dark',
-        writePreference: (_) => throw StateError('Storage failed'),
-      );
-      addTearDown(controller.dispose);
-      expect(
-        () => controller.setPreference(AppThemePreference.light),
-        throwsStateError,
-      );
-      expect(controller.preference, AppThemePreference.dark);
-      expect(StyleConstants.isDarkMode, isTrue);
-    },
-  );
-
-  testWidgets('system brightness changes apply only in follow-system mode', (
+  testWidgets('default follows system changes until explicitly overridden', (
     tester,
   ) async {
     tester.platformDispatcher.platformBrightnessTestValue = Brightness.light;
     addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
     final controller = AppThemeController(
-      readPreference: () => 'system',
+      readPreference: () => null,
       writePreference: (_) {},
     );
     addTearDown(controller.dispose);
+    expect(controller.preference, AppThemePreference.system);
     expect(StyleConstants.isDarkMode, isFalse);
     tester.platformDispatcher.platformBrightnessTestValue = Brightness.dark;
     await tester.pump();

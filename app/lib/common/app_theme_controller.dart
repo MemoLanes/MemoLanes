@@ -14,7 +14,7 @@ enum AppThemePreference {
   static AppThemePreference fromId(String? id) {
     return values.firstWhere(
       (preference) => preference.id == id,
-      orElse: () => AppThemePreference.dark,
+      orElse: () => AppThemePreference.system,
     );
   }
 }
