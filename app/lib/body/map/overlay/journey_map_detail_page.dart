@@ -170,8 +170,7 @@ class _JourneyMapDetailPageState extends State<JourneyMapDetailPage> {
     try {
       await Fluttertoast.showToast(msg: message);
     } catch (error, stackTrace) {
-      // The database operation already succeeded. A toast failure must not
-      // report that copying failed and encourage the user to create duplicates.
+      // Copy already succeeded; a toast failure must not invite a duplicate.
       log.error('Showing copy success toast failed: $error', stackTrace);
       if (!mounted) return;
       ScaffoldMessenger.of(context)
@@ -189,26 +188,26 @@ class _JourneyMapDetailPageState extends State<JourneyMapDetailPage> {
       );
       return;
     }
-    await navigatorPush<bool>(
+    final saved = await navigatorPush<bool>(
       context,
       page: JourneyTrackEditPage(editSession: session),
     );
-    if (!mounted) return;
+    if (!mounted || saved != true) return;
     await _refreshJourney(refreshMap: true);
   }
 
   Future<void> _showEditChoice() async {
     if (_moreActionInProgress) return;
-    final choice = await showDialog<_JourneyEditChoice>(
-      context: context,
+    final choice = await showAppDialog<_JourneyEditChoice>(
+      context,
+      maxWidth: 360,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 38),
       barrierColor: StyleConstants.shadowColor.withValues(
         alpha: StyleConstants.isDarkMode ? 0.58 : 0.2,
       ),
-      builder: (dialogContext) => PointerInterceptor(
-        child: _JourneyEditChoiceDialog(
-          hasRawData: _journey.hasRawData,
-          onSelected: (choice) => Navigator.of(dialogContext).pop(choice),
-        ),
+      builder: (dialogContext) => _JourneyEditChoiceCard(
+        hasRawData: _journey.hasRawData,
+        onSelected: (choice) => Navigator.of(dialogContext).pop(choice),
       ),
     );
     if (!mounted || choice == null) return;
@@ -251,6 +250,9 @@ class _JourneyMapDetailPageState extends State<JourneyMapDetailPage> {
           Positioned(
             left: viewPadding.left + 16,
             right: viewPadding.right + 16,
+            // Scaffold already removes the keyboard height from the body.
+            // Bound the card between the back button and the bottom inset.
+            top: viewPadding.top + 14 + 42 + 12,
             bottom: viewPadding.bottom + 16,
             child: Align(
               alignment: Alignment.bottomCenter,
@@ -294,8 +296,8 @@ class _JourneyMapDetailPageState extends State<JourneyMapDetailPage> {
 
 enum _JourneyEditChoice { information, track, deleteRawData }
 
-class _JourneyEditChoiceDialog extends StatelessWidget {
-  const _JourneyEditChoiceDialog({
+class _JourneyEditChoiceCard extends StatelessWidget {
+  const _JourneyEditChoiceCard({
     required this.hasRawData,
     required this.onSelected,
   });
@@ -305,49 +307,41 @@ class _JourneyEditChoiceDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      elevation: 0,
-      backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 38),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 360),
-        child: AppDialogCard(
-          title: context.tr('common.edit'),
-          surfaceStyle: AppDialogSurfaceStyle.glass,
-          maxHeightFactor: 0.5,
-          contentPadding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              AppOptionTile(
-                backgroundAlpha: 0.5,
-                icon: Icons.description_outlined,
-                title: context.tr('journey.journey_info_edit_page_title'),
-                onTap: () => onSelected(_JourneyEditChoice.information),
-              ),
-              const SizedBox(height: 8),
-              AppOptionTile(
-                backgroundAlpha: 0.5,
-                icon: Icons.edit_road_rounded,
-                title: context.tr('journey.editor.page_title'),
-                onTap: () => onSelected(_JourneyEditChoice.track),
-              ),
-              if (hasRawData) ...[
-                const SizedBox(height: 8),
-                AppOptionTile(
-                  backgroundAlpha: 0.5,
-                  iconWidget: Icon(
-                    Icons.delete_outline_rounded,
-                    color: StyleConstants.dangerInkColor,
-                    size: 20,
-                  ),
-                  title: context.tr('journey.delete_raw_data'),
-                  onTap: () => onSelected(_JourneyEditChoice.deleteRawData),
-                ),
-              ],
-            ],
+    return AppDialogCard(
+      title: context.tr('common.edit'),
+      surfaceStyle: AppDialogSurfaceStyle.glass,
+      maxHeightFactor: 0.5,
+      contentPadding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AppOptionTile(
+            backgroundAlpha: 0.5,
+            icon: Icons.description_outlined,
+            title: context.tr('journey.journey_info_edit_page_title'),
+            onTap: () => onSelected(_JourneyEditChoice.information),
           ),
-        ),
+          const SizedBox(height: 8),
+          AppOptionTile(
+            backgroundAlpha: 0.5,
+            icon: Icons.edit_road_rounded,
+            title: context.tr('journey.editor.page_title'),
+            onTap: () => onSelected(_JourneyEditChoice.track),
+          ),
+          if (hasRawData) ...[
+            const SizedBox(height: 8),
+            AppOptionTile(
+              backgroundAlpha: 0.5,
+              iconWidget: Icon(
+                Icons.delete_outline_rounded,
+                color: StyleConstants.dangerInkColor,
+                size: 20,
+              ),
+              title: context.tr('journey.delete_raw_data'),
+              onTap: () => onSelected(_JourneyEditChoice.deleteRawData),
+            ),
+          ],
+        ],
       ),
     );
   }

@@ -167,7 +167,6 @@ class _JourneyPickerCard extends StatelessWidget {
               ),
               Expanded(
                 child: JourneyBody(
-                  compactPicker: true,
                   onJourneySelected: onJourneySelected,
                   refreshRevision: refreshRevision,
                 ),

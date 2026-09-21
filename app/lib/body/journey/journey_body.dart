@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:memolanes/body/journey/journey_info_page.dart';
 import 'package:memolanes/body/journey/list/journey_list_calendar.dart';
 import 'package:memolanes/body/journey/list/journey_list_controller.dart';
 import 'package:memolanes/body/journey/list/journey_list_empty_state.dart';
@@ -14,26 +13,21 @@ import 'package:memolanes/common/loading_manager.dart';
 import 'package:memolanes/common/simple_date_utils.dart';
 import 'package:memolanes/constants/index.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
-import 'package:memolanes/utils/nav_helper.dart';
 
+/// Calendar and journey list for the floating map picker.
 class JourneyBody extends StatefulWidget {
   const JourneyBody({
     super.key,
-    this.onJourneySelected,
-    this.compactPicker = false,
+    required this.onJourneySelected,
     this.refreshRevision = 0,
   });
 
-  /// When supplied, tapping a row selects it instead of opening the details
-  /// page. This lets the calendar/list work inside the map picker.
-  final Future<void> Function(JourneyHeader journey)? onJourneySelected;
+  /// Handles the selected journey; the parent owns navigation.
+  final Future<void> Function(JourneyHeader journey) onJourneySelected;
 
-  /// Removes the full-page heading and tightens spacing for the floating map
-  /// picker. The calendar remains above a separately scrollable journey list.
-  final bool compactPicker;
-
-  /// Refreshes the existing list controller without resetting the selected
-  /// month, date, or journey-kind filters.
+  /// Change this value to refresh data using the existing list controller.
+  /// Journey-kind filters are preserved. If the selected date no longer has
+  /// journeys, the controller selects the nearest date with journeys, if any.
   final int refreshRevision;
 
   @override
@@ -49,9 +43,6 @@ class _JourneyBodyState extends State<JourneyBody> {
 
   late final JourneyListController _controller;
   final ScrollController _journeyListScrollController = ScrollController();
-
-  bool get _isSelectionMode => widget.onJourneySelected != null;
-  bool get _isCompactPicker => _isSelectionMode && widget.compactPicker;
 
   @override
   void initState() {
@@ -90,7 +81,7 @@ class _JourneyBodyState extends State<JourneyBody> {
         type: JourneyListEmptyType.filtered,
         topAligned: true,
         onShowAll: _showAllJourneyKinds,
-        compact: _isCompactPicker,
+        compact: true,
       );
     }
     if (!_controller.hasJourneyOnSelectedDate) {
@@ -100,17 +91,14 @@ class _JourneyBodyState extends State<JourneyBody> {
         onShowAll: _controller.selectedJourneyKinds.length == 1
             ? _showAllJourneyKinds
             : null,
-        compact: _isCompactPicker,
+        compact: true,
       );
     }
 
     final timeFormat = DateFormat('HH:mm:ss');
     final journeyList = ListView.builder(
       controller: _journeyListScrollController,
-      padding: EdgeInsets.only(
-        right: _isCompactPicker ? 12 : 0,
-        bottom: _isSelectionMode ? 20 : StyleConstants.navBarSafeArea + 5,
-      ),
+      padding: const EdgeInsets.only(right: 12, bottom: 20),
       itemCount: _controller.journeyHeaders.length,
       itemBuilder: (context, index) {
         final header = _controller.journeyHeaders[index];
@@ -137,29 +125,12 @@ class _JourneyBodyState extends State<JourneyBody> {
           ),
           trailing: LabelTileContent(showArrow: true),
           onTap: () async {
-            final onJourneySelected = widget.onJourneySelected;
-            if (onJourneySelected != null) {
-              AppHaptics.selection();
-              await onJourneySelected(header);
-              return;
-            }
-            if (!context.mounted) return;
-            navigatorPush(
-              context,
-              page: JourneyInfoPage(journeyHeader: header),
-            ).then((refresh) async {
-              if (refresh == true) {
-                await GlobalLoadingManager.instance.runWithLoading(
-                  () => _controller.refresh(adjustSelectedDate: true),
-                );
-              }
-            });
+            AppHaptics.selection();
+            await widget.onJourneySelected(header);
           },
         );
       },
     );
-
-    if (!_isCompactPicker) return journeyList;
 
     return ScrollbarTheme(
       data: ScrollbarThemeData(
@@ -193,9 +164,6 @@ class _JourneyBodyState extends State<JourneyBody> {
   }
 
   Widget _buildLandscapeBody(SimpleDate firstDate) {
-    final bottomPadding = _isSelectionMode
-        ? 20.0
-        : StyleConstants.navBarSafeArea + 5;
     return LayoutBuilder(
       builder: (context, constraints) {
         final availableWidth =
@@ -221,7 +189,7 @@ class _JourneyBodyState extends State<JourneyBody> {
               SizedBox(
                 width: calendarWidth,
                 child: SingleChildScrollView(
-                  padding: EdgeInsets.only(bottom: bottomPadding),
+                  padding: const EdgeInsets.only(bottom: 20),
                   child: _CalendarSurface(
                     child: JourneyListCalendar(
                       controller: _controller,
@@ -249,25 +217,9 @@ class _JourneyBodyState extends State<JourneyBody> {
         MediaQuery.orientationOf(context) == Orientation.landscape;
     final firstDate = _controller.firstDate;
     if (firstDate == null) {
-      return Padding(
-        padding: EdgeInsets.fromLTRB(
-          _isCompactPicker ? 14 : 8,
-          _isCompactPicker ? 12 : 16,
-          _isCompactPicker ? 14 : 8,
-          _isSelectionMode
-              ? 24
-              : (isLandscape ? StyleConstants.navBarSafeArea + 5 : 140),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (!_isCompactPicker)
-              _JourneyPageHeader(selectionMode: _isSelectionMode),
-            const Expanded(
-              child: JourneyListEmptyState(type: JourneyListEmptyType.all),
-            ),
-          ],
-        ),
+      return const Padding(
+        padding: EdgeInsets.fromLTRB(14, 12, 14, 24),
+        child: JourneyListEmptyState(type: JourneyListEmptyType.all),
       );
     }
 
@@ -276,38 +228,25 @@ class _JourneyBodyState extends State<JourneyBody> {
     }
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(
-        _isCompactPicker ? 12 : 8,
-        _isCompactPicker ? 10 : 16,
-        _isCompactPicker ? 12 : 8,
-        0,
-      ),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (!_isCompactPicker) ...[
-            _JourneyPageHeader(selectionMode: _isSelectionMode),
-            const SizedBox(height: 20),
-          ],
           _CalendarSurface(
             child: JourneyListCalendar(
               controller: _controller,
               firstDate: firstDate,
             ),
           ),
-          SizedBox(height: _isCompactPicker ? 10 : 16),
+          const SizedBox(height: 10),
           Text(
             context.tr('journey.records_title'),
-            style:
-                (_isCompactPicker
-                        ? AppTypography.itemTitle
-                        : AppTypography.subpageTitle)
-                    .copyWith(
-                      color: StyleConstants.inkColor,
-                      fontWeight: FontWeight.w700,
-                    ),
+            style: AppTypography.itemTitle.copyWith(
+              color: StyleConstants.inkColor,
+              fontWeight: FontWeight.w700,
+            ),
           ),
-          SizedBox(height: _isCompactPicker ? 6 : 10),
+          const SizedBox(height: 6),
           Expanded(child: _buildJourneyHeaderList()),
         ],
       ),
@@ -329,46 +268,6 @@ class _CalendarSurface extends StatelessWidget {
         border: Border.all(color: StyleConstants.lineColor),
       ),
       child: child,
-    );
-  }
-}
-
-class _JourneyPageHeader extends StatelessWidget {
-  const _JourneyPageHeader({required this.selectionMode});
-
-  final bool selectionMode;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          context.tr(
-            selectionMode
-                ? 'journey.picker_title'
-                : 'journey.editor_overview_title',
-          ),
-          style:
-              (selectionMode
-                      ? AppTypography.compactPageTitle
-                      : AppTypography.pageTitle)
-                  .copyWith(
-                    color: StyleConstants.inkColor,
-                    fontWeight: FontWeight.w700,
-                    height: 1,
-                  ),
-        ),
-        if (selectionMode) ...[
-          const SizedBox(height: 7),
-          Text(
-            context.tr('journey.picker_subtitle'),
-            style: AppTypography.body.copyWith(
-              color: StyleConstants.mutedInkColor,
-            ),
-          ),
-        ],
-      ],
     );
   }
 }
