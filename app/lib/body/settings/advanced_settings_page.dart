@@ -59,7 +59,7 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
         title: context.tr("general.advanced_settings.title"),
       ),
       body: MlSingleChildScrollView(
-        padding: EdgeInsets.all(8.0),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
         children: [
           LabelTile(
             label: context.tr("journey.delete_all"),

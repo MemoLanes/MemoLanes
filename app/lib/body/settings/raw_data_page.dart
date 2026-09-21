@@ -51,7 +51,7 @@ class _RawDataSwitchState extends State<RawDataSwitch> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 8.0),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       child: LabelTile(
         label: context.tr("general.advanced_settings.raw_data_mode"),
         position: LabelTilePosition.single,
@@ -131,6 +131,7 @@ class _RawDataPage extends State<RawDataPage> {
           Expanded(
             child: ListView(
               shrinkWrap: true,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               children: items.map((item) {
                 return ListTile(
                   leading: const Icon(Icons.description),

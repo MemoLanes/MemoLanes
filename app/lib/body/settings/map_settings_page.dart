@@ -109,7 +109,7 @@ class _MapSettingsPageState extends State<MapSettingsPage> {
         title: context.tr("general.map_settings.title"),
       ),
       body: MlSingleChildScrollView(
-        padding: const EdgeInsets.all(8.0),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
         children: [
           LabelTile(
             label: context.tr("general.map_settings.style"),

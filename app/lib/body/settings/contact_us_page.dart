@@ -28,7 +28,7 @@ class _ContactUsPage extends State<ContactUsPage> {
     return Scaffold(
       appBar: CapsuleStyleAppBar(title: context.tr("contact_us.title")),
       body: MlSingleChildScrollView(
-        padding: EdgeInsets.all(8.0),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
         children: [
           LabelTile(
             label: context.tr("contact_us.website"),

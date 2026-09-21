@@ -107,6 +107,8 @@ class _SettingsBodyState extends State<SettingsBody> {
 
     return MlSingleChildScrollView(
       padding: EdgeInsets.only(
+        left: 8.0,
+        right: 8.0,
         top: 16.0,
         bottom: StyleConstants.navBarSafeArea + 16.0,
       ),
