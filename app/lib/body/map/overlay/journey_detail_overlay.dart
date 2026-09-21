@@ -4,13 +4,10 @@ import 'package:memolanes/theme/app_colors.dart';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:memolanes/body/journey/journey_export.dart';
 import 'package:memolanes/body/journey/journey_track_edit_page.dart';
 import 'package:memolanes/common/component/app_dialog.dart';
 import 'package:memolanes/common/component/app_option_tile.dart';
-import 'package:memolanes/common/component/base_map_webview.dart';
-import 'package:memolanes/common/component/capsule_style_overlay_app_bar.dart';
 import 'package:memolanes/common/component/map_glass_back_button.dart';
 import 'package:memolanes/common/loading_manager.dart';
 import 'package:memolanes/common/log.dart';
@@ -19,43 +16,48 @@ import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/api/edit_session.dart' show EditSession;
 import 'package:memolanes/src/rust/api/import.dart' show JourneyInfo;
 import 'package:memolanes/src/rust/journey_header.dart';
-import 'package:memolanes/theme/app_theme.dart';
+import 'package:memolanes/src/rust/utils.dart' show MapBounds;
 import 'package:memolanes/utils/nav_helper.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 
 import 'journey_detail_card.dart';
 import 'journey_more_dialog.dart';
 
-class JourneyMapDetailPage extends StatefulWidget {
-  const JourneyMapDetailPage({
+/// Journey details drawn above the shared map in [MapBody].
+class JourneyDetailOverlay extends StatefulWidget {
+  const JourneyDetailOverlay({
     super.key,
     required this.journey,
-    required this.mapRendererProxy,
-    required this.initialMapBounds,
+    required this.onClose,
+    required this.onMapChanged,
   });
 
   final JourneyHeader journey;
-  final api.MapRendererProxy mapRendererProxy;
-  final MapBounds? initialMapBounds;
+  final VoidCallback onClose;
+  final void Function(api.MapRendererProxy proxy, MapBounds? bounds)
+  onMapChanged;
 
   @override
-  State<JourneyMapDetailPage> createState() => _JourneyMapDetailPageState();
+  State<JourneyDetailOverlay> createState() => _JourneyDetailOverlayState();
 }
 
-class _JourneyMapDetailPageState extends State<JourneyMapDetailPage> {
+class _JourneyDetailOverlayState extends State<JourneyDetailOverlay> {
   late JourneyHeader _journey;
-  late api.MapRendererProxy _mapRendererProxy;
-  MapBounds? _mapBounds;
   bool _isEditingInformation = false;
-  int _mapRevision = 0;
   bool _moreActionInProgress = false;
+  late final VoidCallback _unregisterBackHandler;
 
   @override
   void initState() {
     super.initState();
     _journey = widget.journey;
-    _mapRendererProxy = widget.mapRendererProxy;
-    _mapBounds = widget.initialMapBounds;
+    _unregisterBackHandler = registerHomeBackHandler(_handleBack);
+  }
+
+  @override
+  void dispose() {
+    _unregisterBackHandler();
+    super.dispose();
   }
 
   Future<void> _refreshJourney({required bool refreshMap}) async {
@@ -63,12 +65,11 @@ class _JourneyMapDetailPageState extends State<JourneyMapDetailPage> {
     final latest = await api.getJourneyHeader(journeyId: journeyId);
     if (!mounted) return;
     if (latest == null) {
-      popCurrentRoute(context);
+      widget.onClose();
       return;
     }
     if (!refreshMap) {
-      // Metadata edits leave the track unchanged. Keep the WebView's key,
-      // renderer and viewport so saving does not reload or recenter the map.
+      // Metadata edits leave the track and viewport unchanged.
       setState(() => _journey = latest);
       return;
     }
@@ -77,15 +78,20 @@ class _JourneyMapDetailPageState extends State<JourneyMapDetailPage> {
       journeyId: journeyId,
     );
     if (!mounted) return;
-    setState(() {
-      _journey = latest;
-      _mapRendererProxy = rendererAndBounds.$1;
-      _mapBounds = rendererAndBounds.$2;
-      _mapRevision++;
-    });
+    setState(() => _journey = latest);
+    widget.onMapChanged(rendererAndBounds.$1, rendererAndBounds.$2);
   }
 
   Future<void> _saveJourneyInformation(JourneyInfo journeyInfo) async {
+    FocusScope.of(context).unfocus();
+    final shouldSave = await showCommonDialog(
+      context,
+      context.tr('common.save_confirm'),
+      title: context.tr('common.save'),
+      hasCancel: true,
+    );
+    if (!mounted || !shouldSave) return;
+
     await GlobalLoadingManager.instance.runWithLoading(() async {
       await api.updateJourneyMetadata(
         id: _journey.id,
@@ -98,13 +104,26 @@ class _JourneyMapDetailPageState extends State<JourneyMapDetailPage> {
     setState(() => _isEditingInformation = false);
   }
 
+  void _cancelJourneyInformationEdit() {
+    FocusScope.of(context).unfocus();
+    setState(() => _isEditingInformation = false);
+  }
+
+  void _handleBack() {
+    if (_isEditingInformation) {
+      _cancelJourneyInformationEdit();
+    } else {
+      widget.onClose();
+    }
+  }
+
   Future<void> _deleteJourney() async {
     await GlobalLoadingManager.instance.runWithLoading(
       () => api.deleteJourney(journeyId: _journey.id),
       blockNavigation: true,
     );
     if (!mounted) return;
-    popCurrentRoute(context);
+    widget.onClose();
   }
 
   Future<void> _exportJourney() async {
@@ -181,73 +200,51 @@ class _JourneyMapDetailPageState extends State<JourneyMapDetailPage> {
   Widget build(BuildContext context) {
     final mediaQuery = MediaQuery.of(context);
     final viewPadding = mediaQuery.viewPadding;
-    final isLandscape = mediaQuery.orientation == Orientation.landscape;
-    final detailCardPadding = isLandscape ? 190.0 : 330.0;
-
-    final page = Scaffold(
-      backgroundColor: context.appColors.canvasColor,
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          BaseMapWebview(
-            key: ValueKey('journey-detail-${_journey.id}-$_mapRevision'),
-            mapRendererProxy: _mapRendererProxy,
-            initialMapBounds: _mapBounds,
-            initialMapBoundsPadding:
-                CapsuleStyleOverlayAppBar.mapFitPaddingForBottomOverlay(
-                  context,
-                  edgePadding: 28,
-                  bottomOverlayHeight: detailCardPadding + viewPadding.bottom,
-                ),
-          ),
-          Positioned(
-            left: viewPadding.left + 16,
-            right: viewPadding.right + 16,
-            // Scaffold already removes the keyboard height from the body.
-            // Bound the card between the back button and the bottom inset.
-            top: viewPadding.top + 14 + 42 + 12,
-            bottom: viewPadding.bottom + 16,
-            child: Align(
-              alignment: Alignment.bottomCenter,
-              child: SizedBox(
-                width: math.min(
-                  mediaQuery.size.width -
-                      viewPadding.left -
-                      viewPadding.right -
-                      32,
-                  430.0,
-                ),
-                child: PointerInterceptor(
-                  child: CollapsibleJourneyDetail(
-                    child: JourneyDetailCard(
-                      journey: _journey,
-                      isEditing: _isEditingInformation,
-                      onExport: _exportJourney,
-                      onEdit: _showEditChoice,
-                      onMore: _showMore,
-                      onSave: _saveJourneyInformation,
-                    ),
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Positioned(
+          left: viewPadding.left + 16,
+          right: viewPadding.right + 16,
+          // Scaffold already removes the keyboard height from the body.
+          // Bound the card between the back button and the bottom inset.
+          top: viewPadding.top + 14 + 42 + 12,
+          bottom: viewPadding.bottom + 16,
+          child: Align(
+            alignment: Alignment.bottomCenter,
+            child: SizedBox(
+              width: math.min(
+                mediaQuery.size.width -
+                    viewPadding.left -
+                    viewPadding.right -
+                    32,
+                430.0,
+              ),
+              child: PointerInterceptor(
+                child: CollapsibleJourneyDetail(
+                  child: JourneyDetailCard(
+                    journey: _journey,
+                    isEditing: _isEditingInformation,
+                    onExport: _exportJourney,
+                    onEdit: _showEditChoice,
+                    onMore: _showMore,
+                    onCancel: _cancelJourneyInformationEdit,
+                    onSave: _saveJourneyInformation,
                   ),
                 ),
               ),
             ),
           ),
+        ),
+        if (!_isEditingInformation)
           Positioned(
             left: viewPadding.left + 16,
             top: viewPadding.top + 14,
             child: PointerInterceptor(
-              child: MapGlassBackButton(
-                onPressed: () => Navigator.of(context).maybePop(),
-              ),
+              child: MapGlassBackButton(onPressed: widget.onClose),
             ),
           ),
-        ],
-      ),
-    );
-
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: AppTheme.mapSystemOverlayStyle(Theme.of(context)),
-      child: page,
+      ],
     );
   }
 }

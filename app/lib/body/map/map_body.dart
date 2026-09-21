@@ -1,13 +1,19 @@
 import 'dart:convert';
 
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:json_annotation/json_annotation.dart';
 import 'package:memolanes/body/map/overlay/journey_overlay.dart';
+import 'package:memolanes/body/map/overlay/journey_detail_overlay.dart';
 import 'package:memolanes/body/map/overlay/normal_map_overlay.dart';
 import 'package:memolanes/body/map/overlay/time_machine_overlay.dart';
 import 'package:memolanes/common/component/base_map_webview.dart';
+import 'package:memolanes/common/component/capsule_style_overlay_app_bar.dart';
 import 'package:memolanes/common/gps_manager.dart';
+import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/mmkv_util.dart';
+import 'package:memolanes/common/utils.dart';
+import 'package:memolanes/src/rust/journey_header.dart';
 import 'package:memolanes/utils/nav_helper.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:provider/provider.dart';
@@ -44,9 +50,16 @@ class MapState {
 }
 
 class MapBody extends StatefulWidget {
-  const MapBody({super.key, this.mode = MapMode.normal});
+  const MapBody({
+    super.key,
+    this.mode = MapMode.normal,
+    this.onAppChromeVisibilityChanged,
+  });
 
   final MapMode mode;
+
+  /// Whether the app controls drawn above the map should remain visible.
+  final ValueChanged<bool>? onAppChromeVisibilityChanged;
 
   @override
   State<StatefulWidget> createState() => MapBodyState();
@@ -58,6 +71,12 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
   final _mapRendererProxy = api.getMapRendererProxyForMainMap();
   MapView? _roughMapView;
   api.MapRendererProxy? _journeyMapRendererProxy;
+  api.MapRendererProxy? _selectedJourneyRendererProxy;
+  JourneyHeader? _selectedJourney;
+  MapBounds? _selectedJourneyBounds;
+  bool _isLoadingJourney = false;
+  int _journeyLoadGeneration = 0;
+  int _pickerRevision = 0;
 
   TrackingMode _currentTrackingMode = TrackingMode.off;
 
@@ -73,6 +92,61 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
 
   void setJourneyMapRendererProxy(api.MapRendererProxy? proxy) {
     setState(() => _journeyMapRendererProxy = proxy);
+  }
+
+  Future<void> _openJourneyDetails(JourneyHeader journey) async {
+    if (_isLoadingJourney || _selectedJourney != null) return;
+    final generation = ++_journeyLoadGeneration;
+    setState(() => _isLoadingJourney = true);
+    try {
+      final rendererAndBounds = await api.getMapRendererProxyForJourney(
+        journeyId: journey.id,
+      );
+      if (!mounted ||
+          widget.mode != MapMode.journeys ||
+          generation != _journeyLoadGeneration) {
+        return;
+      }
+      setState(() {
+        _selectedJourney = journey;
+        _selectedJourneyRendererProxy = rendererAndBounds.$1;
+        _selectedJourneyBounds = rendererAndBounds.$2;
+      });
+      widget.onAppChromeVisibilityChanged?.call(false);
+    } catch (error, stackTrace) {
+      log.error('Loading journey map failed: $error', stackTrace);
+      if (!mounted || generation != _journeyLoadGeneration) return;
+      await showCommonDialog(
+        context,
+        context.tr('journey.editor.operation_failed'),
+      );
+    } finally {
+      if (mounted && generation == _journeyLoadGeneration) {
+        setState(() => _isLoadingJourney = false);
+      }
+    }
+  }
+
+  void _updateSelectedJourneyMap(
+    api.MapRendererProxy proxy,
+    MapBounds? bounds,
+  ) {
+    if (!mounted || _selectedJourney == null) return;
+    setState(() {
+      _selectedJourneyRendererProxy = proxy;
+      _selectedJourneyBounds = bounds;
+    });
+  }
+
+  void closeJourneyDetail() {
+    if (_selectedJourney == null) return;
+    setState(() {
+      _selectedJourney = null;
+      _selectedJourneyRendererProxy = null;
+      _selectedJourneyBounds = null;
+      _pickerRevision++;
+    });
+    widget.onAppChromeVisibilityChanged?.call(true);
   }
 
   Future<void> _syncTrackingModeWithGpsManager() async {
@@ -125,6 +199,19 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
   void didUpdateWidget(covariant MapBody oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.mode == widget.mode) return;
+    if (oldWidget.mode == MapMode.journeys) {
+      _journeyLoadGeneration++;
+      _isLoadingJourney = false;
+    }
+    if (widget.mode != MapMode.journeys && _selectedJourney != null) {
+      _selectedJourney = null;
+      _selectedJourneyRendererProxy = null;
+      _selectedJourneyBounds = null;
+      _pickerRevision++;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) widget.onAppChromeVisibilityChanged?.call(true);
+      });
+    }
     final gpsManager = Provider.of<GpsManager>(context, listen: false);
     if (widget.mode != MapMode.normal) {
       gpsManager.toggleMapTracking(false);
@@ -198,13 +285,30 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
     // After Time Machine date selection: reuse same WebView, only swap proxy;
     // didUpdateWidget triggers refreshMapData(), no full page reload.
     final proxy =
-        (widget.mode == MapMode.timeMachine && _journeyMapRendererProxy != null)
+        widget.mode == MapMode.journeys && _selectedJourneyRendererProxy != null
+        ? _selectedJourneyRendererProxy!
+        : (widget.mode == MapMode.timeMachine &&
+              _journeyMapRendererProxy != null)
         ? _journeyMapRendererProxy!
         : _mapRendererProxy;
+    final detailCardPadding =
+        MediaQuery.orientationOf(context) == Orientation.landscape
+        ? 190.0
+        : 330.0;
+    final journeyBounds = _selectedJourneyBounds;
     final mainMap = BaseMapWebview(
       key: _mainMapKey,
       mapRendererProxy: proxy,
       initialMapView: _roughMapView,
+      flyToBounds: widget.mode == MapMode.journeys ? journeyBounds : null,
+      flyToBoundsPadding: journeyBounds == null
+          ? null
+          : CapsuleStyleOverlayAppBar.mapFitPaddingForBottomOverlay(
+              context,
+              edgePadding: 28,
+              bottomOverlayHeight:
+                  detailCardPadding + MediaQuery.viewPaddingOf(context).bottom,
+            ),
       trackingMode: _effectiveTrackingMode,
       onRoughMapViewUpdate: (roughMapView) {
         _roughMapView = roughMapView;
@@ -239,7 +343,20 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
           onJourneyRangeLoaded: setJourneyMapRendererProxy,
         );
       case MapMode.journeys:
-        return const JourneyOverlay();
+        final selected = _selectedJourney;
+        return JourneyOverlay(
+          onJourneySelected: _openJourneyDetails,
+          isLoading: _isLoadingJourney,
+          refreshRevision: _pickerRevision,
+          detail: selected == null
+              ? null
+              : JourneyDetailOverlay(
+                  key: ValueKey(selected.id),
+                  journey: selected,
+                  onClose: closeJourneyDetail,
+                  onMapChanged: _updateSelectedJourneyMap,
+                ),
+        );
     }
   }
 

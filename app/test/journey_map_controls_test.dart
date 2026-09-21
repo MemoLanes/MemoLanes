@@ -5,24 +5,32 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:memolanes/body/journey/list/journey_layer_filter_menu.dart';
+import 'package:memolanes/body/journey/list/journey_list_calendar.dart';
 import 'package:memolanes/body/map/overlay/journey_detail_card.dart';
+import 'package:memolanes/body/map/overlay/journey_detail_overlay.dart';
 import 'package:memolanes/body/map/overlay/journey_more_dialog.dart';
 import 'package:memolanes/body/map/overlay/journey_overlay.dart';
 import 'package:memolanes/common/app_haptics.dart';
 import 'package:memolanes/common/app_translation_loader.dart';
 import 'package:memolanes/common/component/app_button.dart';
 import 'package:memolanes/common/component/common_dialog.dart';
+import 'package:memolanes/common/component/map_glass_back_button.dart';
+import 'package:memolanes/common/simple_date_utils.dart';
 import 'package:memolanes/src/rust/api/import.dart';
 import 'package:memolanes/src/rust/frb_generated.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
 import 'package:memolanes/theme/app_theme.dart';
+import 'package:memolanes/utils/nav_helper.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   const locale = Locale('en', 'US');
   const loader = AppTranslationLoader();
+  final originalWakelockPlatform = wakelockPlusPlatformInstance;
 
   setUpAll(() async {
+    wakelockPlusPlatformInstance = _TestWakelockPlatform();
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
           const MethodChannel('plugins.flutter.io/shared_preferences'),
@@ -65,17 +73,239 @@ void main() {
     journeyKind: JourneyKind.defaultKind,
     note: 'Original note',
   );
+  final mockApi = _JourneyListApi(journey);
 
-  setUpAll(() => RustLib.initMock(api: _JourneyListApi(journey)));
-  tearDownAll(RustLib.dispose);
+  setUpAll(() => RustLib.initMock(api: mockApi));
+  tearDownAll(() {
+    RustLib.dispose();
+    wakelockPlusPlatformInstance = originalWakelockPlatform;
+  });
 
   testWidgets('journey layer filter opens its menu', (tester) async {
-    await pumpApp(tester, const Scaffold(body: JourneyOverlay()));
+    await pumpApp(
+      tester,
+      Scaffold(
+        body: JourneyOverlay(
+          onJourneySelected: (_) async {},
+          isLoading: false,
+          refreshRevision: 0,
+        ),
+      ),
+    );
     final filter = find.byTooltip('All');
     expect(filter.hitTestable(), findsOneWidget);
     await tester.tap(filter);
     await tester.pumpAndSettle();
     expect(find.byType(JourneyLayerFilterMenu), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'journey calendar keeps its month through detail and resets on tab switch',
+    (tester) async {
+      var inJourneysTab = true;
+      var showingDetail = false;
+      var revision = 0;
+      late StateSetter updateHost;
+      await pumpApp(
+        tester,
+        StatefulBuilder(
+          builder: (context, setState) {
+            updateHost = setState;
+            return Scaffold(
+              body: inJourneysTab
+                  ? JourneyOverlay(
+                      onJourneySelected: (_) async {},
+                      isLoading: false,
+                      refreshRevision: revision,
+                      detail: showingDetail
+                          ? const ColoredBox(color: Colors.transparent)
+                          : null,
+                    )
+                  : const SizedBox.expand(),
+            );
+          },
+        ),
+      );
+
+      final calendar = tester.widget<JourneyListCalendar>(
+        find.byType(JourneyListCalendar),
+      );
+      final controller = calendar.controller;
+      await controller.displayMonth(SimpleDate(2023, 12, 1));
+      await tester.pumpAndSettle();
+      expect(controller.selectedDate.month, 12);
+
+      updateHost(() => showingDetail = true);
+      await tester.pumpAndSettle();
+      expect(find.byType(JourneyListCalendar), findsNothing);
+      expect(
+        find.byType(JourneyListCalendar, skipOffstage: false),
+        findsOneWidget,
+      );
+
+      updateHost(() {
+        showingDetail = false;
+        revision++;
+      });
+      await tester.pumpAndSettle();
+      final restored = tester.widget<JourneyListCalendar>(
+        find.byType(JourneyListCalendar),
+      );
+      expect(identical(restored.controller, controller), isTrue);
+      expect(restored.controller.selectedDate.month, 12);
+
+      updateHost(() => inJourneysTab = false);
+      await tester.pumpAndSettle();
+      updateHost(() => inJourneysTab = true);
+      await tester.pumpAndSettle();
+      final reopened = tester.widget<JourneyListCalendar>(
+        find.byType(JourneyListCalendar),
+      );
+      expect(identical(reopened.controller, controller), isFalse);
+      expect(reopened.controller.selectedDate.month, 11);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('editing hides back and cancel discards the draft', (
+    tester,
+  ) async {
+    var closed = false;
+    await pumpApp(
+      tester,
+      Scaffold(
+        body: JourneyDetailOverlay(
+          journey: journey,
+          onClose: () => closed = true,
+          onMapChanged: (_, _) {},
+        ),
+      ),
+    );
+
+    expect(find.byType(MapGlassBackButton), findsOneWidget);
+    await tester.tap(find.text('Edit'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Edit Journey Information'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(MapGlassBackButton), findsNothing);
+    expect(find.text('Cancel'), findsOneWidget);
+    expect(find.text('Save'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), 'Unsaved draft');
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(MapGlassBackButton), findsOneWidget);
+    expect(find.text('Original note'), findsOneWidget);
+    expect(find.text('Unsaved draft'), findsNothing);
+    expect(closed, isFalse);
+
+    await tester.tap(find.text('Edit'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Edit Journey Information'));
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller!.text,
+      'Original note',
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('saving journey information requires confirmation', (
+    tester,
+  ) async {
+    mockApi.savedMetadata.clear();
+    await pumpApp(
+      tester,
+      Scaffold(
+        body: JourneyDetailOverlay(
+          journey: journey,
+          onClose: () {},
+          onMapChanged: (_, _) {},
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Edit'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Edit Journey Information'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'Confirmed note');
+    await tester.tap(find.text('Save'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('Do you want to save the changes?'), findsOneWidget);
+    expect(mockApi.savedMetadata, isEmpty);
+    invokeConfirmationAction(tester, 'Cancel');
+    await tester.pumpAndSettle();
+    expect(find.text('Confirmed note'), findsOneWidget);
+    expect(find.byType(TextField), findsOneWidget);
+    expect(mockApi.savedMetadata, isEmpty);
+
+    await tester.tap(find.text('Save'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    invokeConfirmationAction(tester, 'OK');
+    await tester.pumpAndSettle();
+    expect(mockApi.savedMetadata.single.note, 'Confirmed note');
+    expect(find.byType(TextField), findsNothing);
+    expect(find.text('Confirmed note'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('system back cancels editing before closing journey detail', (
+    tester,
+  ) async {
+    var closed = false;
+    var showingDetail = true;
+    late StateSetter updateHost;
+
+    await pumpApp(
+      tester,
+      StatefulBuilder(
+        builder: (context, setState) {
+          updateHost = setState;
+          return PopScope(
+            canPop: false,
+            onPopInvokedWithResult: (didPop, result) {
+              if (!didPop) handleHomeBack();
+            },
+            child: Scaffold(
+              body: showingDetail
+                  ? JourneyDetailOverlay(
+                      journey: journey,
+                      onClose: () {
+                        closed = true;
+                        updateHost(() => showingDetail = false);
+                      },
+                      onMapChanged: (_, _) {},
+                    )
+                  : const SizedBox.expand(),
+            ),
+          );
+        },
+      ),
+    );
+
+    await tester.tap(find.text('Edit'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Edit Journey Information'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'Unsaved draft');
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(closed, isFalse);
+    expect(find.byType(MapGlassBackButton), findsOneWidget);
+    expect(find.text('Original note'), findsOneWidget);
+    expect(find.text('Unsaved draft'), findsNothing);
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(closed, isTrue);
+    expect(handleHomeBack(), isFalse);
     expect(tester.takeException(), isNull);
   });
 
@@ -108,6 +338,7 @@ void main() {
                       onExport: () {},
                       onEdit: () {},
                       onMore: () {},
+                      onCancel: () {},
                       onSave: (info) async => saved.add(info),
                     ),
                   ),
@@ -148,6 +379,7 @@ void main() {
           onExport: () {},
           onEdit: () {},
           onMore: () {},
+          onCancel: () {},
           onSave: (info) async {
             saved.add(info);
             await saveFinished.future;
@@ -181,6 +413,7 @@ void main() {
           onExport: () {},
           onEdit: () {},
           onMore: () {},
+          onCancel: () {},
           onSave: (info) async {
             saved.add(info);
             if (saved.length == 1) throw StateError('Storage unavailable');
@@ -230,6 +463,7 @@ void main() {
                 onExport: () {},
                 onEdit: () {},
                 onMore: () {},
+                onCancel: () {},
                 onSave: (info) async => saved.add(info),
               ),
             ),
@@ -374,6 +608,31 @@ class _JourneyListApi extends Fake implements RustLibApi {
   _JourneyListApi(this.journey);
 
   final JourneyHeader journey;
+  final List<JourneyInfo> savedMetadata = [];
+
+  @override
+  Future<void> crateApiApiUpdateJourneyMetadata({
+    required String id,
+    required JourneyInfo journeyInfo,
+  }) async {
+    savedMetadata.add(journeyInfo);
+  }
+
+  @override
+  Future<JourneyHeader?> crateApiApiGetJourneyHeader({
+    required String journeyId,
+  }) async {
+    final latest = savedMetadata.isEmpty ? null : savedMetadata.last;
+    return JourneyHeader(
+      id: journey.id,
+      revision: latest == null ? journey.revision : 'updated',
+      journeyDate: journey.journeyDate,
+      createdAt: journey.createdAt,
+      journeyType: journey.journeyType,
+      journeyKind: latest?.journeyKind ?? journey.journeyKind,
+      note: latest?.note ?? journey.note,
+    );
+  }
 
   @override
   Future<DateTime?> crateApiApiEarliestJourneyDate() async =>
@@ -391,4 +650,12 @@ class _JourneyListApi extends Fake implements RustLibApi {
     required int day,
     Set<JourneyKind>? journeyKinds,
   }) async => [journey];
+}
+
+class _TestWakelockPlatform extends WakelockPlusMacOSPlugin {
+  @override
+  Future<void> toggle({required bool enable}) async {}
+
+  @override
+  Future<bool> get enabled async => false;
 }

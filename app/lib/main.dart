@@ -132,6 +132,7 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   int _selectedIndex = 0;
+  bool _appChromeVisible = true;
   DateTime? _lastExitPopAt;
 
   Future<void>? _achievementLib;
@@ -182,6 +183,8 @@ class _MyHomePageState extends State<MyHomePage> {
   Future<void> _handleOnPop() async {
     if (GlobalLoadingManager.instance.isLoading) return;
 
+    if (handleHomeBack()) return;
+
     if (_selectedIndex != 0) {
       setState(() => _selectedIndex = 0);
       return;
@@ -208,6 +211,11 @@ class _MyHomePageState extends State<MyHomePage> {
         value: AppTheme.mapSystemOverlayStyle(Theme.of(context)),
         child: MapBody(
           key: _mapBodyKey,
+          onAppChromeVisibilityChanged: (visible) {
+            if (mounted && _appChromeVisible != visible) {
+              setState(() => _appChromeVisible = visible);
+            }
+          },
           mode: switch (_selectedIndex) {
             0 => MapMode.normal,
             1 => MapMode.timeMachine,
@@ -278,42 +286,43 @@ class _MyHomePageState extends State<MyHomePage> {
                 ),
               ),
             ),
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: Padding(
-                padding: EdgeInsets.only(
-                  left: horizontalSafeArea,
-                  right: horizontalSafeArea,
-                  bottom: navBarBottomInset,
-                ),
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: SizedBox(
-                    width:
-                        mediaQuery.size.width -
-                        BottomNavBar.designHorizontalMargin * 2,
-                    height: BottomNavBar.height,
-                    // TODO: Remove this iOS PlatformView composition workaround
-                    // once Flutter #190003 is included in the stable SDK:
-                    // https://github.com/flutter/flutter/pull/190003
-                    child: PointerInterceptor(
-                      intercepting: Platform.isIOS,
-                      child: BottomNavBar(
-                        selectedIndex: _selectedIndex,
-                        onIndexChanged: (index) =>
-                            setState(() => _selectedIndex = index),
-                        hasUpdateNotification: context
-                            .watch<UpdateNotifier>()
-                            .hasUpdateNotification,
+            if (_appChromeVisible)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: Padding(
+                  padding: EdgeInsets.only(
+                    left: horizontalSafeArea,
+                    right: horizontalSafeArea,
+                    bottom: navBarBottomInset,
+                  ),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: SizedBox(
+                      width:
+                          mediaQuery.size.width -
+                          BottomNavBar.designHorizontalMargin * 2,
+                      height: BottomNavBar.height,
+                      // TODO: Remove this iOS PlatformView composition workaround
+                      // once Flutter #190003 is included in the stable SDK:
+                      // https://github.com/flutter/flutter/pull/190003
+                      child: PointerInterceptor(
+                        intercepting: Platform.isIOS,
+                        child: BottomNavBar(
+                          selectedIndex: _selectedIndex,
+                          onIndexChanged: (index) =>
+                              setState(() => _selectedIndex = index),
+                          hasUpdateNotification: context
+                              .watch<UpdateNotifier>()
+                              .hasUpdateNotification,
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
-            if (_selectedIndex <= 2)
+            if (_selectedIndex <= 2 && _appChromeVisible)
               Positioned(
                 right: mediaQuery.viewPadding.right + mapCopyrightTrailingGap,
                 bottom:

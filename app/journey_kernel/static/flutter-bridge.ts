@@ -11,6 +11,21 @@
 import * as maplibregl from "maplibre-gl";
 import { MapController } from "./map-controller";
 import { LocationFollowController } from "./location-follow-controller";
+import { MAX_MAP_ZOOM } from "./layer-config";
+
+interface MapBounds {
+  west: number;
+  south: number;
+  east: number;
+  north: number;
+}
+
+interface MapPadding {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+}
 
 // Type definitions for Flutter message channels
 interface FlutterMessageChannel {
@@ -33,6 +48,7 @@ declare global {
     ) => void;
     getCurrentMapView?: () => string;
     refreshMapData?: () => Promise<boolean | null>;
+    flyToBounds?: (bounds: MapBounds, padding: MapPadding) => void;
   }
 }
 
@@ -176,6 +192,19 @@ export class FlutterBridge {
 
     // Refresh map data - allows Flutter to trigger a data refresh
     window.refreshMapData = () => this.mapController.refreshMapData();
+
+    // Focus a journey within the visible area above its Flutter detail card.
+    window.flyToBounds = (bounds, padding) => {
+      // MapLibre's initial-bounds path calls fitBounds with the same padding
+      // and zoom cap. fitBounds calculates the camera, then calls flyTo.
+      this.map.fitBounds(
+        [
+          [bounds.west, bounds.south],
+          [bounds.east, bounds.north],
+        ],
+        { padding, maxZoom: MAX_MAP_ZOOM, duration: 900, essential: true },
+      );
+    };
   }
 
   /**

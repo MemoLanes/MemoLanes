@@ -8,6 +8,22 @@ import 'package:memolanes/common/service/permission_service.dart';
 /// Root [Navigator] key shared across the app (dialogs, permission flow, share handler).
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
+final Map<Object, VoidCallback> _homeBackHandlers = {};
+
+/// Register a handler for system back on the home route. The latest mounted
+/// handler runs first; dispose the returned registration when its owner exits.
+VoidCallback registerHomeBackHandler(VoidCallback handler) {
+  final token = Object();
+  _homeBackHandlers[token] = handler;
+  return () => _homeBackHandlers.remove(token);
+}
+
+bool handleHomeBack() {
+  if (_homeBackHandlers.isEmpty) return false;
+  _homeBackHandlers.values.last();
+  return true;
+}
+
 /// Unified navigation helpers.
 ///
 /// All helpers here wrap the destination page with [GlobalPopScope] so that

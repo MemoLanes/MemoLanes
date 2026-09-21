@@ -39,6 +39,8 @@ class BaseMapWebview extends StatefulWidget {
   final MapView? initialMapView;
   final MapBounds? initialMapBounds;
   final EdgeInsets? initialMapBoundsPadding;
+  final MapBounds? flyToBounds;
+  final EdgeInsets? flyToBoundsPadding;
   final TrackingMode trackingMode;
   final bool isEditor;
   final void Function()? onMapMoved;
@@ -52,6 +54,8 @@ class BaseMapWebview extends StatefulWidget {
     this.initialMapView,
     this.initialMapBounds,
     this.initialMapBoundsPadding,
+    this.flyToBounds,
+    this.flyToBoundsPadding,
     this.trackingMode = TrackingMode.off,
     this.isEditor = false,
     this.onMapMoved,
@@ -74,6 +78,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   late GpsManager _gpsManager;
   bool _readyForDisplay = false;
   bool _webGlRecoveryReloadInProgress = false;
+  bool _pendingMapDataSync = false;
   final List<DateTime> _webGlRecoveryReloads = [];
 
   late MapStyle _selectedMapStyle;
@@ -106,9 +111,49 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
       }
     }
 
-    // Refresh map data when the renderer proxy changes
-    if (oldWidget.mapRendererProxy != widget.mapRendererProxy) {
-      _refreshMapData();
+    if (oldWidget.mapRendererProxy != widget.mapRendererProxy ||
+        oldWidget.flyToBounds != widget.flyToBounds) {
+      unawaited(_syncMapDataAndCamera());
+    }
+  }
+
+  /// Switch the renderer data and move the existing MapLibre map to a journey.
+  /// The WebView and its WebGL context stay mounted throughout the transition.
+  Future<void> _syncMapDataAndCamera() async {
+    final controller = _webViewController;
+    if (!mounted || controller == null || !_readyForDisplay) {
+      _pendingMapDataSync = true;
+      return;
+    }
+    _pendingMapDataSync = false;
+    final bounds = widget.flyToBounds;
+    final padding = widget.flyToBoundsPadding ?? const EdgeInsets.all(24);
+    final boundsJson = bounds == null
+        ? 'null'
+        : jsonEncode({
+            'west': bounds.west,
+            'south': bounds.south,
+            'east': bounds.east,
+            'north': bounds.north,
+          });
+    final paddingJson = jsonEncode({
+      'top': padding.top,
+      'right': padding.right,
+      'bottom': padding.bottom,
+      'left': padding.left,
+    });
+    try {
+      await controller.evaluateJavascript(
+        source:
+            '''
+        if (typeof refreshMapData === 'function') refreshMapData();
+        if ($boundsJson !== null && typeof flyToBounds === 'function') {
+          flyToBounds($boundsJson, $paddingJson);
+        }
+      ''',
+      );
+    } catch (error, stackTrace) {
+      log.error('[base_map_webview] Map data sync failed: $error', stackTrace);
     }
   }
 
@@ -220,6 +265,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
             _setStateIfMounted(() {
               _readyForDisplay = true;
             });
+            if (_pendingMapDataSync) unawaited(_syncMapDataAndCamera());
             if (recoveredAfterReload) {
               log.info(
                 '[base_map_webview] WebGL context recovered after WebView reload',
@@ -308,9 +354,11 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     final lngParam = mapView?.lng.toString() ?? 'null';
     final latParam = mapView?.lat.toString() ?? 'null';
     final zoomParam = mapView?.zoom.toString() ?? 'null';
-    final bounds = widget.initialMapBounds;
+    final bounds = widget.flyToBounds ?? widget.initialMapBounds;
     final boundsPadding =
-        widget.initialMapBoundsPadding ?? const EdgeInsets.all(24);
+        widget.flyToBoundsPadding ??
+        widget.initialMapBoundsPadding ??
+        const EdgeInsets.all(24);
 
     debugPrint('Injecting lng: $lngParam');
     debugPrint('Injecting lat: $latParam');

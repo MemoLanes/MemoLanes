@@ -187,6 +187,7 @@ class JourneyDetailCard extends StatefulWidget {
     required this.onExport,
     required this.onEdit,
     required this.onMore,
+    required this.onCancel,
     required this.onSave,
   });
 
@@ -195,6 +196,7 @@ class JourneyDetailCard extends StatefulWidget {
   final VoidCallback onExport;
   final VoidCallback onEdit;
   final VoidCallback onMore;
+  final VoidCallback onCancel;
   final Future<void> Function(JourneyInfo journeyInfo) onSave;
 
   @override
@@ -222,7 +224,7 @@ class _JourneyDetailCardState extends State<JourneyDetailCard> {
   @override
   void didUpdateWidget(covariant JourneyDetailCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if ((!oldWidget.isEditing && widget.isEditing) ||
+    if (oldWidget.isEditing != widget.isEditing ||
         (oldWidget.journey.revision != widget.journey.revision &&
             !widget.isEditing)) {
       _resetFields();
@@ -455,20 +457,31 @@ class _JourneyDetailCardState extends State<JourneyDetailCard> {
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 220),
             child: isEditing
-                ? Center(
+                ? Row(
                     key: const ValueKey('save-journey-information'),
-                    child: SizedBox(
-                      width: 180,
-                      child: AppButton(
-                        size: AppButtonSize.compact,
-                        expand: true,
-                        icon: Icons.check_rounded,
-                        label: context.tr('common.save'),
-                        variant: AppButtonVariant.primary,
-                        onPressed: _saving ? null : _save,
-                        loading: _saving,
+                    children: [
+                      Expanded(
+                        child: AppButton(
+                          size: AppButtonSize.compact,
+                          expand: true,
+                          label: context.tr('common.cancel'),
+                          variant: AppButtonVariant.secondary,
+                          onPressed: _saving ? null : widget.onCancel,
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: AppButton(
+                          size: AppButtonSize.compact,
+                          expand: true,
+                          icon: Icons.check_rounded,
+                          label: context.tr('common.save'),
+                          variant: AppButtonVariant.primary,
+                          onPressed: _saving ? null : _save,
+                          loading: _saving,
+                        ),
+                      ),
+                    ],
                   )
                 : Row(
                     key: const ValueKey('journey-actions'),
