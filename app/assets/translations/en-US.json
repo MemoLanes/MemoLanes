@@ -50,6 +50,7 @@
     "save": "Save",
     "share": "Share",
     "export": "Export",
+    "more": "More",
     "edit": "Edit",
     "delete": "Delete",
     "reset": "Reset",
@@ -68,6 +69,8 @@
     "exit": "Exit"
   },
   "journey": {
+    "picker_title": "Choose a journey",
+    "picker_subtitle": "Choose a date, then select a journey to view or edit",
     "editor_overview_title": "Edit journeys",
     "records_title": "Journeys on this day",
     "editor": {

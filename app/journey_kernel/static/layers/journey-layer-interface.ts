@@ -15,6 +15,12 @@ export const JOURNEY_LAYER_ID = "memolanes-journey-layer";
  */
 export interface JourneyLayer {
   /**
+   * Whether the current content can be safely revealed after a map render.
+   * Each renderer owns its readiness criteria; this need not wait for all data.
+   */
+  isReadyForDisplay(): boolean;
+
+  /**
    * Initialize the layer and add it to the map.
    * This method should be called after the layer is constructed.
    */

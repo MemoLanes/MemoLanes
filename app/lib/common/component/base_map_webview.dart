@@ -67,6 +67,8 @@ class BaseMapWebview extends StatefulWidget {
 class BaseMapWebviewState extends State<BaseMapWebview> {
   static const _webGlRecoveryWindow = Duration(minutes: 1);
   static const _maxWebGlRecoveryReloads = 2;
+  static const _androidApiEndpoint = 'https://memolanes.local/api';
+  static const _androidApiRequestPrefix = '$_androidApiEndpoint/';
 
   InAppWebViewController? _webViewController;
   late GpsManager _gpsManager;
@@ -316,7 +318,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
 
     final cgiEndpoint = Platform.isIOS
         ? 'memolanes://api'
-        : 'https://memolanes.local/api';
+        : _androidApiEndpoint;
 
     final style = _selectedMapStyle;
     final fogStyle = _selectedMapFogStyle;
@@ -522,6 +524,8 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
             allowFileAccessFromFileURLs: true,
             allowUniversalAccessFromFileURLs: true,
             resourceCustomSchemes: ['memolanes'],
+            // Skip the Android → Dart round trip for ordinary map resources.
+            shouldInterceptRequestUrlPrefixes: [_androidApiRequestPrefix],
             webViewAssetLoader: MapWebViewAssets.createAssetLoader(),
           ),
           onWebViewCreated: (controller) {
@@ -549,7 +553,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
           shouldInterceptRequest: (controller, request) async {
             if (!mounted) return null;
             final url = request.url.toString();
-            if (!url.startsWith('https://memolanes.local/api/')) {
+            if (!url.startsWith(_androidApiRequestPrefix)) {
               return null;
             }
             final result = await _handleInterceptedRequest(request.url);
