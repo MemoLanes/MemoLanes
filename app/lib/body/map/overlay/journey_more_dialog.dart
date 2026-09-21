@@ -5,7 +5,7 @@ import 'package:memolanes/common/component/app_dialog.dart';
 import 'package:memolanes/common/utils.dart';
 
 // The delete result is returned only after the user confirms deletion.
-enum JourneyMoreAction { delete, copy }
+enum JourneyMoreAction { delete }
 
 Future<JourneyMoreAction?> showJourneyMoreDialog(BuildContext context) {
   return showAppDialog<JourneyMoreAction>(
@@ -45,15 +45,6 @@ Future<JourneyMoreAction?> showJourneyMoreDialog(BuildContext context) {
                   popCurrentRoute(dialogContext, JourneyMoreAction.delete);
                 }
               },
-            ),
-            const SizedBox(height: 8),
-            AppButton(
-              expand: true,
-              icon: Icons.copy_rounded,
-              label: dialogContext.tr('journey.copy_journey'),
-              variant: AppButtonVariant.secondary,
-              onPressed: () =>
-                  popCurrentRoute(dialogContext, JourneyMoreAction.copy),
             ),
           ],
         ),

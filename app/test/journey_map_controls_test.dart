@@ -110,27 +110,6 @@ void main() {
     expect(find.text('Included'), findsOneWidget);
   });
 
-  testWidgets('more offers copying a journey', (tester) async {
-    final results = <JourneyMoreAction?>[];
-    await pumpApp(
-      tester,
-      Builder(
-        builder: (context) => Scaffold(
-          body: TextButton(
-            onPressed: () async =>
-                results.add(await showJourneyMoreDialog(context)),
-            child: const Text('Open'),
-          ),
-        ),
-      ),
-    );
-    await tester.tap(find.text('Open'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Copy Journey'));
-    await tester.pumpAndSettle();
-    expect(results, [JourneyMoreAction.copy]);
-  });
-
   for (final width in [320.0, 360.0]) {
     testWidgets('compact journey picker fits a $width px screen', (
       tester,
