@@ -114,7 +114,6 @@
     "journey_info_edit_page_title": "编辑旅程信息",
     "import_mldx_data": "导入 MLDX 数据",
     "import_fog_of_world_data": "导入 世界迷雾 数据",
-    "export_raw_data": "导出原始数据",
     "export_raw_data_csv": "CSV 原始数据（*.csv）",
     "export_raw_data_csv_desc": "保留记录的全部原始 GPS 字段。",
     "export_raw_data_gpx": "GPX 原始数据（*.gpx）",

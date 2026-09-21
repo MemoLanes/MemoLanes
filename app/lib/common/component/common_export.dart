@@ -139,6 +139,7 @@ Future<void> showCommonExportWithFormatPicker({
   required List<CommonExportFormatGroup> formatGroups,
   required CommonExportFileBuilder exportFile,
   CommonExportFormat? defaultFormat,
+  bool canIncludeRawData = true,
   bool deleteFile = true,
 }) async {
   assert(formatGroups.isNotEmpty);
@@ -157,6 +158,7 @@ Future<void> showCommonExportWithFormatPicker({
       title: title,
       formatGroups: formatGroups,
       initialFormat: initialFormat,
+      canIncludeRawData: canIncludeRawData,
     ),
   );
 
@@ -282,11 +284,13 @@ class _ExportFormatDialog extends StatefulWidget {
     required this.title,
     required this.formatGroups,
     required this.initialFormat,
+    required this.canIncludeRawData,
   });
 
   final String title;
   final List<CommonExportFormatGroup> formatGroups;
   final CommonExportFormat initialFormat;
+  final bool canIncludeRawData;
 
   @override
   State<_ExportFormatDialog> createState() => _ExportFormatDialogState();
@@ -308,13 +312,11 @@ class _ExportFormatDialogState extends State<_ExportFormatDialog> {
     );
     if (_selectedGroupIndex < 0) _selectedGroupIndex = 0;
     _selectedFormat = widget.initialFormat;
-    _includeRawData = _selectedFormat == CommonExportFormat.mldx;
   }
 
   void _selectFormat(CommonExportFormat value) {
     setState(() {
       _selectedFormat = value;
-      _includeRawData = value == CommonExportFormat.mldx;
     });
   }
 
@@ -322,7 +324,6 @@ class _ExportFormatDialogState extends State<_ExportFormatDialog> {
     setState(() {
       _selectedGroupIndex = selection.first;
       _selectedFormat = _selectedGroup.formats.first;
-      _includeRawData = _selectedFormat == CommonExportFormat.mldx;
     });
   }
 
@@ -330,7 +331,10 @@ class _ExportFormatDialogState extends State<_ExportFormatDialog> {
     Navigator.of(context).pop(
       CommonExportSelection(
         format: _selectedFormat,
-        includeRawData: _includeRawData,
+        includeRawData:
+            widget.canIncludeRawData &&
+            _selectedFormat == CommonExportFormat.mldx &&
+            _includeRawData,
       ),
     );
   }
@@ -385,7 +389,8 @@ class _ExportFormatDialogState extends State<_ExportFormatDialog> {
   }
 
   Widget _buildRawDataToggle() {
-    if (_selectedFormat != CommonExportFormat.mldx) {
+    if (!widget.canIncludeRawData ||
+        _selectedFormat != CommonExportFormat.mldx) {
       return const SizedBox.shrink();
     }
 

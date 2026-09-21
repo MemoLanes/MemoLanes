@@ -125,12 +125,21 @@ class _JourneyMapDetailPageState extends State<JourneyMapDetailPage> {
     );
     if (!confirmed || !mounted) return;
 
-    await GlobalLoadingManager.instance.runWithLoading(
-      () => api.deleteJourneyRawData(journeyId: _journey.id),
-      blockNavigation: true,
-    );
-    if (!mounted) return;
-    await _refreshJourney(refreshMap: false);
+    try {
+      await GlobalLoadingManager.instance.runWithLoading(
+        () => api.deleteJourneyRawData(journeyId: _journey.id),
+        blockNavigation: true,
+      );
+      if (!mounted) return;
+      await _refreshJourney(refreshMap: false);
+    } catch (error, stackTrace) {
+      log.error('Deleting journey raw data failed: $error', stackTrace);
+      if (!mounted) return;
+      await showCommonDialog(
+        context,
+        context.tr('journey.editor.operation_failed'),
+      );
+    }
   }
 
   Future<void> _showMore() async {

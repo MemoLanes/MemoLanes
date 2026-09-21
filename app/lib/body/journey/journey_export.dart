@@ -65,6 +65,7 @@ Future<void> showJourneyExportPicker(
   await showCommonExportWithFormatPicker(
     context: context,
     title: context.tr('data.export_data.export_journey_title'),
+    canIncludeRawData: hasRawData,
     formatGroups: [
       CommonExportFormatGroup(
         label: context.tr('data.export_data.journey_data_group'),
