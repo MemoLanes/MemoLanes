@@ -204,13 +204,16 @@ class _MyHomePageState extends State<MyHomePage> {
   Widget _buildPageContent(double topSafeArea) {
     Widget child;
     if (_selectedIndex <= 2) {
-      child = MapBody(
-        key: _mapBodyKey,
-        mode: switch (_selectedIndex) {
-          0 => MapMode.normal,
-          1 => MapMode.timeMachine,
-          _ => MapMode.journeys,
-        },
+      child = AnnotatedRegion<SystemUiOverlayStyle>(
+        value: AppTheme.mapSystemOverlayStyle(Theme.of(context)),
+        child: MapBody(
+          key: _mapBodyKey,
+          mode: switch (_selectedIndex) {
+            0 => MapMode.normal,
+            1 => MapMode.timeMachine,
+            _ => MapMode.journeys,
+          },
+        ),
       );
     } else {
       child = KeyedSubtree(

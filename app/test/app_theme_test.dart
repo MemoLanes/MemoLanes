@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:memolanes/common/app_theme_controller.dart';
 import 'package:memolanes/common/app_translation_loader.dart';
 import 'package:memolanes/main.dart';
+import 'package:memolanes/theme/app_theme.dart';
 import 'package:provider/provider.dart';
 
 void main() {
@@ -48,6 +49,29 @@ void main() {
     expect(controller.themeMode, ThemeMode.light);
     controller.setPreference(AppThemePreference.dark);
     expect(controller.themeMode, ThemeMode.dark);
+  });
+
+  test('map status icons stay light without changing navigation bar style', () {
+    for (final theme in [AppTheme.light, AppTheme.dark]) {
+      final appStyle = theme.appBarTheme.systemOverlayStyle!;
+      final mapStyle = AppTheme.mapSystemOverlayStyle(theme);
+
+      expect(mapStyle.statusBarIconBrightness, Brightness.light);
+      expect(mapStyle.statusBarBrightness, Brightness.dark);
+      expect(mapStyle.statusBarColor, appStyle.statusBarColor);
+      expect(
+        mapStyle.systemNavigationBarColor,
+        appStyle.systemNavigationBarColor,
+      );
+      expect(
+        mapStyle.systemNavigationBarIconBrightness,
+        appStyle.systemNavigationBarIconBrightness,
+      );
+      expect(
+        mapStyle.systemNavigationBarDividerColor,
+        appStyle.systemNavigationBarDividerColor,
+      );
+    }
   });
 
   testWidgets(
