@@ -1,9 +1,9 @@
+import 'package:memolanes/theme/app_colors.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/common/component/capsule_style_app_bar.dart';
 import 'package:memolanes/common/loading_manager.dart';
 import 'package:memolanes/constants/app_typography.dart';
-import 'package:memolanes/constants/style_constants.dart';
 
 class ImportLoadingPage<T> extends StatefulWidget {
   const ImportLoadingPage({
@@ -68,7 +68,7 @@ class ImportLoadingScaffold extends StatelessWidget {
     return PopScope(
       canPop: false,
       child: Scaffold(
-        backgroundColor: StyleConstants.canvasColor,
+        backgroundColor: context.appColors.canvasColor,
         appBar: CapsuleStyleAppBar(title: context.tr('data.import_data.title')),
         body: SafeArea(
           top: false,
@@ -82,7 +82,7 @@ class ImportLoadingScaffold extends StatelessWidget {
                     Text(
                       context.tr('import.loading.title'),
                       style: AppTypography.surfaceTitle.copyWith(
-                        color: StyleConstants.inkColor,
+                        color: context.appColors.inkColor,
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -90,7 +90,7 @@ class ImportLoadingScaffold extends StatelessWidget {
                     Text(
                       context.tr('import.loading.description'),
                       style: AppTypography.body.copyWith(
-                        color: StyleConstants.mutedInkColor,
+                        color: context.appColors.mutedInkColor,
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -99,9 +99,9 @@ class ImportLoadingScaffold extends StatelessWidget {
                       width: double.infinity,
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: StyleConstants.surfaceColor,
+                        color: context.appColors.surfaceColor,
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: StyleConstants.lineColor),
+                        border: Border.all(color: context.appColors.lineColor),
                       ),
                       child: Row(
                         children: [
@@ -109,12 +109,12 @@ class ImportLoadingScaffold extends StatelessWidget {
                             width: 44,
                             height: 44,
                             decoration: BoxDecoration(
-                              color: StyleConstants.softGreen,
+                              color: context.appColors.softGreen,
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Icon(
                               Icons.description_outlined,
-                              color: StyleConstants.deepGreen,
+                              color: context.appColors.deepGreen,
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -127,14 +127,14 @@ class ImportLoadingScaffold extends StatelessWidget {
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: AppTypography.body.copyWith(
-                                    color: StyleConstants.inkColor,
+                                    color: context.appColors.inkColor,
                                   ),
                                 ),
                                 const SizedBox(height: 3),
                                 Text(
                                   fileExtension,
                                   style: AppTypography.caption.copyWith(
-                                    color: StyleConstants.mutedInkColor,
+                                    color: context.appColors.mutedInkColor,
                                   ),
                                 ),
                               ],
@@ -148,16 +148,16 @@ class ImportLoadingScaffold extends StatelessWidget {
                       width: double.infinity,
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: StyleConstants.surfaceColor,
+                        color: context.appColors.surfaceColor,
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: StyleConstants.lineColor),
+                        border: Border.all(color: context.appColors.lineColor),
                       ),
                       child: ClipRRect(
                         borderRadius: BorderRadius.all(Radius.circular(2)),
                         child: LinearProgressIndicator(
                           minHeight: 3,
-                          backgroundColor: StyleConstants.lineColor,
-                          color: StyleConstants.primaryGreen,
+                          backgroundColor: context.appColors.lineColor,
+                          color: context.appColors.primaryGreen,
                         ),
                       ),
                     ),
@@ -168,14 +168,14 @@ class ImportLoadingScaffold extends StatelessWidget {
                         Icon(
                           Icons.info_outline,
                           size: 16,
-                          color: StyleConstants.mutedInkColor,
+                          color: context.appColors.mutedInkColor,
                         ),
                         const SizedBox(width: 6),
                         Flexible(
                           child: Text(
                             context.tr('import.loading.keep_open_hint'),
                             style: AppTypography.caption.copyWith(
-                              color: StyleConstants.mutedInkColor,
+                              color: context.appColors.mutedInkColor,
                             ),
                             textAlign: TextAlign.center,
                           ),

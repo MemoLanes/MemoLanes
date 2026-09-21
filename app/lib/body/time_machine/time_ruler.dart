@@ -1,11 +1,12 @@
 import 'dart:async';
 
+import 'package:memolanes/theme/app_colors.dart';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:memolanes/body/time_machine/time_machine_glass_surface.dart';
 import 'package:memolanes/common/app_haptics.dart';
 import 'package:memolanes/constants/app_typography.dart';
-import 'package:memolanes/constants/style_constants.dart';
 
 /// Time dimension: year / month / day / any.
 enum TimeRulerMode { year, month, day, any }
@@ -529,7 +530,7 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
                       child: Container(
                         width: 2,
                         height: kRulerExtent,
-                        color: StyleConstants.journeyYellow,
+                        color: context.appColors.journeyYellow,
                       ),
                     ),
                   ),
@@ -555,16 +556,16 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
           width: 2,
           height: isSelected ? 10 : 6,
           color: isSelected
-              ? StyleConstants.deepGreen
-              : StyleConstants.mutedInkColor.withValues(alpha: 0.68),
+              ? context.appColors.deepGreen
+              : context.appColors.mutedInkColor.withValues(alpha: 0.68),
         ),
         SizedBox(height: isSelected ? 4 : 6),
         Text(
           label,
           style: AppTypography.micro.copyWith(
             color: isSelected
-                ? StyleConstants.deepGreen
-                : StyleConstants.deepGreen.withValues(alpha: 0.72),
+                ? context.appColors.deepGreen
+                : context.appColors.deepGreen.withValues(alpha: 0.72),
             fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
           ),
         ),

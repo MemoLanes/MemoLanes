@@ -1,3 +1,4 @@
+import 'package:memolanes/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/common/component/custom_popup.dart';
 import 'package:memolanes/common/component/liquid_glass_surface.dart';
@@ -16,15 +17,6 @@ class CapsuleBarConstants {
   static const double maxSafeTop = 80.0;
   static const double pillRadius = 18.0;
   static const double iconButtonSize = 36.0;
-
-  static Color get defaultForeground => StyleConstants.inkColor;
-  static Color get defaultPill => StyleConstants.surfaceColor;
-  static Color get defaultSubtitleFg => StyleConstants.mutedInkColor;
-  static Color get defaultBackground => StyleConstants.canvasColor;
-  static Color get barBorderColor => StyleConstants.lineColor;
-  static Color get barBorderColorLight => StyleConstants.lineColor;
-  static Color get lightPillBackground => StyleConstants.surfaceColor;
-  static Color get subtitleColorLight => StyleConstants.mutedInkColor;
 }
 
 /// Capsule-style bar content: back button, optional title pill, optional more button.
@@ -61,13 +53,20 @@ class CapsuleBarContent extends StatelessWidget {
   final CapsuleBarSurfaceStyle surfaceStyle;
   final bool showTitleBackground;
 
-  Color get _fg => foregroundColor ?? CapsuleBarConstants.defaultForeground;
-  Color get _pill => pillColor ?? CapsuleBarConstants.defaultPill;
-  Color get _subFg => subtitleFg ?? CapsuleBarConstants.defaultSubtitleFg;
+  Color _fg(BuildContext context) =>
+      foregroundColor ?? context.appColors.inkColor;
+  Color _pill(BuildContext context) =>
+      pillColor ?? context.appColors.surfaceColor;
+  Color _subFg(BuildContext context) =>
+      subtitleFg ?? context.appColors.mutedInkColor;
 
-  Widget _pillButton(Widget icon, VoidCallback? onPressed) {
+  Widget _pillButton(
+    BuildContext context,
+    Widget icon,
+    VoidCallback? onPressed,
+  ) {
     return Material(
-      color: _pill,
+      color: _pill(context),
       shape: const CircleBorder(),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -78,7 +77,7 @@ class CapsuleBarContent extends StatelessWidget {
           height: CapsuleBarConstants.iconButtonSize,
           child: Center(
             child: IconTheme.merge(
-              data: IconThemeData(color: _fg, size: 20),
+              data: IconThemeData(color: _fg(context), size: 20),
               child: icon,
             ),
           ),
@@ -87,7 +86,7 @@ class CapsuleBarContent extends StatelessWidget {
     );
   }
 
-  Widget _titleContent() {
+  Widget _titleContent(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.center,
@@ -95,7 +94,7 @@ class CapsuleBarContent extends StatelessWidget {
         if (title != null && title!.isNotEmpty)
           Text(
             title!,
-            style: AppTypography.subpageTitle.copyWith(color: _fg),
+            style: AppTypography.subpageTitle.copyWith(color: _fg(context)),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
@@ -104,7 +103,7 @@ class CapsuleBarContent extends StatelessWidget {
           const SizedBox(height: 1),
           Text(
             subtitle!,
-            style: AppTypography.micro.copyWith(color: _subFg),
+            style: AppTypography.micro.copyWith(color: _subFg(context)),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
@@ -114,8 +113,8 @@ class CapsuleBarContent extends StatelessWidget {
     );
   }
 
-  Widget _titlePill() {
-    final titleContent = _titleContent();
+  Widget _titlePill(BuildContext context) {
+    final titleContent = _titleContent(context);
     if (!showTitleBackground) return titleContent;
 
     if (surfaceStyle == CapsuleBarSurfaceStyle.mapGlass) {
@@ -141,7 +140,7 @@ class CapsuleBarContent extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
-        color: _pill,
+        color: _pill(context),
         borderRadius: BorderRadius.circular(CapsuleBarConstants.pillRadius),
       ),
       child: titleContent,
@@ -165,31 +164,34 @@ class CapsuleBarContent extends StatelessWidget {
               MapGlassBackButton(onPressed: onBackCallback)
             else
               _pillButton(
+                context,
                 const Icon(Icons.arrow_back_ios_new, size: 20),
                 onBackCallback,
               ),
             if (!showOnlyBackButton) ...[
               const SizedBox(width: 12),
-              Expanded(child: Center(child: _titlePill())),
+              Expanded(child: Center(child: _titlePill(context))),
               const SizedBox(width: 12),
               if (moreMenuContent != null)
                 CustomPopup(
                   position: PopupPosition.bottom,
                   contentRadius: StyleConstants.overlayFloatingRadius,
                   barrierColor: Colors.transparent,
-                  backgroundColor: _pill,
+                  backgroundColorBuilder: _pill,
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 8,
                     vertical: 4,
                   ),
                   content: PointerInterceptor(child: moreMenuContent!),
                   child: _pillButton(
+                    context,
                     moreIcon ?? const Icon(Icons.more_horiz, size: 24),
                     null,
                   ),
                 )
               else if (onMoreTap != null)
                 _pillButton(
+                  context,
                   moreIcon ?? const Icon(Icons.more_horiz, size: 24),
                   onMoreTap,
                 )

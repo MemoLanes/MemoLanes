@@ -1,3 +1,4 @@
+import 'package:memolanes/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/common/component/capsule_style_bar_content.dart';
 
@@ -37,17 +38,6 @@ class CapsuleStyleAppBar extends StatelessWidget
   Widget build(BuildContext context) {
     final padding = MediaQuery.paddingOf(context);
     final topInset = padding.top * 0.8;
-    final bg = backgroundColor ?? CapsuleBarConstants.defaultBackground;
-    final isLight = bg.computeLuminance() > 0.5;
-    final pillColor = isLight
-        ? CapsuleBarConstants.lightPillBackground
-        : CapsuleBarConstants.defaultPill;
-    final subtitleFg = isLight
-        ? CapsuleBarConstants.subtitleColorLight
-        : CapsuleBarConstants.defaultSubtitleFg;
-    final borderColor = isLight
-        ? CapsuleBarConstants.barBorderColorLight
-        : CapsuleBarConstants.barBorderColor;
 
     return Container(
       height:
@@ -55,8 +45,10 @@ class CapsuleStyleAppBar extends StatelessWidget
           CapsuleBarConstants.barContentHeight +
           CapsuleBarConstants.barBottomInset,
       decoration: BoxDecoration(
-        color: bg,
-        border: Border(bottom: BorderSide(color: borderColor, width: 0.5)),
+        color: backgroundColor ?? context.appColors.canvasColor,
+        border: Border(
+          bottom: BorderSide(color: context.appColors.lineColor, width: 0.5),
+        ),
       ),
       child: Padding(
         padding: EdgeInsets.only(
@@ -70,10 +62,9 @@ class CapsuleStyleAppBar extends StatelessWidget
           onBack: onBack,
           onMoreTap: onMoreTap,
           moreIcon: moreIcon,
-          foregroundColor:
-              foregroundColor ?? CapsuleBarConstants.defaultForeground,
-          pillColor: pillColor,
-          subtitleFg: subtitleFg,
+          foregroundColor: foregroundColor ?? context.appColors.inkColor,
+          pillColor: context.appColors.surfaceColor,
+          subtitleFg: context.appColors.mutedInkColor,
           showTitleBackground: showTitleBackground,
         ),
       ),

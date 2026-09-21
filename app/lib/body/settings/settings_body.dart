@@ -1,3 +1,4 @@
+import 'package:memolanes/theme/app_colors.dart';
 import 'package:badges/badges.dart' as badges;
 import 'package:easy_localization/easy_localization.dart';
 import 'package:file_picker/file_picker.dart';
@@ -8,7 +9,6 @@ import 'package:memolanes/body/settings/advanced_settings_page.dart';
 import 'package:memolanes/body/settings/import_data_page.dart';
 import 'package:memolanes/body/settings/interface_settings_page.dart';
 import 'package:memolanes/body/settings/map_settings_page.dart';
-import 'package:memolanes/common/app_theme_controller.dart';
 import 'package:memolanes/common/component/basic_dialog_card.dart';
 import 'package:memolanes/common/component/app_option_tile.dart';
 import 'package:memolanes/common/component/cards/option_card.dart';
@@ -102,9 +102,6 @@ class _SettingsBodyState extends State<SettingsBody> {
 
   @override
   Widget build(BuildContext context) {
-    // Settings cards read the shared palette directly, so explicitly rebuild
-    // this route when a nested settings page changes that palette.
-    context.watch<AppThemeController>();
     var updateUrl = context.watch<UpdateNotifier>().updateUrl;
     var gpsManager = context.watch<GpsManager>();
 
@@ -118,7 +115,7 @@ class _SettingsBodyState extends State<SettingsBody> {
         const SizedBox(height: 18),
         // TODO: Enable this when we have user system.
         // CircleAvatar(
-        //   backgroundColor: StyleConstants.primaryGreen,
+        //   backgroundColor: context.appColors.primaryGreen,
         //   radius: 45.0,
         // ),
         // Padding(
@@ -127,7 +124,7 @@ class _SettingsBodyState extends State<SettingsBody> {
         //     'Foo Bar',
         //     style: TextStyle(
         //       fontSize: 24.0,
-        //       color: StyleConstants.surfaceColor,
+        //       color: context.appColors.surfaceColor,
         //     ),
         //   ),
         // ),
@@ -146,12 +143,12 @@ class _SettingsBodyState extends State<SettingsBody> {
                         shape: badges.BadgeShape.square,
                         borderRadius: BorderRadius.circular(5),
                         padding: const EdgeInsets.all(2),
-                        badgeColor: StyleConstants.deepGreen,
+                        badgeColor: context.appColors.deepGreen,
                       ),
                       badgeContent: Text(
                         'NEW',
                         style: AppTypography.badge.copyWith(
-                          color: StyleConstants.inverseInkColor,
+                          color: context.appColors.inverseInkColor,
                         ),
                       ),
                       child: LabelTileContent(content: _version),
@@ -415,7 +412,7 @@ class _SettingsBodyState extends State<SettingsBody> {
           Text(
             context.tr("data.import_data.description"),
             style: AppTypography.supporting.copyWith(
-              color: StyleConstants.mutedInkColor,
+              color: dialogContext.appColors.mutedInkColor,
             ),
           ),
           const SizedBox(height: 12),
@@ -500,13 +497,17 @@ class _SettingsTileIcon extends StatelessWidget {
         width: 32,
         height: 32,
         decoration: BoxDecoration(
-          color: yellow ? StyleConstants.softYellow : StyleConstants.softGreen,
+          color: yellow
+              ? context.appColors.softYellow
+              : context.appColors.softGreen,
           borderRadius: BorderRadius.circular(10),
         ),
         child: Icon(
           icon,
           size: 17,
-          color: yellow ? StyleConstants.deepYellow : StyleConstants.deepGreen,
+          color: yellow
+              ? context.appColors.deepYellow
+              : context.appColors.deepGreen,
         ),
       ),
     );
@@ -522,7 +523,9 @@ class _SettingsPageHeader extends StatelessWidget {
       alignment: Alignment.centerLeft,
       child: Text(
         context.tr('settings.page_title'),
-        style: AppTypography.pageTitle.copyWith(color: StyleConstants.inkColor),
+        style: AppTypography.pageTitle.copyWith(
+          color: context.appColors.inkColor,
+        ),
       ),
     );
   }

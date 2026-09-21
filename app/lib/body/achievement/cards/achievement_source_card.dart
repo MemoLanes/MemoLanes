@@ -1,3 +1,4 @@
+import 'package:memolanes/theme/app_colors.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -6,9 +7,6 @@ import 'package:memolanes/common/component/cards/option_card.dart';
 import 'package:memolanes/common/journey_kind_visuals.dart';
 import 'package:memolanes/constants/index.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
-
-Color get _groundExploreColor => StyleConstants.deepGreen;
-Color get _flightExploreColor => StyleConstants.achievementGoldColor;
 
 class AchievementSourceCard extends StatelessWidget {
   const AchievementSourceCard({super.key, required this.stats});
@@ -34,7 +32,7 @@ class AchievementSourceCard extends StatelessWidget {
               Text(
                 context.tr('achievement.source.description'),
                 style: AppTypography.body.copyWith(
-                  color: StyleConstants.mutedInkColor,
+                  color: context.appColors.mutedInkColor,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -63,10 +61,10 @@ class _TotalAreaSummary extends StatelessWidget {
           ? const EdgeInsets.fromLTRB(12, 12, 12, 14)
           : const EdgeInsets.fromLTRB(16, 14, 16, 16),
       decoration: BoxDecoration(
-        color: StyleConstants.deepGreen.withValues(alpha: 0.045),
+        color: context.appColors.deepGreen.withValues(alpha: 0.045),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: StyleConstants.deepGreen.withValues(alpha: 0.12),
+          color: context.appColors.deepGreen.withValues(alpha: 0.12),
         ),
       ),
       child: Column(
@@ -77,14 +75,14 @@ class _TotalAreaSummary extends StatelessWidget {
             children: [
               Icon(
                 Icons.area_chart_rounded,
-                color: StyleConstants.deepGreen.withValues(alpha: 0.78),
+                color: context.appColors.deepGreen.withValues(alpha: 0.78),
                 size: 16,
               ),
               const SizedBox(width: 6),
               Text(
                 context.tr('achievement.overview.title'),
                 style: AppTypography.sectionLabel.copyWith(
-                  color: StyleConstants.mutedInkColor,
+                  color: context.appColors.mutedInkColor,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -119,7 +117,7 @@ class _TotalAreaNumber extends StatelessWidget {
             Text(
               area.value,
               style: TextStyle(
-                color: StyleConstants.deepGreen,
+                color: context.appColors.deepGreen,
                 fontSize: compact ? 46 : 52,
                 fontWeight: FontWeight.w900,
                 letterSpacing: 0,
@@ -132,7 +130,7 @@ class _TotalAreaNumber extends StatelessWidget {
               child: Text(
                 area.unit,
                 style: TextStyle(
-                  color: StyleConstants.deepGreen,
+                  color: context.appColors.deepGreen,
                   fontSize: compact ? 18 : 21,
                   fontWeight: FontWeight.w800,
                   height: 1,
@@ -171,7 +169,7 @@ class _SourceCardsRow extends StatelessWidget {
               unit: groundArea.unit,
               percentText: formatPercent(stats.groundShare),
               progress: stats.groundShare,
-              accent: _groundExploreColor,
+              accent: context.appColors.deepGreen,
             ),
           ),
           SizedBox(width: gap),
@@ -186,7 +184,7 @@ class _SourceCardsRow extends StatelessWidget {
               unit: flightArea.unit,
               percentText: formatPercent(stats.flightShare),
               progress: stats.flightShare,
-              accent: _flightExploreColor,
+              accent: context.appColors.achievementGoldColor,
             ),
           ),
         ],
@@ -397,7 +395,7 @@ class _PercentText extends StatelessWidget {
       overflow: TextOverflow.ellipsis,
       text: TextSpan(
         style: AppTypography.supporting.copyWith(
-          color: StyleConstants.mutedInkColor,
+          color: context.appColors.mutedInkColor,
           fontWeight: FontWeight.w600,
         ),
         children: [
@@ -467,7 +465,7 @@ class _PlusDivider extends StatelessWidget {
         children: [
           Positioned.fill(
             child: Center(
-              child: Container(width: 1, color: StyleConstants.lineColor),
+              child: Container(width: 1, color: context.appColors.lineColor),
             ),
           ),
           _PlusBubble(compact: compact),
@@ -490,13 +488,13 @@ class _PlusBubble extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: StyleConstants.softGreen,
+        color: context.appColors.softGreen,
         shape: BoxShape.circle,
-        border: Border.all(color: StyleConstants.lineColor),
+        border: Border.all(color: context.appColors.lineColor),
       ),
       child: Icon(
         Icons.add_rounded,
-        color: StyleConstants.deepGreen,
+        color: context.appColors.deepGreen,
         size: compact ? 16 : 21,
       ),
     );

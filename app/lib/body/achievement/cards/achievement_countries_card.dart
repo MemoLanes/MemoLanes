@@ -1,3 +1,4 @@
+import 'package:memolanes/theme/app_colors.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/body/achievement/achievement_region_list_page.dart';
@@ -6,11 +7,9 @@ import 'package:memolanes/common/achievement_stats_store.dart';
 import 'package:memolanes/common/component/cards/option_card.dart';
 import 'package:memolanes/common/region_preference.dart';
 import 'package:memolanes/constants/app_typography.dart';
-import 'package:memolanes/constants/style_constants.dart';
 import 'package:memolanes/utils/nav_helper.dart';
 import 'package:provider/provider.dart';
 
-Color get _countryGold => StyleConstants.achievementGoldColor;
 const _countriesGridColumnCount = 5;
 const _countryItemHeight = 82.0;
 const _countryRowSpacing = 6.0;
@@ -81,7 +80,7 @@ class _CountriesErrorCard extends StatelessWidget {
               Text(
                 context.tr('achievement.countries.error'),
                 style: AppTypography.body.copyWith(
-                  color: StyleConstants.mutedInkColor,
+                  color: context.appColors.mutedInkColor,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -132,7 +131,7 @@ class _CountriesHeader extends StatelessWidget {
                 icon: const Icon(Icons.arrow_forward_rounded, size: 16),
                 label: Text(context.tr('achievement.region_list.view_all')),
                 style: TextButton.styleFrom(
-                  foregroundColor: _countryGold,
+                  foregroundColor: context.appColors.achievementGoldColor,
                   textStyle: AppTypography.sectionLabel.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
@@ -154,7 +153,7 @@ class _CountriesHeader extends StatelessWidget {
             args: [count.toString()],
           ),
           style: AppTypography.body.copyWith(
-            color: StyleConstants.mutedInkColor,
+            color: context.appColors.mutedInkColor,
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -277,7 +276,7 @@ class _CountryNameText extends StatelessWidget {
       textAlign: TextAlign.center,
       maxLines: 2,
       overflow: TextOverflow.ellipsis,
-      style: AppTypography.micro.copyWith(color: StyleConstants.inkColor),
+      style: AppTypography.micro.copyWith(color: context.appColors.inkColor),
     );
   }
 }
@@ -293,7 +292,7 @@ class _CountriesEmptyState extends StatelessWidget {
         context.tr('achievement.countries.empty'),
         textAlign: TextAlign.center,
         style: AppTypography.supporting.copyWith(
-          color: StyleConstants.mutedInkColor,
+          color: context.appColors.mutedInkColor,
           fontWeight: FontWeight.w500,
         ),
       ),
@@ -390,7 +389,7 @@ class _SkeletonBlock extends StatelessWidget {
       alignment: alignment,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: StyleConstants.lineColor,
+          color: context.appColors.lineColor,
           borderRadius: BorderRadius.circular(radius),
         ),
         child: SizedBox(width: width, height: height),

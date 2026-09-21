@@ -1,6 +1,6 @@
+import 'package:memolanes/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/constants/app_typography.dart';
-import 'package:memolanes/constants/style_constants.dart';
 
 class LabelTileTitle extends StatelessWidget {
   const LabelTileTitle({super.key, required this.label});
@@ -16,7 +16,7 @@ class LabelTileTitle extends StatelessWidget {
         child: Text(
           label,
           style: AppTypography.sectionLabel.copyWith(
-            color: StyleConstants.deepGreen,
+            color: context.appColors.deepGreen,
           ),
           maxLines: 2,
           overflow: TextOverflow.ellipsis,

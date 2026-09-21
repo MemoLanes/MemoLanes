@@ -1,3 +1,4 @@
+import 'package:memolanes/theme/app_colors.dart';
 import 'package:calendar_date_picker2/calendar_date_picker2.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -6,7 +7,6 @@ import 'package:memolanes/common/component/app_button.dart';
 import 'package:memolanes/common/component/app_calendar_mode_picker.dart';
 import 'package:memolanes/common/component/app_dialog.dart';
 import 'package:memolanes/constants/app_typography.dart';
-import 'package:memolanes/constants/style_constants.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 
 /// Shows the compact calendar dialog shared by Journey and Time Machine.
@@ -25,8 +25,8 @@ Future<DateTime?> showAppDatePickerDialog(
 
   return showDialog<DateTime>(
     context: context,
-    barrierColor: StyleConstants.shadowColor.withValues(
-      alpha: StyleConstants.isDarkMode ? 0.58 : 0.2,
+    barrierColor: context.appColors.shadowColor.withValues(
+      alpha: context.appColors.pickerBarrierAlpha,
     ),
     builder: (_) => _AppDatePickerDialog(
       initialDate: initialDate,
@@ -104,13 +104,13 @@ class _AppDatePickerDialogState extends State<_AppDatePickerDialog> {
         decoration: selected
             ? BoxDecoration(
                 shape: BoxShape.circle,
-                color: StyleConstants.primaryGreen,
+                color: context.appColors.primaryGreen,
               )
             : showInitialDate
             ? BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: StyleConstants.primaryGreen,
+                  color: context.appColors.primaryGreen,
                   width: 2,
                 ),
               )
@@ -119,9 +119,7 @@ class _AppDatePickerDialogState extends State<_AppDatePickerDialog> {
           MaterialLocalizations.of(context).formatDecimal(date.day),
           style: selected
               ? AppTypography.caption.copyWith(
-                  color: StyleConstants.isDarkMode
-                      ? StyleConstants.onPrimaryActionColor
-                      : StyleConstants.inkColor,
+                  color: context.appColors.selectedCalendarInk,
                 )
               : textStyle,
         ),
@@ -134,7 +132,7 @@ class _AppDatePickerDialogState extends State<_AppDatePickerDialog> {
     final useCompactSpacing = MediaQuery.sizeOf(context).width < 380;
     final localizations = MaterialLocalizations.of(context);
     final controlsTextStyle = AppTypography.sectionLabel.copyWith(
-      color: StyleConstants.deepGreen,
+      color: context.appColors.deepGreen,
     );
     final config = CalendarDatePicker2Config(
       firstDate: widget.firstDate,
@@ -165,35 +163,29 @@ class _AppDatePickerDialogState extends State<_AppDatePickerDialog> {
       dynamicCalendarRows: true,
       disableVibration: true,
       daySplashColor: Colors.transparent,
-      selectedDayHighlightColor: StyleConstants.primaryGreen,
+      selectedDayHighlightColor: context.appColors.primaryGreen,
       dayTextStyle: AppTypography.caption.copyWith(
-        color: StyleConstants.inkColor,
+        color: context.appColors.inkColor,
       ),
       selectedDayTextStyle: AppTypography.caption.copyWith(
-        color: StyleConstants.isDarkMode
-            ? StyleConstants.onPrimaryActionColor
-            : StyleConstants.inkColor,
+        color: context.appColors.selectedCalendarInk,
       ),
       todayTextStyle: AppTypography.caption.copyWith(
-        color: StyleConstants.deepGreen,
+        color: context.appColors.deepGreen,
         fontWeight: FontWeight.w700,
       ),
       monthTextStyle: AppTypography.body.copyWith(
-        color: StyleConstants.inkColor,
+        color: context.appColors.inkColor,
       ),
       selectedMonthTextStyle: AppTypography.body.copyWith(
-        color: StyleConstants.isDarkMode
-            ? StyleConstants.onPrimaryActionColor
-            : StyleConstants.inkColor,
+        color: context.appColors.selectedCalendarInk,
         fontWeight: FontWeight.w600,
       ),
       yearTextStyle: AppTypography.body.copyWith(
-        color: StyleConstants.inkColor,
+        color: context.appColors.inkColor,
       ),
       selectedYearTextStyle: AppTypography.body.copyWith(
-        color: StyleConstants.isDarkMode
-            ? StyleConstants.onPrimaryActionColor
-            : StyleConstants.inkColor,
+        color: context.appColors.selectedCalendarInk,
         fontWeight: FontWeight.w600,
       ),
       monthBuilder:
@@ -238,20 +230,20 @@ class _AppDatePickerDialogState extends State<_AppDatePickerDialog> {
             );
           },
       weekdayLabelTextStyle: AppTypography.micro.copyWith(
-        color: StyleConstants.mutedInkColor,
+        color: context.appColors.mutedInkColor,
       ),
       controlsTextStyle: controlsTextStyle,
       disabledDayTextStyle: AppTypography.caption.copyWith(
-        color: StyleConstants.mutedInkColor.withValues(alpha: 0.42),
+        color: context.appColors.mutedInkColor.withValues(alpha: 0.42),
       ),
       lastMonthIcon: Icon(
         Icons.chevron_left_rounded,
-        color: StyleConstants.deepGreen,
+        color: context.appColors.deepGreen,
         size: 20,
       ),
       nextMonthIcon: Icon(
         Icons.chevron_right_rounded,
-        color: StyleConstants.deepGreen,
+        color: context.appColors.deepGreen,
         size: 20,
       ),
       dayBuilder:

@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:memolanes/theme/app_colors.dart';
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_file_saver/flutter_file_saver.dart';
@@ -11,7 +13,6 @@ import 'package:memolanes/common/loading_manager.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/constants/app_typography.dart';
-import 'package:memolanes/constants/style_constants.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:path/path.dart' as p;
 import 'package:share_plus/share_plus.dart';
@@ -284,7 +285,7 @@ class _ExportFormatDialogState extends State<_ExportFormatDialog> {
       margin: const EdgeInsets.only(top: 6.0),
       padding: const EdgeInsets.all(10.0),
       decoration: BoxDecoration(
-        color: StyleConstants.warningSurfaceColor.withValues(alpha: 0.72),
+        color: context.appColors.warningSurfaceColor.withValues(alpha: 0.72),
         borderRadius: BorderRadius.circular(10.0),
       ),
       child: Row(
@@ -292,7 +293,7 @@ class _ExportFormatDialogState extends State<_ExportFormatDialog> {
         children: [
           Icon(
             Icons.info_outline,
-            color: StyleConstants.warningInkColor,
+            color: context.appColors.warningInkColor,
             size: 18.0,
           ),
           const SizedBox(width: 8.0),
@@ -337,7 +338,7 @@ class _ExportFormatDialogState extends State<_ExportFormatDialog> {
                 child: Text(
                   context.tr('data.export_data.format_section_title'),
                   style: AppTypography.sectionLabel.copyWith(
-                    color: StyleConstants.mutedInkColor,
+                    color: context.appColors.mutedInkColor,
                   ),
                 ),
               ),

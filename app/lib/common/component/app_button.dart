@@ -1,36 +1,32 @@
 import 'package:flutter/material.dart';
 import 'package:memolanes/constants/app_typography.dart';
-import 'package:memolanes/constants/style_constants.dart';
+import 'package:memolanes/theme/app_colors.dart';
 
-enum AppButtonVariant { primary, secondary, tonal, dangerTonal, danger }
+enum AppButtonVariant { primary, secondary, tonal, danger }
 
 enum AppButtonSize { compact, regular, large }
 
-extension on AppButtonVariant {
-  Color get backgroundColor => switch (this) {
-    AppButtonVariant.primary => StyleConstants.primaryActionColor,
-    AppButtonVariant.secondary => StyleConstants.surfaceColor,
-    AppButtonVariant.tonal => StyleConstants.selectedSurfaceColor,
-    AppButtonVariant.dangerTonal => StyleConstants.dangerSurfaceColor,
-    AppButtonVariant.danger => StyleConstants.dangerColor,
-  };
-
-  Color get foregroundColor => switch (this) {
-    AppButtonVariant.primary => StyleConstants.onPrimaryActionColor,
-    AppButtonVariant.danger => StyleConstants.onDangerColor,
-    AppButtonVariant.dangerTonal => StyleConstants.dangerInkColor,
-    AppButtonVariant.secondary =>
-      StyleConstants.isDarkMode
-          ? StyleConstants.inkColor
-          : StyleConstants.onPrimaryActionColor,
-    AppButtonVariant.tonal => StyleConstants.deepGreen,
-  };
-
-  BorderSide? get side => switch (this) {
-    AppButtonVariant.secondary => BorderSide(color: StyleConstants.lineColor),
-    _ => null,
-  };
-}
+({Color background, Color foreground}) _buttonColors(
+  AppButtonVariant variant,
+  AppColors colors,
+) => switch (variant) {
+  AppButtonVariant.primary => (
+    background: colors.primaryActionColor,
+    foreground: colors.onPrimaryActionColor,
+  ),
+  AppButtonVariant.secondary => (
+    background: colors.surfaceColor,
+    foreground: colors.secondaryButtonForeground,
+  ),
+  AppButtonVariant.tonal => (
+    background: colors.selectedSurfaceColor,
+    foreground: colors.deepGreen,
+  ),
+  AppButtonVariant.danger => (
+    background: colors.dangerColor,
+    foreground: colors.onDangerColor,
+  ),
+};
 
 class AppButton extends StatelessWidget {
   const AppButton({
@@ -65,6 +61,11 @@ class AppButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final buttonColors = _buttonColors(variant, colors);
+    final side = variant == AppButtonVariant.secondary
+        ? BorderSide(color: colors.lineColor)
+        : null;
     final height = switch (size) {
       AppButtonSize.compact => 38.0,
       AppButtonSize.regular => 44.0,
@@ -94,13 +95,13 @@ class AppButton extends StatelessWidget {
     };
     final style = FilledButton.styleFrom(
       elevation: 0,
-      backgroundColor: variant.backgroundColor.withValues(
+      backgroundColor: buttonColors.background.withValues(
         alpha: backgroundAlpha,
       ),
-      foregroundColor: variant.foregroundColor,
-      disabledBackgroundColor: StyleConstants.lineColor,
-      disabledForegroundColor: StyleConstants.subtleInkColor,
-      side: variant.side,
+      foregroundColor: buttonColors.foreground,
+      disabledBackgroundColor: colors.lineColor,
+      disabledForegroundColor: colors.subtleInkColor,
+      side: side,
       padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
       textStyle: typeStyle.copyWith(fontSize: fontSize),
       shape: RoundedRectangleBorder(
@@ -113,7 +114,7 @@ class AppButton extends StatelessWidget {
             dimension: size == AppButtonSize.compact ? 15 : 17,
             child: CircularProgressIndicator(
               strokeWidth: 2,
-              color: variant.foregroundColor,
+              color: buttonColors.foreground,
             ),
           )
         : icon == null
@@ -170,17 +171,21 @@ class AppIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final buttonColors = _buttonColors(variant, colors);
     return IconButton.filled(
       onPressed: onPressed,
       style: IconButton.styleFrom(
-        backgroundColor: variant.backgroundColor.withValues(
+        backgroundColor: buttonColors.background.withValues(
           alpha: backgroundAlpha,
         ),
-        foregroundColor: variant.foregroundColor,
-        disabledBackgroundColor: StyleConstants.lineColor,
-        disabledForegroundColor: StyleConstants.subtleInkColor,
+        foregroundColor: buttonColors.foreground,
+        disabledBackgroundColor: colors.lineColor,
+        disabledForegroundColor: colors.subtleInkColor,
         fixedSize: Size.square(size),
-        side: variant.side,
+        side: variant == AppButtonVariant.secondary
+            ? BorderSide(color: colors.lineColor)
+            : null,
       ),
       icon: Icon(icon, size: size * 0.48),
     );

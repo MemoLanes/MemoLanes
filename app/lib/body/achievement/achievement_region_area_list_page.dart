@@ -1,3 +1,4 @@
+import 'package:memolanes/theme/app_colors.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/body/achievement/shared/achievement_common.dart';
@@ -69,7 +70,7 @@ class _AchievementRegionAreaListPageState
     final items = _sortedItems(widget.items);
 
     return Scaffold(
-      backgroundColor: StyleConstants.canvasColor,
+      backgroundColor: context.appColors.canvasColor,
       appBar: CapsuleStyleAppBar(title: widget.title),
       body: SafeAreaWrapper(
         child: ListView(
@@ -166,18 +167,18 @@ class _RegionAreaSortControl extends StatelessWidget {
         style: ButtonStyle(
           backgroundColor: WidgetStateProperty.resolveWith((states) {
             if (states.contains(WidgetState.selected)) {
-              return StyleConstants.softGreen;
+              return context.appColors.softGreen;
             }
-            return StyleConstants.surfaceColor;
+            return context.appColors.surfaceColor;
           }),
           foregroundColor: WidgetStateProperty.resolveWith((states) {
             if (states.contains(WidgetState.selected)) {
-              return StyleConstants.deepGreen;
+              return context.appColors.deepGreen;
             }
-            return StyleConstants.mutedInkColor;
+            return context.appColors.mutedInkColor;
           }),
           side: WidgetStatePropertyAll(
-            BorderSide(color: StyleConstants.lineColor),
+            BorderSide(color: context.appColors.lineColor),
           ),
           textStyle: const WidgetStatePropertyAll(AppTypography.label),
           visualDensity: VisualDensity.compact,
@@ -218,12 +219,14 @@ class _RegionAreaListTile extends StatelessWidget {
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: StyleConstants.softGreen,
-                          border: Border.all(color: StyleConstants.lineColor),
+                          color: context.appColors.softGreen,
+                          border: Border.all(
+                            color: context.appColors.lineColor,
+                          ),
                         ),
                         child: Icon(
                           Icons.public_rounded,
-                          color: StyleConstants.deepGreen,
+                          color: context.appColors.deepGreen,
                           size: 23,
                         ),
                       )
@@ -245,7 +248,7 @@ class _RegionAreaListTile extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: AppTypography.subpageTitle.copyWith(
-                              color: StyleConstants.inkColor,
+                              color: context.appColors.inkColor,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
@@ -260,7 +263,7 @@ class _RegionAreaListTile extends StatelessWidget {
                         Expanded(
                           child: AchievementProgressLine(
                             progress: item.progress,
-                            accent: StyleConstants.primaryGreen,
+                            accent: context.appColors.primaryGreen,
                             height: 6,
                           ),
                         ),
@@ -271,7 +274,7 @@ class _RegionAreaListTile extends StatelessWidget {
                             fractionDigits: _coverageFractionDigits,
                           ),
                           style: AppTypography.label.copyWith(
-                            color: StyleConstants.mutedInkColor,
+                            color: context.appColors.mutedInkColor,
                           ),
                         ),
                       ],
@@ -283,7 +286,7 @@ class _RegionAreaListTile extends StatelessWidget {
                 const SizedBox(width: 8),
                 Icon(
                   Icons.chevron_right_rounded,
-                  color: StyleConstants.mutedInkColor,
+                  color: context.appColors.mutedInkColor,
                   size: 22,
                 ),
               ],
@@ -395,7 +398,7 @@ class _RegionAreaSkeletonBlock extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: StyleConstants.lineColor.withValues(alpha: 0.78),
+        color: context.appColors.lineColor.withValues(alpha: 0.78),
         borderRadius: BorderRadius.circular(radius),
       ),
       child: SizedBox(width: width, height: height),
@@ -420,7 +423,7 @@ class _RegionAreaText extends StatelessWidget {
           Text(
             area.value,
             style: AppTypography.subpageTitle.copyWith(
-              color: StyleConstants.inkColor,
+              color: context.appColors.inkColor,
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -430,7 +433,7 @@ class _RegionAreaText extends StatelessWidget {
             child: Text(
               area.unit,
               style: AppTypography.micro.copyWith(
-                color: StyleConstants.mutedInkColor,
+                color: context.appColors.mutedInkColor,
               ),
             ),
           ),
@@ -455,7 +458,7 @@ class _RegionAreaListEmptyCard extends StatelessWidget {
             text,
             textAlign: TextAlign.center,
             style: AppTypography.supporting.copyWith(
-              color: StyleConstants.mutedInkColor,
+              color: context.appColors.mutedInkColor,
             ),
           ),
         ),
@@ -481,7 +484,7 @@ class _RegionAreaListErrorCard extends StatelessWidget {
                 context.tr('achievement.region_list.error'),
                 textAlign: TextAlign.center,
                 style: AppTypography.supporting.copyWith(
-                  color: StyleConstants.mutedInkColor,
+                  color: context.appColors.mutedInkColor,
                 ),
               ),
               const SizedBox(height: 14),
@@ -490,8 +493,8 @@ class _RegionAreaListErrorCard extends StatelessWidget {
                 icon: const Icon(Icons.refresh_rounded, size: 18),
                 label: Text(context.tr('achievement.region_list.retry')),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: StyleConstants.deepGreen,
-                  side: BorderSide(color: StyleConstants.primaryGreen),
+                  foregroundColor: context.appColors.deepGreen,
+                  side: BorderSide(color: context.appColors.primaryGreen),
                 ),
               ),
             ],

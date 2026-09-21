@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:memolanes/common/mmkv_util.dart';
-import 'package:memolanes/constants/style_constants.dart';
 
 enum AppThemePreference {
   system('system'),
@@ -19,17 +18,14 @@ enum AppThemePreference {
   }
 }
 
-class AppThemeController extends ChangeNotifier with WidgetsBindingObserver {
+class AppThemeController extends ChangeNotifier {
   AppThemeController({
     String? Function()? readPreference,
     void Function(String)? writePreference,
   }) : _preference = AppThemePreference.fromId(
          (readPreference ?? _readPreference)(),
        ),
-       _writePreference = writePreference ?? _savePreference {
-    WidgetsBinding.instance.addObserver(this);
-    _applyPalette();
-  }
+       _writePreference = writePreference ?? _savePreference;
 
   AppThemePreference _preference;
   final void Function(String) _writePreference;
@@ -42,35 +38,16 @@ class AppThemeController extends ChangeNotifier with WidgetsBindingObserver {
 
   AppThemePreference get preference => _preference;
 
-  Brightness get brightness => switch (_preference) {
-    AppThemePreference.system =>
-      WidgetsBinding.instance.platformDispatcher.platformBrightness,
-    AppThemePreference.light => Brightness.light,
-    AppThemePreference.dark => Brightness.dark,
+  ThemeMode get themeMode => switch (_preference) {
+    AppThemePreference.system => ThemeMode.system,
+    AppThemePreference.light => ThemeMode.light,
+    AppThemePreference.dark => ThemeMode.dark,
   };
 
   void setPreference(AppThemePreference preference) {
     if (_preference == preference) return;
     _writePreference(preference.id);
     _preference = preference;
-    _applyPalette();
     notifyListeners();
-  }
-
-  @override
-  void didChangePlatformBrightness() {
-    if (_preference != AppThemePreference.system) return;
-    _applyPalette();
-    notifyListeners();
-  }
-
-  void _applyPalette() {
-    StyleConstants.setDarkMode(brightness == Brightness.dark);
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
   }
 }

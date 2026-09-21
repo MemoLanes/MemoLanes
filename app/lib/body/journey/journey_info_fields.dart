@@ -1,3 +1,4 @@
+import 'package:memolanes/theme/app_colors.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/common/component/app_option_tile.dart';
@@ -6,7 +7,6 @@ import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
 import 'package:memolanes/common/journey_kind_visuals.dart';
 import 'package:memolanes/constants/app_typography.dart';
-import 'package:memolanes/constants/style_constants.dart';
 import 'package:memolanes/src/rust/api/import.dart' as import_api;
 import 'package:memolanes/src/rust/journey_header.dart';
 
@@ -99,9 +99,9 @@ class JourneyKindTile extends StatelessWidget {
         values: JourneyKind.values,
         selectedValue: value,
         labelOf: (item) => journeyKindLabel(context, item),
-        iconBuilder: (item) => JourneyKindIcon(
+        iconBuilder: (context, item) => JourneyKindIcon(
           kind: item,
-          color: StyleConstants.deepGreen,
+          color: context.appColors.deepGreen,
           size: 20,
         ),
         onSelected: onSelected,
@@ -144,12 +144,12 @@ class JourneyNoteTile extends StatelessWidget {
           textInputAction: TextInputAction.newline,
           maxLines: maxLines,
           minLines: 1,
-          style: AppTypography.body.copyWith(color: StyleConstants.inkColor),
+          style: AppTypography.body.copyWith(color: context.appColors.inkColor),
           decoration: InputDecoration.collapsed(
             border: InputBorder.none,
             hintText: context.tr('common.please_enter'),
             hintStyle: AppTypography.body.copyWith(
-              color: StyleConstants.mutedInkColor,
+              color: context.appColors.mutedInkColor,
             ),
           ),
           textAlign: TextAlign.right,
@@ -164,7 +164,7 @@ void _showOptionPicker<T>(
   required List<T> values,
   required T selectedValue,
   required String Function(T value) labelOf,
-  Widget Function(T value)? iconBuilder,
+  Widget Function(BuildContext context, T value)? iconBuilder,
   required ValueChanged<T> onSelected,
 }) {
   showBasicCard(
@@ -175,7 +175,7 @@ void _showOptionPicker<T>(
         for (var i = 0; i < values.length; i++) ...[
           if (i > 0) const SizedBox(height: 8),
           AppOptionTile(
-            iconWidget: iconBuilder?.call(values[i]),
+            iconWidget: iconBuilder?.call(dialogContext, values[i]),
             title: labelOf(values[i]),
             selected: values[i] == selectedValue,
             trailing: AppOptionTileTrailing.selection,

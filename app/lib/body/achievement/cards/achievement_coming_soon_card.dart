@@ -1,9 +1,9 @@
+import 'package:memolanes/theme/app_colors.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/body/achievement/shared/achievement_common.dart';
 import 'package:memolanes/common/component/cards/option_card.dart';
 import 'package:memolanes/constants/app_typography.dart';
-import 'package:memolanes/constants/style_constants.dart';
 
 class AchievementComingSoonCard extends StatelessWidget {
   const AchievementComingSoonCard({super.key});
@@ -20,17 +20,17 @@ class AchievementComingSoonCard extends StatelessWidget {
                 width: 38,
                 height: 38,
                 decoration: BoxDecoration(
-                  color: StyleConstants.warningSurfaceColor,
+                  color: context.appColors.warningSurfaceColor,
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
-                    color: StyleConstants.achievementGoldColor.withValues(
+                    color: context.appColors.achievementGoldColor.withValues(
                       alpha: 0.38,
                     ),
                   ),
                 ),
                 child: Icon(
                   Icons.auto_awesome_rounded,
-                  color: StyleConstants.achievementGoldColor,
+                  color: context.appColors.achievementGoldColor,
                   size: 22,
                 ),
               ),
@@ -44,7 +44,7 @@ class AchievementComingSoonCard extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: AppTypography.cardTitle.copyWith(
-                        color: StyleConstants.inkColor,
+                        color: context.appColors.inkColor,
                       ),
                     ),
                     const SizedBox(height: 5),
@@ -53,7 +53,7 @@ class AchievementComingSoonCard extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: AppTypography.caption.copyWith(
-                        color: StyleConstants.mutedInkColor,
+                        color: context.appColors.mutedInkColor,
                       ),
                     ),
                   ],

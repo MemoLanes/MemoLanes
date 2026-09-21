@@ -1,12 +1,13 @@
 import 'dart:ui';
 
+import 'package:memolanes/theme/app_colors.dart';
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/common/app_haptics.dart';
 import 'package:memolanes/common/component/app_button.dart';
 import 'package:memolanes/common/component/liquid_glass_surface.dart';
 import 'package:memolanes/constants/app_typography.dart';
-import 'package:memolanes/constants/style_constants.dart';
 
 enum OperationMode { move, edit, editReadonly, delete }
 
@@ -138,7 +139,7 @@ class ModeSwitchBar extends StatelessWidget {
                       width: 1,
                       height: 24,
                       margin: const EdgeInsets.symmetric(horizontal: 4),
-                      color: StyleConstants.lineColor.withValues(alpha: 0.9),
+                      color: context.appColors.lineColor.withValues(alpha: 0.9),
                     ),
                     _UndoButton(
                       label: context.tr('journey.editor.undo'),
@@ -191,11 +192,11 @@ class _EditorModeButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final activeColor = isCaution
-        ? StyleConstants.warningInkColor
-        : StyleConstants.deepGreen;
+        ? context.appColors.warningInkColor
+        : context.appColors.deepGreen;
     final activeBackground = isCaution
-        ? StyleConstants.warningColor.withValues(alpha: 0.28)
-        : StyleConstants.primaryGreen.withValues(alpha: 0.25);
+        ? context.appColors.warningColor.withValues(alpha: 0.28)
+        : context.appColors.primaryGreen.withValues(alpha: 0.25);
 
     return Semantics(
       selected: isSelected,
@@ -225,7 +226,7 @@ class _EditorModeButton extends StatelessWidget {
                   builder: (context, progress, _) {
                     final focusTransition = 4 * progress * (1 - progress);
                     final color = Color.lerp(
-                      StyleConstants.mutedInkColor,
+                      context.appColors.mutedInkColor,
                       activeColor,
                       progress,
                     );
@@ -298,18 +299,16 @@ class _UndoButton extends StatelessWidget {
                     tapCallback();
                   },
             style: IconButton.styleFrom(
-              backgroundColor: StyleConstants.surfaceColor.withValues(
+              backgroundColor: context.appColors.surfaceColor.withValues(
                 alpha: 0.56,
               ),
-              foregroundColor: StyleConstants.deepGreen,
-              disabledBackgroundColor: StyleConstants.surfaceColor.withValues(
-                alpha: 0.24,
-              ),
-              disabledForegroundColor: StyleConstants.mutedInkColor.withValues(
-                alpha: 0.38,
-              ),
+              foregroundColor: context.appColors.deepGreen,
+              disabledBackgroundColor: context.appColors.surfaceColor
+                  .withValues(alpha: 0.24),
+              disabledForegroundColor: context.appColors.mutedInkColor
+                  .withValues(alpha: 0.38),
               side: BorderSide(
-                color: StyleConstants.lineColor.withValues(alpha: 0.82),
+                color: context.appColors.lineColor.withValues(alpha: 0.82),
               ),
             ),
             icon: const Icon(Icons.undo_rounded, size: 20),
@@ -382,8 +381,8 @@ class _DrawModeOption extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final contentColor = isSelected
-        ? StyleConstants.deepGreen
-        : StyleConstants.mutedInkColor;
+        ? context.appColors.deepGreen
+        : context.appColors.mutedInkColor;
 
     return Semantics(
       selected: isSelected,
@@ -395,7 +394,7 @@ class _DrawModeOption extends StatelessWidget {
         height: 40,
         decoration: BoxDecoration(
           color: isSelected
-              ? StyleConstants.primaryGreen.withValues(alpha: 0.25)
+              ? context.appColors.primaryGreen.withValues(alpha: 0.25)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
         ),

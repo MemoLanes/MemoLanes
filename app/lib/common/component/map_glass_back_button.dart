@@ -1,6 +1,6 @@
+import 'package:memolanes/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/common/component/liquid_glass_surface.dart';
-import 'package:memolanes/constants/style_constants.dart';
 
 /// Back button shared by cards and controls floating directly over the map.
 class MapGlassBackButton extends StatelessWidget {
@@ -25,7 +25,7 @@ class MapGlassBackButton extends StatelessWidget {
             child: Icon(
               Icons.arrow_back_ios_new_rounded,
               size: 18,
-              color: StyleConstants.deepGreen,
+              color: context.appColors.deepGreen,
               semanticLabel: MaterialLocalizations.of(context)
                   .backButtonTooltip,
             ),

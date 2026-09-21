@@ -1,3 +1,4 @@
+import 'package:memolanes/theme/app_colors.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/common/component/app_dialog.dart';
@@ -21,7 +22,7 @@ class JourneyInfoPanelSurface extends StatelessWidget {
     return AppDialogSurface(
       style: AppDialogSurfaceStyle.glass,
       glassBackgroundAlpha: backgroundAlpha,
-      shadowAlpha: StyleConstants.mapOverlayShadowAlpha,
+      shadowAlpha: context.appColors.mapOverlayShadowAlpha,
       shadowBlurRadius: StyleConstants.mapOverlayShadowBlurRadius,
       shadowSpreadRadius: StyleConstants.mapOverlayShadowSpreadRadius,
       shadowOffset: StyleConstants.mapOverlayShadowOffset,
@@ -41,13 +42,13 @@ class JourneyInfoCardHeader extends StatelessWidget {
           width: 30,
           height: 30,
           decoration: BoxDecoration(
-            color: StyleConstants.softGreen.withValues(alpha: 0.8),
+            color: context.appColors.softGreen.withValues(alpha: 0.8),
             borderRadius: BorderRadius.circular(10),
           ),
           child: Icon(
             Icons.route_rounded,
             size: 17,
-            color: StyleConstants.deepGreen,
+            color: context.appColors.deepGreen,
           ),
         ),
         const SizedBox(width: 9),
@@ -55,7 +56,7 @@ class JourneyInfoCardHeader extends StatelessWidget {
           child: Text(
             context.tr('journey.journey_info_page_title'),
             style: AppTypography.subpageTitle.copyWith(
-              color: StyleConstants.deepGreen,
+              color: context.appColors.deepGreen,
             ),
           ),
         ),
@@ -99,7 +100,7 @@ class CompactJourneyInfoField extends StatelessWidget {
                 child: Icon(
                   icon,
                   size: 15,
-                  color: StyleConstants.mutedInkColor,
+                  color: context.appColors.mutedInkColor,
                 ),
               ),
               const SizedBox(width: 8),
@@ -108,7 +109,7 @@ class CompactJourneyInfoField extends StatelessWidget {
                 child: Text(
                   label,
                   style: AppTypography.label.copyWith(
-                    color: StyleConstants.mutedInkColor,
+                    color: context.appColors.mutedInkColor,
                   ),
                 ),
               ),
@@ -126,7 +127,7 @@ class CompactJourneyInfoField extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             textAlign: TextAlign.right,
                             style: AppTypography.supporting.copyWith(
-                              color: StyleConstants.deepGreen,
+                              color: context.appColors.deepGreen,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -136,7 +137,7 @@ class CompactJourneyInfoField extends StatelessWidget {
                           Icon(
                             Icons.chevron_right_rounded,
                             size: 17,
-                            color: StyleConstants.deepGreen,
+                            color: context.appColors.deepGreen,
                           ),
                         ],
                       ],

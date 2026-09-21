@@ -3,14 +3,18 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/common/component/custom_popup.dart';
 import 'package:memolanes/constants/app_typography.dart';
-import 'package:memolanes/constants/style_constants.dart';
-import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:memolanes/src/rust/achievement/region.dart';
+import 'package:memolanes/theme/app_colors.dart';
+import 'package:pointer_interceptor/pointer_interceptor.dart';
 
 export 'package:memolanes/common/achievement_stats_store.dart'
     show AchievementAreaStats;
 
 const achievementCardPadding = EdgeInsets.all(16);
+const _lightAchievementGoldSurfaceStart = Color(0xFFFFF7D9);
+const _darkAchievementGoldSurfaceStart = Color(0xFF3A311B);
+const _lightAchievementGoldSurfaceEnd = Color(0xFFF1E5B5);
+const _darkAchievementGoldSurfaceEnd = Color(0xFF272619);
 
 extension RegionEntityDisplay on RegionEntity {
   /// This region's localized display name for [worldviewId].
@@ -148,15 +152,25 @@ class AchievementCountryFlagBadge extends StatelessWidget {
         shape: BoxShape.circle,
         gradient: LinearGradient(
           colors: [
-            StyleConstants.achievementGoldSurfaceStart,
-            StyleConstants.achievementGoldSurfaceEnd,
+            Color.lerp(
+              _lightAchievementGoldSurfaceStart,
+              _darkAchievementGoldSurfaceStart,
+              context.appColors.darkProgress,
+            )!,
+            Color.lerp(
+              _lightAchievementGoldSurfaceEnd,
+              _darkAchievementGoldSurfaceEnd,
+              context.appColors.darkProgress,
+            )!,
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         boxShadow: [
           BoxShadow(
-            color: StyleConstants.achievementGoldColor.withValues(alpha: 0.25),
+            color: context.appColors.achievementGoldColor.withValues(
+              alpha: 0.25,
+            ),
             blurRadius: 6,
           ),
         ],
@@ -180,12 +194,12 @@ class _FallbackCountryFlag extends StatelessWidget {
       alignment: Alignment.center,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: StyleConstants.canvasColor,
-        border: Border.all(color: StyleConstants.lineColor),
+        color: context.appColors.canvasColor,
+        border: Border.all(color: context.appColors.lineColor),
       ),
       child: Icon(
         Icons.public_rounded,
-        color: StyleConstants.mutedInkColor,
+        color: context.appColors.mutedInkColor,
         size: size * 0.54,
       ),
     );
@@ -214,7 +228,7 @@ class AchievementCardTitleRow extends StatelessWidget {
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: AppTypography.metricTitle.copyWith(
-              color: StyleConstants.inkColor,
+              color: context.appColors.inkColor,
             ),
           ),
         ),
@@ -223,19 +237,19 @@ class AchievementCardTitleRow extends StatelessWidget {
           position: PopupPosition.top,
           verticalOffset: 8,
           contentRadius: 16,
-          backgroundColor: StyleConstants.surfaceColor,
+          backgroundColorBuilder: (context) => context.appColors.surfaceColor,
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 12,
             vertical: 10,
           ),
           barrierColor: Colors.transparent,
-          content: PointerInterceptor(
+          contentBuilder: (context) => PointerInterceptor(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 260),
               child: Text(
                 info,
                 style: AppTypography.supporting.copyWith(
-                  color: StyleConstants.inkColor,
+                  color: context.appColors.inkColor,
                 ),
               ),
             ),
@@ -244,7 +258,7 @@ class AchievementCardTitleRow extends StatelessWidget {
             padding: const EdgeInsets.only(top: 1),
             child: Icon(
               Icons.info_outline_rounded,
-              color: StyleConstants.mutedInkColor,
+              color: context.appColors.mutedInkColor,
               size: 18,
             ),
           ),
@@ -275,7 +289,7 @@ class AchievementProgressLine extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            ColoredBox(color: StyleConstants.lineColor),
+            ColoredBox(color: context.appColors.lineColor),
             FractionallySizedBox(
               alignment: Alignment.centerLeft,
               widthFactor: progress,

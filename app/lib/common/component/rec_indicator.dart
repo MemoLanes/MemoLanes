@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/constants/app_typography.dart';
 import 'package:memolanes/constants/style_constants.dart';
+import 'package:memolanes/theme/app_colors.dart';
 
 // TODO(perf): Re-enable the REC pulse on Android when Flutter/WebView
 // cross-Surface composition can animate without frame jitter. Other platforms,
@@ -74,7 +75,7 @@ class _RecIndicatorState extends State<RecIndicator>
               dimension: 14,
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  color: StyleConstants.recordingColor.withValues(
+                  color: context.appColors.recordingColor.withValues(
                     alpha: animated ? 0.1 + pulse * 0.1 : 0.18,
                   ),
                   shape: BoxShape.circle,
@@ -86,7 +87,7 @@ class _RecIndicatorState extends State<RecIndicator>
             dimension: 7,
             child: DecoratedBox(
               decoration: BoxDecoration(
-                color: StyleConstants.recordingColor,
+                color: context.appColors.recordingColor,
                 shape: BoxShape.circle,
               ),
             ),
@@ -116,8 +117,8 @@ class _RecIndicatorState extends State<RecIndicator>
               borderRadius: BorderRadius.circular(18),
               boxShadow: [
                 BoxShadow(
-                  color: StyleConstants.shadowColor.withValues(
-                    alpha: StyleConstants.isDarkMode ? 0.42 : 0.12,
+                  color: context.appColors.shadowColor.withValues(
+                    alpha: context.appColors.popupShadowAlpha,
                   ),
                   blurRadius: 18,
                   offset: const Offset(0, 6),
@@ -135,13 +136,21 @@ class _RecIndicatorState extends State<RecIndicator>
                     vertical: 8,
                   ),
                   decoration: BoxDecoration(
-                    color: StyleConstants.glassColor.withValues(
-                      alpha: StyleConstants.isDarkMode ? 0.92 : 0.72,
+                    color: context.appColors.glassColor.withValues(
+                      alpha: lerpDouble(
+                        0.72,
+                        0.92,
+                        context.appColors.darkProgress,
+                      )!,
                     ),
                     borderRadius: BorderRadius.circular(18),
                     border: Border.all(
-                      color: StyleConstants.glassBorderColor.withValues(
-                        alpha: StyleConstants.isDarkMode ? 0.48 : 0.86,
+                      color: context.appColors.glassBorderColor.withValues(
+                        alpha: lerpDouble(
+                          0.86,
+                          0.48,
+                          context.appColors.darkProgress,
+                        )!,
                       ),
                     ),
                   ),
@@ -162,7 +171,7 @@ class _RecIndicatorState extends State<RecIndicator>
                       Text(
                         'REC',
                         style: AppTypography.label.copyWith(
-                          color: StyleConstants.inkColor,
+                          color: context.appColors.inkColor,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 0.2,
                         ),

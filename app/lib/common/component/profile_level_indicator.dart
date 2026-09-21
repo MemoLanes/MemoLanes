@@ -1,9 +1,10 @@
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
+import 'package:memolanes/theme/app_colors.dart';
+
 import 'package:flutter/material.dart';
 import 'package:memolanes/constants/app_typography.dart';
-import 'package:memolanes/constants/style_constants.dart';
 
 class ProfileLevelIndicator extends StatelessWidget {
   final int level;
@@ -43,8 +44,8 @@ class ProfileLevelIndicator extends StatelessWidget {
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                             colors: [
-                              StyleConstants.profileAccentStartColor,
-                              StyleConstants.profileAccentEndColor,
+                              context.appColors.profileAccentStartColor,
+                              context.appColors.profileAccentEndColor,
                             ],
                           )
                         : null,
@@ -58,9 +59,7 @@ class ProfileLevelIndicator extends StatelessWidget {
                   child: profileImage == null
                       ? Icon(
                           Icons.person,
-                          color: StyleConstants.isDarkMode
-                              ? StyleConstants.inverseInkColor
-                              : StyleConstants.surfaceColor,
+                          color: context.appColors.badgeForeground,
                           size: 32,
                         )
                       : null,
@@ -74,6 +73,10 @@ class ProfileLevelIndicator extends StatelessWidget {
                 painter: CircularProgressPainter(
                   progress: progress,
                   strokeWidth: 4.0,
+                  backgroundColor: context.appColors.onStrongColor.withValues(
+                    alpha: 0.3,
+                  ),
+                  color: context.appColors.primaryActionColor,
                 ),
               ),
             ),
@@ -88,15 +91,13 @@ class ProfileLevelIndicator extends StatelessWidget {
                     vertical: 2,
                   ),
                   decoration: BoxDecoration(
-                    color: StyleConstants.isDarkMode
-                        ? StyleConstants.inverseInkColor
-                        : StyleConstants.inkColor,
+                    color: context.appColors.strongBadgeBackground,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     'Lv. $level',
                     style: AppTypography.label.copyWith(
-                      color: StyleConstants.onStrongColor,
+                      color: context.appColors.onStrongColor,
                     ),
                   ),
                 ),
@@ -113,7 +114,15 @@ class CircularProgressPainter extends CustomPainter {
   final double progress;
   final double strokeWidth;
 
-  CircularProgressPainter({required this.progress, required this.strokeWidth});
+  final Color backgroundColor;
+  final Color color;
+
+  CircularProgressPainter({
+    required this.progress,
+    required this.strokeWidth,
+    required this.backgroundColor,
+    required this.color,
+  });
 
   @override
   void paint(Canvas canvas, ui.Size size) {
@@ -121,14 +130,14 @@ class CircularProgressPainter extends CustomPainter {
     final radius = (size.width - strokeWidth) / 2;
 
     final bgPaint = Paint()
-      ..color = StyleConstants.onStrongColor.withValues(alpha: 0.3)
+      ..color = backgroundColor
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth;
 
     canvas.drawCircle(center, radius, bgPaint);
 
     final progressPaint = Paint()
-      ..color = StyleConstants.primaryActionColor
+      ..color = color
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth
       ..strokeCap = StrokeCap.round;
@@ -144,6 +153,9 @@ class CircularProgressPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(CircularProgressPainter oldDelegate) {
-    return oldDelegate.progress != progress;
+    return oldDelegate.progress != progress ||
+        oldDelegate.strokeWidth != strokeWidth ||
+        oldDelegate.backgroundColor != backgroundColor ||
+        oldDelegate.color != color;
   }
 }

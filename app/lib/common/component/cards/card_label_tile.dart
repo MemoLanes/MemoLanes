@@ -1,6 +1,6 @@
+import 'package:memolanes/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/constants/app_typography.dart';
-import 'package:memolanes/constants/style_constants.dart';
 
 enum CardLabelTilePosition { single, top, middle, bottom }
 
@@ -74,7 +74,7 @@ class CardLabelTile extends StatelessWidget {
                         child: Text(
                           label,
                           style: AppTypography.itemTitle.copyWith(
-                            color: StyleConstants.inkColor,
+                            color: context.appColors.inkColor,
                           ),
                         ),
                       );
@@ -86,7 +86,7 @@ class CardLabelTile extends StatelessWidget {
           ),
           (position == CardLabelTilePosition.top ||
                   position == CardLabelTilePosition.middle)
-              ? Container(height: 0.5, color: StyleConstants.lineColor)
+              ? Container(height: 0.5, color: context.appColors.lineColor)
               : SizedBox.shrink(),
         ],
       ),

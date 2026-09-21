@@ -1,12 +1,14 @@
+import 'dart:ui' show lerpDouble;
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:memolanes/common/component/app_button.dart';
 import 'package:memolanes/common/app_haptics.dart';
+import 'package:memolanes/common/component/app_button.dart';
 import 'package:memolanes/common/component/liquid_glass_surface.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/constants/app_typography.dart';
-import 'package:memolanes/constants/style_constants.dart';
+import 'package:memolanes/theme/app_colors.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:provider/provider.dart';
 
@@ -18,12 +20,6 @@ const double _recordingControlGlassBlurSigma = 28;
 const double _recordingControlGlassReflectionAlpha = 0.2;
 const double _recordingControlInnerAlpha = 0.55;
 const double _recordingEndControlInnerAlpha = 0.8;
-const double _darkPrimaryControlGlassBackgroundAlpha = 0.1;
-const double _darkPrimaryControlGlassBorderAlpha = 0.28;
-const double _darkPrimaryControlGlassBlurSigma = 18;
-const double _darkPrimaryControlGlassReflectionAlpha = 0.06;
-const double _darkPrimaryControlShadowAlpha = 0.3;
-const double _darkPrimaryControlInnerAlpha = 0.9;
 
 class RecordingButtons extends StatefulWidget {
   const RecordingButtons({super.key});
@@ -113,10 +109,9 @@ class _StartJourneyButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDarkMode = StyleConstants.isDarkMode;
     final label = context.tr('home.start_new_journey');
     final labelStyle = AppTypography.surfaceTitle.copyWith(
-      color: StyleConstants.onPrimaryActionColor,
+      color: context.appColors.onPrimaryActionColor,
       fontSize: context.locale.languageCode == 'en' ? 15 : null,
       fontWeight: FontWeight.w600,
     );
@@ -129,24 +124,16 @@ class _StartJourneyButton extends StatelessWidget {
       ),
       child: LiquidGlassSurface(
         borderRadius: BorderRadius.circular(23),
-        backgroundAlpha: isDarkMode
-            ? _darkPrimaryControlGlassBackgroundAlpha
-            : _recordingControlGlassBackgroundAlpha,
-        borderAlpha: isDarkMode
-            ? _darkPrimaryControlGlassBorderAlpha
-            : _recordingControlGlassBorderAlpha,
-        blurSigma: isDarkMode
-            ? _darkPrimaryControlGlassBlurSigma
-            : _recordingControlGlassBlurSigma,
-        reflectionAlpha: isDarkMode
-            ? _darkPrimaryControlGlassReflectionAlpha
-            : _recordingControlGlassReflectionAlpha,
-        shadowAlpha: isDarkMode ? _darkPrimaryControlShadowAlpha : null,
+        backgroundAlpha:
+            context.appColors._primaryRecordingGlassBackgroundAlpha,
+        borderAlpha: context.appColors._primaryRecordingGlassBorderAlpha,
+        blurSigma: context.appColors._primaryRecordingGlassBlurSigma,
+        reflectionAlpha:
+            context.appColors._primaryRecordingGlassReflectionAlpha,
+        shadowAlpha: context.appColors._primaryRecordingShadowAlpha,
         child: Material(
-          color: StyleConstants.primaryGreen.withValues(
-            alpha: isDarkMode
-                ? _darkPrimaryControlInnerAlpha
-                : _recordingControlInnerAlpha,
+          color: context.appColors.primaryGreen.withValues(
+            alpha: context.appColors._primaryRecordingInnerAlpha,
           ),
           child: InkWell(
             onTap: onPressed,
@@ -160,7 +147,7 @@ class _StartJourneyButton extends StatelessWidget {
                   Icon(
                     Icons.play_arrow_rounded,
                     size: 21,
-                    color: StyleConstants.onPrimaryActionColor,
+                    color: context.appColors.onPrimaryActionColor,
                   ),
                   const SizedBox(width: _iconGap),
                   Flexible(
@@ -195,8 +182,6 @@ class _ActiveJourneyControls extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final useDarkPrimarySurface = isPaused && StyleConstants.isDarkMode;
-
     return SizedBox(
       width: _recordingControlWidth,
       height: _recordingControlHeight,
@@ -209,20 +194,20 @@ class _ActiveJourneyControls extends StatelessWidget {
               height: 42,
               child: LiquidGlassSurface(
                 borderRadius: BorderRadius.circular(18),
-                backgroundAlpha: useDarkPrimarySurface
-                    ? _darkPrimaryControlGlassBackgroundAlpha
+                backgroundAlpha: isPaused
+                    ? context.appColors._primaryRecordingGlassBackgroundAlpha
                     : _recordingControlGlassBackgroundAlpha,
-                borderAlpha: useDarkPrimarySurface
-                    ? _darkPrimaryControlGlassBorderAlpha
+                borderAlpha: isPaused
+                    ? context.appColors._primaryRecordingGlassBorderAlpha
                     : _recordingControlGlassBorderAlpha,
-                blurSigma: useDarkPrimarySurface
-                    ? _darkPrimaryControlGlassBlurSigma
+                blurSigma: isPaused
+                    ? context.appColors._primaryRecordingGlassBlurSigma
                     : _recordingControlGlassBlurSigma,
-                reflectionAlpha: useDarkPrimarySurface
-                    ? _darkPrimaryControlGlassReflectionAlpha
+                reflectionAlpha: isPaused
+                    ? context.appColors._primaryRecordingGlassReflectionAlpha
                     : _recordingControlGlassReflectionAlpha,
-                shadowAlpha: useDarkPrimarySurface
-                    ? _darkPrimaryControlShadowAlpha
+                shadowAlpha: isPaused
+                    ? context.appColors._primaryRecordingShadowAlpha
                     : null,
                 child: isPaused
                     ? AppButton(
@@ -232,9 +217,8 @@ class _ActiveJourneyControls extends StatelessWidget {
                         variant: AppButtonVariant.primary,
                         size: AppButtonSize.compact,
                         fontSize: 15,
-                        backgroundAlpha: StyleConstants.isDarkMode
-                            ? _darkPrimaryControlInnerAlpha
-                            : _recordingControlInnerAlpha,
+                        backgroundAlpha:
+                            context.appColors._primaryRecordingInnerAlpha,
                         borderRadius: 18,
                         expand: true,
                       )
@@ -250,8 +234,8 @@ class _ActiveJourneyControls extends StatelessWidget {
                 borderAlpha: _recordingControlGlassBorderAlpha,
                 blurSigma: _recordingControlGlassBlurSigma,
                 reflectionAlpha: _recordingControlGlassReflectionAlpha,
-                reflectionColor: StyleConstants.glassHighlightColor,
-                secondaryReflectionColor: StyleConstants.glassHighlightColor,
+                reflectionColor: context.appColors.glassHighlightColor,
+                secondaryReflectionColor: context.appColors.glassHighlightColor,
                 child: AppIconButton(
                   onPressed: onEndPressed,
                   icon: Icons.stop_rounded,
@@ -276,7 +260,7 @@ class _PauseGlassButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: StyleConstants.surfaceColor.withValues(
+      color: context.appColors.surfaceColor.withValues(
         alpha: _recordingControlInnerAlpha,
       ),
       child: InkWell(
@@ -289,7 +273,7 @@ class _PauseGlassButton extends StatelessWidget {
               Icon(
                 Icons.pause_rounded,
                 size: 16,
-                color: StyleConstants.deepGreen,
+                color: context.appColors.deepGreen,
               ),
               const SizedBox(width: 7),
               Text(
@@ -297,7 +281,7 @@ class _PauseGlassButton extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: AppTypography.compactButton.copyWith(
-                  color: StyleConstants.deepGreen,
+                  color: context.appColors.deepGreen,
                   fontSize: 15,
                 ),
               ),
@@ -307,4 +291,20 @@ class _PauseGlassButton extends StatelessWidget {
       ),
     );
   }
+}
+
+// Start and resume share a glass treatment; the active controls keep theirs.
+extension _PrimaryRecordingEffects on AppColors {
+  double get _primaryRecordingGlassBackgroundAlpha =>
+      lerpDouble(0.36, 0.1, darkProgress)!;
+  double get _primaryRecordingGlassBorderAlpha =>
+      lerpDouble(0.62, 0.28, darkProgress)!;
+  double get _primaryRecordingGlassBlurSigma =>
+      lerpDouble(28.0, 18.0, darkProgress)!;
+  double get _primaryRecordingGlassReflectionAlpha =>
+      lerpDouble(0.2, 0.06, darkProgress)!;
+  double get _primaryRecordingInnerAlpha =>
+      lerpDouble(0.55, 0.9, darkProgress)!;
+  double get _primaryRecordingShadowAlpha =>
+      lerpDouble(0.18, 0.3, darkProgress)!;
 }

@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:memolanes/constants/style_constants.dart';
+import 'package:memolanes/theme/app_colors.dart';
 
 class FrostedBarContainer extends StatelessWidget {
   const FrostedBarContainer({
@@ -28,7 +29,8 @@ class FrostedBarContainer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final effectiveBackgroundAlpha =
-        backgroundAlpha ?? (StyleConstants.isDarkMode ? 0.86 : 0.7);
+        backgroundAlpha ??
+        (lerpDouble(0.7, 0.86, context.appColors.darkProgress)!);
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(radius),
@@ -48,19 +50,23 @@ class FrostedBarContainer extends StatelessWidget {
                   vertical: mainAxisPadding,
                 ),
           decoration: BoxDecoration(
-            color: StyleConstants.glassColor.withValues(
+            color: context.appColors.glassColor.withValues(
               alpha: effectiveBackgroundAlpha,
             ),
             borderRadius: BorderRadius.circular(radius),
             border: Border.all(
-              color: StyleConstants.glassBorderColor.withValues(
-                alpha: StyleConstants.isDarkMode ? 0.42 : 0.4,
+              color: context.appColors.glassBorderColor.withValues(
+                alpha: lerpDouble(0.4, 0.42, context.appColors.darkProgress)!,
               ),
             ),
             boxShadow: [
               BoxShadow(
-                color: StyleConstants.shadowColor.withValues(
-                  alpha: StyleConstants.isDarkMode ? 0.42 : 0.08,
+                color: context.appColors.shadowColor.withValues(
+                  alpha: lerpDouble(
+                    0.08,
+                    0.42,
+                    context.appColors.darkProgress,
+                  )!,
                 ),
                 blurRadius: 20,
                 offset: const Offset(0, 4),

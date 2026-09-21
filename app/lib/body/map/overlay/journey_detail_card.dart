@@ -1,7 +1,7 @@
+import 'package:memolanes/theme/app_colors.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/constants/app_typography.dart';
-import 'package:memolanes/constants/style_constants.dart';
 import 'package:memolanes/body/journey/compact_journey_info_card.dart';
 import 'package:memolanes/common/app_haptics.dart';
 import 'package:memolanes/common/component/app_button.dart';
@@ -124,7 +124,7 @@ class _CollapsibleJourneyDetailState extends State<CollapsibleJourneyDetail> {
                     child: Icon(
                       Icons.keyboard_arrow_up_rounded,
                       size: 23,
-                      color: StyleConstants.deepGreen,
+                      color: context.appColors.deepGreen,
                     ),
                   ),
                 ),
@@ -158,7 +158,7 @@ class _CollapsibleJourneyDetailState extends State<CollapsibleJourneyDetail> {
                       width: 34,
                       height: 4,
                       decoration: BoxDecoration(
-                        color: StyleConstants.mutedInkColor.withValues(
+                        color: context.appColors.mutedInkColor.withValues(
                           alpha: 0.42,
                         ),
                         borderRadius: BorderRadius.circular(2),
@@ -262,8 +262,8 @@ class _JourneyDetailCardState extends State<JourneyDetailCard> {
     if (date == null || !mounted) return null;
     final time = await showDialog<TimeOfDay>(
       context: context,
-      barrierColor: StyleConstants.shadowColor.withValues(
-        alpha: StyleConstants.isDarkMode ? 0.58 : 0.2,
+      barrierColor: context.appColors.shadowColor.withValues(
+        alpha: context.appColors.pickerBarrierAlpha,
       ),
       builder: (dialogContext) =>
           CompactJourneyTimeDialog(initialTime: TimeOfDay.fromDateTime(seed)),
@@ -289,8 +289,8 @@ class _JourneyDetailCardState extends State<JourneyDetailCard> {
       context,
       maxWidth: 340,
       insetPadding: const EdgeInsets.symmetric(horizontal: 42),
-      barrierColor: StyleConstants.shadowColor.withValues(
-        alpha: StyleConstants.isDarkMode ? 0.58 : 0.2,
+      barrierColor: context.appColors.shadowColor.withValues(
+        alpha: context.appColors.pickerBarrierAlpha,
       ),
       builder: (dialogContext) => AppDialogCard(
         title: context.tr('journey.journey_kind'),
@@ -304,7 +304,7 @@ class _JourneyDetailCardState extends State<JourneyDetailCard> {
               backgroundAlpha: 0.5,
               iconWidget: JourneyKindIcon(
                 kind: JourneyKind.defaultKind,
-                color: StyleConstants.deepGreen,
+                color: dialogContext.appColors.deepGreen,
                 size: 20,
               ),
               title: context.tr('journey_kind.default'),
@@ -318,7 +318,7 @@ class _JourneyDetailCardState extends State<JourneyDetailCard> {
               backgroundAlpha: 0.5,
               iconWidget: JourneyKindIcon(
                 kind: JourneyKind.flight,
-                color: StyleConstants.deepGreen,
+                color: dialogContext.appColors.deepGreen,
                 size: 20,
               ),
               title: context.tr('journey_kind.flight'),
@@ -431,7 +431,7 @@ class _JourneyDetailCardState extends State<JourneyDetailCard> {
                 maxLines: 2,
                 textAlign: TextAlign.right,
                 style: AppTypography.supporting.copyWith(
-                  color: StyleConstants.deepGreen,
+                  color: context.appColors.deepGreen,
                   fontWeight: FontWeight.w600,
                 ),
                 decoration: InputDecoration(
@@ -439,7 +439,7 @@ class _JourneyDetailCardState extends State<JourneyDetailCard> {
                   border: InputBorder.none,
                   hintText: context.tr('common.please_enter'),
                   hintStyle: AppTypography.supporting.copyWith(
-                    color: StyleConstants.mutedInkColor,
+                    color: context.appColors.mutedInkColor,
                   ),
                 ),
               ),

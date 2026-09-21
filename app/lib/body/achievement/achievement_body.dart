@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:memolanes/theme/app_colors.dart';
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/body/achievement/cards/achievement_coming_soon_card.dart';
@@ -131,7 +133,7 @@ class _AchievementStatsErrorCard extends StatelessWidget {
               Text(
                 context.tr('achievement.source.error'),
                 style: AppTypography.body.copyWith(
-                  color: StyleConstants.mutedInkColor,
+                  color: context.appColors.mutedInkColor,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -205,9 +207,9 @@ class _TotalAreaSkeleton extends StatelessWidget {
           ? const EdgeInsets.fromLTRB(12, 12, 12, 14)
           : const EdgeInsets.fromLTRB(16, 14, 16, 16),
       decoration: BoxDecoration(
-        color: StyleConstants.canvasColor,
+        color: context.appColors.canvasColor,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: StyleConstants.lineColor),
+        border: Border.all(color: context.appColors.lineColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -240,9 +242,9 @@ class _SourceMetricSkeleton extends StatelessWidget {
           ? const EdgeInsets.fromLTRB(10, 12, 10, 12)
           : const EdgeInsets.fromLTRB(16, 16, 16, 14),
       decoration: BoxDecoration(
-        color: StyleConstants.canvasColor,
+        color: context.appColors.canvasColor,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: StyleConstants.lineColor),
+        border: Border.all(color: context.appColors.lineColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -292,7 +294,7 @@ class _SkeletonBlock extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: StyleConstants.lineColor,
+        color: context.appColors.lineColor,
         borderRadius: BorderRadius.circular(radius),
       ),
       child: SizedBox(width: width, height: height),
@@ -314,7 +316,7 @@ class _AchievementPageTitle extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
           textAlign: TextAlign.left,
           style: AppTypography.pageTitle.copyWith(
-            color: StyleConstants.inkColor,
+            color: context.appColors.inkColor,
           ),
         ),
       ),
@@ -327,20 +329,26 @@ class _OngoingJourneyBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = StyleConstants.achievementGoldColor;
-
     return SafeAreaWrapper(
       child: Container(
         padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
         decoration: BoxDecoration(
-          color: StyleConstants.warningSurfaceColor,
+          color: context.appColors.warningSurfaceColor,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: accent.withValues(alpha: 0.14)),
+          border: Border.all(
+            color: context.appColors.achievementGoldColor.withValues(
+              alpha: 0.14,
+            ),
+          ),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.info_outline_rounded, color: accent, size: 19),
+            Icon(
+              Icons.info_outline_rounded,
+              color: context.appColors.achievementGoldColor,
+              size: 19,
+            ),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
@@ -349,7 +357,7 @@ class _OngoingJourneyBanner extends StatelessWidget {
                   Text(
                     context.tr('achievement.ongoing.title'),
                     style: AppTypography.itemTitle.copyWith(
-                      color: StyleConstants.inkColor,
+                      color: context.appColors.inkColor,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -357,7 +365,7 @@ class _OngoingJourneyBanner extends StatelessWidget {
                   Text(
                     context.tr('achievement.ongoing.description'),
                     style: AppTypography.caption.copyWith(
-                      color: StyleConstants.mutedInkColor,
+                      color: context.appColors.mutedInkColor,
                     ),
                   ),
                 ],

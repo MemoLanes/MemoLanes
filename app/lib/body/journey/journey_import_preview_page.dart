@@ -1,9 +1,9 @@
+import 'package:memolanes/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/body/journey/compact_journey_info_card.dart';
 import 'package:memolanes/common/component/base_map_webview.dart';
 import 'package:memolanes/common/component/capsule_style_overlay_app_bar.dart';
 import 'package:memolanes/common/component/map_glass_back_button.dart';
-import 'package:memolanes/constants/style_constants.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/journey_header.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
@@ -54,7 +54,7 @@ class _JourneyImportPreviewPageState extends State<JourneyImportPreviewPage> {
     );
 
     return Scaffold(
-      backgroundColor: StyleConstants.canvasColor,
+      backgroundColor: context.appColors.canvasColor,
       body: Stack(
         fit: StackFit.expand,
         children: [

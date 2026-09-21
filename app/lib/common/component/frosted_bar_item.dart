@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:memolanes/constants/app_typography.dart';
-import 'package:memolanes/constants/style_constants.dart';
+import 'package:memolanes/theme/app_colors.dart';
 
 class FrostedBarItem extends StatelessWidget {
   const FrostedBarItem({
@@ -32,16 +32,19 @@ class FrostedBarItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final themeColor = selectedColor ?? StyleConstants.inkColor;
-    final baseUnselectedColor = unselectedColor ?? StyleConstants.mutedInkColor;
-    final baseDisabledColor = disabledColor ?? StyleConstants.subtleInkColor;
+    final themeColor = selectedColor ?? context.appColors.inkColor;
+    final baseUnselectedColor =
+        unselectedColor ?? context.appColors.mutedInkColor;
+    final baseDisabledColor = disabledColor ?? context.appColors.subtleInkColor;
 
     final Color bgColor = isSelected
         ? (isEnabled
               ? themeColor.withValues(alpha: 0.12)
-              : (StyleConstants.isDarkMode
-                    ? StyleConstants.lineColor.withValues(alpha: 0.36)
-                    : StyleConstants.inkColor.withValues(alpha: 0.05)))
+              : Color.lerp(
+                  AppColors.light.inkColor.withValues(alpha: 0.05),
+                  AppColors.dark.lineColor.withValues(alpha: 0.36),
+                  context.appColors.darkProgress,
+                )!)
         : Colors.transparent;
 
     final Color contentColor = !isEnabled

@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:memolanes/constants/style_constants.dart';
+import 'package:memolanes/theme/app_colors.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 /// Global loading manager (singleton + reference counting).
@@ -148,7 +148,11 @@ class GlobalLoadingOverlay extends StatelessWidget {
                     children: [
                       ModalBarrier(
                         dismissible: false,
-                        color: StyleConstants.loadingMaskColor,
+                        color: Color.lerp(
+                          AppColors.light.shadowColor.withAlpha(0x59),
+                          AppColors.dark.shadowColor.withAlpha(0xAD),
+                          context.appColors.darkProgress,
+                        )!,
                       ),
                       const Center(child: _DefaultLoadingCard()),
                     ],
@@ -197,7 +201,7 @@ class _DefaultLoadingCard extends StatelessWidget {
       width: 80,
       height: 80,
       decoration: BoxDecoration(
-        color: StyleConstants.surfaceColor,
+        color: context.appColors.surfaceColor,
         borderRadius: BorderRadius.circular(16),
       ),
       child: const Center(

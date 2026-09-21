@@ -69,6 +69,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   static const _maxWebGlRecoveryReloads = 2;
   static const _androidApiEndpoint = 'https://memolanes.local/api';
   static const _androidApiRequestPrefix = '$_androidApiEndpoint/';
+  static const _loadingBackgroundColor = Color(0xFF767472);
 
   InAppWebViewController? _webViewController;
   late GpsManager _gpsManager;
@@ -630,7 +631,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
             opacity: !_readyForDisplay ? 1 : 0.0,
             duration: const Duration(milliseconds: 200),
             child: Container(
-              color: Color.fromARGB(255, 118, 116, 114),
+              color: _loadingBackgroundColor,
               width: double.infinity,
               height: double.infinity,
             ),

@@ -1,3 +1,4 @@
+import 'package:memolanes/theme/app_colors.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/body/journey/journey_import_preview_page.dart';
@@ -6,7 +7,6 @@ import 'package:memolanes/common/component/tiles/label_tile_content.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/simple_date_utils.dart';
 import 'package:memolanes/common/utils.dart';
-import 'package:memolanes/constants/style_constants.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/api/import.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
@@ -279,13 +279,13 @@ class _MldxImportPageState extends State<MldxImportPage> {
                         Icon(
                           Icons.error_outline,
                           size: 30,
-                          color: StyleConstants.dangerColor,
+                          color: context.appColors.dangerColor,
                         ),
                         const SizedBox(height: 2),
                         Text(
                           context.tr('import.mldx_preview.conflict_label'),
                           style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: StyleConstants.dangerColor),
+                              ?.copyWith(color: context.appColors.dangerColor),
                         ),
                       ],
                     ),

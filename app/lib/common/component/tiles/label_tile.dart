@@ -1,6 +1,6 @@
+import 'package:memolanes/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/constants/app_typography.dart';
-import 'package:memolanes/constants/style_constants.dart';
 
 enum LabelTilePosition { single, top, middle, bottom }
 
@@ -90,7 +90,7 @@ class LabelTile extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: AppTypography.itemTitle.copyWith(
-                        color: StyleConstants.inkColor,
+                        color: context.appColors.inkColor,
                       ),
                     ),
                     if (desc.isNotEmpty)
@@ -99,7 +99,7 @@ class LabelTile extends StatelessWidget {
                         maxLines: descMaxLines,
                         overflow: TextOverflow.ellipsis,
                         style: AppTypography.caption.copyWith(
-                          color: StyleConstants.mutedInkColor,
+                          color: context.appColors.mutedInkColor,
                         ),
                       ),
                   ],
@@ -110,7 +110,7 @@ class LabelTile extends StatelessWidget {
                 Icon(
                   Icons.info_outline,
                   size: 18.0,
-                  color: StyleConstants.mutedInkColor,
+                  color: context.appColors.mutedInkColor,
                 ),
               ],
             ],
@@ -146,13 +146,13 @@ class LabelTile extends StatelessWidget {
                     vertical: 8,
                   ),
                   decoration: BoxDecoration(
-                    color: StyleConstants.surfaceColor,
+                    color: context.appColors.surfaceColor,
                     borderRadius: borderRadius,
                     border: Border(
                       bottom:
                           position == LabelTilePosition.top ||
                               position == LabelTilePosition.middle
-                          ? BorderSide(color: StyleConstants.lineColor)
+                          ? BorderSide(color: context.appColors.lineColor)
                           : BorderSide.none,
                     ),
                   ),

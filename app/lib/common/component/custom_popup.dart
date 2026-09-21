@@ -3,13 +3,16 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
-import 'package:memolanes/constants/style_constants.dart';
+import 'package:memolanes/theme/app_colors.dart';
 
 enum PopupPosition { auto, top, bottom, left, right }
 
 class CustomPopup extends StatefulWidget {
   final GlobalKey? anchorKey;
-  final Widget content;
+  final Widget? content;
+
+  /// Builds content in the popup route so inherited theme changes update it.
+  final WidgetBuilder? contentBuilder;
   final Widget child;
   final bool isLongPress;
   final Color? backgroundColor;
@@ -17,6 +20,9 @@ class CustomPopup extends StatefulWidget {
   final EdgeInsets contentPadding;
   final double? contentRadius;
   final BoxDecoration? contentDecoration;
+  // Resolve theme-dependent surfaces inside the route, including while open.
+  final BoxDecoration Function(BuildContext)? contentDecorationBuilder;
+  final Color Function(BuildContext)? backgroundColorBuilder;
   final VoidCallback? onBeforePopup;
   final VoidCallback? onAfterPopup;
   final bool rootNavigator;
@@ -29,7 +35,8 @@ class CustomPopup extends StatefulWidget {
 
   const CustomPopup({
     super.key,
-    required this.content,
+    this.content,
+    this.contentBuilder,
     required this.child,
     this.anchorKey,
     this.isLongPress = false,
@@ -38,6 +45,8 @@ class CustomPopup extends StatefulWidget {
     this.contentPadding = const EdgeInsets.all(16),
     this.contentRadius,
     this.contentDecoration,
+    this.contentDecorationBuilder,
+    this.backgroundColorBuilder,
     this.onBeforePopup,
     this.onAfterPopup,
     this.rootNavigator = false,
@@ -46,7 +55,7 @@ class CustomPopup extends StatefulWidget {
     this.verticalOffset,
     this.animationDuration = const Duration(milliseconds: 150),
     this.animationCurve = Curves.easeInOut,
-  });
+  }) : assert((content == null) != (contentBuilder == null));
 
   @override
   State<CustomPopup> createState() => CustomPopupState();
@@ -66,16 +75,28 @@ class CustomPopupState extends State<CustomPopup> {
           _PopupRoute(
             targetRect: offset & renderBox.paintBounds.size,
             backgroundColor: widget.backgroundColor,
-            barriersColor: widget.barrierColor,
+            barriersColor:
+                widget.barrierColor ??
+                context.appColors.shadowColor.withValues(
+                  alpha: ui.lerpDouble(
+                    0.1,
+                    0.28,
+                    context.appColors.darkProgress,
+                  )!,
+                ),
             contentPadding: widget.contentPadding,
             contentRadius: widget.contentRadius,
             contentDecoration: widget.contentDecoration,
+            contentDecorationBuilder: widget.contentDecorationBuilder,
+            backgroundColorBuilder: widget.backgroundColorBuilder,
             position: widget.position,
             horizontalOffset: widget.horizontalOffset,
             verticalOffset: widget.verticalOffset,
             animationDuration: widget.animationDuration,
             animationCurve: widget.animationCurve,
-            child: widget.content,
+            child: widget.contentBuilder == null
+                ? widget.content!
+                : Builder(builder: widget.contentBuilder!),
           ),
         )
         .then((value) => widget.onAfterPopup?.call());
@@ -99,6 +120,9 @@ class _PopupContent extends StatelessWidget {
   final EdgeInsets contentPadding;
   final double? contentRadius;
   final BoxDecoration? contentDecoration;
+  // Resolve theme-dependent surfaces inside the route, including while open.
+  final BoxDecoration Function(BuildContext)? contentDecorationBuilder;
+  final Color Function(BuildContext)? backgroundColorBuilder;
 
   const _PopupContent({
     required this.child,
@@ -107,31 +131,40 @@ class _PopupContent extends StatelessWidget {
     required this.contentPadding,
     this.contentRadius,
     this.contentDecoration,
+    this.contentDecorationBuilder,
+    this.backgroundColorBuilder,
   });
 
   @override
   Widget build(BuildContext context) {
+    final resolvedBackground =
+        backgroundColorBuilder?.call(context) ?? backgroundColor;
     return Container(
       key: childKey,
       padding: contentPadding,
       constraints: const BoxConstraints(minWidth: 50),
       decoration:
+          contentDecorationBuilder?.call(context) ??
           contentDecoration ??
           BoxDecoration(
-            color: backgroundColor ?? StyleConstants.canvasColor,
+            color: resolvedBackground ?? context.appColors.canvasColor,
             borderRadius: BorderRadius.circular(contentRadius ?? 16),
-            border: backgroundColor == null
-                ? Border.all(color: StyleConstants.lineColor)
+            border: resolvedBackground == null
+                ? Border.all(color: context.appColors.lineColor)
                 : null,
             boxShadow: [
               BoxShadow(
-                color: StyleConstants.shadowColor.withValues(
-                  alpha: StyleConstants.isDarkMode
-                      ? (backgroundColor == null ? 0.42 : 0.34)
-                      : (backgroundColor == null ? 0.12 : 0.1),
+                color: context.appColors.shadowColor.withValues(
+                  alpha: resolvedBackground == null
+                      ? context.appColors.popupShadowAlpha
+                      : ui.lerpDouble(
+                          0.1,
+                          0.34,
+                          context.appColors.darkProgress,
+                        )!,
                 ),
-                blurRadius: backgroundColor == null ? 18 : 10,
-                offset: backgroundColor == null
+                blurRadius: resolvedBackground == null ? 18 : 10,
+                offset: resolvedBackground == null
                     ? const Offset(0, 6)
                     : Offset.zero,
               ),
@@ -155,6 +188,9 @@ class _PopupRoute extends PopupRoute<void> {
   final EdgeInsets contentPadding;
   final double? contentRadius;
   final BoxDecoration? contentDecoration;
+  // Resolve theme-dependent surfaces inside the route, including while open.
+  final BoxDecoration Function(BuildContext)? contentDecorationBuilder;
+  final Color Function(BuildContext)? backgroundColorBuilder;
 
   double? _top;
   double? _bottom;
@@ -177,16 +213,14 @@ class _PopupRoute extends PopupRoute<void> {
     required this.contentPadding,
     this.contentRadius,
     this.contentDecoration,
+    this.contentDecorationBuilder,
+    this.backgroundColorBuilder,
     required this.animationDuration,
     this.animationCurve = Curves.easeInOut,
   });
 
   @override
-  Color? get barrierColor =>
-      barriersColor ??
-      StyleConstants.shadowColor.withValues(
-        alpha: StyleConstants.isDarkMode ? 0.28 : 0.1,
-      );
+  Color? get barrierColor => barriersColor;
   @override
   bool get barrierDismissible => true;
   @override
@@ -330,6 +364,8 @@ class _PopupRoute extends PopupRoute<void> {
       contentPadding: contentPadding,
       contentRadius: contentRadius,
       contentDecoration: contentDecoration,
+      contentDecorationBuilder: contentDecorationBuilder,
+      backgroundColorBuilder: backgroundColorBuilder,
       child: child,
     );
 

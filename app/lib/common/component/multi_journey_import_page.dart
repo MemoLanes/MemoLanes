@@ -1,3 +1,4 @@
+import 'package:memolanes/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/common/component/app_button.dart';
 import 'package:memolanes/common/component/app_checkbox.dart';
@@ -5,7 +6,6 @@ import 'package:memolanes/common/component/capsule_style_app_bar.dart';
 import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
 import 'package:memolanes/constants/app_typography.dart';
-import 'package:memolanes/constants/style_constants.dart';
 
 class MultiJourneyImportListItem {
   const MultiJourneyImportListItem({
@@ -69,13 +69,13 @@ class _CollapsedImportHeader extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         decoration: BoxDecoration(
-          color: StyleConstants.softGreen,
+          color: context.appColors.softGreen,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: StyleConstants.lineColor),
+          border: Border.all(color: context.appColors.lineColor),
         ),
         child: Row(
           children: [
-            Icon(icon, size: 18, color: StyleConstants.deepGreen),
+            Icon(icon, size: 18, color: context.appColors.deepGreen),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
@@ -83,7 +83,7 @@ class _CollapsedImportHeader extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: AppTypography.body.copyWith(
-                  color: StyleConstants.mutedInkColor,
+                  color: context.appColors.mutedInkColor,
                 ),
               ),
             ),
@@ -138,7 +138,7 @@ class MultiJourneyImportPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: StyleConstants.canvasColor,
+      backgroundColor: context.appColors.canvasColor,
       appBar: CapsuleStyleAppBar(title: title, showTitleBackground: false),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:memolanes/common/component/capsule_style_app_bar.dart';
 import 'package:memolanes/common/map_webview_assets.dart';
-import 'package:memolanes/constants/style_constants.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 
 class RenderDiagnosticsPage extends StatefulWidget {
@@ -57,7 +56,9 @@ class _RenderDiagnosticsPageState extends State<RenderDiagnosticsPage> {
     final cgiEndpoint = Platform.isIOS
         ? 'memolanes://api'
         : 'https://memolanes.local/api';
-    final interfaceTheme = StyleConstants.isDarkMode ? 'dark' : 'light';
+    final interfaceTheme = (Theme.of(context).brightness == Brightness.dark)
+        ? 'dark'
+        : 'light';
 
     await _controller?.evaluateJavascript(
       source:
