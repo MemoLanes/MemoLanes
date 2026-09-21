@@ -2,11 +2,11 @@ use std::collections::BTreeMap;
 
 use chrono::{DateTime, Local, NaiveDate, TimeZone, Utc};
 
-use crate::gps_processor::RawData;
 use crate::journey_date_picker::{BoundaryTracker, JourneyDatePicker};
 use crate::journey_vector::TrackPoint;
+use crate::raw_data::RawGPSPoint;
 
-pub type RawDataByDate = BTreeMap<NaiveDate, Vec<Vec<RawData>>>;
+pub type RawDataByDate = BTreeMap<NaiveDate, Vec<Vec<RawGPSPoint>>>;
 pub type SummariesByDate = BTreeMap<NaiveDate, DateSummary>;
 pub(crate) type PartitionIndexByDate = BTreeMap<NaiveDate, Vec<SegmentSlice>>;
 
@@ -92,7 +92,7 @@ impl PartBuilder {
         self.has_points() && self.boundary.should_end_at(timestamp.with_timezone(&Local))
     }
 
-    fn push(&mut self, point: &RawData, point_index: usize) {
+    fn push(&mut self, point: &RawGPSPoint, point_index: usize) {
         self.segments
             .last_mut()
             .expect("a source segment must be started before adding points")
@@ -126,7 +126,7 @@ impl PartBuilder {
     }
 }
 
-fn timestamp(point: &RawData) -> Option<DateTime<Utc>> {
+fn timestamp(point: &RawGPSPoint) -> Option<DateTime<Utc>> {
     point
         .timestamp_ms
         .and_then(|timestamp_ms| Utc.timestamp_millis_opt(timestamp_ms).single())
@@ -142,7 +142,7 @@ fn flush(current: &mut PartBuilder, emit: &mut impl FnMut(Part)) {
 /// Visits journey-shaped parts without cloning track points. Boundaries follow
 /// the recording auto-finalization policy; each completed part gets its date
 /// from `JourneyDatePicker`.
-pub(crate) fn for_each_part(raw_data: &[Vec<RawData>], mut emit: impl FnMut(Part)) {
+pub(crate) fn for_each_part(raw_data: &[Vec<RawGPSPoint>], mut emit: impl FnMut(Part)) {
     let mut current = PartBuilder::new();
 
     for (source_segment, segment) in raw_data
@@ -178,7 +178,7 @@ pub(crate) struct PartitionByDate {
 }
 
 /// Builds the date index and summaries without cloning track points.
-pub(crate) fn partition_by_date(raw_data: &[Vec<RawData>]) -> PartitionByDate {
+pub(crate) fn partition_by_date(raw_data: &[Vec<RawGPSPoint>]) -> PartitionByDate {
     let mut index = PartitionIndexByDate::new();
     let mut summaries = SummariesByDate::new();
     for_each_part(raw_data, |part| {
@@ -190,9 +190,9 @@ pub(crate) fn partition_by_date(raw_data: &[Vec<RawData>]) -> PartitionByDate {
 
 /// Materializes only one requested date partition from the source data.
 pub(crate) fn materialize_partition(
-    raw_data: &[Vec<RawData>],
+    raw_data: &[Vec<RawGPSPoint>],
     partition: &[SegmentSlice],
-) -> Vec<Vec<RawData>> {
+) -> Vec<Vec<RawGPSPoint>> {
     partition
         .iter()
         .map(|segment| raw_data[segment.source_segment][segment.start..segment.end].to_vec())
@@ -204,7 +204,7 @@ pub(crate) fn materialize_partition(
 /// This is kept for callers that explicitly need all owned partitions. Import
 /// APIs use [`partition_by_date`] and [`materialize_partition`] instead so they
 /// never retain a second full copy of the source track.
-pub fn group_by_date(raw_data: &[Vec<RawData>]) -> RawDataByDate {
+pub fn group_by_date(raw_data: &[Vec<RawGPSPoint>]) -> RawDataByDate {
     partition_by_date(raw_data)
         .index
         .into_iter()
@@ -213,6 +213,6 @@ pub fn group_by_date(raw_data: &[Vec<RawData>]) -> RawDataByDate {
 }
 
 /// Summarizes the same partition without cloning or retaining track points.
-pub fn summarize(raw_data: &[Vec<RawData>]) -> SummariesByDate {
+pub fn summarize(raw_data: &[Vec<RawGPSPoint>]) -> SummariesByDate {
     partition_by_date(raw_data).summaries
 }

@@ -420,6 +420,12 @@ class _JourneyDetailCardState extends State<JourneyDetailCard> {
                   }
                 : null,
           ),
+          if (journey.hasRawData)
+            CompactJourneyInfoField(
+              icon: Icons.location_searching_rounded,
+              label: context.tr('journey.raw_data'),
+              value: context.tr('journey.raw_data_included'),
+            ),
           if (isEditing)
             CompactJourneyInfoField(
               icon: Icons.notes_rounded,

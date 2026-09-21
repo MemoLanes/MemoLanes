@@ -1,7 +1,8 @@
 pub mod test_utils;
 
 use memolanes_core::flight_track_processor;
-use memolanes_core::gps_processor::{Point, RawData};
+use memolanes_core::gps_processor::Point;
+use memolanes_core::raw_data::RawGPSPoint;
 use memolanes_core::{export_data, import_data};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
@@ -9,8 +10,8 @@ use std::fs::{self, File};
 use std::io::{Cursor, Write};
 use std::path::Path;
 
-fn raw_data(longitude: f64) -> RawData {
-    RawData {
+fn raw_data(longitude: f64) -> RawGPSPoint {
+    RawGPSPoint {
         point: Point {
             latitude: 0.0,
             longitude,

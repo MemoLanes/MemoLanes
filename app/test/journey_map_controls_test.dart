@@ -5,6 +5,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:memolanes/body/journey/journey_export.dart';
 import 'package:memolanes/body/journey/list/journey_layer_filter_menu.dart';
 import 'package:memolanes/body/map/overlay/journey_detail_card.dart';
 import 'package:memolanes/body/map/overlay/journey_more_dialog.dart';
@@ -73,10 +74,104 @@ void main() {
     journeyType: JourneyType.vector,
     journeyKind: JourneyKind.defaultKind,
     note: 'Original note',
+    hasRawData: false,
+  );
+
+  final journeyWithRawData = JourneyHeader(
+    id: 'with-raw-data',
+    revision: 'revision',
+    journeyDate: DateTime.utc(2023, 11, 14),
+    createdAt: DateTime.utc(2023, 11, 14),
+    journeyType: JourneyType.vector,
+    journeyKind: JourneyKind.defaultKind,
+    hasRawData: true,
   );
 
   setUpAll(() => RustLib.initMock(api: _JourneyListApi(journey)));
   tearDownAll(RustLib.dispose);
+
+  testWidgets('journey information indicates attached raw data', (
+    tester,
+  ) async {
+    await pumpApp(
+      tester,
+      Scaffold(
+        body: JourneyDetailCard(
+          journey: journeyWithRawData,
+          isEditing: false,
+          onExport: () {},
+          onEdit: () {},
+          onMore: () {},
+          onSave: (_) async {},
+        ),
+      ),
+    );
+
+    expect(find.text('Raw Data'), findsOneWidget);
+    expect(find.text('Included'), findsOneWidget);
+  });
+
+  testWidgets('journey without raw data has no raw-data export switch', (
+    tester,
+  ) async {
+    await pumpApp(
+      tester,
+      Builder(
+        builder: (context) => Scaffold(
+          body: TextButton(
+            onPressed: () =>
+                showJourneyExportPicker(context, journey, hasRawData: false),
+            child: const Text('Open Export'),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open Export'));
+    await tester.pumpAndSettle();
+    expect(find.byType(Switch), findsNothing);
+    expect(find.text('Preserve raw location data'), findsNothing);
+  });
+
+  testWidgets('raw-data export choice survives format changes', (tester) async {
+    await pumpApp(
+      tester,
+      Builder(
+        builder: (context) => Scaffold(
+          body: TextButton(
+            onPressed: () => showJourneyExportPicker(
+              context,
+              journeyWithRawData,
+              hasRawData: true,
+            ),
+            child: const Text('Open Export'),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open Export'));
+    await tester.pumpAndSettle();
+    expect(tester.widget<Switch>(find.byType(Switch)).value, isTrue);
+
+    await tester.ensureVisible(find.byType(Switch));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(Switch));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Fog of World snapshot (*.fwss)'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('MemoLanes standard format (*.mldx)'));
+    await tester.pumpAndSettle();
+
+    expect(tester.widget<Switch>(find.byType(Switch)).value, isFalse);
+
+    await tester.ensureVisible(find.text('Raw location data'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Raw location data'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Journey data'));
+    await tester.pumpAndSettle();
+
+    expect(tester.widget<Switch>(find.byType(Switch)).value, isFalse);
+  });
 
   for (final width in [320.0, 360.0]) {
     testWidgets('compact journey picker fits a $width px screen', (
