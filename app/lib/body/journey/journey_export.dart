@@ -27,6 +27,7 @@ Future<CommonExportResult> _generateJourneyExport(
     targetFilepath: outputPath,
     journeyId: journey.id,
     exportType: exportType,
+    includeRawData: false,
   );
   return CommonExportResult.create(result, outputPath);
 }

@@ -15,8 +15,8 @@ use crate::gps_processor::SegmentGapRule;
 use crate::journey_header::JourneyHeader;
 use crate::journey_vector::JourneyVector;
 use crate::{
-    flight_track_processor, gps_processor::RawData, import_data, journey_data::JourneyData,
-    journey_header::JourneyKind,
+    flight_track_processor, import_data, journey_data::JourneyData, journey_header::JourneyKind,
+    raw_data::RawGPSPoint,
 };
 
 #[derive(Debug)]
@@ -31,7 +31,7 @@ pub struct JourneyInfo {
 
 #[frb(opaque)]
 pub struct RawVectorData {
-    data: Vec<Vec<RawData>>,
+    data: Vec<Vec<RawGPSPoint>>,
     partition: OnceLock<import_data::journey_partition::PartitionByDate>,
 }
 
@@ -156,7 +156,7 @@ impl RawVectorData {
     }
 }
 
-fn data_for_date(vector_data: &RawVectorData, journey_date: &str) -> Result<Vec<Vec<RawData>>> {
+fn data_for_date(vector_data: &RawVectorData, journey_date: &str) -> Result<Vec<Vec<RawGPSPoint>>> {
     let journey_date = NaiveDate::parse_from_str(journey_date, "%Y-%m-%d")?;
     let slices = vector_data
         .partition()
@@ -258,7 +258,7 @@ pub fn import_vector_data_by_date(
 }
 
 fn process_raw_vector_data(
-    raw_data: &[Vec<RawData>],
+    raw_data: &[Vec<RawGPSPoint>],
     import_processor: ImportPreprocessor,
 ) -> OpaqueJourneyData {
     let journey_vector_opt = match import_processor {
