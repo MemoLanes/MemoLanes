@@ -2,7 +2,6 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:memolanes/theme/app_colors.dart';
 
 enum PopupPosition { auto, top, bottom, left, right }
@@ -115,7 +114,6 @@ class CustomPopupState extends State<CustomPopup> {
 
 class _PopupContent extends StatelessWidget {
   final Widget child;
-  final GlobalKey childKey;
   final Color? backgroundColor;
   final EdgeInsets contentPadding;
   final double? contentRadius;
@@ -126,7 +124,6 @@ class _PopupContent extends StatelessWidget {
 
   const _PopupContent({
     required this.child,
-    required this.childKey,
     this.backgroundColor,
     required this.contentPadding,
     this.contentRadius,
@@ -140,7 +137,6 @@ class _PopupContent extends StatelessWidget {
     final resolvedBackground =
         backgroundColorBuilder?.call(context) ?? backgroundColor;
     return Container(
-      key: childKey,
       padding: contentPadding,
       constraints: const BoxConstraints(minWidth: 50),
       decoration:
@@ -182,7 +178,6 @@ class _PopupRoute extends PopupRoute<void> {
   final double? horizontalOffset;
   final double? verticalOffset;
 
-  final GlobalKey _childKey = GlobalKey();
   final Color? backgroundColor;
   final Color? barriersColor;
   final EdgeInsets contentPadding;
@@ -191,13 +186,6 @@ class _PopupRoute extends PopupRoute<void> {
   // Resolve theme-dependent surfaces inside the route, including while open.
   final BoxDecoration Function(BuildContext)? contentDecorationBuilder;
   final Color Function(BuildContext)? backgroundColorBuilder;
-
-  double? _top;
-  double? _bottom;
-  double? _left;
-  double? _right;
-  double _scaleAlignDx = 0.5;
-  double _scaleAlignDy = 0.5;
 
   final Duration animationDuration;
   final Curve animationCurve;
@@ -227,122 +215,6 @@ class _PopupRoute extends PopupRoute<void> {
   String? get barrierLabel => 'Popup';
 
   @override
-  TickerFuture didPush() {
-    super.offstage = true;
-    SchedulerBinding.instance.addPostFrameCallback((_) {
-      final childRect = _getRect(_childKey);
-      _calculateChildOffset(childRect);
-      super.offstage = false;
-    });
-    return super.didPush();
-  }
-
-  Rect? _getRect(GlobalKey key) {
-    final currentContext = key.currentContext;
-    final renderBox = currentContext?.findRenderObject() as RenderBox?;
-    if (renderBox == null || currentContext == null) return null;
-    final offset = renderBox.localToGlobal(renderBox.paintBounds.topLeft);
-    return offset & renderBox.paintBounds.size;
-  }
-
-  static const double _kEdgeMargin = 8.0;
-
-  void _calculateChildOffset(Rect? childRect) {
-    if (childRect == null) return;
-
-    final view = ui.PlatformDispatcher.instance.views.first;
-    final media = MediaQueryData.fromView(view);
-    final screenSize = media.size;
-    final padding = media.padding;
-
-    switch (position) {
-      case PopupPosition.top:
-        _top = null;
-        _bottom = screenSize.height - targetRect.top + (verticalOffset ?? 0);
-        _scaleAlignDy = 1;
-        _left =
-            targetRect.center.dx -
-            childRect.width / 2 +
-            (horizontalOffset ?? 0);
-        break;
-      case PopupPosition.bottom:
-        _top = targetRect.bottom + (verticalOffset ?? 0);
-        _scaleAlignDy = 0;
-        _left =
-            targetRect.center.dx -
-            childRect.width / 2 +
-            (horizontalOffset ?? 0);
-        break;
-      case PopupPosition.left:
-        _left = targetRect.left - childRect.width + (horizontalOffset ?? 0);
-        _top =
-            targetRect.center.dy - childRect.height / 2 + (verticalOffset ?? 0);
-        _scaleAlignDx = 1;
-        break;
-      case PopupPosition.right:
-        _left = targetRect.right + (horizontalOffset ?? 0);
-        _top =
-            targetRect.center.dy - childRect.height / 2 + (verticalOffset ?? 0);
-        _scaleAlignDx = 0;
-        break;
-      case PopupPosition.auto:
-        if (screenSize.height - targetRect.bottom > targetRect.top) {
-          _top = targetRect.bottom + (verticalOffset ?? 0);
-          _scaleAlignDy = 0;
-        } else {
-          _bottom = screenSize.height - targetRect.top + (verticalOffset ?? 0);
-          _scaleAlignDy = 1;
-        }
-        _left =
-            targetRect.center.dx -
-            childRect.width / 2 +
-            (horizontalOffset ?? 0);
-        break;
-    }
-
-    if (_left != null) {
-      _left = _left!.clamp(
-        padding.left + _kEdgeMargin,
-        screenSize.width - childRect.width - padding.right - _kEdgeMargin,
-      );
-    }
-    if (_top != null) {
-      _top = _top!.clamp(
-        padding.top + _kEdgeMargin,
-        screenSize.height - childRect.height - padding.bottom - _kEdgeMargin,
-      );
-    }
-    if (_bottom != null) {
-      final maxBottom =
-          screenSize.height - childRect.height - padding.top - _kEdgeMargin;
-      _bottom = _bottom!.clamp(padding.bottom + _kEdgeMargin, maxBottom);
-    }
-  }
-
-  BoxConstraints _screenPopupConstraints(BuildContext context) {
-    final media = MediaQuery.of(context);
-    final maxAvailableWidth = math.max(
-      0.0,
-      media.size.width -
-          media.padding.left -
-          media.padding.right -
-          _kEdgeMargin * 2,
-    );
-    final maxAvailableHeight = math.max(
-      0.0,
-      media.size.height -
-          media.padding.top -
-          media.padding.bottom -
-          _kEdgeMargin * 2,
-    );
-
-    return BoxConstraints(
-      maxWidth: maxAvailableWidth,
-      maxHeight: maxAvailableHeight,
-    );
-  }
-
-  @override
   Widget buildPage(
     BuildContext context,
     Animation<double> animation,
@@ -359,7 +231,6 @@ class _PopupRoute extends PopupRoute<void> {
     Widget child,
   ) {
     child = _PopupContent(
-      childKey: _childKey,
       backgroundColor: backgroundColor,
       contentPadding: contentPadding,
       contentRadius: contentRadius,
@@ -374,29 +245,106 @@ class _PopupRoute extends PopupRoute<void> {
       curve: animationCurve,
     );
 
-    return Stack(
-      children: [
-        Positioned(
-          left: _left,
-          right: _right,
-          top: _top,
-          bottom: _bottom,
-          child: ConstrainedBox(
-            constraints: _screenPopupConstraints(context),
-            child: FadeTransition(
-              opacity: curvedAnimation,
-              child: ScaleTransition(
-                alignment: FractionalOffset(_scaleAlignDx, _scaleAlignDy),
-                scale: curvedAnimation,
-                child: Material(color: Colors.transparent, child: child),
-              ),
-            ),
-          ),
+    final scaleAlignment = switch (position) {
+      PopupPosition.top => Alignment.bottomCenter,
+      PopupPosition.bottom => Alignment.topCenter,
+      PopupPosition.left => Alignment.centerRight,
+      PopupPosition.right => Alignment.centerLeft,
+      PopupPosition.auto =>
+        targetRect.top > MediaQuery.sizeOf(context).height - targetRect.bottom
+            ? Alignment.bottomCenter
+            : Alignment.topCenter,
+    };
+
+    return CustomSingleChildLayout(
+      delegate: _PopupLayoutDelegate(
+        targetRect: targetRect,
+        position: position,
+        padding: MediaQuery.paddingOf(context),
+        horizontalOffset: horizontalOffset ?? 0,
+        verticalOffset: verticalOffset ?? 0,
+      ),
+      child: FadeTransition(
+        opacity: curvedAnimation,
+        child: ScaleTransition(
+          alignment: scaleAlignment,
+          scale: curvedAnimation,
+          child: Material(color: Colors.transparent, child: child),
         ),
-      ],
+      ),
     );
   }
 
   @override
   Duration get transitionDuration => animationDuration;
+}
+
+class _PopupLayoutDelegate extends SingleChildLayoutDelegate {
+  const _PopupLayoutDelegate({
+    required this.targetRect,
+    required this.position,
+    required this.padding,
+    required this.horizontalOffset,
+    required this.verticalOffset,
+  });
+
+  static const _edgeMargin = 8.0;
+
+  final Rect targetRect;
+  final PopupPosition position;
+  final EdgeInsets padding;
+  final double horizontalOffset;
+  final double verticalOffset;
+
+  @override
+  BoxConstraints getConstraintsForChild(BoxConstraints constraints) =>
+      BoxConstraints(
+        maxWidth: math.max(
+          0,
+          constraints.maxWidth - padding.horizontal - 2 * _edgeMargin,
+        ),
+        maxHeight: math.max(
+          0,
+          constraints.maxHeight - padding.vertical - 2 * _edgeMargin,
+        ),
+      );
+
+  @override
+  Offset getPositionForChild(Size size, Size childSize) {
+    // Use the current child size so live content keeps its anchor and center.
+    final above =
+        position == PopupPosition.top ||
+        (position == PopupPosition.auto &&
+            targetRect.top > size.height - targetRect.bottom);
+    final x = switch (position) {
+      PopupPosition.left =>
+        targetRect.left - childSize.width + horizontalOffset,
+      PopupPosition.right => targetRect.right + horizontalOffset,
+      _ => targetRect.center.dx - childSize.width / 2 + horizontalOffset,
+    };
+    final y = switch (position) {
+      PopupPosition.left || PopupPosition.right =>
+        targetRect.center.dy - childSize.height / 2 + verticalOffset,
+      _ when above => targetRect.top - childSize.height - verticalOffset,
+      _ => targetRect.bottom + verticalOffset,
+    };
+    return Offset(
+      x.clamp(
+        padding.left + _edgeMargin,
+        size.width - childSize.width - padding.right - _edgeMargin,
+      ),
+      y.clamp(
+        padding.top + _edgeMargin,
+        size.height - childSize.height - padding.bottom - _edgeMargin,
+      ),
+    );
+  }
+
+  @override
+  bool shouldRelayout(_PopupLayoutDelegate oldDelegate) =>
+      targetRect != oldDelegate.targetRect ||
+      position != oldDelegate.position ||
+      padding != oldDelegate.padding ||
+      horizontalOffset != oldDelegate.horizontalOffset ||
+      verticalOffset != oldDelegate.verticalOffset;
 }

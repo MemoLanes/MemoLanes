@@ -75,7 +75,7 @@ class _AchievementBodyState extends State<AchievementBody> {
       ),
       children: [
         const _AchievementPageTitle(),
-        const SizedBox(height: 20),
+        const SizedBox(height: StyleConstants.pageTitleCardSpacing),
         if (hasOngoingJourney) ...[
           const _OngoingJourneyBanner(),
           const SizedBox(height: 14),

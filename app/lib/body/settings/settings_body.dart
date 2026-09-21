@@ -7,8 +7,9 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:memolanes/body/settings/advanced_settings_page.dart';
 import 'package:memolanes/body/settings/import_data_page.dart';
-import 'package:memolanes/body/settings/interface_settings_page.dart';
+import 'package:memolanes/body/settings/interface_settings_picker.dart';
 import 'package:memolanes/body/settings/map_settings_page.dart';
+import 'package:memolanes/common/app_theme_controller.dart';
 import 'package:memolanes/common/component/basic_dialog_card.dart';
 import 'package:memolanes/common/component/app_option_tile.dart';
 import 'package:memolanes/common/component/cards/option_card.dart';
@@ -106,6 +107,7 @@ class _SettingsBodyState extends State<SettingsBody> {
   Widget build(BuildContext context) {
     var updateUrl = context.watch<UpdateNotifier>().updateUrl;
     var gpsManager = context.watch<GpsManager>();
+    final themePreference = context.watch<AppThemeController>().preference;
 
     return MlSingleChildScrollView(
       padding: EdgeInsets.only(
@@ -116,7 +118,7 @@ class _SettingsBodyState extends State<SettingsBody> {
       ),
       children: [
         _SettingsPageHeader(),
-        const SizedBox(height: 18),
+        const SizedBox(height: StyleConstants.pageTitleCardSpacing),
         // TODO: Enable this when we have user system.
         // CircleAvatar(
         //   backgroundColor: context.appColors.primaryGreen,
@@ -181,9 +183,13 @@ class _SettingsBodyState extends State<SettingsBody> {
               label: context.tr("general.interface_settings.title"),
               position: LabelTilePosition.middle,
               prefix: _SettingsTileIcon(icon: Icons.palette_outlined),
-              trailing: LabelTileContent(showArrow: true),
-              onTap: () =>
-                  navigatorPush(context, page: const InterfaceSettingsPage()),
+              trailing: LabelTileContent(
+                content: context.tr(
+                  'general.interface_settings.mode_name.${themePreference.id}',
+                ),
+                showArrow: true,
+              ),
+              onTap: () => showInterfaceSettingsPicker(context),
             ),
             LabelTile(
               label: context.tr("general.advanced_settings.title"),

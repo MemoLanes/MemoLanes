@@ -75,13 +75,10 @@ class _AppDatePickerDialogState extends State<_AppDatePickerDialog> {
 
   void _setCalendarViewMode(CalendarDatePicker2Mode mode) {
     setState(() {
-      // calendar_date_picker2 returns to day mode internally after a month is
-      // selected, but it does not emit onDisplayedMonthChanged when the user
-      // selects the already displayed month. Recreate only in that stale-state
-      // case so the same month selector can always be opened again.
-      if (_calendarViewMode == mode) {
-        _calendarPickerRevision += 1;
-      }
+      // Selecting a month returns the package to day mode internally, while
+      // the externally held mode may still be month. Recreate on every header
+      // tap so the requested mode always takes effect on the first tap.
+      _calendarPickerRevision += 1;
       _calendarViewMode = mode;
     });
   }

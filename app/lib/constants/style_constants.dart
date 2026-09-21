@@ -4,6 +4,9 @@ import 'package:flutter/widgets.dart';
 class StyleConstants {
   StyleConstants._();
 
+  // Space from a main tab page title to its first card.
+  static const double pageTitleCardSpacing = 18;
+
   // TODO: `BackdropFilter` is very expensive and uses a lot of memory.
   // We disable it for now. We should try to optimize it, or use it only when
   // necessary or disable it when entering background.

@@ -47,11 +47,10 @@ class _JourneyListCalendarState extends State<JourneyListCalendar> {
 
   void _setCalendarViewMode(CalendarDatePicker2Mode mode) {
     setState(() {
-      // Force a fresh picker only when the package's internal day mode and our
-      // externally stored mode became out of sync after reselecting a month.
-      if (_calendarViewMode == mode) {
-        _calendarPickerRevision += 1;
-      }
+      // Selecting a month returns the package to day mode internally, while
+      // the externally held mode may still be month. Recreate on every header
+      // tap so the requested mode always takes effect on the first tap.
+      _calendarPickerRevision += 1;
       _calendarViewMode = mode;
     });
   }

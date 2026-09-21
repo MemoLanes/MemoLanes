@@ -223,6 +223,7 @@ class _CompactJourneyTimeDialogState extends State<CompactJourneyTimeDialog> {
                             expand: true,
                             icon: Icons.close_rounded,
                             label: localizations.cancelButtonLabel,
+                            variant: AppButtonVariant.secondary,
                             onPressed: () => Navigator.of(context).pop(),
                           ),
                         ),
