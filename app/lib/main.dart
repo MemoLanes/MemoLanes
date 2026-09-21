@@ -201,7 +201,7 @@ class _MyHomePageState extends State<MyHomePage> {
   /// Tabs 0, 1 and 2 share one MapBody and only switch its overlay. This keeps
   /// the current map position while moving between Record, Timeline and
   /// Journeys. Tabs 3 and 4 are separate pages.
-  Widget _buildPageContent() {
+  Widget _buildPageContent(double topSafeArea) {
     Widget child;
     if (_selectedIndex <= 2) {
       child = MapBody(
@@ -215,7 +215,7 @@ class _MyHomePageState extends State<MyHomePage> {
     } else {
       child = KeyedSubtree(
         key: ValueKey(_selectedIndex),
-        child: _buildDeferredTabBody(_selectedIndex),
+        child: _buildDeferredTabBody(_selectedIndex, topSafeArea),
       );
     }
 
@@ -225,15 +225,15 @@ class _MyHomePageState extends State<MyHomePage> {
     return child;
   }
 
-  Widget _buildDeferredTabBody(int index) {
+  Widget _buildDeferredTabBody(int index, double topSafeArea) {
     return switch (index) {
       3 => _buildDeferredBody(
         _achievementLib ??= achievement.loadLibrary(),
-        () => achievement.AchievementBody(),
+        () => achievement.AchievementBody(topSafeArea: topSafeArea),
       ),
       4 => _buildDeferredBody(
         _settingsLib ??= settings.loadLibrary(),
-        () => settings.SettingsBody(),
+        () => settings.SettingsBody(topSafeArea: topSafeArea),
       ),
       _ => throw RangeError('Invalid tab index: $index'),
     };
@@ -242,6 +242,7 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   Widget build(BuildContext context) {
     final mediaQuery = MediaQuery.of(context);
+    final scrollUnderStatusBar = _selectedIndex > 2;
     final navBarBottomInset = StyleConstants.navBarBottomInset(context);
     final horizontalSafeArea = math.max(
       mediaQuery.viewPadding.left,
@@ -262,9 +263,17 @@ class _MyHomePageState extends State<MyHomePage> {
       child: Scaffold(
         body: Stack(
           children: [
-            SafeAreaWrapper(
-              useSafeArea: _selectedIndex > 2,
-              child: _buildPageContent(),
+            // Menu pages add the top inset inside their scroll content.
+            // Consume it here so nested SafeAreaWrappers do not add it again.
+            MediaQuery.removePadding(
+              context: context,
+              removeTop: scrollUnderStatusBar,
+              child: SafeAreaWrapper(
+                useSafeArea: _selectedIndex > 2,
+                child: _buildPageContent(
+                  scrollUnderStatusBar ? mediaQuery.padding.top : 0,
+                ),
+              ),
             ),
             Positioned(
               left: 0,

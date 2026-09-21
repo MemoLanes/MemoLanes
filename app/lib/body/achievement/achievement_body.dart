@@ -18,7 +18,9 @@ import 'package:memolanes/constants/style_constants.dart';
 import 'package:provider/provider.dart';
 
 class AchievementBody extends StatefulWidget {
-  const AchievementBody({super.key});
+  const AchievementBody({super.key, required this.topSafeArea});
+
+  final double topSafeArea;
 
   @override
   State<AchievementBody> createState() => _AchievementBodyState();
@@ -67,8 +69,8 @@ class _AchievementBodyState extends State<AchievementBody> {
         context.watch<GpsManager>().recordingStatus != GpsRecordingStatus.none;
 
     return MlSingleChildScrollView(
-      padding: const EdgeInsets.only(
-        top: 16,
+      padding: EdgeInsets.only(
+        top: widget.topSafeArea + 16,
         bottom: StyleConstants.navBarSafeArea + 16,
       ),
       children: [

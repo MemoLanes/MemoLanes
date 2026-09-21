@@ -36,7 +36,9 @@ import 'package:url_launcher/url_launcher_string.dart';
 import 'contact_us_page.dart';
 
 class SettingsBody extends StatefulWidget {
-  const SettingsBody({super.key});
+  const SettingsBody({super.key, required this.topSafeArea});
+
+  final double topSafeArea;
 
   @override
   State<SettingsBody> createState() => _SettingsBodyState();
@@ -109,7 +111,7 @@ class _SettingsBodyState extends State<SettingsBody> {
       padding: EdgeInsets.only(
         left: 8.0,
         right: 8.0,
-        top: 16.0,
+        top: widget.topSafeArea + 16.0,
         bottom: StyleConstants.navBarSafeArea + 16.0,
       ),
       children: [
