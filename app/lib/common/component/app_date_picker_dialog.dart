@@ -28,14 +28,12 @@ Future<DateTime?> showAppDatePickerDialog(
     barrierColor: StyleConstants.shadowColor.withValues(
       alpha: StyleConstants.isDarkMode ? 0.58 : 0.2,
     ),
-    builder: (_) => PointerInterceptor(
-      child: _AppDatePickerDialog(
-        initialDate: initialDate,
-        firstDate: firstDate,
-        lastDate: lastDate,
-        highlightInitialDate: highlightInitialDate,
-        glassBackgroundAlpha: glassBackgroundAlpha,
-      ),
+    builder: (_) => _AppDatePickerDialog(
+      initialDate: initialDate,
+      firstDate: firstDate,
+      lastDate: lastDate,
+      highlightInitialDate: highlightInitialDate,
+      glassBackgroundAlpha: glassBackgroundAlpha,
     ),
   );
 }
@@ -279,85 +277,87 @@ class _AppDatePickerDialogState extends State<_AppDatePickerDialog> {
       insetPadding: EdgeInsets.symmetric(
         horizontal: useCompactSpacing ? 8 : 24,
       ),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 390),
-        child: AppDialogSurface(
-          style: AppDialogSurfaceStyle.glass,
-          glassBackgroundAlpha: widget.glassBackgroundAlpha,
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(
-              useCompactSpacing ? 4 : 12,
-              10,
-              useCompactSpacing ? 4 : 12,
-              12,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Flexible(
-                  fit: FlexFit.loose,
-                  child: SingleChildScrollView(
-                    child: SizedBox(
-                      width: double.infinity,
-                      height: 290,
-                      child: CalendarDatePicker2(
-                        key: ValueKey(
-                          'app-date-picker-$_calendarPickerRevision',
+      child: PointerInterceptor(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 390),
+          child: AppDialogSurface(
+            style: AppDialogSurfaceStyle.glass,
+            glassBackgroundAlpha: widget.glassBackgroundAlpha,
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(
+                useCompactSpacing ? 4 : 12,
+                10,
+                useCompactSpacing ? 4 : 12,
+                12,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    fit: FlexFit.loose,
+                    child: SingleChildScrollView(
+                      child: SizedBox(
+                        width: double.infinity,
+                        height: 290,
+                        child: CalendarDatePicker2(
+                          key: ValueKey(
+                            'app-date-picker-$_calendarPickerRevision',
+                          ),
+                          config: config,
+                          displayedMonthDate: _displayedMonthDate,
+                          value: [_selectedDate],
+                          onValueChanged: (dates) {
+                            final selected = dates.firstOrNull;
+                            if (selected == null) return;
+                            AppHaptics.selection();
+                            setState(() => _selectedDate = selected);
+                          },
+                          onDisplayedMonthChanged: (displayedMonth) {
+                            // The package has already returned its own view to day
+                            // mode. Keep our next config rebuild in sync without
+                            // rebuilding early and resetting its newly chosen month.
+                            _displayedMonthDate = DateTime(
+                              displayedMonth.year,
+                              displayedMonth.month,
+                            );
+                            _calendarViewMode = CalendarDatePicker2Mode.day;
+                          },
                         ),
-                        config: config,
-                        displayedMonthDate: _displayedMonthDate,
-                        value: [_selectedDate],
-                        onValueChanged: (dates) {
-                          final selected = dates.firstOrNull;
-                          if (selected == null) return;
-                          AppHaptics.selection();
-                          setState(() => _selectedDate = selected);
-                        },
-                        onDisplayedMonthChanged: (displayedMonth) {
-                          // The package has already returned its own view to day
-                          // mode. Keep our next config rebuild in sync without
-                          // rebuilding early and resetting its newly chosen month.
-                          _displayedMonthDate = DateTime(
-                            displayedMonth.year,
-                            displayedMonth.month,
-                          );
-                          _calendarViewMode = CalendarDatePicker2Mode.day;
-                        },
                       ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 6),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    SizedBox(
-                      width: 112,
-                      child: AppButton(
-                        label: localizations.cancelButtonLabel,
-                        icon: Icons.close_rounded,
-                        variant: AppButtonVariant.secondary,
-                        size: AppButtonSize.compact,
-                        expand: true,
-                        onPressed: () => Navigator.of(context).pop(),
+                  const SizedBox(height: 6),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      SizedBox(
+                        width: 112,
+                        child: AppButton(
+                          label: localizations.cancelButtonLabel,
+                          icon: Icons.close_rounded,
+                          variant: AppButtonVariant.secondary,
+                          size: AppButtonSize.compact,
+                          expand: true,
+                          onPressed: () => Navigator.of(context).pop(),
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    SizedBox(
-                      width: 112,
-                      child: AppButton(
-                        label: localizations.okButtonLabel,
-                        icon: Icons.check_rounded,
-                        variant: AppButtonVariant.primary,
-                        size: AppButtonSize.compact,
-                        expand: true,
-                        onPressed: () =>
-                            Navigator.of(context).pop(_selectedDate),
+                      const SizedBox(width: 8),
+                      SizedBox(
+                        width: 112,
+                        child: AppButton(
+                          label: localizations.okButtonLabel,
+                          icon: Icons.check_rounded,
+                          variant: AppButtonVariant.primary,
+                          size: AppButtonSize.compact,
+                          expand: true,
+                          onPressed: () =>
+                              Navigator.of(context).pop(_selectedDate),
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),

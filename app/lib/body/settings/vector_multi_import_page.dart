@@ -1,7 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/body/journey/journey_info_fields.dart';
-import 'package:memolanes/body/journey/journey_info_page.dart';
+import 'package:memolanes/body/journey/journey_import_preview_page.dart';
 import 'package:memolanes/common/component/multi_journey_import_page.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/simple_date_utils.dart';
@@ -83,7 +83,7 @@ class _VectorMultiImportPageState extends State<VectorMultiImportPage> {
       if (!mounted) return;
       await Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (context) => JourneyInfoPage(
+          builder: (context) => JourneyImportPreviewPage(
             journeyHeader: JourneyHeader(
               id: key,
               revision: '',
