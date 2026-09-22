@@ -74,6 +74,8 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
   api.MapRendererProxy? _selectedJourneyRendererProxy;
   JourneyHeader? _selectedJourney;
   MapBounds? _selectedJourneyBounds;
+  MapView? _viewBeforeJourney;
+  MapView? _returnToMapView;
   bool _isLoadingJourney = false;
   int _journeyLoadGeneration = 0;
   int _pickerRevision = 0;
@@ -99,6 +101,8 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
     final generation = ++_journeyLoadGeneration;
     setState(() => _isLoadingJourney = true);
     try {
+      final previousView =
+          await _mainMapKey.currentState?.getCurrentMapView() ?? _roughMapView;
       final rendererAndBounds = await api.getMapRendererProxyForJourney(
         journeyId: journey.id,
       );
@@ -111,6 +115,8 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
         _selectedJourney = journey;
         _selectedJourneyRendererProxy = rendererAndBounds.$1;
         _selectedJourneyBounds = rendererAndBounds.$2;
+        _viewBeforeJourney = previousView;
+        _returnToMapView = null;
       });
       widget.onAppChromeVisibilityChanged?.call(false);
     } catch (error, stackTrace) {
@@ -141,6 +147,8 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
   void closeJourneyDetail() {
     if (_selectedJourney == null) return;
     setState(() {
+      _returnToMapView = _viewBeforeJourney;
+      _viewBeforeJourney = null;
       _selectedJourney = null;
       _selectedJourneyRendererProxy = null;
       _selectedJourneyBounds = null;
@@ -202,6 +210,8 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
     if (oldWidget.mode == MapMode.journeys) {
       _journeyLoadGeneration++;
       _isLoadingJourney = false;
+      _viewBeforeJourney = null;
+      _returnToMapView = null;
     }
     if (widget.mode != MapMode.journeys && _selectedJourney != null) {
       _selectedJourney = null;
@@ -301,6 +311,7 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
       mapRendererProxy: proxy,
       initialMapView: _roughMapView,
       flyToBounds: widget.mode == MapMode.journeys ? journeyBounds : null,
+      flyToView: widget.mode == MapMode.journeys ? _returnToMapView : null,
       flyToBoundsPadding: journeyBounds == null
           ? null
           : CapsuleStyleOverlayAppBar.mapFitPaddingForBottomOverlay(

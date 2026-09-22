@@ -27,6 +27,12 @@ interface MapPadding {
   left: number;
 }
 
+interface MapView {
+  lng: number;
+  lat: number;
+  zoom: number;
+}
+
 // Type definitions for Flutter message channels
 interface FlutterMessageChannel {
   postMessage: (message: string) => void;
@@ -49,6 +55,7 @@ declare global {
     getCurrentMapView?: () => string;
     refreshMapData?: () => Promise<boolean | null>;
     flyToBounds?: (bounds: MapBounds, padding: MapPadding) => void;
+    flyToView?: (view: MapView) => void;
   }
 }
 
@@ -204,6 +211,16 @@ export class FlutterBridge {
         ],
         { padding, maxZoom: MAX_MAP_ZOOM, duration: 900, essential: true },
       );
+    };
+
+    // Return from journey details to the camera saved before opening them.
+    window.flyToView = (view) => {
+      this.map.flyTo({
+        center: [view.lng, view.lat],
+        zoom: view.zoom,
+        duration: 900,
+        essential: true,
+      });
     };
   }
 

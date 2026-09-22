@@ -41,6 +41,7 @@ class BaseMapWebview extends StatefulWidget {
   final EdgeInsets? initialMapBoundsPadding;
   final MapBounds? flyToBounds;
   final EdgeInsets? flyToBoundsPadding;
+  final MapView? flyToView;
   final TrackingMode trackingMode;
   final bool isEditor;
   final void Function()? onMapMoved;
@@ -56,6 +57,7 @@ class BaseMapWebview extends StatefulWidget {
     this.initialMapBoundsPadding,
     this.flyToBounds,
     this.flyToBoundsPadding,
+    this.flyToView,
     this.trackingMode = TrackingMode.off,
     this.isEditor = false,
     this.onMapMoved,
@@ -95,6 +97,30 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     await _webViewController?.evaluateJavascript(source: javaScript);
   }
 
+  /// Read the live camera before opening a journey, including recent gestures
+  /// that have not reached the throttled map-view callback yet.
+  Future<MapView?> getCurrentMapView() async {
+    final controller = _webViewController;
+    if (controller == null || !_readyForDisplay) return _currentRoughMapView;
+    try {
+      final result = await controller.evaluateJavascript(
+        source: 'getCurrentMapView()',
+      );
+      final view = jsonDecode(result as String);
+      return (
+        lng: (view['lng'] as num).toDouble(),
+        lat: (view['lat'] as num).toDouble(),
+        zoom: (view['zoom'] as num).toDouble(),
+      );
+    } catch (error, stackTrace) {
+      log.error(
+        '[base_map_webview] Reading map view failed: $error',
+        stackTrace,
+      );
+      return _currentRoughMapView;
+    }
+  }
+
   void _setStateIfMounted(VoidCallback fn) {
     if (!mounted) return;
     setState(fn);
@@ -112,7 +138,8 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     }
 
     if (oldWidget.mapRendererProxy != widget.mapRendererProxy ||
-        oldWidget.flyToBounds != widget.flyToBounds) {
+        oldWidget.flyToBounds != widget.flyToBounds ||
+        oldWidget.flyToView != widget.flyToView) {
       unawaited(_syncMapDataAndCamera());
     }
   }
@@ -127,6 +154,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     }
     _pendingMapDataSync = false;
     final bounds = widget.flyToBounds;
+    final view = widget.flyToView;
     final padding = widget.flyToBoundsPadding ?? const EdgeInsets.all(24);
     final boundsJson = bounds == null
         ? 'null'
@@ -142,6 +170,9 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
       'bottom': padding.bottom,
       'left': padding.left,
     });
+    final viewJson = view == null
+        ? 'null'
+        : jsonEncode({'lng': view.lng, 'lat': view.lat, 'zoom': view.zoom});
     try {
       await controller.evaluateJavascript(
         source:
@@ -149,6 +180,8 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
         if (typeof refreshMapData === 'function') refreshMapData();
         if ($boundsJson !== null && typeof flyToBounds === 'function') {
           flyToBounds($boundsJson, $paddingJson);
+        } else if ($viewJson !== null && typeof flyToView === 'function') {
+          flyToView($viewJson);
         }
       ''',
       );
