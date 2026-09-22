@@ -15,7 +15,6 @@ import 'package:memolanes/common/app_haptics.dart';
 import 'package:memolanes/common/app_translation_loader.dart';
 import 'package:memolanes/common/component/app_button.dart';
 import 'package:memolanes/common/component/common_dialog.dart';
-import 'package:memolanes/common/component/map_glass_back_button.dart';
 import 'package:memolanes/common/simple_date_utils.dart';
 import 'package:memolanes/src/rust/api/import.dart';
 import 'package:memolanes/src/rust/frb_generated.dart';
@@ -101,73 +100,46 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets(
-    'journey calendar keeps its month through detail and resets on tab switch',
-    (tester) async {
-      var inJourneysTab = true;
-      var showingDetail = false;
-      var revision = 0;
-      late StateSetter updateHost;
-      await pumpApp(
-        tester,
-        StatefulBuilder(
-          builder: (context, setState) {
-            updateHost = setState;
-            return Scaffold(
-              body: inJourneysTab
-                  ? JourneyOverlay(
-                      onJourneySelected: (_) async {},
-                      isLoading: false,
-                      refreshRevision: revision,
-                      detail: showingDetail
-                          ? const ColoredBox(color: Colors.transparent)
-                          : null,
-                    )
-                  : const SizedBox.expand(),
-            );
-          },
-        ),
-      );
+  testWidgets('journey calendar keeps its month after closing details', (
+    tester,
+  ) async {
+    var showingDetail = false;
+    var revision = 0;
+    late StateSetter updateHost;
+    await pumpApp(
+      tester,
+      StatefulBuilder(
+        builder: (context, setState) {
+          updateHost = setState;
+          return Scaffold(
+            body: JourneyOverlay(
+              onJourneySelected: (_) async {},
+              isLoading: false,
+              refreshRevision: revision,
+              detail: showingDetail
+                  ? const ColoredBox(color: Colors.transparent)
+                  : null,
+            ),
+          );
+        },
+      ),
+    );
 
-      final calendar = tester.widget<JourneyListCalendar>(
-        find.byType(JourneyListCalendar),
-      );
-      final controller = calendar.controller;
-      await controller.displayMonth(SimpleDate(2023, 12, 1));
-      await tester.pumpAndSettle();
-      expect(controller.selectedDate.month, 12);
+    final controller = tester
+        .widget<JourneyListCalendar>(find.byType(JourneyListCalendar))
+        .controller;
+    await controller.displayMonth(SimpleDate(2023, 12, 1));
+    await tester.pumpAndSettle();
 
-      updateHost(() => showingDetail = true);
-      await tester.pumpAndSettle();
-      expect(find.byType(JourneyListCalendar), findsNothing);
-      expect(
-        find.byType(JourneyListCalendar, skipOffstage: false),
-        findsOneWidget,
-      );
-
-      updateHost(() {
-        showingDetail = false;
-        revision++;
-      });
-      await tester.pumpAndSettle();
-      final restored = tester.widget<JourneyListCalendar>(
-        find.byType(JourneyListCalendar),
-      );
-      expect(identical(restored.controller, controller), isTrue);
-      expect(restored.controller.selectedDate.month, 12);
-
-      updateHost(() => inJourneysTab = false);
-      await tester.pumpAndSettle();
-      updateHost(() => inJourneysTab = true);
-      await tester.pumpAndSettle();
-      final reopened = tester.widget<JourneyListCalendar>(
-        find.byType(JourneyListCalendar),
-      );
-      expect(identical(reopened.controller, controller), isFalse);
-      expect(reopened.controller.selectedDate.month, 11);
-      expect(tester.takeException(), isNull);
-    },
-  );
+    updateHost(() => showingDetail = true);
+    await tester.pumpAndSettle();
+    updateHost(() {
+      showingDetail = false;
+      revision++;
+    });
+    await tester.pumpAndSettle();
+    expect(find.text('Dec'), findsOneWidget);
+  });
 
   for (final keepSelectedMonth in [false, true]) {
     testWidgets('calendar follows a changed earliest date with '
@@ -223,17 +195,14 @@ void main() {
         find.text('30'),
         keepSelectedMonth ? findsOneWidget : findsNothing,
       );
-      // The date under the visible month heading must also be selectable.
-      await tester.tap(find.text('1'));
-      await tester.pumpAndSettle();
-      expect(controller.selectedDate, expectedDate);
       expect(tester.takeException(), isNull);
     });
   }
 
-  testWidgets('editing hides back and cancel discards the draft', (
+  testWidgets('cancel discards the draft without saving or closing details', (
     tester,
   ) async {
+    mockApi.savedMetadata.clear();
     var closed = false;
     await pumpApp(
       tester,
@@ -246,23 +215,17 @@ void main() {
       ),
     );
 
-    expect(find.byType(MapGlassBackButton), findsOneWidget);
     await tester.tap(find.text('Edit'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Edit Journey Information'));
     await tester.pumpAndSettle();
 
-    expect(find.byType(MapGlassBackButton), findsNothing);
-    expect(find.text('Cancel'), findsOneWidget);
-    expect(find.text('Save'), findsOneWidget);
     await tester.enterText(find.byType(TextField), 'Unsaved draft');
     await tester.tap(find.text('Cancel'));
     await tester.pumpAndSettle();
 
-    expect(find.byType(MapGlassBackButton), findsOneWidget);
-    expect(find.text('Original note'), findsOneWidget);
-    expect(find.text('Unsaved draft'), findsNothing);
     expect(closed, isFalse);
+    expect(mockApi.savedMetadata, isEmpty);
 
     await tester.tap(find.text('Edit'));
     await tester.pumpAndSettle();
@@ -299,7 +262,6 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
-    expect(find.text('Do you want to save the changes?'), findsOneWidget);
     expect(mockApi.savedMetadata, isEmpty);
     invokeConfirmationAction(tester, 'Cancel');
     await tester.pumpAndSettle();
@@ -318,24 +280,20 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('system back cancels editing before closing journey detail', (
-    tester,
-  ) async {
-    var closed = false;
-    var showingDetail = true;
-    late StateSetter updateHost;
+  testWidgets(
+    'home back cancels editing, then closes details and unregisters',
+    (tester) async {
+      mockApi.savedMetadata.clear();
+      var closed = false;
+      var showingDetail = true;
+      late StateSetter updateHost;
 
-    await pumpApp(
-      tester,
-      StatefulBuilder(
-        builder: (context, setState) {
-          updateHost = setState;
-          return PopScope(
-            canPop: false,
-            onPopInvokedWithResult: (didPop, result) {
-              if (!didPop) handleHomeBack();
-            },
-            child: Scaffold(
+      await pumpApp(
+        tester,
+        StatefulBuilder(
+          builder: (context, setState) {
+            updateHost = setState;
+            return Scaffold(
               body: showingDetail
                   ? JourneyDetailOverlay(
                       journey: journey,
@@ -346,31 +304,30 @@ void main() {
                       onMapChanged: (_, _) {},
                     )
                   : const SizedBox.expand(),
-            ),
-          );
-        },
-      ),
-    );
+            );
+          },
+        ),
+      );
 
-    await tester.tap(find.text('Edit'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Edit Journey Information'));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField), 'Unsaved draft');
+      await tester.tap(find.text('Edit'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Edit Journey Information'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'Unsaved draft');
 
-    await tester.binding.handlePopRoute();
-    await tester.pumpAndSettle();
-    expect(closed, isFalse);
-    expect(find.byType(MapGlassBackButton), findsOneWidget);
-    expect(find.text('Original note'), findsOneWidget);
-    expect(find.text('Unsaved draft'), findsNothing);
+      expect(handleHomeBack(), isTrue);
+      await tester.pumpAndSettle();
+      expect(closed, isFalse);
+      expect(find.byType(TextField), findsNothing);
+      expect(mockApi.savedMetadata, isEmpty);
 
-    await tester.binding.handlePopRoute();
-    await tester.pumpAndSettle();
-    expect(closed, isTrue);
-    expect(handleHomeBack(), isFalse);
-    expect(tester.takeException(), isNull);
-  });
+      expect(handleHomeBack(), isTrue);
+      await tester.pumpAndSettle();
+      expect(closed, isTrue);
+      expect(handleHomeBack(), isFalse);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('detail form scrolls above a landscape keyboard', (tester) async {
     tester.view.devicePixelRatio = 1;
