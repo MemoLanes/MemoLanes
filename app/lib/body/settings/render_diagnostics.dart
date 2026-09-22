@@ -56,10 +56,14 @@ class _RenderDiagnosticsPageState extends State<RenderDiagnosticsPage> {
     final cgiEndpoint = Platform.isIOS
         ? 'memolanes://api'
         : 'https://memolanes.local/api';
+    final appearance = (Theme.of(context).brightness == Brightness.dark)
+        ? 'dark'
+        : 'light';
 
     await _controller?.evaluateJavascript(
       source:
           '''
+      document.documentElement.dataset.theme = "$appearance";
       window.EXTERNAL_PARAMS = {
         cgi_endpoint: "$cgiEndpoint"
       };

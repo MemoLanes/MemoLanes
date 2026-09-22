@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 
+import 'package:memolanes/theme/app_colors.dart';
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/constants/app_typography.dart';
@@ -139,13 +141,13 @@ class _JourneyPickerCard extends StatelessWidget {
                       width: 30,
                       height: 30,
                       decoration: BoxDecoration(
-                        color: StyleConstants.softGreen,
+                        color: context.appColors.softGreen,
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
                         Icons.route_rounded,
                         size: 17,
-                        color: StyleConstants.deepGreen,
+                        color: context.appColors.deepGreen,
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -153,7 +155,7 @@ class _JourneyPickerCard extends StatelessWidget {
                       child: Text(
                         context.tr('journey.picker_title'),
                         style: AppTypography.surfaceTitle.copyWith(
-                          color: StyleConstants.deepGreen,
+                          color: context.appColors.deepGreen,
                         ),
                       ),
                     ),
@@ -163,7 +165,7 @@ class _JourneyPickerCard extends StatelessWidget {
               ),
               Divider(
                 height: 1,
-                color: StyleConstants.lineColor.withValues(alpha: 0.9),
+                color: context.appColors.lineColor.withValues(alpha: 0.9),
               ),
               Expanded(
                 child: JourneyBody(
@@ -176,10 +178,10 @@ class _JourneyPickerCard extends StatelessWidget {
           if (isLoading)
             Positioned.fill(
               child: ColoredBox(
-                color: StyleConstants.surfaceColor.withValues(alpha: 0.42),
+                color: context.appColors.surfaceColor.withValues(alpha: 0.42),
                 child: Center(
                   child: CircularProgressIndicator(
-                    color: StyleConstants.deepGreen,
+                    color: context.appColors.deepGreen,
                   ),
                 ),
               ),

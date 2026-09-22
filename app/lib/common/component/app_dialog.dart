@@ -1,7 +1,9 @@
+import 'dart:ui' show lerpDouble;
+
 import 'package:flutter/material.dart';
 import 'package:memolanes/common/component/liquid_glass_surface.dart';
 import 'package:memolanes/constants/app_typography.dart';
-import 'package:memolanes/constants/style_constants.dart';
+import 'package:memolanes/theme/app_colors.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 
 enum AppDialogSurfaceStyle { solid, glass }
@@ -51,12 +53,12 @@ class AppDialogSurface extends StatelessWidget {
 
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: backgroundColor ?? StyleConstants.canvasColor,
+        color: backgroundColor ?? context.appColors.canvasColor,
         borderRadius: borderRadius,
-        border: Border.all(color: StyleConstants.lineColor),
+        border: Border.all(color: context.appColors.lineColor),
         boxShadow: [
           BoxShadow(
-            color: StyleConstants.shadowColor.withValues(alpha: shadowAlpha),
+            color: context.appColors.shadowColor.withValues(alpha: shadowAlpha),
             blurRadius: shadowBlurRadius,
             spreadRadius: shadowSpreadRadius,
             offset: shadowOffset,
@@ -120,7 +122,7 @@ class AppDialogCard extends StatelessWidget {
                       child: Text(
                         title!,
                         style: AppTypography.surfaceTitle.copyWith(
-                          color: StyleConstants.deepGreen,
+                          color: context.appColors.deepGreen,
                         ),
                         textAlign: TextAlign.center,
                       ),
@@ -136,7 +138,7 @@ class AppDialogCard extends StatelessWidget {
                   child: Text(
                     subtitle!,
                     style: AppTypography.supporting.copyWith(
-                      color: StyleConstants.mutedInkColor,
+                      color: context.appColors.mutedInkColor,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -220,8 +222,8 @@ Future<T?> showAppDialog<T>(
     barrierDismissible: barrierDismissible,
     barrierColor:
         barrierColor ??
-        StyleConstants.shadowColor.withValues(
-          alpha: StyleConstants.isDarkMode ? 0.58 : 0.22,
+        context.appColors.shadowColor.withValues(
+          alpha: lerpDouble(0.22, 0.58, context.appColors.darkProgress)!,
         ),
     builder: (dialogContext) => Dialog(
       elevation: 0,

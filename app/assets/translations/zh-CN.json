@@ -304,6 +304,14 @@
       "reset_local_prefs": "重置偏好设置",
       "reset_local_prefs_message": "该操作会重置所有偏好设置并立即关闭应用。不会删除旅程数据。",
       "render_diagnostics": "渲染诊断"
+    },
+    "appearance": {
+      "title": "外观",
+      "mode_name": {
+        "system": "跟随系统",
+        "light": "浅色模式",
+        "dark": "深色模式"
+      }
     }
   },
   "data": {
@@ -315,7 +323,8 @@
       "delete_backup_data": "删除备份数据"
     },
     "import_data": {
-      "title": "导入数据"
+      "title": "导入数据",
+      "description": "选择要导入的数据来源与格式。"
     },
     "export_data": {
       "export_all": "导出所有数据",
@@ -340,7 +349,8 @@
   },
   "settings": {
     "other": "其他",
-    "about": "关于"
+    "about": "关于",
+    "page_title": "设置"
   },
   "beta_testing_notice": {
     "title": "欢迎体验「迹忆」公测版",

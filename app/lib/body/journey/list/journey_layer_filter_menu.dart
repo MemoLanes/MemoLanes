@@ -1,10 +1,10 @@
+import 'package:memolanes/theme/app_colors.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:memolanes/common/app_haptics.dart';
 import 'package:memolanes/constants/app_typography.dart';
-import 'package:memolanes/constants/style_constants.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
 
 class JourneyLayerFilterMenu extends StatefulWidget {
@@ -41,7 +41,7 @@ class _JourneyLayerFilterMenuState extends State<JourneyLayerFilterMenu> {
           child: Text(
             context.tr('journey.list.filter_layers'),
             style: AppTypography.caption.copyWith(
-              color: StyleConstants.mutedInkColor,
+              color: context.appColors.mutedInkColor,
             ),
           ),
         ),
@@ -98,16 +98,16 @@ class _JourneyLayerFilterMenuState extends State<JourneyLayerFilterMenu> {
               selected ? Icons.check : Icons.check_box_outline_blank,
               size: 18,
               color: selected
-                  ? StyleConstants.deepGreen
-                  : StyleConstants.mutedInkColor,
+                  ? context.appColors.deepGreen
+                  : context.appColors.mutedInkColor,
             ),
             const SizedBox(width: 8),
             Text(
               label,
               style: AppTypography.body.copyWith(
                 color: selected
-                    ? StyleConstants.inkColor
-                    : StyleConstants.mutedInkColor,
+                    ? context.appColors.inkColor
+                    : context.appColors.mutedInkColor,
                 fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
               ),
             ),

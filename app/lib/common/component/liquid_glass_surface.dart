@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:memolanes/constants/style_constants.dart';
+import 'package:memolanes/theme/app_colors.dart';
 
 /// An adaptive liquid-glass surface for controls displayed over the map.
 ///
@@ -74,22 +75,23 @@ class LiquidGlassSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final darkProgress = context.appColors.darkProgress;
     final effectiveReflectionColor =
-        reflectionColor ?? StyleConstants.primaryGreen;
+        reflectionColor ?? context.appColors.primaryGreen;
     final effectiveSecondaryReflectionColor =
-        secondaryReflectionColor ?? StyleConstants.softGreen;
+        secondaryReflectionColor ?? context.appColors.softGreen;
     final effectiveShadowAlpha =
-        shadowAlpha ?? StyleConstants.mapOverlayShadowAlpha;
+        shadowAlpha ?? context.appColors.mapOverlayShadowAlpha;
     final effectiveBackgroundAlpha =
-        backgroundAlpha ?? (StyleConstants.isDarkMode ? 0.76 : 0.36);
+        backgroundAlpha ?? lerpDouble(0.36, 0.76, darkProgress)!;
     final effectiveBorderAlpha =
-        borderAlpha ?? (StyleConstants.isDarkMode ? 0.46 : 0.62);
+        borderAlpha ?? lerpDouble(0.62, 0.46, darkProgress)!;
 
     return DecoratedBox(
       decoration: _decoration(
         boxShadow: [
           BoxShadow(
-            color: StyleConstants.shadowColor.withValues(
+            color: context.appColors.shadowColor.withValues(
               alpha: effectiveShadowAlpha,
             ),
             blurRadius: shadowBlurRadius,
@@ -97,8 +99,8 @@ class LiquidGlassSurface extends StatelessWidget {
             offset: shadowOffset,
           ),
           BoxShadow(
-            color: StyleConstants.glassHighlightColor.withValues(
-              alpha: StyleConstants.isDarkMode ? 0.1 : 0.28,
+            color: context.appColors.glassHighlightColor.withValues(
+              alpha: lerpDouble(0.28, 0.1, darkProgress)!,
             ),
             blurRadius: 8,
             spreadRadius: -5,
@@ -116,11 +118,11 @@ class LiquidGlassSurface extends StatelessWidget {
               Positioned.fill(
                 child: DecoratedBox(
                   decoration: _decoration(
-                    color: StyleConstants.glassColor.withValues(
+                    color: context.appColors.glassColor.withValues(
                       alpha: effectiveBackgroundAlpha,
                     ),
                     border: Border.all(
-                      color: StyleConstants.glassBorderColor.withValues(
+                      color: context.appColors.glassBorderColor.withValues(
                         alpha: effectiveBorderAlpha,
                       ),
                       width: 1.1,
