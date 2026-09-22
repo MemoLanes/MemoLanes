@@ -1,5 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:memolanes/body/journey/editor/journey_editor_map_view.dart';
 import 'package:memolanes/body/journey/editor/journey_editor_operation_queue.dart';
@@ -12,6 +13,7 @@ import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/api/edit_session.dart'
     show AddLinesOutcome, EditSession;
+import 'package:memolanes/theme/app_theme.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 
 class JourneyTrackEditPage extends StatefulWidget {
@@ -431,7 +433,7 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
+    final page = PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
@@ -499,6 +501,11 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
           ],
         ),
       ),
+    );
+
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: AppTheme.mapSystemOverlayStyle(Theme.of(context)),
+      child: page,
     );
   }
 }

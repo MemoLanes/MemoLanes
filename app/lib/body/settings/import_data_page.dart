@@ -1,6 +1,7 @@
 import 'package:memolanes/theme/app_colors.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:fpdart/fpdart.dart' as f;
 import 'package:memolanes/body/journey/journey_info_edit_page.dart';
 import 'package:memolanes/body/settings/import_preprocessor_notice.dart';
@@ -15,6 +16,7 @@ import 'package:memolanes/common/simple_date_utils.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/api/import.dart' as import_api;
+import 'package:memolanes/theme/app_theme.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:sliding_up_panel/sliding_up_panel.dart';
 
@@ -230,7 +232,7 @@ class _ImportDataPage extends State<ImportDataPage> {
           bottomOverlayHeight: panelHeight,
         );
 
-    return Scaffold(
+    final page = Scaffold(
       body: journeyInfo == null
           ? const SizedBox.shrink()
           : Stack(
@@ -287,6 +289,11 @@ class _ImportDataPage extends State<ImportDataPage> {
                 ),
               ],
             ),
+    );
+
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: AppTheme.mapSystemOverlayStyle(Theme.of(context)),
+      child: page,
     );
   }
 }

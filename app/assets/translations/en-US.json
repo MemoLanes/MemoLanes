@@ -305,8 +305,8 @@
       "reset_local_prefs_message": "This will reset all preferences and immediately shut down the app. Journey data will not be deleted.",
       "render_diagnostics": "Render Diagnostics"
     },
-    "interface_settings": {
-      "title": "Interface Settings",
+    "appearance": {
+      "title": "Appearance",
       "mode_name": {
         "system": "Follow System",
         "light": "Light Mode",
