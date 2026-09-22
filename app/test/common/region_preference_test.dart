@@ -7,7 +7,7 @@ import 'package:memolanes/common/region_preference.dart';
 class _Preferences {
   Worldview? saved;
   int setupCompletedVersion = 0;
-  List<Locale> locales = const [Locale('en', 'HK')];
+  List<Locale> locales = const [Locale('zh', 'CN')];
   final activations = <Worldview>[];
   final writes = <Worldview>[];
   bool failActivation = false;
@@ -34,15 +34,15 @@ void main() {
     test('maps explicit regions independently of language and script', () {
       for (final (locale, expected) in const [
         (Locale('zh', 'CN'), Worldview.chn),
-        (Locale('en', 'HK'), Worldview.chn),
-        (Locale('pt', 'MO'), Worldview.chn),
+        (Locale('en', 'HK'), Worldview.iso),
+        (Locale('pt', 'MO'), Worldview.iso),
         (
           Locale.fromSubtags(
             languageCode: 'zh',
             scriptCode: 'Hans',
             countryCode: 'HK',
           ),
-          Worldview.chn,
+          Worldview.iso,
         ),
         (
           Locale.fromSubtags(
@@ -50,7 +50,7 @@ void main() {
             scriptCode: 'Hant',
             countryCode: 'HK',
           ),
-          Worldview.chn,
+          Worldview.iso,
         ),
         (Locale('zh', 'US'), Worldview.usa),
         (Locale('zh', 'TW'), Worldview.iso),
@@ -79,7 +79,7 @@ void main() {
     test('uses the first explicit region, even when it maps to ISO', () {
       expect(
         defaultWorldviewFromLocales(const [Locale('zh'), Locale('en', 'HK')]),
-        Worldview.chn,
+        Worldview.iso,
       );
       expect(
         defaultWorldviewFromLocales(const [
@@ -120,7 +120,7 @@ void main() {
       },
     );
 
-    test('preserves a previously confirmed ISO choice for HK', () async {
+    test('preserves a previously confirmed ISO choice', () async {
       preferences.saved = Worldview.iso;
       preferences.setupCompletedVersion = 1;
       await manager.initialize();

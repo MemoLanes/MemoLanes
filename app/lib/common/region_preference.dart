@@ -125,10 +125,11 @@ achievement.Worldview defaultWorldviewFromLocales(Iterable<Locale> locales) {
     final region = locale.countryCode?.trim().toUpperCase();
     if (region == null || region.isEmpty) continue;
     return switch (region) {
-      'CN' || 'HK' || 'MO' => achievement.Worldview.chn,
+      'CN' => achievement.Worldview.chn,
       'US' => achievement.Worldview.usa,
-      // TW and all other regions retain the ISO recommendation. This is an
-      // explicit preference policy, not derived from geo asset parentage.
+      // Hong Kong, Macau, Taiwan, and all other regions retain the ISO
+      // recommendation. This is an explicit preference policy, not derived
+      // from geo asset parentage.
       _ => achievement.Worldview.iso,
     };
   }
