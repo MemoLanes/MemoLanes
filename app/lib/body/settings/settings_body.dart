@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:memolanes/body/settings/advanced_settings_page.dart';
 import 'package:memolanes/body/settings/import_data_page.dart';
-import 'package:memolanes/body/settings/interface_settings_picker.dart';
+import 'package:memolanes/body/settings/appearance_picker.dart';
 import 'package:memolanes/body/settings/map_settings_page.dart';
 import 'package:memolanes/common/app_theme_controller.dart';
 import 'package:memolanes/common/component/basic_dialog_card.dart';
@@ -194,7 +194,7 @@ class _SettingsBodyState extends State<SettingsBody> {
                 ),
                 showArrow: true,
               ),
-              onTap: () => showInterfaceSettingsPicker(context),
+              onTap: () => showAppearancePicker(context),
             ),
             LabelTile(
               label: context.tr("general.advanced_settings.title"),

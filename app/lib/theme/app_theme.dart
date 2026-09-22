@@ -12,7 +12,7 @@ abstract final class AppTheme {
   static final light = _build(Brightness.light, AppColors.light);
   static final dark = _build(Brightness.dark, AppColors.dark);
 
-  /// The map can be dark regardless of the interface theme.
+  /// The map can be dark regardless of the app theme.
   static SystemUiOverlayStyle mapSystemOverlayStyle(ThemeData theme) =>
       theme.appBarTheme.systemOverlayStyle!.copyWith(
         statusBarIconBrightness: Brightness.light,

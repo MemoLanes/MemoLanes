@@ -5,7 +5,7 @@ import 'package:memolanes/common/component/app_option_tile.dart';
 import 'package:memolanes/common/component/basic_dialog_card.dart';
 import 'package:provider/provider.dart';
 
-Future<void> showInterfaceSettingsPicker(BuildContext context) {
+Future<void> showAppearancePicker(BuildContext context) {
   final controller = context.read<AppThemeController>();
 
   return showBasicCard<void>(
