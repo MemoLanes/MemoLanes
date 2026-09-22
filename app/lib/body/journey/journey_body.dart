@@ -29,7 +29,8 @@ class JourneyBody extends StatefulWidget {
 
   /// Change this value to refresh data using the existing list controller.
   /// The current calendar month, selected date, and journey-kind filters stay
-  /// in place when returning from a detail overlay.
+  /// in place when returning from a detail overlay, unless the selected date
+  /// falls before the earliest remaining journey.
   final int refreshRevision;
 
   @override

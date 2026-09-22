@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:memolanes/body/journey/list/journey_layer_filter_menu.dart';
 import 'package:memolanes/body/journey/list/journey_list_calendar.dart';
+import 'package:memolanes/body/journey/list/journey_list_controller.dart';
 import 'package:memolanes/body/map/overlay/journey_detail_card.dart';
 import 'package:memolanes/body/map/overlay/journey_detail_overlay.dart';
 import 'package:memolanes/body/map/overlay/journey_more_dialog.dart';
@@ -167,6 +168,68 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  for (final keepSelectedMonth in [false, true]) {
+    testWidgets('calendar follows a changed earliest date with '
+        '${keepSelectedMonth ? 'a retained' : 'a deleted'} selected month', (
+      tester,
+    ) async {
+      final november = SimpleDate(2023, 11, 14);
+      final february = SimpleDate(2024, 2, 1);
+      final march = SimpleDate(2024, 3, 1);
+      var earliest = november;
+      var dates = [november, february, march];
+      final controller = JourneyListController(
+        earliestJourneyDateLoader: () async => earliest,
+        journeyDatesLoader: (_) async => dates,
+        journeyHeadersLoader: (_, _) async => [],
+      );
+      addTearDown(controller.dispose);
+      await controller.initialize();
+      await controller.selectDate(keepSelectedMonth ? march : november);
+      await pumpApp(
+        tester,
+        Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 340,
+              child: AnimatedBuilder(
+                animation: controller,
+                builder: (context, _) => JourneyListCalendar(
+                  controller: controller,
+                  firstDate: controller.firstDate!,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      // Deleting November's last journey changes the calendar's page origin.
+      earliest = february;
+      dates = [february, march];
+      await controller.refresh();
+      await tester.pumpAndSettle();
+
+      final expectedDate = keepSelectedMonth ? march : february;
+      expect(controller.selectedDate, expectedDate);
+      expect(find.text(keepSelectedMonth ? 'Mar' : 'Feb'), findsOneWidget);
+      expect(find.text('29'), findsOneWidget);
+      expect(
+        find.text('31'),
+        keepSelectedMonth ? findsOneWidget : findsNothing,
+      );
+      expect(
+        find.text('30'),
+        keepSelectedMonth ? findsOneWidget : findsNothing,
+      );
+      // The date under the visible month heading must also be selectable.
+      await tester.tap(find.text('1'));
+      await tester.pumpAndSettle();
+      expect(controller.selectedDate, expectedDate);
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   testWidgets('editing hides back and cancel discards the draft', (
     tester,
