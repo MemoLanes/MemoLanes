@@ -51,7 +51,7 @@ class BottomNavBar extends StatelessWidget {
 
     return LiquidGlassSurface(
       borderRadius: BorderRadius.circular(24),
-      backgroundAlpha: lerpDouble(0.36, 0.86, darkProgress)!,
+      backgroundAlpha: lerpDouble(0.56, 0.86, darkProgress)!,
       blurSigma: 28,
       reflectionAlpha: 0.2,
       child: Stack(

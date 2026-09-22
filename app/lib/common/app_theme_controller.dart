@@ -31,10 +31,10 @@ class AppThemeController extends ChangeNotifier {
   final void Function(String) _writePreference;
 
   static String? _readPreference() =>
-      MMKVUtil.getStringOpt(MMKVKey.interfaceThemeMode);
+      MMKVUtil.getStringOpt(MMKVKey.appearanceMode);
 
   static void _savePreference(String value) =>
-      MMKVUtil.putString(MMKVKey.interfaceThemeMode, value);
+      MMKVUtil.putString(MMKVKey.appearanceMode, value);
 
   AppThemePreference get preference => _preference;
 

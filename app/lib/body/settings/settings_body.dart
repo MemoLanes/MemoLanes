@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:memolanes/body/settings/advanced_settings_page.dart';
 import 'package:memolanes/body/settings/import_data_page.dart';
-import 'package:memolanes/body/settings/interface_settings_picker.dart';
+import 'package:memolanes/body/settings/appearance_picker.dart';
 import 'package:memolanes/body/settings/map_settings_page.dart';
 import 'package:memolanes/common/app_theme_controller.dart';
 import 'package:memolanes/common/component/basic_dialog_card.dart';
@@ -37,9 +37,14 @@ import 'package:url_launcher/url_launcher_string.dart';
 import 'contact_us_page.dart';
 
 class SettingsBody extends StatefulWidget {
-  const SettingsBody({super.key, required this.topSafeArea});
+  const SettingsBody({
+    super.key,
+    required this.topSafeArea,
+    required this.bottomSafeArea,
+  });
 
   final double topSafeArea;
+  final double bottomSafeArea;
 
   @override
   State<SettingsBody> createState() => _SettingsBodyState();
@@ -114,7 +119,7 @@ class _SettingsBodyState extends State<SettingsBody> {
         left: 8.0,
         right: 8.0,
         top: widget.topSafeArea + 16.0,
-        bottom: StyleConstants.navBarSafeArea + 16.0,
+        bottom: widget.bottomSafeArea + 16.0,
       ),
       children: [
         _SettingsPageHeader(),
@@ -180,16 +185,16 @@ class _SettingsBodyState extends State<SettingsBody> {
                   navigatorPush(context, page: const MapSettingsPage()),
             ),
             LabelTile(
-              label: context.tr("general.interface_settings.title"),
+              label: context.tr("general.appearance.title"),
               position: LabelTilePosition.middle,
               prefix: _SettingsTileIcon(icon: Icons.palette_outlined),
               trailing: LabelTileContent(
                 content: context.tr(
-                  'general.interface_settings.mode_name.${themePreference.id}',
+                  'general.appearance.mode_name.${themePreference.id}',
                 ),
                 showArrow: true,
               ),
-              onTap: () => showInterfaceSettingsPicker(context),
+              onTap: () => showAppearancePicker(context),
             ),
             LabelTile(
               label: context.tr("general.advanced_settings.title"),

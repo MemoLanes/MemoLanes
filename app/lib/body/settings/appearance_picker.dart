@@ -5,12 +5,12 @@ import 'package:memolanes/common/component/app_option_tile.dart';
 import 'package:memolanes/common/component/basic_dialog_card.dart';
 import 'package:provider/provider.dart';
 
-Future<void> showInterfaceSettingsPicker(BuildContext context) {
+Future<void> showAppearancePicker(BuildContext context) {
   final controller = context.read<AppThemeController>();
 
   return showBasicCard<void>(
     context,
-    title: context.tr('general.interface_settings.title'),
+    title: context.tr('general.appearance.title'),
     builder: (dialogContext) => Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -22,7 +22,7 @@ Future<void> showInterfaceSettingsPicker(BuildContext context) {
               AppThemePreference.dark => Icons.dark_mode_outlined,
             },
             title: dialogContext.tr(
-              'general.interface_settings.mode_name.${preference.id}',
+              'general.appearance.mode_name.${preference.id}',
             ),
             selected: controller.preference == preference,
             trailing: AppOptionTileTrailing.selection,

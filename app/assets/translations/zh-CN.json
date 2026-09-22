@@ -305,8 +305,8 @@
       "reset_local_prefs_message": "该操作会重置所有偏好设置并立即关闭应用。不会删除旅程数据。",
       "render_diagnostics": "渲染诊断"
     },
-    "interface_settings": {
-      "title": "界面设置",
+    "appearance": {
+      "title": "外观",
       "mode_name": {
         "system": "跟随系统",
         "light": "浅色模式",

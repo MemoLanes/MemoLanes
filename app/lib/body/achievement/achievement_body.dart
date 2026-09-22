@@ -18,9 +18,14 @@ import 'package:memolanes/constants/style_constants.dart';
 import 'package:provider/provider.dart';
 
 class AchievementBody extends StatefulWidget {
-  const AchievementBody({super.key, required this.topSafeArea});
+  const AchievementBody({
+    super.key,
+    required this.topSafeArea,
+    required this.bottomSafeArea,
+  });
 
   final double topSafeArea;
+  final double bottomSafeArea;
 
   @override
   State<AchievementBody> createState() => _AchievementBodyState();
@@ -71,7 +76,7 @@ class _AchievementBodyState extends State<AchievementBody> {
     return MlSingleChildScrollView(
       padding: EdgeInsets.only(
         top: widget.topSafeArea + 16,
-        bottom: StyleConstants.navBarSafeArea + 16,
+        bottom: widget.bottomSafeArea + 16,
       ),
       children: [
         const _AchievementPageTitle(),
