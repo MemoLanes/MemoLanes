@@ -10,22 +10,30 @@
         margin: 15px;
         font-size: 16px;
         line-height: 1.4;
+        color: #f1f5ef;
+        background: #0b100d;
       }
       button {
         margin: 8px 5px;
         padding: 12px 20px;
         font-size: 16px;
         min-height: 44px;
-        border: 1px solid #ccc;
-        background: #f0f0f0;
+        color: #f1f5ef;
+        border: 1px solid #2b3730;
+        background: #1c2620;
         border-radius: 4px;
       }
       button:disabled {
-        background: #ddd;
-        color: #999;
+        background: #151c18;
+        color: #77837b;
+      }
+      select {
+        color: #f1f5ef;
+        background: #1c2620;
+        border: 1px solid #2b3730;
       }
       #log {
-        border: 1px solid #ccc;
+        border: 1px solid #2b3730;
         padding: 15px;
         height: 60vh;
         overflow-y: auto;
@@ -43,14 +51,67 @@
         font-weight: bold;
       }
       .waiting {
-        background: #fff3cd;
-        border: 1px solid #ffeaa7;
-        color: #856404;
+        background: #352f19;
+        border: 1px solid #8f7b32;
+        color: #ffd75a;
       }
       .ready {
-        background: #d4edda;
-        border: 1px solid #c3e6cb;
+        background: #21331f;
+        border: 1px solid #527b42;
+        color: #b8ea72;
+      }
+      #browserCapabilities {
+        color: #f1f5ef !important;
+        background: #151c18 !important;
+        border-color: #2b3730 !important;
+      }
+      #precisionTable tr,
+      #precisionTable th,
+      #precisionTable td {
+        color: #f1f5ef !important;
+        background: #151c18 !important;
+        border-color: #2b3730 !important;
+      }
+      #precisionTable p {
+        color: #a2ada6 !important;
+      }
+      html[data-theme="light"] body {
+        color: #182016;
+        background: #fafbf5;
+      }
+      html[data-theme="light"] button,
+      html[data-theme="light"] select {
+        color: #182016;
+        background: #f0f0f0;
+        border-color: #ccc;
+      }
+      html[data-theme="light"] button:disabled {
+        color: #999;
+        background: #ddd;
+      }
+      html[data-theme="light"] #log {
+        border-color: #ccc;
+      }
+      html[data-theme="light"] .waiting {
+        color: #856404;
+        background: #fff3cd;
+        border-color: #ffeaa7;
+      }
+      html[data-theme="light"] .ready {
         color: #155724;
+        background: #d4edda;
+        border-color: #c3e6cb;
+      }
+      html[data-theme="light"] #browserCapabilities,
+      html[data-theme="light"] #precisionTable tr,
+      html[data-theme="light"] #precisionTable th,
+      html[data-theme="light"] #precisionTable td {
+        color: #182016 !important;
+        background: #f8f9fa !important;
+        border-color: #dee2e6 !important;
+      }
+      html[data-theme="light"] #precisionTable p {
+        color: #666 !important;
       }
     </style>
   </head>
@@ -62,8 +123,8 @@
       style="
         margin: 10px 0;
         padding: 10px;
-        background: #f8f9fa;
-        border: 1px solid #dee2e6;
+        background: #151c18;
+        border: 1px solid #2b3730;
         border-radius: 4px;
       "
     >

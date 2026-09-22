@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:memolanes/common/component/capsule_style_app_bar.dart';
 import 'package:memolanes/common/component/basic_dialog_card.dart';
 import 'package:memolanes/common/component/app_option_tile.dart';
+import 'package:memolanes/common/component/cards/option_card.dart';
 import 'package:memolanes/common/component/scroll_views/single_child_scroll_view.dart';
 import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
@@ -109,25 +110,32 @@ class _MapSettingsPageState extends State<MapSettingsPage> {
         title: context.tr("general.map_settings.title"),
       ),
       body: MlSingleChildScrollView(
-        padding: const EdgeInsets.all(8.0),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
         children: [
-          LabelTile(
-            label: context.tr("general.map_settings.style"),
-            position: LabelTilePosition.top,
-            trailing: LabelTileContent(
-              content: _labelFor(_current),
-              showArrow: true,
-            ),
-            onTap: _showMapStylePicker,
-          ),
-          LabelTile(
-            label: context.tr("general.map_settings.fog_mode"),
-            position: LabelTilePosition.bottom,
-            trailing: LabelTileContent(
-              content: _fogStyleLabelFor(_currentFogStyle),
-              showArrow: true,
-            ),
-            onTap: _showFogStylePicker,
+          OptionCard(
+            useSafeArea: false,
+            separators: false,
+            children: [
+              LabelTile(
+                label: context.tr("general.map_settings.style"),
+                position: LabelTilePosition.top,
+                trailing: LabelTileContent(
+                  content: _labelFor(_current),
+                  showArrow: true,
+                ),
+                onTap: _showMapStylePicker,
+              ),
+              LabelTile(
+                label: context.tr("general.map_settings.fog_mode"),
+                position: LabelTilePosition.bottom,
+                bottom: false,
+                trailing: LabelTileContent(
+                  content: _fogStyleLabelFor(_currentFogStyle),
+                  showArrow: true,
+                ),
+                onTap: _showFogStylePicker,
+              ),
+            ],
           ),
         ],
       ),

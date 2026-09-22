@@ -14,7 +14,7 @@ class BackupDataPage extends StatelessWidget {
     return Scaffold(
       appBar: CapsuleStyleAppBar(title: context.tr("data.backup_data.title")),
       body: MlSingleChildScrollView(
-        padding: EdgeInsets.all(8.0),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
         children: [
           LabelTile(
             label: context.tr("data.backup_data.last_backup_time"),

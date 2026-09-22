@@ -1,7 +1,10 @@
 import 'dart:math' as math;
 
+import 'package:memolanes/theme/app_colors.dart';
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:memolanes/body/journey/journey_export.dart';
 import 'package:memolanes/body/journey/journey_track_edit_page.dart';
 import 'package:memolanes/common/component/app_dialog.dart';
@@ -12,11 +15,11 @@ import 'package:memolanes/common/component/map_glass_back_button.dart';
 import 'package:memolanes/common/loading_manager.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/utils.dart';
-import 'package:memolanes/constants/style_constants.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/api/edit_session.dart' show EditSession;
 import 'package:memolanes/src/rust/api/import.dart' show JourneyInfo;
 import 'package:memolanes/src/rust/journey_header.dart';
+import 'package:memolanes/theme/app_theme.dart';
 import 'package:memolanes/utils/nav_helper.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 
@@ -156,8 +159,8 @@ class _JourneyMapDetailPageState extends State<JourneyMapDetailPage> {
       context,
       maxWidth: 360,
       insetPadding: const EdgeInsets.symmetric(horizontal: 38),
-      barrierColor: StyleConstants.shadowColor.withValues(
-        alpha: StyleConstants.isDarkMode ? 0.58 : 0.2,
+      barrierColor: context.appColors.shadowColor.withValues(
+        alpha: context.appColors.pickerBarrierAlpha,
       ),
       builder: (dialogContext) => _JourneyEditChoiceCard(
         onSelected: (choice) => Navigator.of(dialogContext).pop(choice),
@@ -181,8 +184,8 @@ class _JourneyMapDetailPageState extends State<JourneyMapDetailPage> {
     final isLandscape = mediaQuery.orientation == Orientation.landscape;
     final detailCardPadding = isLandscape ? 190.0 : 330.0;
 
-    return Scaffold(
-      backgroundColor: StyleConstants.canvasColor,
+    final page = Scaffold(
+      backgroundColor: context.appColors.canvasColor,
       body: Stack(
         fit: StackFit.expand,
         children: [
@@ -240,6 +243,11 @@ class _JourneyMapDetailPageState extends State<JourneyMapDetailPage> {
           ),
         ],
       ),
+    );
+
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: AppTheme.mapSystemOverlayStyle(Theme.of(context)),
+      child: page,
     );
   }
 }

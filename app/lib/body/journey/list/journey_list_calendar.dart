@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:memolanes/theme/app_colors.dart';
+
 import 'package:calendar_date_picker2/calendar_date_picker2.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -11,7 +13,6 @@ import 'package:memolanes/common/component/custom_popup.dart';
 import 'package:memolanes/common/loading_manager.dart';
 import 'package:memolanes/common/simple_date_utils.dart';
 import 'package:memolanes/constants/app_typography.dart';
-import 'package:memolanes/constants/style_constants.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 
@@ -46,11 +47,10 @@ class _JourneyListCalendarState extends State<JourneyListCalendar> {
 
   void _setCalendarViewMode(CalendarDatePicker2Mode mode) {
     setState(() {
-      // Force a fresh picker only when the package's internal day mode and our
-      // externally stored mode became out of sync after reselecting a month.
-      if (_calendarViewMode == mode) {
-        _calendarPickerRevision += 1;
-      }
+      // Selecting a month returns the package to day mode internally, while
+      // the externally held mode may still be month. Recreate on every header
+      // tap so the requested mode always takes effect on the first tap.
+      _calendarPickerRevision += 1;
       _calendarViewMode = mode;
     });
   }
@@ -69,7 +69,7 @@ class _JourneyListCalendarState extends State<JourneyListCalendar> {
     final controller = widget.controller;
     final controlsTextStyle =
         (compact ? AppTypography.sectionLabel : AppTypography.cardTitle)
-            .copyWith(color: StyleConstants.deepGreen);
+            .copyWith(color: context.appColors.deepGreen);
     final config = CalendarDatePicker2Config(
       firstDate: widget.firstDate.toLocalDateTime(),
       lastDate: controller.lastDate.toLocalDateTime(),
@@ -80,25 +80,23 @@ class _JourneyListCalendarState extends State<JourneyListCalendar> {
       disableModePicker: true,
       semanticsDictionary: yearFirstCalendarModePickerSemantics(context),
       calendarType: CalendarDatePicker2Type.single,
-      selectedDayHighlightColor: StyleConstants.primaryGreen,
+      selectedDayHighlightColor: context.appColors.primaryGreen,
       controlsHeight: compact ? 38 : null,
       dayMaxWidth: compact ? 30 : null,
       dayTextStyle: (compact ? AppTypography.caption : AppTypography.body)
-          .copyWith(color: StyleConstants.inkColor),
+          .copyWith(color: context.appColors.inkColor),
       selectedDayTextStyle:
           (compact ? AppTypography.caption : AppTypography.body).copyWith(
-            color: StyleConstants.isDarkMode
-                ? StyleConstants.onPrimaryActionColor
-                : StyleConstants.inkColor,
+            color: context.appColors.selectedCalendarInk,
           ),
       todayTextStyle: (compact ? AppTypography.caption : AppTypography.body)
           .copyWith(
-            color: StyleConstants.deepGreen,
+            color: context.appColors.deepGreen,
             fontWeight: FontWeight.w700,
           ),
       weekdayLabelTextStyle:
           (compact ? AppTypography.micro : AppTypography.label).copyWith(
-            color: StyleConstants.mutedInkColor,
+            color: context.appColors.mutedInkColor,
           ),
       controlsTextStyle: controlsTextStyle,
       modePickersGap: compact ? 4 : 8,
@@ -144,7 +142,7 @@ class _JourneyListCalendarState extends State<JourneyListCalendar> {
             return Container(
               decoration: isSelected == true
                   ? BoxDecoration(
-                      color: StyleConstants.primaryGreen,
+                      color: context.appColors.primaryGreen,
                       shape: BoxShape.circle,
                     )
                   : null,
@@ -163,7 +161,7 @@ class _JourneyListCalendarState extends State<JourneyListCalendar> {
                         width: compact ? 3 : 4,
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(5),
-                          color: StyleConstants.journeyYellow,
+                          color: context.appColors.journeyYellow,
                         ),
                       ),
                     ),
@@ -175,14 +173,14 @@ class _JourneyListCalendarState extends State<JourneyListCalendar> {
       dynamicCalendarRows: true,
       disabledDayTextStyle:
           (compact ? AppTypography.caption : AppTypography.body).copyWith(
-            color: StyleConstants.mutedInkColor.withValues(alpha: 0.5),
+            color: context.appColors.mutedInkColor.withValues(alpha: 0.5),
           ),
       disabledMonthTextStyle: AppTypography.body.copyWith(
-        color: StyleConstants.mutedInkColor.withValues(alpha: 0.5),
+        color: context.appColors.mutedInkColor.withValues(alpha: 0.5),
         fontWeight: FontWeight.w400,
       ),
       disabledYearTextStyle: AppTypography.body.copyWith(
-        color: StyleConstants.mutedInkColor.withValues(alpha: 0.5),
+        color: context.appColors.mutedInkColor.withValues(alpha: 0.5),
         fontWeight: FontWeight.w400,
       ),
       monthBuilder:
@@ -283,7 +281,7 @@ class _JourneyListCalendarState extends State<JourneyListCalendar> {
                   message: label,
                   child: Icon(
                     Icons.layers_outlined,
-                    color: StyleConstants.deepGreen,
+                    color: context.appColors.deepGreen,
                     size: 20,
                   ),
                 )
@@ -293,12 +291,12 @@ class _JourneyListCalendarState extends State<JourneyListCalendar> {
                     Text(
                       label,
                       style: AppTypography.cardTitle.copyWith(
-                        color: StyleConstants.deepGreen,
+                        color: context.appColors.deepGreen,
                       ),
                     ),
                     Icon(
                       Icons.arrow_drop_down,
-                      color: StyleConstants.deepGreen,
+                      color: context.appColors.deepGreen,
                     ),
                   ],
                 ),

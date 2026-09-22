@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:memolanes/theme/app_colors.dart';
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -8,7 +10,6 @@ import 'package:memolanes/common/component/custom_popup.dart';
 import 'package:memolanes/common/component/liquid_glass_surface.dart';
 import 'package:memolanes/common/journey_kind_visuals.dart';
 import 'package:memolanes/constants/app_typography.dart';
-import 'package:memolanes/constants/style_constants.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/journey_header.dart';
@@ -23,20 +24,20 @@ class LayerButton extends StatelessWidget {
       horizontalOffset: -16,
       contentRadius: 24,
       barrierColor: Colors.transparent,
-      contentDecoration: BoxDecoration(
-        color: StyleConstants.glassColor.withValues(
-          alpha: StyleConstants.isDarkMode ? 0.94 : 0.68,
+      contentDecorationBuilder: (context) => BoxDecoration(
+        color: context.appColors.glassColor.withValues(
+          alpha: context.appColors.mapPopupBackgroundAlpha,
         ),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: StyleConstants.glassBorderColor.withValues(
-            alpha: StyleConstants.isDarkMode ? 0.48 : 0.8,
+          color: context.appColors.glassBorderColor.withValues(
+            alpha: context.appColors.mapPopupBorderAlpha,
           ),
         ),
         boxShadow: [
           BoxShadow(
-            color: StyleConstants.shadowColor.withValues(
-              alpha: StyleConstants.isDarkMode ? 0.48 : 0.14,
+            color: context.appColors.shadowColor.withValues(
+              alpha: context.appColors.mapPopupShadowAlpha,
             ),
             blurRadius: 22,
             offset: const Offset(0, 8),
@@ -53,7 +54,7 @@ class LayerButton extends StatelessWidget {
             child: Center(
               child: Icon(
                 Icons.layers,
-                color: StyleConstants.deepGreen,
+                color: context.appColors.deepGreen,
                 size: 20,
               ),
             ),
@@ -145,8 +146,8 @@ class _LayerPopupContentState extends State<LayerPopupContent> {
                 child: FaIcon(
                   icon,
                   color: isActive
-                      ? StyleConstants.deepGreen
-                      : StyleConstants.mutedInkColor,
+                      ? context.appColors.deepGreen
+                      : context.appColors.mutedInkColor,
                   size: 16,
                 ),
               ),
@@ -156,8 +157,8 @@ class _LayerPopupContentState extends State<LayerPopupContent> {
               text,
               style: AppTypography.itemTitle.copyWith(
                 color: isActive
-                    ? StyleConstants.deepGreen
-                    : StyleConstants.mutedInkColor,
+                    ? context.appColors.deepGreen
+                    : context.appColors.mutedInkColor,
                 fontWeight: isActive ? FontWeight.w700 : FontWeight.w600,
               ),
             ),

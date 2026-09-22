@@ -1,6 +1,9 @@
+import 'dart:ui' show lerpDouble;
+
 import 'package:flutter/material.dart';
 import 'package:memolanes/common/component/liquid_glass_surface.dart';
 import 'package:memolanes/constants/style_constants.dart';
+import 'package:memolanes/theme/app_colors.dart';
 
 /// Shared glass treatment for controls in the time-machine overlay.
 class TimeMachineGlassSurface extends StatelessWidget {
@@ -21,11 +24,11 @@ class TimeMachineGlassSurface extends StatelessWidget {
   Widget build(BuildContext context) {
     return LiquidGlassSurface(
       borderRadius: borderRadius,
-      backgroundAlpha: StyleConstants.timelineGlassBackgroundAlpha,
-      borderAlpha: StyleConstants.timelineGlassBorderAlpha,
+      backgroundAlpha: lerpDouble(0.60, 0.84, context.appColors.darkProgress)!,
+      borderAlpha: lerpDouble(0.84, 0.46, context.appColors.darkProgress)!,
       blurSigma: StyleConstants.timelineGlassBlurSigma,
-      reflectionAlpha: StyleConstants.timelineGlassReflectionAlpha,
-      shadowAlpha: shadowAlpha ?? StyleConstants.mapOverlayShadowAlpha,
+      reflectionAlpha: 0.12,
+      shadowAlpha: shadowAlpha ?? context.appColors.mapOverlayShadowAlpha,
       shadowBlurRadius: StyleConstants.mapOverlayShadowBlurRadius,
       shadowSpreadRadius: StyleConstants.mapOverlayShadowSpreadRadius,
       shadowOffset: StyleConstants.mapOverlayShadowOffset,

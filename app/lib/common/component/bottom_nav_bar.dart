@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:memolanes/common/app_haptics.dart';
 import 'package:memolanes/common/component/liquid_glass_surface.dart';
 import 'package:memolanes/constants/style_constants.dart';
+import 'package:memolanes/theme/app_colors.dart';
 
 class BottomNavBar extends StatelessWidget {
   const BottomNavBar({
@@ -31,10 +32,26 @@ class BottomNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final darkProgress = context.appColors.darkProgress;
+    final glowEdge = Color.lerp(
+      Colors.white,
+      context.appColors.primaryGreen,
+      darkProgress,
+    )!.withValues(alpha: 0);
+    final glowCenter = Color.lerp(
+      AppColors.light.softGreen,
+      context.appColors.primaryGreen,
+      darkProgress,
+    )!.withValues(alpha: lerpDouble(0.54, 0.22, darkProgress)!);
+    final selectionColor = Color.lerp(
+      AppColors.light.strongLineColor,
+      context.appColors.primaryGreen,
+      darkProgress,
+    )!.withValues(alpha: lerpDouble(0.22, 0.16, darkProgress)!);
+
     return LiquidGlassSurface(
       borderRadius: BorderRadius.circular(24),
-      backgroundAlpha: StyleConstants.isDarkMode ? 0.86 : 0.36,
-      borderAlpha: StyleConstants.isDarkMode ? 0.46 : 0.62,
+      backgroundAlpha: lerpDouble(0.56, 0.86, darkProgress)!,
       blurSigma: 28,
       reflectionAlpha: 0.2,
       child: Stack(
@@ -48,22 +65,7 @@ class BottomNavBar extends StatelessWidget {
             child: DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [
-                    (StyleConstants.isDarkMode
-                            ? StyleConstants.primaryGreen
-                            : StyleConstants.surfaceColor)
-                        .withValues(alpha: 0),
-                    (StyleConstants.isDarkMode
-                            ? StyleConstants.primaryGreen
-                            : StyleConstants.softGreen)
-                        .withValues(
-                          alpha: StyleConstants.isDarkMode ? 0.22 : 0.54,
-                        ),
-                    (StyleConstants.isDarkMode
-                            ? StyleConstants.primaryGreen
-                            : StyleConstants.surfaceColor)
-                        .withValues(alpha: 0),
-                  ],
+                  colors: [glowEdge, glowCenter, glowEdge],
                 ),
               ),
             ),
@@ -114,19 +116,11 @@ class BottomNavBar extends StatelessWidget {
                       filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
                       child: DecoratedBox(
                         decoration: BoxDecoration(
-                          color:
-                              (StyleConstants.isDarkMode
-                                      ? StyleConstants.primaryGreen
-                                      : StyleConstants.strongLineColor)
-                                  .withValues(
-                                    alpha: StyleConstants.isDarkMode
-                                        ? 0.16
-                                        : 0.22,
-                                  ),
+                          color: selectionColor,
                           borderRadius: BorderRadius.circular(19),
                           boxShadow: [
                             BoxShadow(
-                              color: StyleConstants.deepGreen.withValues(
+                              color: context.appColors.deepGreen.withValues(
                                 alpha: 0.14,
                               ),
                               blurRadius: 12,
@@ -146,19 +140,27 @@ class BottomNavBar extends StatelessWidget {
             color: Colors.transparent,
             child: Row(
               children: [
-                _buildNavItem(Icons.explore_outlined, Icons.explore_rounded, 0),
                 _buildNavItem(
+                  context,
+                  Icons.explore_outlined,
+                  Icons.explore_rounded,
+                  0,
+                ),
+                _buildNavItem(
+                  context,
                   Icons.access_time_rounded,
                   Icons.history_rounded,
                   1,
                 ),
-                _buildNavItem(Icons.route_outlined, Icons.route, 2),
+                _buildNavItem(context, Icons.route_outlined, Icons.route, 2),
                 _buildNavItem(
+                  context,
                   Icons.emoji_events_outlined,
                   Icons.emoji_events_rounded,
                   3,
                 ),
                 _buildNavItem(
+                  context,
                   Icons.settings_outlined,
                   Icons.settings_rounded,
                   4,
@@ -171,7 +173,12 @@ class BottomNavBar extends StatelessWidget {
     );
   }
 
-  Widget _buildNavItem(IconData icon, IconData activeIcon, int index) {
+  Widget _buildNavItem(
+    BuildContext context,
+    IconData icon,
+    IconData activeIcon,
+    int index,
+  ) {
     final isSelected = selectedIndex == index;
 
     return Expanded(
@@ -186,7 +193,7 @@ class BottomNavBar extends StatelessWidget {
             showBadge: index == 4 && hasUpdateNotification(),
             position: badges.BadgePosition.topEnd(top: -4, end: -5),
             badgeStyle: badges.BadgeStyle(
-              badgeColor: StyleConstants.warningColor,
+              badgeColor: context.appColors.warningColor,
               padding: EdgeInsets.all(4),
             ),
             child: TweenAnimationBuilder<double>(
@@ -201,8 +208,8 @@ class BottomNavBar extends StatelessWidget {
                 final blurSigma = blurProgress * 2.2;
                 final scale = 1 + progress * 0.1 + blurProgress * 0.045;
                 final color = Color.lerp(
-                  StyleConstants.mutedInkColor,
-                  StyleConstants.deepGreen,
+                  context.appColors.mutedInkColor,
+                  context.appColors.deepGreen,
                   progress,
                 );
 

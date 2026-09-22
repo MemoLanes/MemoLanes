@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:memolanes/common/component/app_button.dart';
 import 'package:memolanes/common/component/common_export.dart';
 import 'package:memolanes/common/component/capsule_style_app_bar.dart';
+import 'package:memolanes/common/component/cards/option_card.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/body/settings/raw_data_page.dart';
 import 'package:memolanes/common/component/scroll_views/single_child_scroll_view.dart';
@@ -59,158 +60,171 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
         title: context.tr("general.advanced_settings.title"),
       ),
       body: MlSingleChildScrollView(
-        padding: EdgeInsets.all(8.0),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
         children: [
-          LabelTile(
-            label: context.tr("journey.delete_all"),
-            position: LabelTilePosition.top,
-            onTap: () async {
-              if (gpsManager.recordingStatus != GpsRecordingStatus.none) {
-                await showCommonDialog(
-                  context,
-                  context.tr("journey.stop_ongoing_journey"),
-                );
-                return;
-              }
-              if (!await showCommonDialog(
-                context,
-                context.tr("journey.delete_all_journey_message"),
-                hasCancel: true,
-                title: context.tr("journey.delete_journey_title"),
-                confirmButtonText: context.tr("common.delete"),
-                confirmVariant: AppButtonVariant.danger,
-              )) {
-                return;
-              }
-              try {
-                await api.deleteAllJourneys();
-                if (context.mounted) {
-                  await showCommonDialog(
+          OptionCard(
+            useSafeArea: false,
+            separators: false,
+            children: [
+              LabelTile(
+                label: context.tr("journey.delete_all"),
+                position: LabelTilePosition.top,
+                onTap: () async {
+                  if (gpsManager.recordingStatus != GpsRecordingStatus.none) {
+                    await showCommonDialog(
+                      context,
+                      context.tr("journey.stop_ongoing_journey"),
+                    );
+                    return;
+                  }
+                  if (!await showCommonDialog(
                     context,
-                    context.tr("journey.delete_all_success"),
-                  );
-                }
-              } catch (e) {
-                if (context.mounted) {
-                  await showCommonDialog(context, e.toString());
-                }
-              }
-            },
-          ),
-          LabelTile(
-            label: context.tr("db_optimization.button"),
-            position: LabelTilePosition.middle,
-            onTap: () async {
-              if (!await api.mainDbRequireOptimization()) {
-                if (!context.mounted) return;
-                await showCommonDialog(
-                  context,
-                  context.tr("db_optimization.already_optimized"),
-                );
-              } else {
-                if (!context.mounted) return;
-                if (await showCommonDialog(
-                  context,
-                  context.tr("db_optimization.confirm"),
-                  hasCancel: true,
-                )) {
+                    context.tr("journey.delete_all_journey_message"),
+                    hasCancel: true,
+                    title: context.tr("journey.delete_journey_title"),
+                    confirmButtonText: context.tr("common.delete"),
+                    confirmVariant: AppButtonVariant.danger,
+                  )) {
+                    return;
+                  }
+                  try {
+                    await api.deleteAllJourneys();
+                    if (context.mounted) {
+                      await showCommonDialog(
+                        context,
+                        context.tr("journey.delete_all_success"),
+                      );
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      await showCommonDialog(context, e.toString());
+                    }
+                  }
+                },
+              ),
+              LabelTile(
+                label: context.tr("db_optimization.button"),
+                position: LabelTilePosition.middle,
+                onTap: () async {
+                  if (!await api.mainDbRequireOptimization()) {
+                    if (!context.mounted) return;
+                    await showCommonDialog(
+                      context,
+                      context.tr("db_optimization.already_optimized"),
+                    );
+                  } else {
+                    if (!context.mounted) return;
+                    if (await showCommonDialog(
+                      context,
+                      context.tr("db_optimization.confirm"),
+                      hasCancel: true,
+                    )) {
+                      if (!context.mounted) return;
+                      await showLoadingDialog(asyncTask: api.optimizeMainDb());
+                      if (!context.mounted) return;
+                      await showCommonDialog(
+                        context,
+                        context.tr("db_optimization.finish"),
+                      );
+                    }
+                  }
+                },
+              ),
+              LabelTile(
+                label: context.tr("general.advanced_settings.export_logs"),
+                position: LabelTilePosition.middle,
+                onTap: () async {
+                  var tmpDir = await getTemporaryDirectory();
+                  final now = DateTime.now();
+                  final timestamp = DateFormat('yyyy-MM-dd-HH-mm-ss')
+                      .format(now);
+                  final filepath = "${tmpDir.path}/logs-$timestamp.zip";
+                  await api.exportLogs(targetFilePath: filepath);
                   if (!context.mounted) return;
-                  await showLoadingDialog(asyncTask: api.optimizeMainDb());
-                  if (!context.mounted) return;
-                  await showCommonDialog(
-                    context,
-                    context.tr("db_optimization.finish"),
-                  );
-                }
-              }
-            },
-          ),
-          LabelTile(
-            label: context.tr("general.advanced_settings.export_logs"),
-            position: LabelTilePosition.middle,
-            onTap: () async {
-              var tmpDir = await getTemporaryDirectory();
-              final now = DateTime.now();
-              final timestamp = DateFormat('yyyy-MM-dd-HH-mm-ss').format(now);
-              final filepath = "${tmpDir.path}/logs-$timestamp.zip";
-              await api.exportLogs(targetFilePath: filepath);
-              if (!context.mounted) return;
-              await showCommonExport(context, filepath, deleteFile: true);
-            },
-          ),
-          LabelTile(
-            label: context.tr("general.advanced_settings.raw_data_mode"),
-            position: LabelTilePosition.middle,
-            onTap: () => navigatorPush(context, page: RawDataPage()),
-          ),
-          LabelTile(
-            label: context.tr("general.advanced_settings.rebuild_cache"),
-            position: LabelTilePosition.middle,
-            onTap: () async =>
-                await showLoadingDialog(asyncTask: api.rebuildCache()),
-          ),
-          LabelTile(
-            label: context.tr("privacy.region_title"),
-            position: LabelTilePosition.middle,
-            trailing: LabelTileContent(
-              content: regionPreferenceTitle(context, _worldview),
-              showArrow: true,
-            ),
-            onTap: _selectWorldview,
-          ),
-          LabelTile(
-            label: context.tr("general.advanced_settings.reset_local_prefs"),
-            position: LabelTilePosition.middle,
-            onTap: () async {
-              if (gpsManager.recordingStatus != GpsRecordingStatus.none) {
-                await showCommonDialog(
-                  context,
-                  context.tr("journey.stop_ongoing_journey"),
-                );
-                return;
-              }
-              if (!await showCommonDialog(
-                context,
-                context.tr(
-                  "general.advanced_settings.reset_local_prefs_message",
+                  await showCommonExport(context, filepath, deleteFile: true);
+                },
+              ),
+              LabelTile(
+                label: context.tr("general.advanced_settings.raw_data_mode"),
+                position: LabelTilePosition.middle,
+                onTap: () => navigatorPush(context, page: RawDataPage()),
+              ),
+              LabelTile(
+                label: context.tr("general.advanced_settings.rebuild_cache"),
+                position: LabelTilePosition.middle,
+                onTap: () async =>
+                    await showLoadingDialog(asyncTask: api.rebuildCache()),
+              ),
+              LabelTile(
+                label: context.tr("privacy.region_title"),
+                position: LabelTilePosition.middle,
+                trailing: LabelTileContent(
+                  content: regionPreferenceTitle(context, _worldview),
+                  showArrow: true,
                 ),
-                hasCancel: true,
-                title: context.tr(
+                onTap: _selectWorldview,
+              ),
+              LabelTile(
+                label: context.tr(
                   "general.advanced_settings.reset_local_prefs",
                 ),
-                confirmButtonText: context.tr("common.reset"),
-                confirmVariant: AppButtonVariant.danger,
-              )) {
-                return;
-              }
-              MMKVUtil.clearAll();
-              exit(0);
-            },
-          ),
-          LabelTile(
-            label: context.tr("location_service.location_backend.title"),
-            position: LabelTilePosition.middle,
-            trailing: LabelTileContent(
-              content: gpsManager.locationBackend.displayName(context),
-            ),
-          ),
-          LabelTile(
-            label: context.tr("haptics.setting_title"),
-            position: LabelTilePosition.middle,
-            trailing: Switch(
-              value: AppHaptics.isUserHapticsEnabled,
-              onChanged: (value) {
-                AppHaptics.setUserHapticsEnabled(value);
-                // Confirm when turning on.
-                if (value) AppHaptics.selection();
-                setState(() {});
-              },
-            ),
-          ),
-          LabelTile(
-            label: context.tr("general.advanced_settings.render_diagnostics"),
-            position: LabelTilePosition.bottom,
-            onTap: () => navigatorPush(context, page: RenderDiagnosticsPage()),
+                position: LabelTilePosition.middle,
+                onTap: () async {
+                  if (gpsManager.recordingStatus != GpsRecordingStatus.none) {
+                    await showCommonDialog(
+                      context,
+                      context.tr("journey.stop_ongoing_journey"),
+                    );
+                    return;
+                  }
+                  if (!await showCommonDialog(
+                    context,
+                    context.tr(
+                      "general.advanced_settings.reset_local_prefs_message",
+                    ),
+                    hasCancel: true,
+                    title: context.tr(
+                      "general.advanced_settings.reset_local_prefs",
+                    ),
+                    confirmButtonText: context.tr("common.reset"),
+                    confirmVariant: AppButtonVariant.danger,
+                  )) {
+                    return;
+                  }
+                  MMKVUtil.clearAll();
+                  exit(0);
+                },
+              ),
+              LabelTile(
+                label: context.tr("location_service.location_backend.title"),
+                position: LabelTilePosition.middle,
+                trailing: LabelTileContent(
+                  content: gpsManager.locationBackend.displayName(context),
+                ),
+              ),
+              LabelTile(
+                label: context.tr("haptics.setting_title"),
+                position: LabelTilePosition.middle,
+                trailing: Switch(
+                  value: AppHaptics.isUserHapticsEnabled,
+                  onChanged: (value) {
+                    AppHaptics.setUserHapticsEnabled(value);
+                    // Confirm when turning on.
+                    if (value) AppHaptics.selection();
+                    setState(() {});
+                  },
+                ),
+              ),
+              LabelTile(
+                label: context.tr(
+                  "general.advanced_settings.render_diagnostics",
+                ),
+                position: LabelTilePosition.bottom,
+                bottom: false,
+                onTap: () =>
+                    navigatorPush(context, page: RenderDiagnosticsPage()),
+              ),
+            ],
           ),
         ],
       ),

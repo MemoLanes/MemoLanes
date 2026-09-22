@@ -1,10 +1,10 @@
+import 'package:memolanes/theme/app_colors.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/body/journey/compact_journey_info_card.dart';
 import 'package:memolanes/common/app_haptics.dart';
 import 'package:memolanes/common/component/app_button.dart';
 import 'package:memolanes/constants/app_typography.dart';
-import 'package:memolanes/constants/style_constants.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 
 class CompactJourneyTimeDialog extends StatefulWidget {
@@ -68,7 +68,7 @@ class _CompactJourneyTimeDialogState extends State<CompactJourneyTimeDialog> {
               child: Container(
                 height: 40,
                 decoration: BoxDecoration(
-                  color: StyleConstants.softGreen.withValues(alpha: 0.82),
+                  color: context.appColors.softGreen.withValues(alpha: 0.82),
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
@@ -87,8 +87,8 @@ class _CompactJourneyTimeDialogState extends State<CompactJourneyTimeDialog> {
                     labelBuilder(index),
                     style: AppTypography.pickerValue.copyWith(
                       color: index == selectedIndex
-                          ? StyleConstants.deepGreen
-                          : StyleConstants.mutedInkColor.withValues(
+                          ? context.appColors.deepGreen
+                          : context.appColors.mutedInkColor.withValues(
                               alpha: 0.58,
                             ),
                       fontWeight: index == selectedIndex
@@ -136,7 +136,7 @@ class _CompactJourneyTimeDialogState extends State<CompactJourneyTimeDialog> {
                           Text(
                             localizations.timePickerDialHelpText,
                             style: AppTypography.surfaceTitle.copyWith(
-                              color: StyleConstants.deepGreen,
+                              color: context.appColors.deepGreen,
                             ),
                           ),
                           const SizedBox(height: 12),
@@ -170,7 +170,7 @@ class _CompactJourneyTimeDialogState extends State<CompactJourneyTimeDialog> {
                                   child: Text(
                                     ':',
                                     style: AppTypography.metricTitle.copyWith(
-                                      color: StyleConstants.deepGreen,
+                                      color: context.appColors.deepGreen,
                                       fontWeight: FontWeight.w700,
                                     ),
                                   ),
@@ -223,6 +223,7 @@ class _CompactJourneyTimeDialogState extends State<CompactJourneyTimeDialog> {
                             expand: true,
                             icon: Icons.close_rounded,
                             label: localizations.cancelButtonLabel,
+                            variant: AppButtonVariant.secondary,
                             onPressed: () => Navigator.of(context).pop(),
                           ),
                         ),

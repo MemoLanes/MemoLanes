@@ -2,14 +2,16 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
-import 'package:memolanes/constants/style_constants.dart';
+import 'package:memolanes/theme/app_colors.dart';
 
 enum PopupPosition { auto, top, bottom, left, right }
 
 class CustomPopup extends StatefulWidget {
   final GlobalKey? anchorKey;
-  final Widget content;
+  final Widget? content;
+
+  /// Builds content in the popup route so inherited theme changes update it.
+  final WidgetBuilder? contentBuilder;
   final Widget child;
   final bool isLongPress;
   final Color? backgroundColor;
@@ -17,6 +19,9 @@ class CustomPopup extends StatefulWidget {
   final EdgeInsets contentPadding;
   final double? contentRadius;
   final BoxDecoration? contentDecoration;
+  // Resolve theme-dependent surfaces inside the route, including while open.
+  final BoxDecoration Function(BuildContext)? contentDecorationBuilder;
+  final Color Function(BuildContext)? backgroundColorBuilder;
   final VoidCallback? onBeforePopup;
   final VoidCallback? onAfterPopup;
   final bool rootNavigator;
@@ -29,7 +34,8 @@ class CustomPopup extends StatefulWidget {
 
   const CustomPopup({
     super.key,
-    required this.content,
+    this.content,
+    this.contentBuilder,
     required this.child,
     this.anchorKey,
     this.isLongPress = false,
@@ -38,6 +44,8 @@ class CustomPopup extends StatefulWidget {
     this.contentPadding = const EdgeInsets.all(16),
     this.contentRadius,
     this.contentDecoration,
+    this.contentDecorationBuilder,
+    this.backgroundColorBuilder,
     this.onBeforePopup,
     this.onAfterPopup,
     this.rootNavigator = false,
@@ -46,7 +54,7 @@ class CustomPopup extends StatefulWidget {
     this.verticalOffset,
     this.animationDuration = const Duration(milliseconds: 150),
     this.animationCurve = Curves.easeInOut,
-  });
+  }) : assert((content == null) != (contentBuilder == null));
 
   @override
   State<CustomPopup> createState() => CustomPopupState();
@@ -66,16 +74,28 @@ class CustomPopupState extends State<CustomPopup> {
           _PopupRoute(
             targetRect: offset & renderBox.paintBounds.size,
             backgroundColor: widget.backgroundColor,
-            barriersColor: widget.barrierColor,
+            barriersColor:
+                widget.barrierColor ??
+                context.appColors.shadowColor.withValues(
+                  alpha: ui.lerpDouble(
+                    0.1,
+                    0.28,
+                    context.appColors.darkProgress,
+                  )!,
+                ),
             contentPadding: widget.contentPadding,
             contentRadius: widget.contentRadius,
             contentDecoration: widget.contentDecoration,
+            contentDecorationBuilder: widget.contentDecorationBuilder,
+            backgroundColorBuilder: widget.backgroundColorBuilder,
             position: widget.position,
             horizontalOffset: widget.horizontalOffset,
             verticalOffset: widget.verticalOffset,
             animationDuration: widget.animationDuration,
             animationCurve: widget.animationCurve,
-            child: widget.content,
+            child: widget.contentBuilder == null
+                ? widget.content!
+                : Builder(builder: widget.contentBuilder!),
           ),
         )
         .then((value) => widget.onAfterPopup?.call());
@@ -94,44 +114,53 @@ class CustomPopupState extends State<CustomPopup> {
 
 class _PopupContent extends StatelessWidget {
   final Widget child;
-  final GlobalKey childKey;
   final Color? backgroundColor;
   final EdgeInsets contentPadding;
   final double? contentRadius;
   final BoxDecoration? contentDecoration;
+  // Resolve theme-dependent surfaces inside the route, including while open.
+  final BoxDecoration Function(BuildContext)? contentDecorationBuilder;
+  final Color Function(BuildContext)? backgroundColorBuilder;
 
   const _PopupContent({
     required this.child,
-    required this.childKey,
     this.backgroundColor,
     required this.contentPadding,
     this.contentRadius,
     this.contentDecoration,
+    this.contentDecorationBuilder,
+    this.backgroundColorBuilder,
   });
 
   @override
   Widget build(BuildContext context) {
+    final resolvedBackground =
+        backgroundColorBuilder?.call(context) ?? backgroundColor;
     return Container(
-      key: childKey,
       padding: contentPadding,
       constraints: const BoxConstraints(minWidth: 50),
       decoration:
+          contentDecorationBuilder?.call(context) ??
           contentDecoration ??
           BoxDecoration(
-            color: backgroundColor ?? StyleConstants.canvasColor,
+            color: resolvedBackground ?? context.appColors.canvasColor,
             borderRadius: BorderRadius.circular(contentRadius ?? 16),
-            border: backgroundColor == null
-                ? Border.all(color: StyleConstants.lineColor)
+            border: resolvedBackground == null
+                ? Border.all(color: context.appColors.lineColor)
                 : null,
             boxShadow: [
               BoxShadow(
-                color: StyleConstants.shadowColor.withValues(
-                  alpha: StyleConstants.isDarkMode
-                      ? (backgroundColor == null ? 0.42 : 0.34)
-                      : (backgroundColor == null ? 0.12 : 0.1),
+                color: context.appColors.shadowColor.withValues(
+                  alpha: resolvedBackground == null
+                      ? context.appColors.popupShadowAlpha
+                      : ui.lerpDouble(
+                          0.1,
+                          0.34,
+                          context.appColors.darkProgress,
+                        )!,
                 ),
-                blurRadius: backgroundColor == null ? 18 : 10,
-                offset: backgroundColor == null
+                blurRadius: resolvedBackground == null ? 18 : 10,
+                offset: resolvedBackground == null
                     ? const Offset(0, 6)
                     : Offset.zero,
               ),
@@ -149,19 +178,14 @@ class _PopupRoute extends PopupRoute<void> {
   final double? horizontalOffset;
   final double? verticalOffset;
 
-  final GlobalKey _childKey = GlobalKey();
   final Color? backgroundColor;
   final Color? barriersColor;
   final EdgeInsets contentPadding;
   final double? contentRadius;
   final BoxDecoration? contentDecoration;
-
-  double? _top;
-  double? _bottom;
-  double? _left;
-  double? _right;
-  double _scaleAlignDx = 0.5;
-  double _scaleAlignDy = 0.5;
+  // Resolve theme-dependent surfaces inside the route, including while open.
+  final BoxDecoration Function(BuildContext)? contentDecorationBuilder;
+  final Color Function(BuildContext)? backgroundColorBuilder;
 
   final Duration animationDuration;
   final Curve animationCurve;
@@ -177,136 +201,18 @@ class _PopupRoute extends PopupRoute<void> {
     required this.contentPadding,
     this.contentRadius,
     this.contentDecoration,
+    this.contentDecorationBuilder,
+    this.backgroundColorBuilder,
     required this.animationDuration,
     this.animationCurve = Curves.easeInOut,
   });
 
   @override
-  Color? get barrierColor =>
-      barriersColor ??
-      StyleConstants.shadowColor.withValues(
-        alpha: StyleConstants.isDarkMode ? 0.28 : 0.1,
-      );
+  Color? get barrierColor => barriersColor;
   @override
   bool get barrierDismissible => true;
   @override
   String? get barrierLabel => 'Popup';
-
-  @override
-  TickerFuture didPush() {
-    super.offstage = true;
-    SchedulerBinding.instance.addPostFrameCallback((_) {
-      final childRect = _getRect(_childKey);
-      _calculateChildOffset(childRect);
-      super.offstage = false;
-    });
-    return super.didPush();
-  }
-
-  Rect? _getRect(GlobalKey key) {
-    final currentContext = key.currentContext;
-    final renderBox = currentContext?.findRenderObject() as RenderBox?;
-    if (renderBox == null || currentContext == null) return null;
-    final offset = renderBox.localToGlobal(renderBox.paintBounds.topLeft);
-    return offset & renderBox.paintBounds.size;
-  }
-
-  static const double _kEdgeMargin = 8.0;
-
-  void _calculateChildOffset(Rect? childRect) {
-    if (childRect == null) return;
-
-    final view = ui.PlatformDispatcher.instance.views.first;
-    final media = MediaQueryData.fromView(view);
-    final screenSize = media.size;
-    final padding = media.padding;
-
-    switch (position) {
-      case PopupPosition.top:
-        _top = null;
-        _bottom = screenSize.height - targetRect.top + (verticalOffset ?? 0);
-        _scaleAlignDy = 1;
-        _left =
-            targetRect.center.dx -
-            childRect.width / 2 +
-            (horizontalOffset ?? 0);
-        break;
-      case PopupPosition.bottom:
-        _top = targetRect.bottom + (verticalOffset ?? 0);
-        _scaleAlignDy = 0;
-        _left =
-            targetRect.center.dx -
-            childRect.width / 2 +
-            (horizontalOffset ?? 0);
-        break;
-      case PopupPosition.left:
-        _left = targetRect.left - childRect.width + (horizontalOffset ?? 0);
-        _top =
-            targetRect.center.dy - childRect.height / 2 + (verticalOffset ?? 0);
-        _scaleAlignDx = 1;
-        break;
-      case PopupPosition.right:
-        _left = targetRect.right + (horizontalOffset ?? 0);
-        _top =
-            targetRect.center.dy - childRect.height / 2 + (verticalOffset ?? 0);
-        _scaleAlignDx = 0;
-        break;
-      case PopupPosition.auto:
-        if (screenSize.height - targetRect.bottom > targetRect.top) {
-          _top = targetRect.bottom + (verticalOffset ?? 0);
-          _scaleAlignDy = 0;
-        } else {
-          _bottom = screenSize.height - targetRect.top + (verticalOffset ?? 0);
-          _scaleAlignDy = 1;
-        }
-        _left =
-            targetRect.center.dx -
-            childRect.width / 2 +
-            (horizontalOffset ?? 0);
-        break;
-    }
-
-    if (_left != null) {
-      _left = _left!.clamp(
-        padding.left + _kEdgeMargin,
-        screenSize.width - childRect.width - padding.right - _kEdgeMargin,
-      );
-    }
-    if (_top != null) {
-      _top = _top!.clamp(
-        padding.top + _kEdgeMargin,
-        screenSize.height - childRect.height - padding.bottom - _kEdgeMargin,
-      );
-    }
-    if (_bottom != null) {
-      final maxBottom =
-          screenSize.height - childRect.height - padding.top - _kEdgeMargin;
-      _bottom = _bottom!.clamp(padding.bottom + _kEdgeMargin, maxBottom);
-    }
-  }
-
-  BoxConstraints _screenPopupConstraints(BuildContext context) {
-    final media = MediaQuery.of(context);
-    final maxAvailableWidth = math.max(
-      0.0,
-      media.size.width -
-          media.padding.left -
-          media.padding.right -
-          _kEdgeMargin * 2,
-    );
-    final maxAvailableHeight = math.max(
-      0.0,
-      media.size.height -
-          media.padding.top -
-          media.padding.bottom -
-          _kEdgeMargin * 2,
-    );
-
-    return BoxConstraints(
-      maxWidth: maxAvailableWidth,
-      maxHeight: maxAvailableHeight,
-    );
-  }
 
   @override
   Widget buildPage(
@@ -325,11 +231,12 @@ class _PopupRoute extends PopupRoute<void> {
     Widget child,
   ) {
     child = _PopupContent(
-      childKey: _childKey,
       backgroundColor: backgroundColor,
       contentPadding: contentPadding,
       contentRadius: contentRadius,
       contentDecoration: contentDecoration,
+      contentDecorationBuilder: contentDecorationBuilder,
+      backgroundColorBuilder: backgroundColorBuilder,
       child: child,
     );
 
@@ -338,29 +245,106 @@ class _PopupRoute extends PopupRoute<void> {
       curve: animationCurve,
     );
 
-    return Stack(
-      children: [
-        Positioned(
-          left: _left,
-          right: _right,
-          top: _top,
-          bottom: _bottom,
-          child: ConstrainedBox(
-            constraints: _screenPopupConstraints(context),
-            child: FadeTransition(
-              opacity: curvedAnimation,
-              child: ScaleTransition(
-                alignment: FractionalOffset(_scaleAlignDx, _scaleAlignDy),
-                scale: curvedAnimation,
-                child: Material(color: Colors.transparent, child: child),
-              ),
-            ),
-          ),
+    final scaleAlignment = switch (position) {
+      PopupPosition.top => Alignment.bottomCenter,
+      PopupPosition.bottom => Alignment.topCenter,
+      PopupPosition.left => Alignment.centerRight,
+      PopupPosition.right => Alignment.centerLeft,
+      PopupPosition.auto =>
+        targetRect.top > MediaQuery.sizeOf(context).height - targetRect.bottom
+            ? Alignment.bottomCenter
+            : Alignment.topCenter,
+    };
+
+    return CustomSingleChildLayout(
+      delegate: _PopupLayoutDelegate(
+        targetRect: targetRect,
+        position: position,
+        padding: MediaQuery.paddingOf(context),
+        horizontalOffset: horizontalOffset ?? 0,
+        verticalOffset: verticalOffset ?? 0,
+      ),
+      child: FadeTransition(
+        opacity: curvedAnimation,
+        child: ScaleTransition(
+          alignment: scaleAlignment,
+          scale: curvedAnimation,
+          child: Material(color: Colors.transparent, child: child),
         ),
-      ],
+      ),
     );
   }
 
   @override
   Duration get transitionDuration => animationDuration;
+}
+
+class _PopupLayoutDelegate extends SingleChildLayoutDelegate {
+  const _PopupLayoutDelegate({
+    required this.targetRect,
+    required this.position,
+    required this.padding,
+    required this.horizontalOffset,
+    required this.verticalOffset,
+  });
+
+  static const _edgeMargin = 8.0;
+
+  final Rect targetRect;
+  final PopupPosition position;
+  final EdgeInsets padding;
+  final double horizontalOffset;
+  final double verticalOffset;
+
+  @override
+  BoxConstraints getConstraintsForChild(BoxConstraints constraints) =>
+      BoxConstraints(
+        maxWidth: math.max(
+          0,
+          constraints.maxWidth - padding.horizontal - 2 * _edgeMargin,
+        ),
+        maxHeight: math.max(
+          0,
+          constraints.maxHeight - padding.vertical - 2 * _edgeMargin,
+        ),
+      );
+
+  @override
+  Offset getPositionForChild(Size size, Size childSize) {
+    // Use the current child size so live content keeps its anchor and center.
+    final above =
+        position == PopupPosition.top ||
+        (position == PopupPosition.auto &&
+            targetRect.top > size.height - targetRect.bottom);
+    final x = switch (position) {
+      PopupPosition.left =>
+        targetRect.left - childSize.width + horizontalOffset,
+      PopupPosition.right => targetRect.right + horizontalOffset,
+      _ => targetRect.center.dx - childSize.width / 2 + horizontalOffset,
+    };
+    final y = switch (position) {
+      PopupPosition.left || PopupPosition.right =>
+        targetRect.center.dy - childSize.height / 2 + verticalOffset,
+      _ when above => targetRect.top - childSize.height - verticalOffset,
+      _ => targetRect.bottom + verticalOffset,
+    };
+    return Offset(
+      x.clamp(
+        padding.left + _edgeMargin,
+        size.width - childSize.width - padding.right - _edgeMargin,
+      ),
+      y.clamp(
+        padding.top + _edgeMargin,
+        size.height - childSize.height - padding.bottom - _edgeMargin,
+      ),
+    );
+  }
+
+  @override
+  bool shouldRelayout(_PopupLayoutDelegate oldDelegate) =>
+      targetRect != oldDelegate.targetRect ||
+      position != oldDelegate.position ||
+      padding != oldDelegate.padding ||
+      horizontalOffset != oldDelegate.horizontalOffset ||
+      verticalOffset != oldDelegate.verticalOffset;
 }

@@ -1,7 +1,10 @@
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
+import 'package:memolanes/theme/app_colors.dart';
+
 import 'package:flutter/material.dart';
+import 'package:memolanes/constants/app_typography.dart';
 
 class ProfileLevelIndicator extends StatelessWidget {
   final int level;
@@ -37,10 +40,13 @@ class ProfileLevelIndicator extends StatelessWidget {
                   height: size,
                   decoration: BoxDecoration(
                     gradient: profileImage == null
-                        ? const LinearGradient(
+                        ? LinearGradient(
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
-                            colors: [Color(0xFF66B6FF), Color(0xFFFF99CC)],
+                            colors: [
+                              context.appColors.profileAccentStartColor,
+                              context.appColors.profileAccentEndColor,
+                            ],
                           )
                         : null,
                     image: profileImage != null
@@ -51,7 +57,11 @@ class ProfileLevelIndicator extends StatelessWidget {
                         : null,
                   ),
                   child: profileImage == null
-                      ? const Icon(Icons.person, color: Colors.white, size: 32)
+                      ? Icon(
+                          Icons.person,
+                          color: context.appColors.badgeForeground,
+                          size: 32,
+                        )
                       : null,
                 ),
               ),
@@ -63,6 +73,10 @@ class ProfileLevelIndicator extends StatelessWidget {
                 painter: CircularProgressPainter(
                   progress: progress,
                   strokeWidth: 4.0,
+                  backgroundColor: context.appColors.onStrongColor.withValues(
+                    alpha: 0.3,
+                  ),
+                  color: context.appColors.primaryActionColor,
                 ),
               ),
             ),
@@ -77,15 +91,13 @@ class ProfileLevelIndicator extends StatelessWidget {
                     vertical: 2,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.black,
+                    color: context.appColors.strongBadgeBackground,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     'Lv. $level',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
+                    style: AppTypography.label.copyWith(
+                      color: context.appColors.onStrongColor,
                     ),
                   ),
                 ),
@@ -102,7 +114,15 @@ class CircularProgressPainter extends CustomPainter {
   final double progress;
   final double strokeWidth;
 
-  CircularProgressPainter({required this.progress, required this.strokeWidth});
+  final Color backgroundColor;
+  final Color color;
+
+  CircularProgressPainter({
+    required this.progress,
+    required this.strokeWidth,
+    required this.backgroundColor,
+    required this.color,
+  });
 
   @override
   void paint(Canvas canvas, ui.Size size) {
@@ -110,14 +130,14 @@ class CircularProgressPainter extends CustomPainter {
     final radius = (size.width - strokeWidth) / 2;
 
     final bgPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.3)
+      ..color = backgroundColor
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth;
 
     canvas.drawCircle(center, radius, bgPaint);
 
     final progressPaint = Paint()
-      ..color = const Color(0xFFB4EC51)
+      ..color = color
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth
       ..strokeCap = StrokeCap.round;
@@ -133,6 +153,9 @@ class CircularProgressPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(CircularProgressPainter oldDelegate) {
-    return oldDelegate.progress != progress;
+    return oldDelegate.progress != progress ||
+        oldDelegate.strokeWidth != strokeWidth ||
+        oldDelegate.backgroundColor != backgroundColor ||
+        oldDelegate.color != color;
   }
 }

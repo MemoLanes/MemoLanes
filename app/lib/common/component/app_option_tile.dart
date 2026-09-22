@@ -1,7 +1,7 @@
+import 'package:memolanes/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/common/component/app_checkbox.dart';
 import 'package:memolanes/constants/app_typography.dart';
-import 'package:memolanes/constants/style_constants.dart';
 
 enum AppOptionTileTrailing { chevron, selection }
 
@@ -29,11 +29,11 @@ class AppOptionTile extends StatelessWidget {
   final AppOptionTileTrailing trailing;
   final double backgroundAlpha;
 
-  Widget _buildTrailing() {
+  Widget _buildTrailing(BuildContext context) {
     return switch (trailing) {
       AppOptionTileTrailing.chevron => Icon(
         Icons.chevron_right_rounded,
-        color: StyleConstants.mutedInkColor,
+        color: context.appColors.mutedInkColor,
         size: 22,
       ),
       AppOptionTileTrailing.selection => AppCheckbox.indicator(
@@ -60,15 +60,15 @@ class AppOptionTile extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
               color: selected
-                  ? StyleConstants.softGreen.withValues(alpha: 0.88)
-                  : StyleConstants.surfaceColor.withValues(
+                  ? context.appColors.softGreen.withValues(alpha: 0.88)
+                  : context.appColors.surfaceColor.withValues(
                       alpha: backgroundAlpha,
                     ),
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
                 color: selected
-                    ? StyleConstants.primaryGreen
-                    : StyleConstants.lineColor,
+                    ? context.appColors.primaryGreen
+                    : context.appColors.lineColor,
                 width: selected ? 1.4 : 1,
               ),
             ),
@@ -81,14 +81,20 @@ class AppOptionTile extends StatelessWidget {
                     height: 36,
                     decoration: BoxDecoration(
                       color: selected
-                          ? StyleConstants.primaryGreen.withValues(alpha: 0.34)
-                          : StyleConstants.softGreen,
+                          ? context.appColors.primaryGreen.withValues(
+                              alpha: 0.34,
+                            )
+                          : context.appColors.softGreen,
                       borderRadius: BorderRadius.circular(11),
                     ),
                     alignment: Alignment.center,
                     child:
                         iconWidget ??
-                        Icon(icon, color: StyleConstants.deepGreen, size: 20),
+                        Icon(
+                          icon,
+                          color: context.appColors.deepGreen,
+                          size: 20,
+                        ),
                   ),
                   const SizedBox(width: 12),
                 ],
@@ -102,7 +108,7 @@ class AppOptionTile extends StatelessWidget {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: AppTypography.itemTitle.copyWith(
-                          color: StyleConstants.inkColor,
+                          color: context.appColors.inkColor,
                         ),
                       ),
                       if (subtitle != null) ...[
@@ -112,7 +118,7 @@ class AppOptionTile extends StatelessWidget {
                           maxLines: 3,
                           overflow: TextOverflow.ellipsis,
                           style: AppTypography.caption.copyWith(
-                            color: StyleConstants.mutedInkColor,
+                            color: context.appColors.mutedInkColor,
                           ),
                         ),
                       ],
@@ -120,7 +126,7 @@ class AppOptionTile extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 10),
-                _buildTrailing(),
+                _buildTrailing(context),
               ],
             ),
           ),
