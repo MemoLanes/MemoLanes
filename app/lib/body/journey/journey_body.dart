@@ -28,8 +28,9 @@ class JourneyBody extends StatefulWidget {
   final Future<void> Function(JourneyHeader journey) onJourneySelected;
 
   /// Change this value to refresh data using the existing list controller.
-  /// Journey-kind filters are preserved. If the selected date no longer has
-  /// journeys, the controller selects the nearest date with journeys, if any.
+  /// The current calendar month, selected date, and journey-kind filters stay
+  /// in place when returning from a detail overlay, unless the selected date
+  /// falls before the earliest remaining journey.
   final int refreshRevision;
 
   @override
@@ -58,9 +59,7 @@ class _JourneyBodyState extends State<JourneyBody> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.refreshRevision == widget.refreshRevision) return;
     unawaited(
-      GlobalLoadingManager.instance.runWithLoading(
-        () => _controller.refresh(adjustSelectedDate: true),
-      ),
+      GlobalLoadingManager.instance.runWithLoading(() => _controller.refresh()),
     );
   }
 
