@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:memolanes/theme/app_colors.dart';
 
 import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/body/journey/journey_export.dart';
 import 'package:memolanes/body/journey/journey_track_edit_page.dart';
@@ -11,6 +12,7 @@ import 'package:memolanes/common/component/app_option_tile.dart';
 import 'package:memolanes/common/component/map_glass_back_button.dart';
 import 'package:memolanes/body/map/journey_flow_controller.dart';
 import 'package:memolanes/common/log.dart';
+import 'package:memolanes/common/loading_manager.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/edit_session.dart' show EditSession;
 import 'package:memolanes/src/rust/api/import.dart' show JourneyInfo;
@@ -35,6 +37,49 @@ class _JourneyDetailOverlayState extends State<JourneyDetailOverlay> {
   JourneyFlowController get _controller => widget.controller;
   JourneyHeader get _journey => _controller.session!.journey;
   bool _moreActionInProgress = false;
+  JourneyDetailSession? _backGestureSession;
+  JourneyPhase? _backGesturePhase;
+  double _backGestureDistance = 0;
+
+  bool get _canSwipeBack =>
+      ModalRoute.of(context)?.isCurrent == true &&
+      !GlobalLoadingManager.instance.isLoading &&
+      !GlobalLoadingManager.instance.isNavigationBlocked &&
+      switch (_controller.phase) {
+        JourneyPhase.viewing ||
+        JourneyPhase.editing ||
+        JourneyPhase.refreshing => true,
+        _ => false,
+      };
+
+  void _startBackGesture(DragStartDetails details) {
+    _cancelBackGesture();
+    if (!_canSwipeBack) return;
+    _backGestureSession = _controller.session;
+    _backGesturePhase = _controller.phase;
+  }
+
+  void _cancelBackGesture() {
+    _backGestureSession = null;
+    _backGesturePhase = null;
+    _backGestureDistance = 0;
+  }
+
+  void _endBackGesture(DragEndDetails details) {
+    final width = MediaQuery.sizeOf(context).width;
+    final velocity = details.primaryVelocity ?? 0;
+    // Match Cupertino's distance/fling decision, including a reversed swipe.
+    final completed = velocity.abs() >= width
+        ? velocity > 0
+        : _backGestureDistance > width / 2;
+    final canReturn =
+        _backGestureSession != null &&
+        identical(_backGestureSession, _controller.session) &&
+        _backGesturePhase == _controller.phase &&
+        _canSwipeBack;
+    _cancelBackGesture();
+    if (completed && canReturn) _requestBack();
+  }
 
   Future<void> _saveJourneyInformation(JourneyInfo journeyInfo) async {
     FocusScope.of(context).unfocus();
@@ -150,12 +195,7 @@ class _JourneyDetailOverlayState extends State<JourneyDetailOverlay> {
   }
 
   @override
-  Widget build(BuildContext context) => ListenableBuilder(
-    listenable: _controller,
-    builder: (context, _) => _buildContent(context),
-  );
-
-  Widget _buildContent(BuildContext context) {
+  Widget build(BuildContext context) {
     if (_controller.session == null) return const SizedBox.shrink();
     final mediaQuery = MediaQuery.of(context);
     final viewPadding = mediaQuery.viewPadding;
@@ -202,6 +242,34 @@ class _JourneyDetailOverlayState extends State<JourneyDetailOverlay> {
             top: viewPadding.top + 14,
             child: PointerInterceptor(
               child: MapGlassBackButton(onPressed: _requestBack),
+            ),
+          ),
+        // Details share the root route, which cannot supply Cupertino's edge
+        // gesture. Intercept only the edge so the native WebView still handles
+        // map gestures everywhere else; use the same back action as the button.
+        if (Theme.of(context).platform == TargetPlatform.iOS)
+          Positioned(
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: math.max(20, viewPadding.left),
+            child: PointerInterceptor(
+              child: Listener(
+                // An accepted drag reports onEnd even on pointer cancellation.
+                // Clear it first so an OS interruption cannot navigate back.
+                onPointerCancel: (_) => _cancelBackGesture(),
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  excludeFromSemantics: true,
+                  dragStartBehavior: DragStartBehavior.down,
+                  onHorizontalDragStart: _startBackGesture,
+                  onHorizontalDragUpdate: (details) {
+                    _backGestureDistance += details.primaryDelta ?? 0;
+                  },
+                  onHorizontalDragEnd: _endBackGesture,
+                  onHorizontalDragCancel: _cancelBackGesture,
+                ),
+              ),
             ),
           ),
       ],

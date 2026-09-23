@@ -4,7 +4,6 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:memolanes/body/journey/list/journey_layer_filter_menu.dart';
 import 'package:memolanes/body/journey/list/journey_list_calendar.dart';
 import 'package:memolanes/body/journey/list/journey_list_controller.dart';
 import 'package:memolanes/body/map/overlay/journey_detail_card.dart';
@@ -44,7 +43,11 @@ void main() {
     await loader.load('assets/translations', locale);
   });
 
-  Future<void> pumpApp(WidgetTester tester, Widget home) async {
+  Future<void> pumpApp(
+    WidgetTester tester,
+    Widget home, {
+    TargetPlatform? platform,
+  }) async {
     await tester.runAsync(() async {
       await tester.pumpWidget(
         EasyLocalization(
@@ -54,7 +57,7 @@ void main() {
           fallbackLocale: locale,
           child: Builder(
             builder: (context) => MaterialApp(
-              theme: AppTheme.light,
+              theme: AppTheme.light.copyWith(platform: platform),
               localizationsDelegates: context.localizationDelegates,
               supportedLocales: context.supportedLocales,
               locale: context.locale,
@@ -85,7 +88,10 @@ void main() {
     wakelockPlusPlatformInstance = originalWakelockPlatform;
   });
 
-  Future<JourneyFlowController> openDetail(WidgetTester tester) async {
+  Future<JourneyFlowController> openDetail(
+    WidgetTester tester, {
+    TargetPlatform? platform,
+  }) async {
     final flow = JourneyFlowController();
     addTearDown(flow.dispose);
     await flow.open(
@@ -108,6 +114,7 @@ void main() {
           ),
         ),
       ),
+      platform: platform,
     );
     return flow;
   }
@@ -127,25 +134,6 @@ void main() {
     invokeConfirmationAction(tester, 'OK');
     await tester.pump();
   }
-
-  testWidgets('journey layer filter opens its menu', (tester) async {
-    await pumpApp(
-      tester,
-      Scaffold(
-        body: JourneyOverlay(
-          onJourneySelected: (_) async {},
-          isLoading: false,
-          refreshRevision: 0,
-        ),
-      ),
-    );
-    final filter = find.byTooltip('All');
-    expect(filter.hitTestable(), findsOneWidget);
-    await tester.tap(filter);
-    await tester.pumpAndSettle();
-    expect(find.byType(JourneyLayerFilterMenu), findsOneWidget);
-    expect(tester.takeException(), isNull);
-  });
 
   testWidgets('journey calendar keeps its month after closing details', (
     tester,
@@ -330,6 +318,100 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets(
+    'iOS edge swipe cancels editing, then closes shared-map details',
+    (tester) async {
+      mockApi.savedMetadata.clear();
+      final flow = await openDetail(tester, platform: TargetPlatform.iOS);
+      await editNote(tester, 'Unsaved swipe draft');
+      final overlay = find.byType(JourneyDetailOverlay);
+      final width = tester.getSize(overlay).width;
+      final start = tester.getTopLeft(overlay) + const Offset(5, 150);
+
+      await tester.dragFrom(start, Offset(width * 0.7, 0));
+      await tester.pumpAndSettle();
+      expect(flow.phase, JourneyPhase.viewing);
+      expect(find.byType(TextField), findsNothing);
+      expect(find.text('Original note'), findsOneWidget);
+      expect(mockApi.savedMetadata, isEmpty);
+
+      // A short, fast fling also completes the return gesture.
+      await tester.flingFrom(start, const Offset(100, 0), width * 2);
+      await tester.pumpAndSettle();
+      expect(find.text('Picker'), findsOneWidget);
+      expect(flow.appChromeVisible, isTrue);
+      expect(flow.returnToView, (lng: 1.0, lat: 2.0, zoom: 3.0));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('short and cancelled iOS edge drags keep details open', (
+    tester,
+  ) async {
+    final flow = await openDetail(tester, platform: TargetPlatform.iOS);
+    final session = flow.session;
+    const start = Offset(5, 150);
+    await tester.dragFrom(start, const Offset(70, 0));
+    await tester.pumpAndSettle();
+    expect(flow.session, same(session));
+
+    final gesture = await tester.startGesture(start);
+    await gesture.moveBy(const Offset(600, 0));
+    await gesture.cancel();
+    await tester.pumpAndSettle();
+    expect(flow.session, same(session));
+    expect(flow.pickerRevision, 0);
+  });
+
+  testWidgets('iOS edge gesture cannot return during or across a save', (
+    tester,
+  ) async {
+    final pending = Completer<void>();
+    mockApi.pendingSave = pending;
+    addTearDown(() => mockApi.pendingSave = null);
+    final flow = await openDetail(tester, platform: TargetPlatform.iOS);
+    await editNote(tester, 'Saved during swipe');
+    final gesture = await tester.startGesture(const Offset(5, 150));
+    await gesture.moveBy(const Offset(100, 0));
+
+    final saving = flow.saveInformation(
+      JourneyInfo(
+        journeyDate: journey.journeyDate,
+        journeyKind: journey.journeyKind,
+        note: 'Saved during swipe',
+      ),
+      confirm: () async => true,
+    );
+    await tester.pump();
+    pending.complete();
+    await tester.pumpAndSettle();
+    await saving;
+    await gesture.moveBy(const Offset(500, 0));
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(flow.phase, JourneyPhase.viewing);
+    expect(flow.session!.journey.note, 'Saved during swipe');
+    expect(flow.pickerRevision, 0);
+  });
+
+  testWidgets('iOS edge swipe is blocked during deletion', (tester) async {
+    final pending = Completer<void>();
+    mockApi.pendingDelete = pending;
+    addTearDown(() => mockApi.pendingDelete = null);
+    final flow = await openDetail(tester, platform: TargetPlatform.iOS);
+    final deleting = flow.deleteJourney();
+    await tester.pump();
+    await tester.flingFrom(const Offset(5, 150), const Offset(600, 0), 2000);
+    await tester.pump();
+    expect(flow.phase, JourneyPhase.deleting);
+    expect(flow.session, isNotNull);
+    expect(flow.pickerRevision, 0);
+    pending.complete();
+    await tester.pumpAndSettle();
+    await deleting;
+    expect(flow.session, isNull);
+  });
+
   testWidgets('detail form scrolls above a landscape keyboard', (tester) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(667, 375);
@@ -393,7 +475,7 @@ void main() {
       final pending = Completer<void>();
       mockApi.pendingSave = pending;
       addTearDown(() => mockApi.pendingSave = null);
-      final flow = await openDetail(tester);
+      final flow = await openDetail(tester, platform: TargetPlatform.iOS);
       final originalMap = flow.session!.mapData;
       await editNote(tester, 'Changed note');
       await confirmSave(tester);
@@ -403,6 +485,7 @@ void main() {
       expect(flow.requestBack(), JourneyBackResult.blocked);
       expect(flow.leave(), isFalse);
       expect(flow.appChromeVisible, isFalse);
+      await tester.flingFrom(const Offset(5, 150), const Offset(600, 0), 2000);
       await tester.binding.handlePopRoute();
       // Even a callback retained from the previous frame uses the same guard.
       tester

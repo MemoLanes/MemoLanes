@@ -137,10 +137,21 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
       }
     }
 
+    final paddingChanged =
+        widget.flyToBounds != null &&
+        oldWidget.flyToBoundsPadding != widget.flyToBoundsPadding;
     if (oldWidget.mapRendererProxy != widget.mapRendererProxy ||
         oldWidget.flyToBounds != widget.flyToBounds ||
-        oldWidget.flyToView != widget.flyToView) {
-      unawaited(_syncMapDataAndCamera());
+        oldWidget.flyToView != widget.flyToView ||
+        paddingChanged) {
+      if (paddingChanged) {
+        // fitBounds must see the WebView's new size after a rotation.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) unawaited(_syncMapDataAndCamera());
+        });
+      } else {
+        unawaited(_syncMapDataAndCamera());
+      }
     }
   }
 

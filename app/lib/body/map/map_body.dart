@@ -95,6 +95,9 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
             await _mainMapKey.currentState?.getCurrentMapView() ??
             _roughMapView,
       );
+      // The detail uses this WebView, but the persisted home camera should
+      // remain the one captured immediately before the journey was opened.
+      if (widget.journeys.session != null) _saveMapState();
     } catch (error, stackTrace) {
       log.error('Loading journey map failed: $error', stackTrace);
       if (!mounted) return;
@@ -190,14 +193,14 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
   // TODO: We don't enough time to save if the app got killed. Losing data here
   // is fine but we could consider saving every minute or so.
   void _saveMapState() {
-    final roughMapView = _roughMapView;
-    if (roughMapView == null) return;
+    final mapView = widget.journeys.session?.returnView ?? _roughMapView;
+    if (mapView == null) return;
 
     final mapState = MapState(
       _currentTrackingMode,
-      roughMapView.zoom,
-      roughMapView.lng,
-      roughMapView.lat,
+      mapView.zoom,
+      mapView.lng,
+      mapView.lat,
       0,
     );
 
@@ -258,7 +261,7 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
       trackingMode: _effectiveTrackingMode,
       onRoughMapViewUpdate: (roughMapView) {
         _roughMapView = roughMapView;
-        _saveMapState();
+        if (widget.journeys.session == null) _saveMapState();
       },
       onMapMoved: () {
         if (widget.mode == MapMode.normal &&
