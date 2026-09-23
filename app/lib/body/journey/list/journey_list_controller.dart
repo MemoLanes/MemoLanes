@@ -83,6 +83,11 @@ class JourneyListController extends ChangeNotifier {
         final nearestDate = _nearestDate(dates, selectedDate);
         if (nearestDate != null) selectedDate = nearestDate;
       }
+      // Preserve the selected month unless deleting or moving the earliest
+      // journey has put it outside the calendar's new date range.
+      if (earliestDate != null && selectedDate.isBefore(earliestDate)) {
+        selectedDate = earliestDate;
+      }
       if (dates.isEmpty) {
         _showEmptyJourneyList();
         return;

@@ -4,25 +4,36 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:memolanes/body/journey/list/journey_layer_filter_menu.dart';
+import 'package:memolanes/body/journey/list/journey_list_calendar.dart';
+import 'package:memolanes/body/journey/list/journey_list_controller.dart';
 import 'package:memolanes/body/map/overlay/journey_detail_card.dart';
+import 'package:memolanes/body/map/overlay/journey_detail_overlay.dart';
 import 'package:memolanes/body/map/overlay/journey_more_dialog.dart';
 import 'package:memolanes/body/map/overlay/journey_overlay.dart';
 import 'package:memolanes/common/app_haptics.dart';
 import 'package:memolanes/common/app_translation_loader.dart';
 import 'package:memolanes/common/component/app_button.dart';
 import 'package:memolanes/common/component/common_dialog.dart';
+import 'package:memolanes/common/simple_date_utils.dart';
 import 'package:memolanes/src/rust/api/import.dart';
 import 'package:memolanes/src/rust/frb_generated.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
 import 'package:memolanes/theme/app_theme.dart';
+import 'package:memolanes/body/map/journey_flow_controller.dart';
+import 'package:memolanes/common/loading_manager.dart';
+import 'package:memolanes/common/component/map_glass_back_button.dart';
+import 'package:memolanes/src/rust/api/api.dart' as api;
+import 'package:memolanes/src/rust/utils.dart' show MapBounds;
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   const locale = Locale('en', 'US');
   const loader = AppTranslationLoader();
+  final originalWakelockPlatform = wakelockPlusPlatformInstance;
 
   setUpAll(() async {
+    wakelockPlusPlatformInstance = _TestWakelockPlatform();
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
           const MethodChannel('plugins.flutter.io/shared_preferences'),
@@ -32,7 +43,11 @@ void main() {
     await loader.load('assets/translations', locale);
   });
 
-  Future<void> pumpApp(WidgetTester tester, Widget home) async {
+  Future<void> pumpApp(
+    WidgetTester tester,
+    Widget home, {
+    TargetPlatform? platform,
+  }) async {
     await tester.runAsync(() async {
       await tester.pumpWidget(
         EasyLocalization(
@@ -42,7 +57,7 @@ void main() {
           fallbackLocale: locale,
           child: Builder(
             builder: (context) => MaterialApp(
-              theme: AppTheme.light,
+              theme: AppTheme.light.copyWith(platform: platform),
               localizationsDelegates: context.localizationDelegates,
               supportedLocales: context.supportedLocales,
               locale: context.locale,
@@ -65,18 +80,336 @@ void main() {
     journeyKind: JourneyKind.defaultKind,
     note: 'Original note',
   );
+  final mockApi = _JourneyListApi(journey);
 
-  setUpAll(() => RustLib.initMock(api: _JourneyListApi(journey)));
-  tearDownAll(RustLib.dispose);
+  setUpAll(() => RustLib.initMock(api: mockApi));
+  tearDownAll(() {
+    RustLib.dispose();
+    wakelockPlusPlatformInstance = originalWakelockPlatform;
+  });
 
-  testWidgets('journey layer filter opens its menu', (tester) async {
-    await pumpApp(tester, const Scaffold(body: JourneyOverlay()));
-    final filter = find.byTooltip('All');
-    expect(filter.hitTestable(), findsOneWidget);
-    await tester.tap(filter);
+  Future<JourneyFlowController> openDetail(
+    WidgetTester tester, {
+    TargetPlatform? platform,
+  }) async {
+    final flow = JourneyFlowController();
+    addTearDown(flow.dispose);
+    await flow.open(
+      journey,
+      readMapView: () async => (lng: 1.0, lat: 2.0, zoom: 3.0),
+    );
+    await pumpApp(
+      tester,
+      PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) flow.requestBack();
+        },
+        child: Scaffold(
+          body: ListenableBuilder(
+            listenable: flow,
+            builder: (context, _) => flow.session == null
+                ? const Text('Picker')
+                : JourneyDetailOverlay(controller: flow),
+          ),
+        ),
+      ),
+      platform: platform,
+    );
+    return flow;
+  }
+
+  Future<void> editNote(WidgetTester tester, String note) async {
+    await tester.tap(find.text('Edit'));
     await tester.pumpAndSettle();
-    expect(find.byType(JourneyLayerFilterMenu), findsOneWidget);
+    await tester.tap(find.text('Edit Journey Information'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), note);
+  }
+
+  Future<void> confirmSave(WidgetTester tester) async {
+    await tester.tap(find.text('Save'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    invokeConfirmationAction(tester, 'OK');
+    await tester.pump();
+  }
+
+  testWidgets('journey calendar keeps its month after closing details', (
+    tester,
+  ) async {
+    var showingDetail = false;
+    var revision = 0;
+    late StateSetter updateHost;
+    await pumpApp(
+      tester,
+      StatefulBuilder(
+        builder: (context, setState) {
+          updateHost = setState;
+          return Scaffold(
+            body: JourneyOverlay(
+              onJourneySelected: (_) async {},
+              isLoading: false,
+              refreshRevision: revision,
+              detail: showingDetail
+                  ? const ColoredBox(color: Colors.transparent)
+                  : null,
+            ),
+          );
+        },
+      ),
+    );
+
+    final controller = tester
+        .widget<JourneyListCalendar>(find.byType(JourneyListCalendar))
+        .controller;
+    await controller.displayMonth(SimpleDate(2023, 12, 1));
+    await tester.pumpAndSettle();
+
+    updateHost(() => showingDetail = true);
+    await tester.pumpAndSettle();
+    updateHost(() {
+      showingDetail = false;
+      revision++;
+    });
+    await tester.pumpAndSettle();
+    expect(find.text('Dec'), findsOneWidget);
+  });
+
+  for (final keepSelectedMonth in [false, true]) {
+    testWidgets('calendar follows a changed earliest date with '
+        '${keepSelectedMonth ? 'a retained' : 'a deleted'} selected month', (
+      tester,
+    ) async {
+      final november = SimpleDate(2023, 11, 14);
+      final february = SimpleDate(2024, 2, 1);
+      final march = SimpleDate(2024, 3, 1);
+      var earliest = november;
+      var dates = [november, february, march];
+      final controller = JourneyListController(
+        earliestJourneyDateLoader: () async => earliest,
+        journeyDatesLoader: (_) async => dates,
+        journeyHeadersLoader: (_, _) async => [],
+      );
+      addTearDown(controller.dispose);
+      await controller.initialize();
+      await controller.selectDate(keepSelectedMonth ? march : november);
+      await pumpApp(
+        tester,
+        Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 340,
+              child: AnimatedBuilder(
+                animation: controller,
+                builder: (context, _) => JourneyListCalendar(
+                  controller: controller,
+                  firstDate: controller.firstDate!,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      // Deleting November's last journey changes the calendar's page origin.
+      earliest = february;
+      dates = [february, march];
+      await controller.refresh();
+      await tester.pumpAndSettle();
+
+      final expectedDate = keepSelectedMonth ? march : february;
+      expect(controller.selectedDate, expectedDate);
+      expect(find.text(keepSelectedMonth ? 'Mar' : 'Feb'), findsOneWidget);
+      expect(find.text('29'), findsOneWidget);
+      expect(
+        find.text('31'),
+        keepSelectedMonth ? findsOneWidget : findsNothing,
+      );
+      expect(
+        find.text('30'),
+        keepSelectedMonth ? findsOneWidget : findsNothing,
+      );
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('cancel discards the draft without saving or closing details', (
+    tester,
+  ) async {
+    mockApi.savedMetadata.clear();
+    final flow = await openDetail(tester);
+
+    await tester.tap(find.text('Edit'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Edit Journey Information'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), 'Unsaved draft');
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+
+    expect(flow.session, isNotNull);
+    expect(mockApi.savedMetadata, isEmpty);
+
+    await tester.tap(find.text('Edit'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Edit Journey Information'));
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller!.text,
+      'Original note',
+    );
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('saving journey information requires confirmation', (
+    tester,
+  ) async {
+    mockApi.savedMetadata.clear();
+    await openDetail(tester);
+
+    await tester.tap(find.text('Edit'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Edit Journey Information'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'Confirmed note');
+    await tester.tap(find.text('Save'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(mockApi.savedMetadata, isEmpty);
+    invokeConfirmationAction(tester, 'Cancel');
+    await tester.pumpAndSettle();
+    expect(find.text('Confirmed note'), findsOneWidget);
+    expect(find.byType(TextField), findsOneWidget);
+    expect(mockApi.savedMetadata, isEmpty);
+
+    await tester.tap(find.text('Save'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    invokeConfirmationAction(tester, 'OK');
+    await tester.pumpAndSettle();
+    expect(mockApi.savedMetadata.single.note, 'Confirmed note');
+    expect(find.byType(TextField), findsNothing);
+    expect(find.text('Confirmed note'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('system back cancels editing, then closes details', (
+    tester,
+  ) async {
+    mockApi.savedMetadata.clear();
+    final flow = await openDetail(tester);
+    await editNote(tester, 'Unsaved draft');
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(flow.session, isNotNull);
+    expect(find.byType(TextField), findsNothing);
+    expect(mockApi.savedMetadata, isEmpty);
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('Picker'), findsOneWidget);
+    expect(flow.appChromeVisible, isTrue);
+    expect(flow.requestBack(), JourneyBackResult.unhandled);
+    expect(flow.returnToView, (lng: 1.0, lat: 2.0, zoom: 3.0));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'iOS edge swipe cancels editing, then closes shared-map details',
+    (tester) async {
+      mockApi.savedMetadata.clear();
+      final flow = await openDetail(tester, platform: TargetPlatform.iOS);
+      await editNote(tester, 'Unsaved swipe draft');
+      final overlay = find.byType(JourneyDetailOverlay);
+      final width = tester.getSize(overlay).width;
+      final start = tester.getTopLeft(overlay) + const Offset(5, 150);
+
+      await tester.dragFrom(start, Offset(width * 0.7, 0));
+      await tester.pumpAndSettle();
+      expect(flow.phase, JourneyPhase.viewing);
+      expect(find.byType(TextField), findsNothing);
+      expect(find.text('Original note'), findsOneWidget);
+      expect(mockApi.savedMetadata, isEmpty);
+
+      // A short, fast fling also completes the return gesture.
+      await tester.flingFrom(start, const Offset(100, 0), width * 2);
+      await tester.pumpAndSettle();
+      expect(find.text('Picker'), findsOneWidget);
+      expect(flow.appChromeVisible, isTrue);
+      expect(flow.returnToView, (lng: 1.0, lat: 2.0, zoom: 3.0));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('short and cancelled iOS edge drags keep details open', (
+    tester,
+  ) async {
+    final flow = await openDetail(tester, platform: TargetPlatform.iOS);
+    final session = flow.session;
+    const start = Offset(5, 150);
+    await tester.dragFrom(start, const Offset(70, 0));
+    await tester.pumpAndSettle();
+    expect(flow.session, same(session));
+
+    final gesture = await tester.startGesture(start);
+    await gesture.moveBy(const Offset(600, 0));
+    await gesture.cancel();
+    await tester.pumpAndSettle();
+    expect(flow.session, same(session));
+    expect(flow.pickerRevision, 0);
+  });
+
+  testWidgets('iOS edge gesture cannot return during or across a save', (
+    tester,
+  ) async {
+    final pending = Completer<void>();
+    mockApi.pendingSave = pending;
+    addTearDown(() => mockApi.pendingSave = null);
+    final flow = await openDetail(tester, platform: TargetPlatform.iOS);
+    await editNote(tester, 'Saved during swipe');
+    final gesture = await tester.startGesture(const Offset(5, 150));
+    await gesture.moveBy(const Offset(100, 0));
+
+    final saving = flow.saveInformation(
+      JourneyInfo(
+        journeyDate: journey.journeyDate,
+        journeyKind: journey.journeyKind,
+        note: 'Saved during swipe',
+      ),
+      confirm: () async => true,
+    );
+    await tester.pump();
+    pending.complete();
+    await tester.pumpAndSettle();
+    await saving;
+    await gesture.moveBy(const Offset(500, 0));
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(flow.phase, JourneyPhase.viewing);
+    expect(flow.session!.journey.note, 'Saved during swipe');
+    expect(flow.pickerRevision, 0);
+  });
+
+  testWidgets('iOS edge swipe is blocked during deletion', (tester) async {
+    final pending = Completer<void>();
+    mockApi.pendingDelete = pending;
+    addTearDown(() => mockApi.pendingDelete = null);
+    final flow = await openDetail(tester, platform: TargetPlatform.iOS);
+    final deleting = flow.deleteJourney();
+    await tester.pump();
+    await tester.flingFrom(const Offset(5, 150), const Offset(600, 0), 2000);
+    await tester.pump();
+    expect(flow.phase, JourneyPhase.deleting);
+    expect(flow.session, isNotNull);
+    expect(flow.pickerRevision, 0);
+    pending.complete();
+    await tester.pumpAndSettle();
+    await deleting;
+    expect(flow.session, isNull);
   });
 
   testWidgets('detail form scrolls above a landscape keyboard', (tester) async {
@@ -108,6 +441,7 @@ void main() {
                       onExport: () {},
                       onEdit: () {},
                       onMore: () {},
+                      onCancel: () {},
                       onSave: (info) async => saved.add(info),
                     ),
                   ),
@@ -134,79 +468,145 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('saving edits submits metadata and waits for completion', (
+  testWidgets(
+    'pending save blocks every exit before the loading overlay appears',
+    (tester) async {
+      mockApi.savedMetadata.clear();
+      final pending = Completer<void>();
+      mockApi.pendingSave = pending;
+      addTearDown(() => mockApi.pendingSave = null);
+      final flow = await openDetail(tester, platform: TargetPlatform.iOS);
+      final originalMap = flow.session!.mapData;
+      await editNote(tester, 'Changed note');
+      await confirmSave(tester);
+
+      expect(GlobalLoadingManager.instance.isLoading, isFalse);
+      expect(GlobalLoadingManager.instance.isNavigationBlocked, isTrue);
+      expect(flow.requestBack(), JourneyBackResult.blocked);
+      expect(flow.leave(), isFalse);
+      expect(flow.appChromeVisible, isFalse);
+      await tester.flingFrom(const Offset(5, 150), const Offset(600, 0), 2000);
+      await tester.binding.handlePopRoute();
+      // Even a callback retained from the previous frame uses the same guard.
+      tester
+          .widget<JourneyDetailCard>(find.byType(JourneyDetailCard))
+          .onCancel();
+      await tester.pump();
+      expect(flow.phase, JourneyPhase.saving);
+      expect(tester.widget<TextField>(find.byType(TextField)).readOnly, isTrue);
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).controller!.text,
+        'Changed note',
+      );
+
+      pending.complete();
+      await tester.pumpAndSettle();
+      expect(mockApi.savedMetadata.single.note, 'Changed note');
+      expect(mockApi.savedMetadata.single.journeyDate, journey.journeyDate);
+      expect(flow.session!.journey.note, 'Changed note');
+      expect(flow.session!.mapData, originalMap);
+      expect(flow.phase, JourneyPhase.viewing);
+      expect(find.byType(TextField), findsNothing);
+    },
+  );
+
+  testWidgets('failed save after back preserves the draft and allows retry', (
     tester,
   ) async {
-    final saved = <JourneyInfo>[];
-    final saveFinished = Completer<void>();
-    await pumpApp(
-      tester,
-      Scaffold(
-        body: JourneyDetailCard(
-          journey: journey,
-          isEditing: true,
-          onExport: () {},
-          onEdit: () {},
-          onMore: () {},
-          onSave: (info) async {
-            saved.add(info);
-            await saveFinished.future;
-          },
-        ),
-      ),
-    );
-    await tester.enterText(find.byType(TextField), 'Changed note');
-    await tester.tap(find.text('Save'));
-    await tester.pump();
-    expect(tester.widget<TextField>(find.byType(TextField)).readOnly, isTrue);
-    await tester.tap(find.text('Save'));
-    expect(saved, hasLength(1));
-    saveFinished.complete();
+    mockApi.savedMetadata.clear();
+    final pending = Completer<void>();
+    mockApi.pendingSave = pending;
+    addTearDown(() => mockApi.pendingSave = null);
+    final flow = await openDetail(tester);
+    await editNote(tester, 'Keep my draft');
+    await confirmSave(tester);
+    await tester.binding.handlePopRoute();
+    pending.completeError(StateError('Storage unavailable'));
     await tester.pumpAndSettle();
-    expect(saved, hasLength(1));
-    expect(saved.single.note, 'Changed note');
-    expect(saved.single.journeyDate, journey.journeyDate);
-    expect(saved.single.journeyKind, journey.journeyKind);
-    expect(tester.widget<TextField>(find.byType(TextField)).readOnly, isFalse);
-  });
-
-  testWidgets('failed save keeps the draft and allows retry', (tester) async {
-    final saved = <JourneyInfo>[];
-    await pumpApp(
-      tester,
-      Scaffold(
-        body: JourneyDetailCard(
-          journey: journey,
-          isEditing: true,
-          onExport: () {},
-          onEdit: () {},
-          onMore: () {},
-          onSave: (info) async {
-            saved.add(info);
-            if (saved.length == 1) throw StateError('Storage unavailable');
-          },
-        ),
-      ),
-    );
-    await tester.enterText(find.byType(TextField), 'Keep my draft');
-    await tester.tap(find.text('Save'));
-    // The save button remains busy until the error dialog is dismissed.
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
     expect(
       find.text('Something went wrong. Please try again.'),
       findsOneWidget,
     );
-    expect(tester.takeException(), isNull);
     invokeConfirmationAction(tester, 'OK');
     await tester.pumpAndSettle();
+    expect(flow.phase, JourneyPhase.editing);
     expect(find.text('Keep my draft'), findsOneWidget);
     expect(tester.widget<TextField>(find.byType(TextField)).readOnly, isFalse);
-    await tester.tap(find.text('Save'));
+    mockApi.pendingSave = null;
+    await confirmSave(tester);
     await tester.pumpAndSettle();
-    expect(saved, hasLength(2));
-    expect(saved[1].note, saved[0].note);
-    expect(find.byType(CommonDialog), findsNothing);
+    expect(mockApi.savedMetadata.single.note, 'Keep my draft');
+    expect(flow.phase, JourneyPhase.viewing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('pending deletion blocks both system and detail back', (
+    tester,
+  ) async {
+    final pending = Completer<void>();
+    mockApi.pendingDelete = pending;
+    addTearDown(() => mockApi.pendingDelete = null);
+    final flow = await openDetail(tester);
+    final delete = flow.deleteJourney();
+    await tester.pump();
+    expect(GlobalLoadingManager.instance.isLoading, isFalse);
+    await tester.binding.handlePopRoute();
+    tester
+        .widget<MapGlassBackButton>(find.byType(MapGlassBackButton))
+        .onPressed();
+    expect(flow.leave(), isFalse);
+    expect(flow.phase, JourneyPhase.deleting);
+    expect(flow.session, isNotNull);
+    pending.complete();
+    await delete;
+    await tester.pumpAndSettle();
+    expect(find.text('Picker'), findsOneWidget);
+    expect(flow.pickerRevision, 1);
+    expect(flow.appChromeVisible, isTrue);
+  });
+
+  testWidgets('failed deletion keeps details open and unlocks back', (
+    tester,
+  ) async {
+    final pending = Completer<void>();
+    mockApi.pendingDelete = pending;
+    addTearDown(() => mockApi.pendingDelete = null);
+    final flow = await openDetail(tester);
+    final deletion = flow.deleteJourney();
+    final failure = expectLater(deletion, throwsStateError);
+    await tester.pump();
+    pending.completeError(StateError('Storage unavailable'));
+    await failure;
+    await tester.pumpAndSettle();
+    expect(flow.phase, JourneyPhase.viewing);
+    expect(flow.appChromeVisible, isFalse);
+    expect(flow.pickerRevision, 0);
+    await tester.tap(find.byType(MapGlassBackButton));
+    await tester.pumpAndSettle();
+    expect(find.text('Picker'), findsOneWidget);
+    expect(GlobalLoadingManager.instance.isNavigationBlocked, isFalse);
+  });
+
+  testWidgets('duplicate save callbacks open only one confirmation', (
+    tester,
+  ) async {
+    mockApi.savedMetadata.clear();
+    final flow = await openDetail(tester);
+    await editNote(tester, 'Only once');
+    final save = tester
+        .widget<AppButton>(find.widgetWithText(AppButton, 'Save'))
+        .onPressed!;
+    save();
+    save();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.byType(CommonDialog), findsOneWidget);
+    // Cancelling the top dialog must leave the draft editable.
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(flow.phase, JourneyPhase.editing);
+    expect(find.text('Only once'), findsOneWidget);
+    expect(mockApi.savedMetadata, isEmpty);
   });
 
   testWidgets('collapsing and restoring details preserves the unsaved draft', (
@@ -230,6 +630,7 @@ void main() {
                 onExport: () {},
                 onEdit: () {},
                 onMore: () {},
+                onCancel: () {},
                 onSave: (info) async => saved.add(info),
               ),
             ),
@@ -374,6 +775,44 @@ class _JourneyListApi extends Fake implements RustLibApi {
   _JourneyListApi(this.journey);
 
   final JourneyHeader journey;
+  final List<JourneyInfo> savedMetadata = [];
+  Completer<void>? pendingSave;
+  Completer<void>? pendingDelete;
+
+  @override
+  Future<(api.MapRendererProxy, MapBounds?)>
+  crateApiApiGetMapRendererProxyForJourney({required String journeyId}) async =>
+      (_TestMapRenderer(), null);
+
+  @override
+  Future<void> crateApiApiDeleteJourney({required String journeyId}) async {
+    await pendingDelete?.future;
+  }
+
+  @override
+  Future<void> crateApiApiUpdateJourneyMetadata({
+    required String id,
+    required JourneyInfo journeyInfo,
+  }) async {
+    await pendingSave?.future;
+    savedMetadata.add(journeyInfo);
+  }
+
+  @override
+  Future<JourneyHeader?> crateApiApiGetJourneyHeader({
+    required String journeyId,
+  }) async {
+    final latest = savedMetadata.isEmpty ? null : savedMetadata.last;
+    return JourneyHeader(
+      id: journey.id,
+      revision: latest == null ? journey.revision : 'updated',
+      journeyDate: journey.journeyDate,
+      createdAt: journey.createdAt,
+      journeyType: journey.journeyType,
+      journeyKind: latest?.journeyKind ?? journey.journeyKind,
+      note: latest?.note ?? journey.note,
+    );
+  }
 
   @override
   Future<DateTime?> crateApiApiEarliestJourneyDate() async =>
@@ -392,3 +831,13 @@ class _JourneyListApi extends Fake implements RustLibApi {
     Set<JourneyKind>? journeyKinds,
   }) async => [journey];
 }
+
+class _TestWakelockPlatform extends WakelockPlusMacOSPlugin {
+  @override
+  Future<void> toggle({required bool enable}) async {}
+
+  @override
+  Future<bool> get enabled async => false;
+}
+
+class _TestMapRenderer extends Fake implements api.MapRendererProxy {}

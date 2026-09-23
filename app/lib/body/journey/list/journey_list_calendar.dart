@@ -228,7 +228,9 @@ class _JourneyListCalendarState extends State<JourneyListCalendar> {
     );
 
     return CalendarDatePicker2(
-      key: ValueKey('journey-list-calendar-$_calendarPickerRevision'),
+      // Page indices are relative to firstDate. Recreate the picker when that
+      // origin changes so the visible grid still matches the selected month.
+      key: ValueKey((widget.firstDate, _calendarPickerRevision)),
       config: config,
       displayedMonthDate: controller.selectedDate.toLocalDateTime(),
       value: controller.hasJourneyOnSelectedDate
