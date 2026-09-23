@@ -9,9 +9,7 @@ import 'package:memolanes/common/component/app_date_picker_dialog.dart';
 import 'package:memolanes/common/component/app_dialog.dart';
 import 'package:memolanes/common/component/app_option_tile.dart';
 import 'package:memolanes/common/journey_kind_visuals.dart';
-import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/simple_date_utils.dart';
-import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/import.dart' show JourneyInfo;
 import 'package:memolanes/src/rust/journey_header.dart';
 
@@ -184,6 +182,7 @@ class JourneyDetailCard extends StatefulWidget {
     super.key,
     required this.journey,
     required this.isEditing,
+    this.isSaving = false,
     required this.onExport,
     required this.onEdit,
     required this.onMore,
@@ -193,6 +192,7 @@ class JourneyDetailCard extends StatefulWidget {
 
   final JourneyHeader journey;
   final bool isEditing;
+  final bool isSaving;
   final VoidCallback onExport;
   final VoidCallback onEdit;
   final VoidCallback onMore;
@@ -211,7 +211,6 @@ class _JourneyDetailCardState extends State<JourneyDetailCard> {
   DateTime? _endTime;
   late JourneyKind _journeyKind;
   final TextEditingController _noteController = TextEditingController();
-  bool _saving = false;
 
   JourneyHeader get journey => widget.journey;
 
@@ -336,35 +335,20 @@ class _JourneyDetailCardState extends State<JourneyDetailCard> {
     setState(() => _journeyKind = selected);
   }
 
-  Future<void> _save() async {
-    if (_saving) return;
-    setState(() => _saving = true);
-    try {
-      await widget.onSave(
-        JourneyInfo(
-          journeyDate: _journeyDate.toFrbNaiveDate(),
-          startTime: _startTime,
-          endTime: _endTime,
-          note: _noteController.text,
-          journeyKind: _journeyKind,
-        ),
-      );
-    } catch (error, stackTrace) {
-      log.error('Saving journey information failed: $error', stackTrace);
-      if (!mounted) return;
-      await showCommonDialog(
-        context,
-        context.tr('journey.editor.operation_failed'),
-      );
-    } finally {
-      if (mounted) setState(() => _saving = false);
-    }
-  }
+  Future<void> _save() => widget.onSave(
+    JourneyInfo(
+      journeyDate: _journeyDate.toFrbNaiveDate(),
+      startTime: _startTime,
+      endTime: _endTime,
+      note: _noteController.text,
+      journeyKind: _journeyKind,
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
     final isEditing = widget.isEditing;
-    final canEdit = isEditing && !_saving;
+    final canEdit = isEditing && !widget.isSaving;
     final displayedKind = isEditing ? _journeyKind : journey.journeyKind;
     final kind = switch (displayedKind) {
       JourneyKind.defaultKind => context.tr('journey_kind.default'),
@@ -466,7 +450,7 @@ class _JourneyDetailCardState extends State<JourneyDetailCard> {
                           expand: true,
                           label: context.tr('common.cancel'),
                           variant: AppButtonVariant.secondary,
-                          onPressed: _saving ? null : widget.onCancel,
+                          onPressed: widget.isSaving ? null : widget.onCancel,
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -477,8 +461,8 @@ class _JourneyDetailCardState extends State<JourneyDetailCard> {
                           icon: Icons.check_rounded,
                           label: context.tr('common.save'),
                           variant: AppButtonVariant.primary,
-                          onPressed: _saving ? null : _save,
-                          loading: _saving,
+                          onPressed: widget.isSaving ? null : _save,
+                          loading: widget.isSaving,
                         ),
                       ),
                     ],

@@ -9,14 +9,12 @@ import 'package:memolanes/body/journey/journey_track_edit_page.dart';
 import 'package:memolanes/common/component/app_dialog.dart';
 import 'package:memolanes/common/component/app_option_tile.dart';
 import 'package:memolanes/common/component/map_glass_back_button.dart';
-import 'package:memolanes/common/loading_manager.dart';
+import 'package:memolanes/body/map/journey_flow_controller.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/utils.dart';
-import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/api/edit_session.dart' show EditSession;
 import 'package:memolanes/src/rust/api/import.dart' show JourneyInfo;
 import 'package:memolanes/src/rust/journey_header.dart';
-import 'package:memolanes/src/rust/utils.dart' show MapBounds;
 import 'package:memolanes/utils/nav_helper.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 
@@ -25,121 +23,65 @@ import 'journey_more_dialog.dart';
 
 /// Journey details drawn above the shared map in [MapBody].
 class JourneyDetailOverlay extends StatefulWidget {
-  const JourneyDetailOverlay({
-    super.key,
-    required this.journey,
-    required this.onClose,
-    required this.onMapChanged,
-  });
+  const JourneyDetailOverlay({super.key, required this.controller});
 
-  final JourneyHeader journey;
-  final VoidCallback onClose;
-  final void Function(api.MapRendererProxy proxy, MapBounds? bounds)
-  onMapChanged;
+  final JourneyFlowController controller;
 
   @override
   State<JourneyDetailOverlay> createState() => _JourneyDetailOverlayState();
 }
 
 class _JourneyDetailOverlayState extends State<JourneyDetailOverlay> {
-  late JourneyHeader _journey;
-  bool _isEditingInformation = false;
+  JourneyFlowController get _controller => widget.controller;
+  JourneyHeader get _journey => _controller.session!.journey;
   bool _moreActionInProgress = false;
-  late final VoidCallback _unregisterBackHandler;
-
-  @override
-  void initState() {
-    super.initState();
-    _journey = widget.journey;
-    _unregisterBackHandler = registerHomeBackHandler(_handleBack);
-  }
-
-  @override
-  void dispose() {
-    _unregisterBackHandler();
-    super.dispose();
-  }
-
-  Future<void> _refreshJourney({required bool refreshMap}) async {
-    final journeyId = _journey.id;
-    final latest = await api.getJourneyHeader(journeyId: journeyId);
-    if (!mounted) return;
-    if (latest == null) {
-      widget.onClose();
-      return;
-    }
-    if (!refreshMap) {
-      // Metadata edits leave the track and viewport unchanged.
-      setState(() => _journey = latest);
-      return;
-    }
-
-    final rendererAndBounds = await api.getMapRendererProxyForJourney(
-      journeyId: journeyId,
-    );
-    if (!mounted) return;
-    setState(() => _journey = latest);
-    widget.onMapChanged(rendererAndBounds.$1, rendererAndBounds.$2);
-  }
 
   Future<void> _saveJourneyInformation(JourneyInfo journeyInfo) async {
     FocusScope.of(context).unfocus();
-    final shouldSave = await showCommonDialog(
-      context,
-      context.tr('common.save_confirm'),
-      title: context.tr('common.save'),
-      hasCancel: true,
-    );
-    if (!mounted || !shouldSave) return;
-
-    await GlobalLoadingManager.instance.runWithLoading(() async {
-      await api.updateJourneyMetadata(
-        id: _journey.id,
-        journeyInfo: journeyInfo,
+    try {
+      await _controller.saveInformation(
+        journeyInfo,
+        confirm: () => showCommonDialog(
+          context,
+          context.tr('common.save_confirm'),
+          title: context.tr('common.save'),
+          hasCancel: true,
+        ),
       );
+    } catch (error, stackTrace) {
+      log.error('Saving journey information failed: $error', stackTrace);
       if (!mounted) return;
-      await _refreshJourney(refreshMap: false);
-    }, blockNavigation: true);
-    if (!mounted) return;
-    setState(() => _isEditingInformation = false);
-  }
-
-  void _cancelJourneyInformationEdit() {
-    FocusScope.of(context).unfocus();
-    setState(() => _isEditingInformation = false);
-  }
-
-  void _handleBack() {
-    if (_isEditingInformation) {
-      _cancelJourneyInformationEdit();
-    } else {
-      widget.onClose();
+      await showCommonDialog(
+        context,
+        context.tr('journey.editor.operation_failed'),
+      );
     }
   }
 
-  Future<void> _deleteJourney() async {
-    await GlobalLoadingManager.instance.runWithLoading(
-      () => api.deleteJourney(journeyId: _journey.id),
-      blockNavigation: true,
-    );
-    if (!mounted) return;
-    widget.onClose();
+  void _requestBack() {
+    if (_controller.requestBack() != JourneyBackResult.blocked && mounted) {
+      FocusScope.of(context).unfocus();
+    }
   }
 
   Future<void> _exportJourney() async {
-    if (_moreActionInProgress) return;
+    if (_moreActionInProgress || _controller.phase != JourneyPhase.viewing) {
+      return;
+    }
     await showJourneyExportPicker(context, _journey);
   }
 
   Future<void> _showMore() async {
-    if (_moreActionInProgress) return;
+    if (_moreActionInProgress || _controller.phase != JourneyPhase.viewing) {
+      return;
+    }
     _moreActionInProgress = true;
     try {
       final action = await showJourneyMoreDialog(context);
       if (!mounted || action == null) return;
       switch (action) {
         case JourneyMoreAction.delete:
-          await _deleteJourney();
+          await _controller.deleteJourney();
           break;
       }
     } catch (error, stackTrace) {
@@ -169,11 +111,13 @@ class _JourneyDetailOverlayState extends State<JourneyDetailOverlay> {
       page: JourneyTrackEditPage(editSession: session),
     );
     if (!mounted || saved != true) return;
-    await _refreshJourney(refreshMap: true);
+    await _controller.refreshTrack();
   }
 
   Future<void> _showEditChoice() async {
-    if (_moreActionInProgress) return;
+    if (_moreActionInProgress || _controller.phase != JourneyPhase.viewing) {
+      return;
+    }
     final choice = await showAppDialog<_JourneyEditChoice>(
       context,
       maxWidth: 360,
@@ -188,16 +132,31 @@ class _JourneyDetailOverlayState extends State<JourneyDetailOverlay> {
     if (!mounted || choice == null) return;
     switch (choice) {
       case _JourneyEditChoice.information:
-        setState(() => _isEditingInformation = true);
+        _controller.editInformation();
         break;
       case _JourneyEditChoice.track:
-        await _openTrackEditor();
+        try {
+          await _openTrackEditor();
+        } catch (error, stackTrace) {
+          log.error('Loading journey editor failed: $error', stackTrace);
+          if (!mounted) return;
+          await showCommonDialog(
+            context,
+            context.tr('journey.editor.operation_failed'),
+          );
+        }
         break;
     }
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: _controller,
+    builder: (context, _) => _buildContent(context),
+  );
+
+  Widget _buildContent(BuildContext context) {
+    if (_controller.session == null) return const SizedBox.shrink();
     final mediaQuery = MediaQuery.of(context);
     final viewPadding = mediaQuery.viewPadding;
     return Stack(
@@ -224,11 +183,12 @@ class _JourneyDetailOverlayState extends State<JourneyDetailOverlay> {
                 child: CollapsibleJourneyDetail(
                   child: JourneyDetailCard(
                     journey: _journey,
-                    isEditing: _isEditingInformation,
+                    isEditing: _controller.isEditing,
+                    isSaving: _controller.phase == JourneyPhase.saving,
                     onExport: _exportJourney,
                     onEdit: _showEditChoice,
                     onMore: _showMore,
-                    onCancel: _cancelJourneyInformationEdit,
+                    onCancel: _requestBack,
                     onSave: _saveJourneyInformation,
                   ),
                 ),
@@ -236,12 +196,12 @@ class _JourneyDetailOverlayState extends State<JourneyDetailOverlay> {
             ),
           ),
         ),
-        if (!_isEditingInformation)
+        if (!_controller.isEditing)
           Positioned(
             left: viewPadding.left + 16,
             top: viewPadding.top + 14,
             child: PointerInterceptor(
-              child: MapGlassBackButton(onPressed: widget.onClose),
+              child: MapGlassBackButton(onPressed: _requestBack),
             ),
           ),
       ],

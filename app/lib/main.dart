@@ -12,6 +12,7 @@ import 'package:memolanes/app_bootstrap.dart';
 import 'package:memolanes/body/achievement/achievement_body.dart'
     deferred as achievement;
 import 'package:memolanes/body/map/map_body.dart';
+import 'package:memolanes/body/map/journey_flow_controller.dart';
 import 'package:memolanes/body/first_launch_setup.dart';
 import 'package:memolanes/body/settings/settings_body.dart'
     deferred as settings;
@@ -132,7 +133,7 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   int _selectedIndex = 0;
-  bool _appChromeVisible = true;
+  final _journeys = JourneyFlowController();
   DateTime? _lastExitPopAt;
 
   Future<void>? _achievementLib;
@@ -146,6 +147,7 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   void initState() {
     super.initState();
+    _journeys.addListener(_onJourneysChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await showFirstLaunchSetupIfNeeded(context);
       if (!context.mounted) return;
@@ -157,6 +159,24 @@ class _MyHomePageState extends State<MyHomePage> {
       if (!context.mounted) return;
       await tryShowPermissionSheetIfFirstTime();
     });
+  }
+
+  void _onJourneysChanged() => setState(() {});
+
+  void _selectTab(int index) {
+    if (index == _selectedIndex ||
+        GlobalLoadingManager.instance.isNavigationBlocked) {
+      return;
+    }
+    if (_selectedIndex == 2 && !_journeys.leave()) return;
+    setState(() => _selectedIndex = index);
+  }
+
+  @override
+  void dispose() {
+    _journeys.removeListener(_onJourneysChanged);
+    _journeys.dispose();
+    super.dispose();
   }
 
   Widget _buildDeferredBody(Future<void> loadFuture, Widget Function() body) {
@@ -181,12 +201,12 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   Future<void> _handleOnPop() async {
-    if (GlobalLoadingManager.instance.isLoading) return;
-
-    if (handleHomeBack()) return;
+    final loading = GlobalLoadingManager.instance;
+    if (loading.isLoading || loading.isNavigationBlocked) return;
+    if (_journeys.requestBack() != JourneyBackResult.unhandled) return;
 
     if (_selectedIndex != 0) {
-      setState(() => _selectedIndex = 0);
+      _selectTab(0);
       return;
     }
 
@@ -214,11 +234,7 @@ class _MyHomePageState extends State<MyHomePage> {
         value: AppTheme.mapSystemOverlayStyle(Theme.of(context)),
         child: MapBody(
           key: _mapBodyKey,
-          onAppChromeVisibilityChanged: (visible) {
-            if (mounted && _appChromeVisible != visible) {
-              setState(() => _appChromeVisible = visible);
-            }
-          },
+          journeys: _journeys,
           mode: switch (_selectedIndex) {
             0 => MapMode.normal,
             1 => MapMode.timeMachine,
@@ -306,7 +322,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 ),
               ),
             ),
-            if (_appChromeVisible)
+            if (_journeys.appChromeVisible)
               Positioned(
                 left: 0,
                 right: 0,
@@ -331,8 +347,7 @@ class _MyHomePageState extends State<MyHomePage> {
                         intercepting: Platform.isIOS,
                         child: BottomNavBar(
                           selectedIndex: _selectedIndex,
-                          onIndexChanged: (index) =>
-                              setState(() => _selectedIndex = index),
+                          onIndexChanged: _selectTab,
                           hasUpdateNotification: context
                               .watch<UpdateNotifier>()
                               .hasUpdateNotification,
@@ -342,7 +357,7 @@ class _MyHomePageState extends State<MyHomePage> {
                   ),
                 ),
               ),
-            if (_selectedIndex <= 2 && _appChromeVisible)
+            if (_selectedIndex <= 2 && _journeys.appChromeVisible)
               Positioned(
                 right: mediaQuery.viewPadding.right + mapCopyrightTrailingGap,
                 bottom:
