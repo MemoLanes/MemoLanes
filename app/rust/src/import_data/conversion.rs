@@ -5,7 +5,7 @@ use crate::gps_processor::{
 };
 use crate::journey_date_picker::JourneyDatePicker;
 use crate::journey_header::JourneyKind;
-use crate::journey_vector::{JourneyVector, TrackPoint};
+use crate::journey_vector::{JourneyVector, TrackPoint, TrackSegment};
 use chrono::{Local, TimeZone, Utc};
 
 /// `segment_gap_rule_for_preprocessor = None` meaning disable preprocessor
@@ -45,6 +45,24 @@ pub fn journey_vector_from_raw_data_with_gps_preprocessor(
 
     gps_processor::build_journey_vector(processed_data, None)
         .expect("Impossible, `preprocessed_data` does not contain error")
+}
+
+/// MemoLanes exports have already been segmented; replay their geometry as-is.
+pub fn journey_vector_from_exported_segments(raw_data: &[Vec<RawData>]) -> JourneyVector {
+    JourneyVector {
+        track_segments: raw_data
+            .iter()
+            .map(|segment| TrackSegment {
+                track_points: segment
+                    .iter()
+                    .map(|point| TrackPoint {
+                        latitude: point.point.latitude,
+                        longitude: point.point.longitude,
+                    })
+                    .collect(),
+            })
+            .collect(),
+    }
 }
 
 pub fn journey_vector_from_raw_data_with_flight_track_processor(

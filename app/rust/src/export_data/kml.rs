@@ -1,3 +1,4 @@
+use crate::export_data::JourneyExport;
 use crate::journey_vector::JourneyVector;
 use anyhow::{Context, Ok, Result};
 use auto_context::auto_context;
@@ -60,10 +61,112 @@ pub fn journey_vector_to_kml_file<T: Write + Seek>(
     Ok(())
 }
 
+fn metadata_element(journey: &JourneyExport) -> kml::types::Element {
+    let mut data = Vec::new();
+    let mut add = |name: &str, value: String| {
+        data.push(kml::types::Element {
+            name: "Data".to_owned(),
+            attrs: HashMap::from([("name".to_owned(), format!("memolanes:{name}"))]),
+            children: vec![kml::types::Element {
+                name: "value".to_owned(),
+                content: Some(value),
+                ..Default::default()
+            }],
+            ..Default::default()
+        });
+    };
+    add("version", "1".to_owned());
+    add("sourceJourneyId", journey.source_journey_id.clone());
+    add("sourceRevision", journey.source_revision.clone());
+    add("date", journey.journey_date.to_string());
+    if let Some(value) = journey.start {
+        add("start", value.to_rfc3339());
+    }
+    if let Some(value) = journey.end {
+        add("end", value.to_rfc3339());
+    }
+    kml::types::Element {
+        name: "ExtendedData".to_owned(),
+        children: data,
+        ..Default::default()
+    }
+}
+
+fn timestamp_element(date: String) -> kml::types::Element {
+    kml::types::Element {
+        name: "TimeStamp".to_owned(),
+        children: vec![kml::types::Element {
+            name: "when".to_owned(),
+            content: Some(date),
+            ..Default::default()
+        }],
+        ..Default::default()
+    }
+}
+
+#[auto_context]
+pub(crate) fn journeys_to_kml_file<T: Write + Seek>(
+    journeys: &[JourneyExport],
+    writer: &mut T,
+) -> Result<()> {
+    if journeys.is_empty() {
+        anyhow::bail!("No track segments");
+    }
+    let mut folders = Vec::new();
+    for journey in journeys {
+        let mut elements = vec![
+            Kml::Element(timestamp_element(journey.journey_date.to_string())),
+            Kml::Element(metadata_element(journey)),
+        ];
+        for segment in &journey.vector.track_segments {
+            let coords = segment
+                .track_points
+                .iter()
+                .map(|point| kml::types::Coord {
+                    x: point.longitude,
+                    y: point.latitude,
+                    z: None,
+                })
+                .collect();
+            let geometry = kml::types::LineString {
+                coords,
+                tessellate: true,
+                ..Default::default()
+            };
+            elements.push(Kml::Placemark(kml::types::Placemark {
+                name: Some("MemoLanes Track Segment".to_owned()),
+                geometry: Some(kml::types::Geometry::LineString(geometry)),
+                ..Default::default()
+            }));
+        }
+        folders.push(Kml::Folder(kml::types::Folder {
+            name: Some(format!("MemoLanes Journey {}", journey.journey_date)),
+            elements,
+            ..Default::default()
+        }));
+    }
+    write_kml_document_with_elements(folders, writer)
+}
+
 #[auto_context]
 fn write_kml_document<T: Write + Seek>(
     name: String,
     description: String,
+    elements: Vec<Kml>,
+    writer: &mut T,
+) -> Result<()> {
+    write_kml_document_with_elements(
+        vec![Kml::Folder(kml::types::Folder {
+            name: Some(name),
+            description: Some(description),
+            elements,
+            ..Default::default()
+        })],
+        writer,
+    )
+}
+
+fn write_kml_document_with_elements<T: Write + Seek>(
     elements: Vec<Kml>,
     writer: &mut T,
 ) -> Result<()> {
@@ -87,12 +190,7 @@ fn write_kml_document<T: Write + Seek>(
                 "http://www.w3.org/2005/Atom".to_owned(),
             ),
         ]),
-        elements: vec![Kml::Folder(kml::types::Folder {
-            name: Some(name),
-            description: Some(description),
-            elements,
-            ..kml::types::Folder::default()
-        })],
+        elements,
     };
 
     let mut writer = KmlWriter::<_, f64>::from_writer(writer);

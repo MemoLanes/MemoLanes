@@ -31,7 +31,7 @@ pub struct JourneyInfo {
 
 #[frb(opaque)]
 pub struct RawVectorData {
-    data: Vec<Vec<RawData>>,
+    parsed: import_data::ParsedVectorData,
     partition: OnceLock<import_data::journey_partition::PartitionByDate>,
 }
 
@@ -100,7 +100,7 @@ pub fn load_fow_data(file_path: String) -> Result<(JourneyInfo, OpaqueJourneyDat
 pub fn load_vector_data(
     file_path: String,
 ) -> Result<(JourneyInfo, RawVectorData, ImportPreprocessor)> {
-    let (raw_vector_data, import_preprocessor) = match Path::new(&file_path)
+    let (parsed, import_preprocessor) = match Path::new(&file_path)
         .extension()
         .and_then(OsStr::to_str)
         .map(|x| x.to_lowercase())
@@ -108,14 +108,39 @@ pub fn load_vector_data(
     {
         Some("gpx") => import_data::gpx::load_gpx(&file_path)?,
         Some("kml") => import_data::kml::load_kml(&file_path)?,
-        Some("csv") => import_data::csv::load_csv(&file_path)?,
+        Some("csv") => {
+            let (data, preprocessor) = import_data::csv::load_csv(&file_path)?;
+            (
+                import_data::ParsedVectorData {
+                    groups: vec![import_data::ImportedJourney::generic(data)],
+                },
+                preprocessor,
+            )
+        }
         extension => return Err(anyhow!("Unknown extension: {extension:?}")),
     };
 
+    let journey_info = parsed
+        .groups
+        .iter()
+        .find(|group| group.has_memolanes_metadata())
+        .and_then(|journey| {
+            journey.journey_date.map(|journey_date| JourneyInfo {
+                journey_date,
+                start_time: journey.start,
+                end_time: journey.end,
+                note: None,
+                journey_kind: JourneyKind::DefaultKind,
+            })
+        })
+        .unwrap_or_else(|| {
+            import_data::conversion::journey_info_from_raw_vector_data(&parsed.flatten())
+        });
+
     Ok((
-        import_data::conversion::journey_info_from_raw_vector_data(&raw_vector_data),
+        journey_info,
         RawVectorData {
-            data: raw_vector_data,
+            parsed,
             partition: OnceLock::new(),
         },
         import_preprocessor,
@@ -141,7 +166,7 @@ pub fn import_journey_data(
     Ok(())
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum ImportPreprocessor {
     None,
     Generic,
@@ -151,8 +176,25 @@ pub enum ImportPreprocessor {
 
 impl RawVectorData {
     fn partition(&self) -> &import_data::journey_partition::PartitionByDate {
-        self.partition
-            .get_or_init(|| import_data::journey_partition::partition_by_date(&self.data))
+        self.partition.get_or_init(|| {
+            if self.parsed.has_memolanes_metadata() {
+                import_data::journey_partition::partition_by_journey_metadata(&self.parsed.groups)
+            } else {
+                import_data::journey_partition::partition_generic_groups(&self.parsed.groups)
+            }
+        })
+    }
+
+    fn process(&self, data: &[Vec<RawData>], requested: ImportPreprocessor) -> OpaqueJourneyData {
+        if !self.parsed.has_memolanes_metadata() {
+            return process_raw_vector_data(data, requested);
+        }
+        if !matches!(requested, ImportPreprocessor::None) {
+            log::warn!("Ignoring GPS preprocessor for MemoLanes GPX/KML journey to preserve its track segments");
+        }
+        OpaqueJourneyData::new(JourneyData::Vector(
+            import_data::conversion::journey_vector_from_exported_segments(data),
+        ))
     }
 }
 
@@ -163,8 +205,8 @@ fn data_for_date(vector_data: &RawVectorData, journey_date: &str) -> Result<Vec<
         .index
         .get(&journey_date)
         .with_context(|| format!("No vector data for date {journey_date}"))?;
-    Ok(import_data::journey_partition::materialize_partition(
-        &vector_data.data,
+    Ok(import_data::journey_partition::materialize_group_partition(
+        &vector_data.parsed.groups,
         slices,
     ))
 }
@@ -191,7 +233,7 @@ pub fn process_vector_data_for_date(
     import_processor: ImportPreprocessor,
 ) -> Result<OpaqueJourneyData> {
     let data = data_for_date(vector_data, &journey_date)?;
-    Ok(process_raw_vector_data(&data, import_processor))
+    Ok(vector_data.process(&data, import_processor))
 }
 
 #[auto_context]
@@ -226,9 +268,13 @@ pub fn import_vector_data_by_date(
             .summaries
             .get(journey_date)
             .expect("partition index and summaries are built together");
-        let raw_data =
-            import_data::journey_partition::materialize_partition(&vector_data.data, slices);
-        let journey_data = process_raw_vector_data(&raw_data, import_processor).into_inner();
+        let raw_data = import_data::journey_partition::materialize_group_partition(
+            &vector_data.parsed.groups,
+            slices,
+        );
+        let journey_data = vector_data
+            .process(&raw_data, import_processor)
+            .into_inner();
         if !journey_data.is_empty() {
             parts.push((
                 *journey_date,
@@ -293,7 +339,7 @@ pub fn process_vector_data(
     vector_data: &RawVectorData,
     import_processor: ImportPreprocessor,
 ) -> Result<OpaqueJourneyData> {
-    Ok(process_raw_vector_data(&vector_data.data, import_processor))
+    Ok(vector_data.process(&vector_data.parsed.flatten(), import_processor))
 }
 
 #[auto_context]

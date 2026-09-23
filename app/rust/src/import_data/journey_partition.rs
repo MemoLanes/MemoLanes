@@ -3,6 +3,7 @@ use std::collections::BTreeMap;
 use chrono::{DateTime, Local, NaiveDate, TimeZone, Utc};
 
 use crate::gps_processor::RawData;
+use crate::import_data::ImportedJourney;
 use crate::journey_date_picker::{BoundaryTracker, JourneyDatePicker};
 use crate::journey_vector::TrackPoint;
 
@@ -42,6 +43,17 @@ impl DateSummary {
                 self.end_time
                     .map_or(end_time, |current| current.max(end_time)),
             );
+        }
+    }
+
+    fn merge(&mut self, other: &Self) {
+        self.point_count += other.point_count;
+        self.missing_timestamp_count += other.missing_timestamp_count;
+        if let Some(start) = other.start_time {
+            self.start_time = Some(self.start_time.map_or(start, |value| value.min(start)));
+        }
+        if let Some(end) = other.end_time {
+            self.end_time = Some(self.end_time.map_or(end, |value| value.max(end)));
         }
     }
 }
@@ -142,11 +154,14 @@ fn flush(current: &mut PartBuilder, emit: &mut impl FnMut(Part)) {
 /// Visits journey-shaped parts without cloning track points. Boundaries follow
 /// the recording auto-finalization policy; each completed part gets its date
 /// from `JourneyDatePicker`.
-pub(crate) fn for_each_part(raw_data: &[Vec<RawData>], mut emit: impl FnMut(Part)) {
+fn for_each_part_segments<'a>(
+    segments: impl IntoIterator<Item = &'a Vec<RawData>>,
+    mut emit: impl FnMut(Part),
+) {
     let mut current = PartBuilder::new();
 
-    for (source_segment, segment) in raw_data
-        .iter()
+    for (source_segment, segment) in segments
+        .into_iter()
         .enumerate()
         .filter(|(_, segment)| !segment.is_empty())
     {
@@ -171,7 +186,7 @@ pub(crate) fn for_each_part(raw_data: &[Vec<RawData>], mut emit: impl FnMut(Part
     }
 }
 
-/// Date index plus per-date summaries from a single `for_each_part` walk.
+/// Date index plus per-date summaries from a single segment walk.
 pub(crate) struct PartitionByDate {
     pub index: PartitionIndexByDate,
     pub summaries: SummariesByDate,
@@ -179,13 +194,79 @@ pub(crate) struct PartitionByDate {
 
 /// Builds the date index and summaries without cloning track points.
 pub(crate) fn partition_by_date(raw_data: &[Vec<RawData>]) -> PartitionByDate {
+    partition_by_segments(raw_data.iter())
+}
+
+fn partition_by_segments<'a>(
+    segments: impl IntoIterator<Item = &'a Vec<RawData>>,
+) -> PartitionByDate {
     let mut index = PartitionIndexByDate::new();
     let mut summaries = SummariesByDate::new();
-    for_each_part(raw_data, |part| {
+    for_each_part_segments(segments, |part| {
         summaries.entry(part.date).or_default().add(&part);
         index.entry(part.date).or_default().extend(part.segments);
     });
     PartitionByDate { index, summaries }
+}
+
+/// Builds partitions from explicit MemoLanes journey metadata. This avoids
+/// applying timestamp-based splitting to exported points with no point times.
+pub(crate) fn partition_by_journey_metadata(groups: &[ImportedJourney]) -> PartitionByDate {
+    let mut index = PartitionIndexByDate::new();
+    let mut summaries = SummariesByDate::new();
+    let mut source_segment = 0usize;
+
+    for group in groups {
+        if group.has_memolanes_metadata() {
+            let date = group.journey_date.expect("validated MemoLanes date");
+            for segment in &group.segments {
+                index.entry(date).or_default().push(SegmentSlice {
+                    source_segment,
+                    start: 0,
+                    end: segment.len(),
+                });
+                let summary = summaries.entry(date).or_default();
+                summary.point_count += segment.len() as u64;
+                summary.missing_timestamp_count += segment
+                    .iter()
+                    .filter(|point| point.timestamp_ms.is_none())
+                    .count() as u64;
+                source_segment += 1;
+            }
+            let summary = summaries.entry(date).or_default();
+            if let Some(start) = group.start {
+                summary.start_time =
+                    Some(summary.start_time.map_or(start, |value| value.min(start)));
+            }
+            if let Some(end) = group.end {
+                summary.end_time = Some(summary.end_time.map_or(end, |value| value.max(end)));
+            }
+        } else {
+            // Ordinary tracks in a mixed file retain their existing date rules.
+            let generic = partition_by_date(&group.segments);
+            for (date, slices) in generic.index {
+                index
+                    .entry(date)
+                    .or_default()
+                    .extend(slices.into_iter().map(|slice| SegmentSlice {
+                        source_segment: slice.source_segment + source_segment,
+                        start: slice.start,
+                        end: slice.end,
+                    }));
+                summaries
+                    .entry(date)
+                    .or_default()
+                    .merge(generic.summaries.get(&date).expect("summary exists"));
+            }
+            source_segment += group.segments.len();
+        }
+    }
+    PartitionByDate { index, summaries }
+}
+
+/// Applies ordinary date rules across all groups in a third-party file.
+pub(crate) fn partition_generic_groups(groups: &[ImportedJourney]) -> PartitionByDate {
+    partition_by_segments(groups.iter().flat_map(|group| group.segments.iter()))
 }
 
 /// Materializes only one requested date partition from the source data.
@@ -196,6 +277,24 @@ pub(crate) fn materialize_partition(
     partition
         .iter()
         .map(|segment| raw_data[segment.source_segment][segment.start..segment.end].to_vec())
+        .collect()
+}
+
+/// Resolves global segment numbers directly from the ordered groups.
+pub(crate) fn materialize_group_partition(
+    groups: &[ImportedJourney],
+    partition: &[SegmentSlice],
+) -> Vec<Vec<RawData>> {
+    let segments = groups
+        .iter()
+        .flat_map(|group| group.segments.iter())
+        .collect::<Vec<_>>();
+    partition
+        .iter()
+        .map(|slice| {
+            let segment = segments[slice.source_segment];
+            segment[slice.start..slice.end].to_vec()
+        })
         .collect()
 }
 
