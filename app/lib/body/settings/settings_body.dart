@@ -269,6 +269,8 @@ class _SettingsBodyState extends State<SettingsBody> {
                   formats: const [
                     CommonExportFormat.mldx,
                     CommonExportFormat.fwss,
+                    CommonExportFormat.kml,
+                    CommonExportFormat.gpx,
                   ],
                   exportFile: (format) async {
                     var tmpDir = await getTemporaryDirectory();
@@ -285,10 +287,14 @@ class _SettingsBodyState extends State<SettingsBody> {
                         await api.exportAllJourneysAsFwss(
                           targetFilepath: filepath,
                         ),
-                      CommonExportFormat.kml ||
-                      CommonExportFormat.gpx => throw UnsupportedError(
-                        'Unsupported export format: $format',
-                      ),
+                      CommonExportFormat.kml =>
+                        await api.exportAllJourneysAsKml(
+                          targetFilepath: filepath,
+                        ),
+                      CommonExportFormat.gpx =>
+                        await api.exportAllJourneysAsGpx(
+                          targetFilepath: filepath,
+                        ),
                     };
                     return CommonExportResult.create(exportResult, filepath);
                   },

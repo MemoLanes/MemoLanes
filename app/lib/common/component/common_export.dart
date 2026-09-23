@@ -299,7 +299,11 @@ class _ExportFormatDialogState extends State<_ExportFormatDialog> {
           const SizedBox(width: 8.0),
           Expanded(
             child: Text(
-              context.tr('data.export_data.lossy_format_warning'),
+              context.tr(switch (_selectedFormat) {
+                CommonExportFormat.kml || CommonExportFormat.gpx =>
+                  'data.export_data.vector_format_warning',
+                _ => 'data.export_data.lossy_format_warning',
+              }),
               style: AppTypography.supporting,
             ),
           ),

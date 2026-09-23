@@ -344,7 +344,8 @@
       "format_kml_desc": "For map apps and track tools.",
       "format_gpx": "GPX track (*.gpx)",
       "format_gpx_desc": "For fitness, navigation, and track tools.",
-      "lossy_format_warning": "This format may lose some journey data. Use MemoLanes standard format (*.mldx) for a complete backup."
+      "lossy_format_warning": "This format may lose some journey data. Use MemoLanes standard format (*.mldx) for a complete backup.",
+      "vector_format_warning": "GPX/KML exclude journeys imported from Fog of World and may lose some data. Use *.mldx for a complete backup."
     }
   },
   "settings": {
