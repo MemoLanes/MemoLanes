@@ -1723,10 +1723,10 @@ lru-cache@^11.0.0:
   resolved "https://registry.yarnpkg.com/lru-cache/-/lru-cache-11.5.2.tgz#00e16665c90c620fba14a3c368732a976493f760"
   integrity sha512-4pfM1Ff0x50o0tQwb5ucw/RzNyD0/YJME6IVcStalZuMWxdt3sR3huStTtxz4PUmvZfRguvDejasvQ2kifR11g==
 
-maplibre-gl@^6.10.0:
-  version "6.10.0"
-  resolved "https://registry.yarnpkg.com/maplibre-gl/-/maplibre-gl-6.10.0.tgz#4713f92f62092155abe51562750cb70ef13a19ee"
-  integrity sha512-pZIJ1/rsB1jDjT3eBTfMaeSY45lRKdCuZtqXqTnkUrn0UJO9IwtbywT5ym3/cz57MGEELwAwQSYjB/Fj9TlktQ==
+maplibre-gl@^6.11.2:
+  version "6.11.2"
+  resolved "https://registry.yarnpkg.com/maplibre-gl/-/maplibre-gl-6.11.2.tgz#25f1266666c16f6b935cabccba554c238a3cf394"
+  integrity sha512-Xh06pxoipjX/Ad1sUPGhiNh9go9naCNGZZ1IJm3sIeqK1kYGuMaMDSTIGDQ2igOLfVyukJU7kvEOA089VO7Z7g==
   dependencies:
     "@mapbox/point-geometry" "^1.1.0"
     "@mapbox/tiny-sdf" "^2.2.0"
