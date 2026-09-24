@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
-use std::io::{BufReader, BufWriter};
+use std::io::{BufReader, BufWriter, Write};
 use std::path::Path;
 use std::sync::{Arc, Mutex, OnceLock};
 
@@ -634,26 +634,36 @@ pub fn export_all_journeys_as_fwss(target_filepath: String) -> Result<ExportResu
 }
 
 pub fn export_all_journeys_as_gpx(target_filepath: String) -> Result<ExportResult> {
-    let journeys = get()
-        .storage
-        .with_db_txn(export_data::collect_vector_journeys)?;
-    if journeys.is_empty() {
+    let storage = &get().storage;
+    let headers = storage.with_db_txn(export_data::collect_vector_journey_headers)?;
+    if headers.is_empty() {
         return Ok(ExportResult::DataIsEmpty);
     }
-    let mut file = File::create(target_filepath)?;
-    export_data::gpx::journeys_to_gpx_file(&journeys, &mut file)?;
+    let mut file = BufWriter::new(File::create(target_filepath)?);
+    let mut xml = export_data::gpx::GpxJourneyWriter::new(&mut file)?;
+    for header in headers {
+        let journey = storage.with_db_txn(|txn| export_data::load_vector_journey(txn, header))?;
+        xml.write_journey(&journey)?;
+    }
+    xml.finish()?;
+    file.flush()?;
     Ok(ExportResult::Succeed)
 }
 
 pub fn export_all_journeys_as_kml(target_filepath: String) -> Result<ExportResult> {
-    let journeys = get()
-        .storage
-        .with_db_txn(export_data::collect_vector_journeys)?;
-    if journeys.is_empty() {
+    let storage = &get().storage;
+    let headers = storage.with_db_txn(export_data::collect_vector_journey_headers)?;
+    if headers.is_empty() {
         return Ok(ExportResult::DataIsEmpty);
     }
-    let mut file = File::create(target_filepath)?;
-    export_data::kml::journeys_to_kml_file(&journeys, &mut file)?;
+    let mut file = BufWriter::new(File::create(target_filepath)?);
+    let mut xml = export_data::kml::KmlJourneyWriter::new(&mut file)?;
+    for header in headers {
+        let journey = storage.with_db_txn(|txn| export_data::load_vector_journey(txn, header))?;
+        xml.write_journey(&journey)?;
+    }
+    xml.finish()?;
+    file.flush()?;
     Ok(ExportResult::Succeed)
 }
 

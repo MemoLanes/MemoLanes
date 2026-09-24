@@ -75,35 +75,35 @@ fn write_text_element<W: Write>(writer: &mut Writer<W>, name: &str, value: &str)
     Ok(())
 }
 
-/// Writes multiple journeys while retaining the GPX track/segment hierarchy.
-/// The gpx crate intentionally ignores arbitrary extension elements, so this
-/// function uses quick-xml only for the extension-capable batch format.
-#[auto_context]
-pub(crate) fn journeys_to_gpx_file<T: Write + Seek>(
-    journeys: &[JourneyExport],
-    writer: &mut T,
-) -> Result<()> {
-    if journeys.is_empty() {
-        anyhow::bail!("No track segments");
-    }
-    let mut xml = Writer::new(writer);
-    xml.write_event(Event::Decl(BytesDecl::new("1.0", Some("UTF-8"), None)))?;
-    let mut root = BytesStart::new("gpx");
-    root.push_attribute(("version", "1.1"));
-    root.push_attribute(("creator", "MemoLanes"));
-    root.push_attribute(("xmlns", "http://www.topografix.com/GPX/1/1"));
-    root.push_attribute(("xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance"));
-    root.push_attribute(("xmlns:memolanes", MEMOLANES_NAMESPACE));
-    xml.write_event(Event::Start(root))?;
+/// The gpx crate ignores arbitrary extensions, so the MemoLanes format uses
+/// quick-xml and writes one journey and segment at a time.
+pub(crate) struct GpxJourneyWriter<W: Write> {
+    xml: Writer<W>,
+}
 
-    for journey in journeys {
+impl<W: Write> GpxJourneyWriter<W> {
+    pub(crate) fn new(writer: W) -> Result<Self> {
+        let mut xml = Writer::new(writer);
+        xml.write_event(Event::Decl(BytesDecl::new("1.0", Some("UTF-8"), None)))?;
+        let mut root = BytesStart::new("gpx");
+        root.push_attribute(("version", "1.1"));
+        root.push_attribute(("creator", "MemoLanes"));
+        root.push_attribute(("xmlns", "http://www.topografix.com/GPX/1/1"));
+        root.push_attribute(("xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance"));
+        root.push_attribute(("xmlns:memolanes", MEMOLANES_NAMESPACE));
+        xml.write_event(Event::Start(root))?;
+        Ok(Self { xml })
+    }
+
+    pub(crate) fn write_journey(&mut self, journey: &JourneyExport) -> Result<()> {
+        let xml = &mut self.xml;
         xml.write_event(Event::Start(BytesStart::new("trk")))?;
         write_text_element(
-            &mut xml,
+            xml,
             "name",
             &format!("MemoLanes Journey {}", journey.journey_date),
         )?;
-        write_text_element(&mut xml, "type", JOURNEY_TYPE_NAME)?;
+        write_text_element(xml, "type", JOURNEY_TYPE_NAME)?;
         xml.write_event(Event::Start(BytesStart::new("extensions")))?;
         let date = journey.journey_date.to_string();
         let start = journey.start.map(|value| value.to_rfc3339());
@@ -135,9 +135,28 @@ pub(crate) fn journeys_to_gpx_file<T: Write + Seek>(
             xml.write_event(Event::End(BytesEnd::new("trkseg")))?;
         }
         xml.write_event(Event::End(BytesEnd::new("trk")))?;
+        Ok(())
     }
-    xml.write_event(Event::End(BytesEnd::new("gpx")))?;
-    Ok(())
+
+    pub(crate) fn finish(mut self) -> Result<()> {
+        self.xml.write_event(Event::End(BytesEnd::new("gpx")))?;
+        Ok(())
+    }
+}
+
+#[auto_context]
+pub(crate) fn journeys_to_gpx_file<T: Write + Seek>(
+    journeys: &[JourneyExport],
+    writer: &mut T,
+) -> Result<()> {
+    if journeys.is_empty() {
+        anyhow::bail!("No track segments");
+    }
+    let mut xml = GpxJourneyWriter::new(writer)?;
+    for journey in journeys {
+        xml.write_journey(journey)?;
+    }
+    xml.finish()
 }
 
 #[auto_context]
