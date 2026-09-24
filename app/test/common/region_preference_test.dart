@@ -8,6 +8,9 @@ class _Preferences {
   Worldview? saved;
   int setupCompletedVersion = 0;
   List<Locale> locales = const [Locale('zh', 'CN')];
+  String? deviceRegion;
+  bool failRegionRead = false;
+  int regionReads = 0;
   final activations = <Worldview>[];
   final writes = <Worldview>[];
   bool failActivation = false;
@@ -17,6 +20,11 @@ class _Preferences {
     readSavedWorldview: () => saved,
     hasConfirmedPreference: () => setupCompletedVersion >= 1,
     readDeviceLocales: () => locales,
+    readDeviceRegion: () async {
+      regionReads++;
+      if (failRegionRead) throw StateError('region unavailable');
+      return deviceRegion;
+    },
     activateGeoData: (worldview) async {
       activations.add(worldview);
       if (failActivation) throw StateError('activation failed');
@@ -31,6 +39,11 @@ class _Preferences {
 
 void main() {
   group('worldview recommendations', () {
+    test('maps the device region without using the language', () {
+      expect(defaultWorldviewFromRegion('CN'), Worldview.chn);
+      expect(defaultWorldviewFromRegion('us'), Worldview.usa);
+      expect(defaultWorldviewFromRegion('HK'), Worldview.iso);
+    });
     test('maps explicit regions independently of language and script', () {
       for (final (locale, expected) in const [
         (Locale('zh', 'CN'), Worldview.chn),
@@ -101,6 +114,21 @@ void main() {
     });
 
     test(
+      'device region takes priority over the preferred language locale',
+      () async {
+        preferences.deviceRegion = 'US';
+        await manager.initialize();
+        expect(manager.currentWorldview, Worldview.usa);
+      },
+    );
+
+    test('falls back to locale when device region cannot be read', () async {
+      preferences.failRegionRead = true;
+      await manager.initialize();
+      expect(manager.currentWorldview, Worldview.chn);
+    });
+
+    test(
       'recommendation is saved only on acceptance and survives restart',
       () async {
         await manager.initialize();
@@ -126,6 +154,7 @@ void main() {
       await manager.initialize();
       expect(manager.currentWorldview, Worldview.iso);
       expect(preferences.writes, isEmpty);
+      expect(preferences.regionReads, 0);
     });
 
     test(

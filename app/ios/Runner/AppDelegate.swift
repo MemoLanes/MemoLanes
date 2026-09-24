@@ -13,6 +13,19 @@ import notification_when_app_is_killed
     }
 
     GeneratedPluginRegistrant.register(with: self)
+    if let controller = window?.rootViewController as? FlutterViewController {
+      let channel = FlutterMethodChannel(
+        name: "com.memolanes/device_region",
+        binaryMessenger: controller.binaryMessenger
+      )
+      channel.setMethodCallHandler { call, result in
+        guard call.method == "getRegion" else {
+          result(FlutterMethodNotImplemented)
+          return
+        }
+        result(Locale.current.regionCode)
+      }
+    }
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 

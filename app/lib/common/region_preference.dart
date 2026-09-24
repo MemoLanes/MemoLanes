@@ -1,6 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show rootBundle;
+import 'package:flutter/services.dart' show MethodChannel, rootBundle;
 import 'package:memolanes/common/component/app_option_tile.dart';
 import 'package:memolanes/common/component/setup_bottom_sheet.dart';
 import 'package:memolanes/common/log.dart';
@@ -16,6 +16,8 @@ const _worldviewDisplayOrder = [
   achievement.Worldview.usa,
 ];
 
+const _deviceRegionChannel = MethodChannel('com.memolanes/device_region');
+
 class WorldviewManager {
   WorldviewManager._()
     : this.forTesting(
@@ -26,6 +28,7 @@ class WorldviewManager {
             MMKVUtil.getInt(MMKVKey.firstLaunchSetupCompletedVersion) >= 1,
         readDeviceLocales: () =>
             WidgetsBinding.instance.platformDispatcher.locales,
+        readDeviceRegion: _readDeviceRegionFromPlatform,
         activateGeoData: _activateGeoData,
         persistWorldview: _persistWorldview,
       );
@@ -35,9 +38,11 @@ class WorldviewManager {
     required this._readSavedWorldview,
     required this._hasConfirmedPreference,
     required this._readDeviceLocales,
+    required Future<String?> Function() readDeviceRegion,
     required Future<void> Function(achievement.Worldview) activateGeoData,
     required void Function(achievement.Worldview) persistWorldview,
-  }) : _activate = activateGeoData,
+  }) : _readDeviceRegionCallback = readDeviceRegion,
+       _activate = activateGeoData,
        _persist = persistWorldview;
 
   static final WorldviewManager instance = WorldviewManager._();
@@ -46,6 +51,7 @@ class WorldviewManager {
   final achievement.Worldview? Function() _readSavedWorldview;
   final bool Function() _hasConfirmedPreference;
   final List<Locale> Function() _readDeviceLocales;
+  final Future<String?> Function() _readDeviceRegionCallback;
   final Future<void> Function(achievement.Worldview) _activate;
   final void Function(achievement.Worldview) _persist;
   achievement.Worldview? _currentWorldview;
@@ -61,8 +67,7 @@ class WorldviewManager {
       // Older builds persisted recommendations before setup was accepted.
       // Only a confirmed preference may override a fresh recommendation.
       final saved = _hasConfirmedPreference() ? _readSavedWorldview() : null;
-      final worldview =
-          saved ?? defaultWorldviewFromLocales(_readDeviceLocales());
+      final worldview = saved ?? await _recommendedWorldview();
       // TODO: right now we make sure the geo data is fully loaded during
       // app initialization, which can be a bit expensive. We should consider
       // delaying this.
@@ -71,6 +76,21 @@ class WorldviewManager {
       _confirmedWorldview = saved;
     });
   }
+
+  Future<achievement.Worldview> _recommendedWorldview() async {
+    try {
+      final region = await _readDeviceRegionCallback();
+      if (region != null && region.trim().isNotEmpty) {
+        return defaultWorldviewFromRegion(region);
+      }
+    } catch (error) {
+      log.warning('Failed to read device region: $error');
+    }
+    return defaultWorldviewFromLocales(_readDeviceLocales());
+  }
+
+  static Future<String?> _readDeviceRegionFromPlatform() =>
+      _deviceRegionChannel.invokeMethod<String>('getRegion');
 
   Future<void> update(achievement.Worldview worldview) {
     return _mutex.protect(() async {
@@ -117,21 +137,21 @@ class WorldviewManager {
   }
 }
 
-/// A first-use recommendation, not a location or a confirmed user preference.
-/// Skip locales without a region, but never skip an explicit region merely
-/// because its worldview is ISO. Language/script alone cannot select a view.
+/// Map a system region to a first-use recommendation, independently of language.
+achievement.Worldview defaultWorldviewFromRegion(String region) {
+  return switch (region.trim().toUpperCase()) {
+    'CN' => achievement.Worldview.chn,
+    'US' => achievement.Worldview.usa,
+    _ => achievement.Worldview.iso,
+  };
+}
+
+/// Fallback for platforms where a separate device region is unavailable.
 achievement.Worldview defaultWorldviewFromLocales(Iterable<Locale> locales) {
   for (final locale in locales) {
-    final region = locale.countryCode?.trim().toUpperCase();
+    final region = locale.countryCode?.trim();
     if (region == null || region.isEmpty) continue;
-    return switch (region) {
-      'CN' => achievement.Worldview.chn,
-      'US' => achievement.Worldview.usa,
-      // Hong Kong, Macau, Taiwan, and all other regions retain the ISO
-      // recommendation. This is an explicit preference policy, not derived
-      // from geo asset parentage.
-      _ => achievement.Worldview.iso,
-    };
+    return defaultWorldviewFromRegion(region);
   }
   return achievement.Worldview.iso;
 }
