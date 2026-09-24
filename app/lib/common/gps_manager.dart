@@ -36,6 +36,8 @@ bool _positionTooOld(LocationData data, {int staleThresholdMs = 12 * 1000}) {
   return now - data.timestampMs >= staleThresholdMs;
 }
 
+const _lastKnownPositionMaxAge = Duration(seconds: 30);
+
 class GpsManager extends ChangeNotifier {
   late final ILocationService _locationService;
   var recordingStatus = GpsRecordingStatus.none;
@@ -50,9 +52,9 @@ class GpsManager extends ChangeNotifier {
   Stream<void> get journeyFinalized => _journeyFinalizedController.stream;
 
   // OS-cached last known location, used purely as a transient UI fallback
-  // while the live stream is still acquiring its first fix. May be arbitrarily
-  // stale; never feed this into journey recording. Cleared as soon as a real
-  // fix arrives or the location service is turned off.
+  // while the live stream is still acquiring its first fix. Never feed this
+  // into journey recording. Cleared when it expires, a real fix arrives, or
+  // the location service is turned off.
   LocationData? lastKnownPosition;
 
   // Keep tracking of the actual internal state which represents the state of
@@ -171,9 +173,9 @@ class GpsManager extends ChangeNotifier {
       if (newState != _InternalState.off) {
         log.info("[GpsManager] turning on gps stream. new state: $newState");
         bool enableBackground = newState == _InternalState.recording;
-        await _locationService.startLocationUpdates(enableBackground);
-        unawaited(_seedLastKnownPosition());
-
+        // A backend can deliver its first fix before startLocationUpdates
+        // completes. Subscribe first so a broadcast stream cannot drop it.
+        _internalState = newState;
         _locationUpdateSub = _locationService.onLocationUpdate((data) {
           if (_positionTooOld(data)) {
             return;
@@ -191,6 +193,23 @@ class GpsManager extends ChangeNotifier {
           }
         });
 
+        try {
+          await _locationService.startLocationUpdates(enableBackground);
+        } catch (error, stackTrace) {
+          await _locationUpdateSub?.cancel();
+          _locationUpdateSub = null;
+          _internalState = _InternalState.off;
+          latestPosition = null;
+          lastKnownPosition = null;
+          notifyListeners();
+          log.error(
+            "[GpsManager] failed to start gps stream: $error",
+            stackTrace,
+          );
+          rethrow;
+        }
+        unawaited(_seedLastKnownPosition());
+
         _lastPositionTooOldTimer ??= Timer.periodic(
           const Duration(seconds: 1),
           (timer) {
@@ -200,6 +219,12 @@ class GpsManager extends ChangeNotifier {
                 this.latestPosition = null;
                 notifyListeners();
               }
+            }
+            final lastKnownPosition = this.lastKnownPosition;
+            if (lastKnownPosition != null &&
+                !_lastKnownPositionIsFresh(lastKnownPosition)) {
+              this.lastKnownPosition = null;
+              notifyListeners();
             }
           },
         );
@@ -237,11 +262,16 @@ class GpsManager extends ChangeNotifier {
   // effect once a real fix has already arrived or the service has stopped.
   Future<void> _seedLastKnownPosition() async {
     final seed = await getLastKnownLocation();
-    if (seed == null) return;
+    if (seed == null || !_lastKnownPositionIsFresh(seed)) return;
     if (latestPosition != null) return;
     if (_internalState == _InternalState.off) return;
     lastKnownPosition = seed;
     notifyListeners();
+  }
+
+  bool _lastKnownPositionIsFresh(LocationData data) {
+    final ageMs = DateTime.now().millisecondsSinceEpoch - data.timestampMs;
+    return ageMs >= 0 && ageMs <= _lastKnownPositionMaxAge.inMilliseconds;
   }
 
   void _enqueueRecordingLocationUpdate(LocationData data) {
@@ -258,7 +288,7 @@ class GpsManager extends ChangeNotifier {
     await for (final update in _recordingLocationUpdatePipe.stream) {
       try {
         if (_internalState != _InternalState.recording) {
-          return;
+          continue;
         }
         var last = _tryFinalizeJourneyCountDown;
         if (last != null &&
@@ -353,10 +383,19 @@ class GpsManager extends ChangeNotifier {
   void readyToStart() {
     _fullyReady = true;
     // sync internal state for the first time
-    _m.protect(() async {
-      await _tryFinalizeJourneyWithoutLock();
-      await _syncInternalStateWithoutLock();
-    });
+    unawaited(
+      _m
+          .protect(() async {
+            await _tryFinalizeJourneyWithoutLock();
+            await _syncInternalStateWithoutLock();
+          })
+          .catchError((Object error, StackTrace stackTrace) {
+            log.error(
+              '[GpsManager] initial state sync failed: $error',
+              stackTrace,
+            );
+          }),
+    );
   }
 
   @override

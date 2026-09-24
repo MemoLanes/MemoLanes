@@ -263,6 +263,8 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
       ''',
         ),
       );
+    } else if (position == null) {
+      _hideLocationMarker();
     }
   }
 
