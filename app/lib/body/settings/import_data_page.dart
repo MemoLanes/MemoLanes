@@ -61,7 +61,10 @@ class _ImportDataPage extends State<ImportDataPage> {
       );
       if (!mounted) return;
       var importSeparately = false;
-      if (_vectorParts.length > 1) {
+      if (_vectorParts.length > 1 &&
+          _vectorParts.any((part) => part.isMemolanesJourney)) {
+        importSeparately = true;
+      } else if (_vectorParts.length > 1) {
         importSeparately = await showCommonDialog(
           context,
           context.tr(
@@ -134,7 +137,7 @@ class _ImportDataPage extends State<ImportDataPage> {
       case ImportType.vector:
         var (journeyInfo, rawVectorData, detectedProcessor) = await import_api
             .loadVectorData(filePath: path);
-        final parts = await import_api.analyzeVectorDataByDate(
+        final parts = await import_api.analyzeVectorDataParts(
           vectorData: rawVectorData,
         );
         setState(() {

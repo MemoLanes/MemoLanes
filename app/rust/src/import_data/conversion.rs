@@ -1,8 +1,10 @@
-use crate::api::import::JourneyInfo;
+use crate::api::import::{ImportPreprocessor, JourneyInfo};
 use crate::flight_track_processor;
 use crate::gps_processor::{
     self, GpsPreprocessor, PreprocessedData, ProcessResult, RawData, SegmentGapRule,
 };
+use crate::import_data::ParsedVectorData;
+use crate::journey_data::JourneyData;
 use crate::journey_date_picker::JourneyDatePicker;
 use crate::journey_header::JourneyKind;
 use crate::journey_vector::{JourneyVector, TrackPoint, TrackSegment};
@@ -63,6 +65,38 @@ pub fn journey_vector_from_exported_segments(raw_data: &[Vec<RawData>]) -> Journ
             })
             .collect(),
     }
+}
+
+pub(crate) fn process_vector_data(
+    parsed: &ParsedVectorData,
+    raw_data: &[Vec<RawData>],
+    requested: ImportPreprocessor,
+) -> JourneyData {
+    if parsed.has_memolanes_metadata() {
+        if !matches!(requested, ImportPreprocessor::None) {
+            log::warn!("Ignoring GPS preprocessor for MemoLanes GPX/KML journey to preserve its track segments");
+        }
+        return JourneyData::Vector(journey_vector_from_exported_segments(raw_data));
+    }
+
+    let vector = match requested {
+        ImportPreprocessor::None => {
+            journey_vector_from_raw_data_with_gps_preprocessor(raw_data, None)
+        }
+        ImportPreprocessor::Generic => journey_vector_from_raw_data_with_gps_preprocessor(
+            raw_data,
+            Some(SegmentGapRule::Default),
+        ),
+        ImportPreprocessor::FlightTrack => flight_track_processor::process(raw_data),
+        ImportPreprocessor::Spare => journey_vector_from_raw_data_with_gps_preprocessor(
+            raw_data,
+            Some(SegmentGapRule::Spare),
+        ),
+    }
+    .unwrap_or_else(|| JourneyVector {
+        track_segments: vec![],
+    });
+    JourneyData::Vector(vector)
 }
 
 pub fn journey_vector_from_raw_data_with_flight_track_processor(

@@ -334,7 +334,7 @@ fn export_test_vector(offset: f64) -> JourneyData {
 }
 
 #[test]
-fn bulk_api_skips_unrepresentable_journeys_and_round_trips_metadata() {
+fn bulk_api_preserves_journeys_without_overwriting_local_edits() {
     let temp = tempdir::TempDir::new("bulk-vector-export").unwrap();
     let subdir = |name: &str| {
         let path = temp.path().join(name);
@@ -480,5 +480,99 @@ fn bulk_api_skips_unrepresentable_journeys_and_round_trips_metadata() {
                 .count(),
             1
         );
+    }
+
+    db.with_txn(|txn| {
+        txn.update_journey_metadata(
+            &ids[0],
+            first_date,
+            Some(start),
+            Some(end),
+            Some("local edit".to_owned()),
+            JourneyKind::DefaultKind,
+        )
+    })
+    .unwrap();
+    let local_revision = db
+        .with_txn(|txn| Ok(txn.get_journey_header(&ids[0])?.unwrap().revision))
+        .unwrap();
+
+    for path in [&gpx_path, &kml_path] {
+        let (_, raw, preprocessor) =
+            import_api::load_vector_data(path.to_string_lossy().into_owned()).unwrap();
+        let parts = import_api::analyze_vector_data_parts(&raw);
+        assert_eq!(parts.len(), 3);
+        assert!(parts.iter().all(|part| part.is_memolanes_journey));
+        assert_eq!(
+            parts
+                .iter()
+                .filter(|part| part.journey_date == first_date.to_string())
+                .count(),
+            2
+        );
+        assert_eq!(
+            parts
+                .iter()
+                .map(|part| part.part_key.as_str())
+                .collect::<HashSet<_>>()
+                .len(),
+            3
+        );
+
+        let previous_ids = db
+            .with_txn(|txn| {
+                Ok(txn
+                    .query_journeys(None, None, None)?
+                    .into_iter()
+                    .map(|header| header.id)
+                    .collect::<HashSet<_>>())
+            })
+            .unwrap();
+        let imported = import_api::import_vector_data_by_parts(
+            &raw,
+            parts.iter().map(|part| part.part_key.clone()).collect(),
+            preprocessor,
+            JourneyKind::DefaultKind,
+            None,
+        )
+        .unwrap();
+        assert_eq!(imported, 3);
+
+        db.with_txn(|txn| {
+            let local = txn.get_journey_header(&ids[0])?.unwrap();
+            assert_eq!(local.revision, local_revision);
+            assert_eq!(local.note.as_deref(), Some("local edit"));
+            let imported_headers = txn
+                .query_journeys(None, None, None)?
+                .into_iter()
+                .filter(|header| !previous_ids.contains(&header.id))
+                .collect::<Vec<_>>();
+            assert_eq!(imported_headers.len(), 3);
+            let mut offsets = Vec::new();
+            for header in imported_headers {
+                assert_eq!(header.start, Some(start));
+                assert_eq!(header.end, Some(end));
+                let JourneyData::Vector(vector) = txn.get_journey_data(&header.id)? else {
+                    panic!("imported journey is not vector data");
+                };
+                assert_eq!(vector.track_segments.len(), 2);
+                assert_eq!(vector.track_segments[0].track_points.len(), 2);
+                assert_eq!(vector.track_segments[1].track_points.len(), 1);
+                let offset = vector.track_segments[0].track_points[0].latitude;
+                assert_eq!(
+                    header.journey_date,
+                    if offset == 20.0 {
+                        second_date
+                    } else {
+                        first_date
+                    }
+                );
+                offsets.push(offset as i32);
+            }
+            offsets.sort_unstable();
+            assert_eq!(offsets, vec![1, 10, 20]);
+            Ok(())
+        })
+        .unwrap();
     }
 }

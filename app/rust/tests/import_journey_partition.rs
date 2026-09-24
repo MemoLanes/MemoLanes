@@ -1,8 +1,8 @@
 use chrono::{Local, NaiveDate, TimeZone};
 use memolanes_core::{
     api::import::{
-        analyze_vector_data_by_date, import_vector_data_by_date, is_journey_data_empty,
-        load_vector_data, process_vector_data_for_date, ImportPreprocessor, RawVectorData,
+        analyze_vector_data_parts, import_vector_data_by_parts, is_journey_data_empty,
+        load_vector_data, process_vector_data_for_part, ImportPreprocessor, RawVectorData,
     },
     gps_processor::{Point, RawData},
     import_data::journey_partition::{group_by_date, summarize},
@@ -129,7 +129,7 @@ fn api_uses_partitioned_data() {
              {timestamp_two},{timestamp_two},0,3,,,\n"
         ),
     );
-    let parts = analyze_vector_data_by_date(&vector_data);
+    let parts = analyze_vector_data_parts(&vector_data);
 
     assert_eq!(parts.len(), 2);
     assert_eq!(parts[0].journey_date, day_one.to_string());
@@ -151,7 +151,7 @@ fn api_uses_partitioned_data() {
 
     for date in [day_one, day_two] {
         let journey_data =
-            process_vector_data_for_date(&vector_data, date.to_string(), preprocessor).unwrap();
+            process_vector_data_for_part(&vector_data, date.to_string(), preprocessor).unwrap();
         assert!(!is_journey_data_empty(&journey_data));
     }
 }
@@ -163,7 +163,7 @@ fn api_rejects_unknown_dates() {
         "vector-import-invalid-date",
         &format!("{timestamp},{timestamp},0,1,,,\n"),
     );
-    let error = import_vector_data_by_date(
+    let error = import_vector_data_by_parts(
         &vector_data,
         vec!["2026-08-12".to_owned()],
         preprocessor,
@@ -172,5 +172,5 @@ fn api_rejects_unknown_dates() {
     )
     .unwrap_err();
 
-    assert!(format!("{error:#}").contains("No vector data for dates: [2026-08-12]"));
+    assert!(format!("{error:#}").contains("No vector data for parts: [\"2026-08-12\"]"));
 }

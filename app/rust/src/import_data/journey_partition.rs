@@ -45,17 +45,6 @@ impl DateSummary {
             );
         }
     }
-
-    fn merge(&mut self, other: &Self) {
-        self.point_count += other.point_count;
-        self.missing_timestamp_count += other.missing_timestamp_count;
-        if let Some(start) = other.start_time {
-            self.start_time = Some(self.start_time.map_or(start, |value| value.min(start)));
-        }
-        if let Some(end) = other.end_time {
-            self.end_time = Some(self.end_time.map_or(end, |value| value.max(end)));
-        }
-    }
 }
 
 /// One journey-shaped part of an imported track, before parts with the same
@@ -206,61 +195,6 @@ fn partition_by_segments<'a>(
         summaries.entry(part.date).or_default().add(&part);
         index.entry(part.date).or_default().extend(part.segments);
     });
-    PartitionByDate { index, summaries }
-}
-
-/// Builds partitions from explicit MemoLanes journey metadata. This avoids
-/// applying timestamp-based splitting to exported points with no point times.
-pub(crate) fn partition_by_journey_metadata(groups: &[ImportedJourney]) -> PartitionByDate {
-    let mut index = PartitionIndexByDate::new();
-    let mut summaries = SummariesByDate::new();
-    let mut source_segment = 0usize;
-
-    for group in groups {
-        if group.has_memolanes_metadata() {
-            let date = group.journey_date.expect("validated MemoLanes date");
-            for segment in &group.segments {
-                index.entry(date).or_default().push(SegmentSlice {
-                    source_segment,
-                    start: 0,
-                    end: segment.len(),
-                });
-                let summary = summaries.entry(date).or_default();
-                summary.point_count += segment.len() as u64;
-                summary.missing_timestamp_count += segment
-                    .iter()
-                    .filter(|point| point.timestamp_ms.is_none())
-                    .count() as u64;
-                source_segment += 1;
-            }
-            let summary = summaries.entry(date).or_default();
-            if let Some(start) = group.start {
-                summary.start_time =
-                    Some(summary.start_time.map_or(start, |value| value.min(start)));
-            }
-            if let Some(end) = group.end {
-                summary.end_time = Some(summary.end_time.map_or(end, |value| value.max(end)));
-            }
-        } else {
-            // Ordinary tracks in a mixed file retain their existing date rules.
-            let generic = partition_by_date(&group.segments);
-            for (date, slices) in generic.index {
-                index
-                    .entry(date)
-                    .or_default()
-                    .extend(slices.into_iter().map(|slice| SegmentSlice {
-                        source_segment: slice.source_segment + source_segment,
-                        start: slice.start,
-                        end: slice.end,
-                    }));
-                summaries
-                    .entry(date)
-                    .or_default()
-                    .merge(generic.summaries.get(&date).expect("summary exists"));
-            }
-            source_segment += group.segments.len();
-        }
-    }
     PartitionByDate { index, summaries }
 }
 

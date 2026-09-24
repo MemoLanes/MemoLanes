@@ -3,4 +3,4 @@ pub mod gpx;
 mod journeys;
 pub mod kml;
 
-pub(crate) use journeys::{collect_vector_journey_headers, load_vector_journey, JourneyExport};
+pub(crate) use journeys::{export_all_vector_journeys, JourneyExport, VectorExportFormat};
