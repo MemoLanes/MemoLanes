@@ -61,9 +61,14 @@ class _ImportDataPage extends State<ImportDataPage> {
       );
       if (!mounted) return;
       var importSeparately = false;
-      if (_vectorParts.length > 1 &&
-          _vectorParts.any((part) => part.isMemolanesJourney)) {
+      if (_vectorParts.any((part) => part.isMemolanesJourney)) {
         importSeparately = true;
+        await showCommonDialog(
+          context,
+          context.tr('import.vector.memolanes_backup_warning_md'),
+          markdown: true,
+        );
+        if (!mounted) return;
       } else if (_vectorParts.length > 1) {
         importSeparately = await showCommonDialog(
           context,

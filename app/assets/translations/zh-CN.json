@@ -189,7 +189,8 @@
     },
     "vector": {
       "title": "导入轨迹文件",
-      "description_md": "支持以下轨迹文件格式：\n\n1. **GPX** (`.gpx`)\n2. **KML** (`.kml`)\n3. **CSV** (`.csv`)"
+      "description_md": "支持以下轨迹文件格式：\n\n1. **GPX** (`.gpx`)\n2. **KML** (`.kml`)\n3. **CSV** (`.csv`)",
+      "memolanes_backup_warning_md": "检测到这是迹忆导出的 GPX/KML 文件。\n\nGPX/KML 适合交换轨迹，但无法完整保留旅途数据，**请勿用作备份**。备份或迁移请使用迹忆标准格式（`*.mldx`）。"
     },
     "mldx_preview": {
       "title": "归档导入",
@@ -215,7 +216,8 @@
       "point_count": "{} 个轨迹点",
       "missing_time_count": "{} 个点缺少时间",
       "unknown_time": "时间未知",
-      "successful": "成功导入 {} 条旅程"
+      "successful": "成功导入 {} 条旅程",
+      "all_skipped": "没有可导入的新旅途。"
     },
     "import_fow_data": {
       "description_md": "导入世界迷雾 App 中产生的数据。\n\n支持以下格式：\n1. Zip 格式：将世界迷雾网盘同步 Sync 文件夹压缩为 Zip 格式压缩包。\n2. Fwss 格式：世界迷雾快照文件。  \n\n世界迷雾 App 数据不包含轨迹历史变化过程，实际导出数据为从使用开始到导出时点的所有轨迹。如您保留了多个世界迷雾历史文件，可尝试将数据上传至 [迷雾机器-时光机](https://fogmachine.8bits.io/time-machine)，并使用“导出迹忆归档”功能。",

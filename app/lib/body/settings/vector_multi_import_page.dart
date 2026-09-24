@@ -133,7 +133,14 @@ class _VectorMultiImportPageState extends State<VectorMultiImportPage> {
       );
       if (!mounted) return;
       if (count == BigInt.zero) {
-        await showCommonDialog(context, context.tr('import.empty_data'));
+        await showCommonDialog(
+          context,
+          context.tr(
+            widget.parts.any((part) => part.isMemolanesJourney)
+                ? 'import.vector_multi.all_skipped'
+                : 'import.empty_data',
+          ),
+        );
         return;
       }
       await showCommonDialog(
@@ -157,15 +164,11 @@ class _VectorMultiImportPageState extends State<VectorMultiImportPage> {
   @override
   Widget build(BuildContext context) {
     final items = widget.parts
-        .asMap()
-        .entries
         .map(
-          (entry) => MultiJourneyImportListItem(
-            keyValue: entry.value.partKey,
-            label: entry.value.isMemolanesJourney
-                ? '${entry.value.journeyDate} · ${entry.key + 1}'
-                : entry.value.journeyDate,
-            description: _description(entry.value),
+          (part) => MultiJourneyImportListItem(
+            keyValue: part.partKey,
+            label: part.journeyDate,
+            description: _description(part),
           ),
         )
         .toList();

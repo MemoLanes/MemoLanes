@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::ffi::OsStr;
 use std::path::Path;
 
@@ -6,6 +6,7 @@ use anyhow::{bail, Context, Result};
 use chrono::{DateTime, NaiveDate, Utc};
 
 use crate::api::import::{ImportPreprocessor, JourneyInfo};
+use crate::gps_processor::GpsPostprocessor;
 use crate::gps_processor::RawData;
 use crate::import_data::{
     conversion, csv, gpx,
@@ -13,7 +14,7 @@ use crate::import_data::{
     kml,
 };
 use crate::journey_data::JourneyData;
-use crate::journey_header::JourneyKind;
+use crate::journey_header::{JourneyHeader, JourneyKind, JourneyType};
 use crate::storage::Storage;
 
 /// One explicitly marked MemoLanes journey in a GPX/KML interchange file.
@@ -178,6 +179,17 @@ impl ImportPart {
     pub(crate) fn is_memolanes_journey(&self) -> bool {
         matches!(self.source, ImportPartSource::Journey(_))
     }
+
+    fn source_version<'a>(&self, parsed: &'a ParsedVectorData) -> Option<(&'a str, &'a str)> {
+        let ImportPartSource::Journey(index) = self.source else {
+            return None;
+        };
+        let group = &parsed.groups[index];
+        Some((
+            group.source_journey_id.as_deref()?,
+            group.source_revision.as_deref()?,
+        ))
+    }
 }
 
 pub(crate) fn part_for_key<'a>(parts: &'a [ImportPart], key: &str) -> Result<&'a ImportPart> {
@@ -187,10 +199,7 @@ pub(crate) fn part_for_key<'a>(parts: &'a [ImportPart], key: &str) -> Result<&'a
         .with_context(|| format!("No vector data for part {key}"))
 }
 
-pub(crate) fn select_parts<'a>(
-    parts: &'a [ImportPart],
-    keys: Vec<String>,
-) -> Result<Vec<&'a ImportPart>> {
+pub(crate) fn select_parts(parts: &[ImportPart], keys: Vec<String>) -> Result<Vec<&ImportPart>> {
     let selected_keys = keys.into_iter().collect::<HashSet<_>>();
     let mut missing_keys = selected_keys
         .iter()
@@ -231,26 +240,71 @@ pub(crate) fn import_selected_parts(
         let data = parsed.materialize_part(part);
         let journey_data = conversion::process_vector_data(parsed, &data, preprocessor);
         if !journey_data.is_empty() {
-            prepared.push((part.date, part.start, part.end, journey_data));
+            prepared.push((part, journey_data));
         }
     }
 
-    let imported_count = prepared.len() as u64;
     storage.with_db_txn(|txn| {
-        for (date, start, end, data) in prepared {
-            // GPX/KML are lossy interchange formats. Import as new journeys so
-            // a source ID/revision conflict never overwrites the local journey.
+        // Compare against the database before inserting any part so identical
+        // journeys within one export remain separate on their first import.
+        let mut existing_by_date: HashMap<NaiveDate, Vec<JourneyHeader>> = HashMap::new();
+        for (part, _) in &prepared {
+            if part.is_memolanes_journey() && !existing_by_date.contains_key(&part.date) {
+                existing_by_date.insert(
+                    part.date,
+                    txn.query_journeys(Some(part.date), Some(part.date), None)?,
+                );
+            }
+        }
+
+        let mut imported_count = 0;
+        for (part, data) in prepared {
+            if part.is_memolanes_journey() {
+                if let Some((source_id, source_revision)) = part.source_version(parsed) {
+                    if txn
+                        .get_journey_header(source_id)?
+                        .is_some_and(|header| header.revision == source_revision)
+                    {
+                        continue;
+                    }
+                }
+                let JourneyData::Vector(vector) = &data else {
+                    unreachable!("MemoLanes GPX/KML parts are vector data")
+                };
+                let normalized = GpsPostprocessor::process(vector.clone());
+                let mut duplicate = false;
+                for header in &existing_by_date[&part.date] {
+                    if header.journey_type != JourneyType::Vector
+                        || header.start != part.start
+                        || header.end != part.end
+                    {
+                        continue;
+                    }
+                    if let JourneyData::Vector(existing) = txn.get_journey_data(&header.id)? {
+                        if existing == normalized {
+                            duplicate = true;
+                            break;
+                        }
+                    }
+                }
+                if duplicate {
+                    continue;
+                }
+            }
+
+            // GPX/KML are lossy interchange formats, so conflicts import as
+            // copies rather than replacing an existing source journey.
             txn.create_and_insert_journey(
-                date,
-                start,
-                end,
+                part.date,
+                part.start,
+                part.end,
                 None,
                 journey_kind,
                 note.clone(),
                 data,
             )?;
+            imported_count += 1;
         }
-        Ok(())
-    })?;
-    Ok(imported_count)
+        Ok(imported_count)
+    })
 }

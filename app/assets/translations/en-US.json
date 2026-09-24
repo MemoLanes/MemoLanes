@@ -189,7 +189,8 @@
     },
     "vector": {
       "title": "Import Track File",
-      "description_md": "The following track file formats are supported:\n\n1. **GPX** (`.gpx`)\n2. **KML** (`.kml`)\n3. **CSV** (`.csv`)"
+      "description_md": "The following track file formats are supported:\n\n1. **GPX** (`.gpx`)\n2. **KML** (`.kml`)\n3. **CSV** (`.csv`)",
+      "memolanes_backup_warning_md": "This GPX/KML file was exported by MemoLanes.\n\nGPX/KML are suitable for sharing tracks but do not preserve all journey data. **Do not use them as backups.** For backup or migration, use the MemoLanes standard format (`*.mldx`)."
     },
     "mldx_preview": {
       "title": "Archive Import",
@@ -215,7 +216,8 @@
       "point_count": "{} track points",
       "missing_time_count": "{} points without time",
       "unknown_time": "Time unknown",
-      "successful": "Successfully imported {} journeys"
+      "successful": "Successfully imported {} journeys",
+      "all_skipped": "No new journeys to import."
     },
     "import_fow_data": {
       "description_md": "Import data generated from the Fog of World app.\n\nThis feature supports the following formats:\n1. Zip format: Compress the Fog of World cloud sync \"Sync\" folder into a Zip archive.\n2. Fwss format: Fog of World snapshot file.\n\nThe Fog of World app data does not include history. The exported data only contains the whole tracks from the start until the export point. If you have multiple historical Fog of World data, you can try uploading these to [Fog Machine - Time Machine](https://fogmachine.8bits.io/time-machine) and using the \"Export MemoLanes Archive\" feature.",
