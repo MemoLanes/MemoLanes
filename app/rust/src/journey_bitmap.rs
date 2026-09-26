@@ -349,6 +349,25 @@ impl JourneyBitmap {
         }
     }
 
+    /// Returns whether every visited bit in `self` is also visited in `other`.
+    ///
+    /// Iterate from `self` so checking a small candidate journey against a
+    /// large historical bitmap stays proportional to the candidate size and
+    /// can stop at the first uncovered bit.
+    pub fn is_subset_of(&self, other: &JourneyBitmap) -> bool {
+        self.tiles.iter().all(|(tile_key, tile)| {
+            let Some(other_tile) = other.tiles.get(tile_key) else {
+                return false;
+            };
+
+            tile.iter().all(|(block_key, block)| {
+                other_tile
+                    .get(&block_key)
+                    .is_some_and(|other_block| block.is_subset_of(other_block))
+            })
+        })
+    }
+
     pub fn difference(&mut self, other_journey_bitmap: &JourneyBitmap) {
         for (tile_key, other_tile) in &other_journey_bitmap.tiles {
             if let Some(tile) = self.tiles.get_mut(tile_key) {
@@ -776,6 +795,13 @@ impl Block {
 
     pub fn count(&self) -> u32 {
         self.data.iter().map(|x| x.count_ones()).sum()
+    }
+
+    fn is_subset_of(&self, other: &Block) -> bool {
+        self.data
+            .iter()
+            .zip(other.data.iter())
+            .all(|(self_byte, other_byte)| self_byte & !other_byte == 0)
     }
 
     pub fn is_visited(&self, x: u8, y: u8) -> bool {
