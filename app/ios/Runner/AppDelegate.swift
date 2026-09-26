@@ -1,9 +1,10 @@
 import UIKit
 import Flutter
 import notification_when_app_is_killed
+import share_handler_ios
 
 @main
-@objc class AppDelegate: FlutterAppDelegate {
+@objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
@@ -12,8 +13,16 @@ import notification_when_app_is_killed
       UNUserNotificationCenter.current().delegate = self as? UNUserNotificationCenterDelegate
     }
 
-    GeneratedPluginRegistrant.register(with: self)
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  }
+
+  func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
+    GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+    if let registrar = engineBridge.pluginRegistry.registrar(
+      forPlugin: "ShareHandlerIosSceneBridge"
+    ) {
+      registrar.addSceneDelegate(SwiftShareHandlerIosPlatform.instance)
+    }
   }
 
   override func applicationWillTerminate(_ application: UIApplication) {
