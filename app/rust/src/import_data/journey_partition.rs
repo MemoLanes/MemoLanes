@@ -3,6 +3,7 @@ use std::collections::BTreeMap;
 use chrono::{DateTime, Local, NaiveDate, TimeZone, Utc};
 
 use crate::gps_processor::RawData;
+use crate::import_data::ImportedJourney;
 use crate::journey_date_picker::{BoundaryTracker, JourneyDatePicker};
 use crate::journey_vector::TrackPoint;
 
@@ -142,11 +143,14 @@ fn flush(current: &mut PartBuilder, emit: &mut impl FnMut(Part)) {
 /// Visits journey-shaped parts without cloning track points. Boundaries follow
 /// the recording auto-finalization policy; each completed part gets its date
 /// from `JourneyDatePicker`.
-pub(crate) fn for_each_part(raw_data: &[Vec<RawData>], mut emit: impl FnMut(Part)) {
+fn for_each_part_segments<'a>(
+    segments: impl IntoIterator<Item = &'a Vec<RawData>>,
+    mut emit: impl FnMut(Part),
+) {
     let mut current = PartBuilder::new();
 
-    for (source_segment, segment) in raw_data
-        .iter()
+    for (source_segment, segment) in segments
+        .into_iter()
         .enumerate()
         .filter(|(_, segment)| !segment.is_empty())
     {
@@ -171,7 +175,7 @@ pub(crate) fn for_each_part(raw_data: &[Vec<RawData>], mut emit: impl FnMut(Part
     }
 }
 
-/// Date index plus per-date summaries from a single `for_each_part` walk.
+/// Date index plus per-date summaries from a single segment walk.
 pub(crate) struct PartitionByDate {
     pub index: PartitionIndexByDate,
     pub summaries: SummariesByDate,
@@ -179,13 +183,24 @@ pub(crate) struct PartitionByDate {
 
 /// Builds the date index and summaries without cloning track points.
 pub(crate) fn partition_by_date(raw_data: &[Vec<RawData>]) -> PartitionByDate {
+    partition_by_segments(raw_data.iter())
+}
+
+fn partition_by_segments<'a>(
+    segments: impl IntoIterator<Item = &'a Vec<RawData>>,
+) -> PartitionByDate {
     let mut index = PartitionIndexByDate::new();
     let mut summaries = SummariesByDate::new();
-    for_each_part(raw_data, |part| {
+    for_each_part_segments(segments, |part| {
         summaries.entry(part.date).or_default().add(&part);
         index.entry(part.date).or_default().extend(part.segments);
     });
     PartitionByDate { index, summaries }
+}
+
+/// Applies ordinary date rules across all groups in a third-party file.
+pub(crate) fn partition_generic_groups(groups: &[ImportedJourney]) -> PartitionByDate {
+    partition_by_segments(groups.iter().flat_map(|group| group.segments.iter()))
 }
 
 /// Materializes only one requested date partition from the source data.
@@ -196,6 +211,24 @@ pub(crate) fn materialize_partition(
     partition
         .iter()
         .map(|segment| raw_data[segment.source_segment][segment.start..segment.end].to_vec())
+        .collect()
+}
+
+/// Resolves global segment numbers directly from the ordered groups.
+pub(crate) fn materialize_group_partition(
+    groups: &[ImportedJourney],
+    partition: &[SegmentSlice],
+) -> Vec<Vec<RawData>> {
+    let segments = groups
+        .iter()
+        .flat_map(|group| group.segments.iter())
+        .collect::<Vec<_>>();
+    partition
+        .iter()
+        .map(|slice| {
+            let segment = segments[slice.source_segment];
+            segment[slice.start..slice.end].to_vec()
+        })
         .collect()
 }
 

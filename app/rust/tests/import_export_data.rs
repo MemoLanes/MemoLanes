@@ -1,20 +1,30 @@
 #[macro_use]
 extern crate assert_float_eq;
 
+use chrono::{DateTime, NaiveDate, Utc};
 use itertools::Itertools;
+use memolanes_core::api::api::{
+    export_all_journeys_as_gpx, export_all_journeys_as_kml, init, ExportResult,
+};
 use memolanes_core::api::import::{self as import_api, ImportPreprocessor, JourneyInfo};
 use memolanes_core::export_data::gpx::raw_data_csv_to_gpx_file;
 use memolanes_core::gpx_file_utils::{normalize_generic_time, normalize_step_of_my_world_time};
-use memolanes_core::journey_vector::TrackPoint;
+use memolanes_core::journey_bitmap::JourneyBitmap;
+use memolanes_core::journey_data::JourneyData;
+use memolanes_core::journey_header::JourneyKind;
+use memolanes_core::journey_vector::{JourneyVector, TrackPoint, TrackSegment};
+use memolanes_core::main_db::MainDb;
 use memolanes_core::{export_data, import_data};
-use std::fs::File;
+use std::collections::HashSet;
+use std::fs::{self, File};
 use std::io::BufReader;
 
 fn run_gpx_integrity_check(
     import_path: &str,
     export_path: &str,
 ) -> (Vec<TrackPoint>, JourneyInfo, ImportPreprocessor) {
-    let (raw_data1, preprocessor) = import_data::gpx::load_gpx(import_path).unwrap();
+    let (parsed, preprocessor) = import_data::gpx::load_gpx(import_path).unwrap();
+    let raw_data1 = parsed.flatten();
     let info = import_data::conversion::journey_info_from_raw_vector_data(&raw_data1);
     let vector1 = import_data::conversion::journey_vector_from_raw_data_with_gps_preprocessor(
         &raw_data1, None,
@@ -24,7 +34,8 @@ fn run_gpx_integrity_check(
     export_data::gpx::journey_vector_to_gpx_file(&vector1, &mut File::create(export_path).unwrap())
         .unwrap();
 
-    let (raw_data2, _) = import_data::gpx::load_gpx(export_path).unwrap();
+    let (parsed, _) = import_data::gpx::load_gpx(export_path).unwrap();
+    let raw_data2 = parsed.flatten();
     let vector2 = import_data::conversion::journey_vector_from_raw_data_with_gps_preprocessor(
         &raw_data2, None,
     )
@@ -52,7 +63,8 @@ fn run_kml_integrity_check(
     import_path: &str,
     export_path: &str,
 ) -> (Vec<TrackPoint>, JourneyInfo, ImportPreprocessor) {
-    let (raw_data1, preprocessor) = import_data::kml::load_kml(import_path).unwrap();
+    let (parsed, preprocessor) = import_data::kml::load_kml(import_path).unwrap();
+    let raw_data1 = parsed.flatten();
     let info = import_data::conversion::journey_info_from_raw_vector_data(&raw_data1);
     let vector1 = import_data::conversion::journey_vector_from_raw_data_with_gps_preprocessor(
         &raw_data1, None,
@@ -62,7 +74,8 @@ fn run_kml_integrity_check(
     export_data::kml::journey_vector_to_kml_file(&vector1, &mut File::create(export_path).unwrap())
         .unwrap();
 
-    let (raw_data2, _) = import_data::kml::load_kml(export_path).unwrap();
+    let (parsed, _) = import_data::kml::load_kml(export_path).unwrap();
+    let raw_data2 = parsed.flatten();
     let vector2 = import_data::conversion::journey_vector_from_raw_data_with_gps_preprocessor(
         &raw_data2, None,
     )
@@ -293,4 +306,318 @@ fn test_raw_data_csv_to_gpx_file() {
 
     let metadata = gpx.metadata.expect("GPX metadata should exist");
     assert_eq!(metadata.name.as_deref(), Some("MemoLanes RawData"));
+}
+
+fn export_test_vector(offset: f64) -> JourneyData {
+    JourneyData::Vector(JourneyVector {
+        track_segments: vec![
+            TrackSegment {
+                track_points: vec![
+                    TrackPoint {
+                        latitude: offset,
+                        longitude: 1.0,
+                    },
+                    TrackPoint {
+                        latitude: offset + 1.0,
+                        longitude: 2.0,
+                    },
+                ],
+            },
+            TrackSegment {
+                track_points: vec![TrackPoint {
+                    latitude: offset + 2.0,
+                    longitude: 3.0,
+                }],
+            },
+        ],
+    })
+}
+
+#[test]
+fn bulk_api_preserves_journeys_without_overwriting_local_edits() {
+    let temp = tempdir::TempDir::new("bulk-vector-export").unwrap();
+    let subdir = |name: &str| {
+        let path = temp.path().join(name);
+        fs::create_dir(&path).unwrap();
+        path.to_string_lossy().into_owned()
+    };
+    let support = subdir("support");
+    init(
+        subdir("temp"),
+        subdir("doc"),
+        support.clone(),
+        subdir("cache"),
+    )
+    .unwrap();
+    let gpx_path = temp.path().join("all.gpx");
+    let kml_path = temp.path().join("all.kml");
+    let export_gpx = || export_all_journeys_as_gpx(gpx_path.to_string_lossy().into_owned());
+    let export_kml = || export_all_journeys_as_kml(kml_path.to_string_lossy().into_owned());
+
+    assert!(matches!(export_gpx().unwrap(), ExportResult::DataIsEmpty));
+    assert!(matches!(export_kml().unwrap(), ExportResult::DataIsEmpty));
+    assert!(!gpx_path.exists());
+    assert!(!kml_path.exists());
+
+    let mut db = MainDb::open(&support).unwrap();
+    let first_date = NaiveDate::from_ymd_opt(2026, 9, 11).unwrap();
+    let second_date = NaiveDate::from_ymd_opt(2026, 9, 12).unwrap();
+    let start = DateTime::parse_from_rfc3339("2026-09-11T01:02:03Z")
+        .unwrap()
+        .with_timezone(&Utc);
+    let end = DateTime::parse_from_rfc3339("2026-09-11T02:03:04Z")
+        .unwrap()
+        .with_timezone(&Utc);
+    db.with_txn(|txn| {
+        txn.create_and_insert_journey(
+            first_date,
+            None,
+            None,
+            None,
+            JourneyKind::DefaultKind,
+            None,
+            JourneyData::Bitmap(JourneyBitmap::new()),
+        )?;
+        txn.create_and_insert_journey(
+            first_date,
+            None,
+            None,
+            None,
+            JourneyKind::DefaultKind,
+            None,
+            JourneyData::Vector(JourneyVector {
+                track_segments: Vec::new(),
+            }),
+        )?;
+        Ok(())
+    })
+    .unwrap();
+    assert!(matches!(export_gpx().unwrap(), ExportResult::DataIsEmpty));
+    assert!(matches!(export_kml().unwrap(), ExportResult::DataIsEmpty));
+
+    let ids = db
+        .with_txn(|txn| {
+            let mut ids = Vec::new();
+            for (date, offset) in [(first_date, 1.0), (first_date, 10.0), (second_date, 20.0)] {
+                ids.push(txn.create_and_insert_journey(
+                    date,
+                    Some(start),
+                    Some(end),
+                    None,
+                    JourneyKind::DefaultKind,
+                    None,
+                    export_test_vector(offset),
+                )?);
+            }
+            Ok(ids)
+        })
+        .unwrap();
+    assert!(matches!(export_gpx().unwrap(), ExportResult::Succeed));
+    assert!(matches!(export_kml().unwrap(), ExportResult::Succeed));
+    assert!(fs::read_to_string(&gpx_path)
+        .unwrap()
+        .contains("xmlns:memolanes=\"https://app.memolanes.com/ns/journey/1\""));
+    assert!(!fs::read_to_string(&kml_path)
+        .unwrap()
+        .contains("xmlns:memolanes"));
+
+    let (gpx, _) = import_data::gpx::load_gpx(gpx_path.to_str().unwrap()).unwrap();
+    let (kml, _) = import_data::kml::load_kml(kml_path.to_str().unwrap()).unwrap();
+    for parsed in [gpx, kml] {
+        assert_eq!(parsed.groups.len(), 3);
+        let exported_ids = parsed
+            .groups
+            .iter()
+            .map(|group| group.source_journey_id.as_deref().unwrap())
+            .collect::<HashSet<_>>();
+        assert_eq!(exported_ids, ids.iter().map(String::as_str).collect());
+        for group in &parsed.groups {
+            assert!(group.source_revision.is_some());
+            assert_eq!(group.start, Some(start));
+            assert_eq!(group.end, Some(end));
+            let source_index = ids
+                .iter()
+                .position(|id| Some(id.as_str()) == group.source_journey_id.as_deref())
+                .unwrap();
+            let offset = [1.0, 10.0, 20.0][source_index];
+            let points = group
+                .segments
+                .iter()
+                .map(|segment| {
+                    segment
+                        .iter()
+                        .map(|point| {
+                            (
+                                point.point.latitude,
+                                point.point.longitude,
+                                point.timestamp_ms,
+                            )
+                        })
+                        .collect::<Vec<_>>()
+                })
+                .collect::<Vec<_>>();
+            assert_eq!(
+                points,
+                vec![
+                    vec![(offset, 1.0, None), (offset + 1.0, 2.0, None)],
+                    vec![(offset + 2.0, 3.0, None)],
+                ]
+            );
+        }
+        assert_eq!(
+            parsed
+                .groups
+                .iter()
+                .filter(|group| group.journey_date == Some(first_date))
+                .count(),
+            2
+        );
+        assert_eq!(
+            parsed
+                .groups
+                .iter()
+                .filter(|group| group.journey_date == Some(second_date))
+                .count(),
+            1
+        );
+    }
+
+    let import_file = |path: &std::path::Path| {
+        let (_, raw, preprocessor) =
+            import_api::load_vector_data(path.to_string_lossy().into_owned()).unwrap();
+        let parts = import_api::analyze_vector_data_parts(&raw);
+        assert_eq!(parts.len(), 3);
+        assert!(parts.iter().all(|part| part.is_memolanes_journey));
+        assert_eq!(
+            parts
+                .iter()
+                .filter(|part| part.journey_date == first_date.to_string())
+                .count(),
+            2
+        );
+        assert_eq!(
+            parts
+                .iter()
+                .map(|part| part.part_key.as_str())
+                .collect::<HashSet<_>>()
+                .len(),
+            3
+        );
+
+        import_api::import_vector_data_by_parts(
+            &raw,
+            parts.iter().map(|part| part.part_key.clone()).collect(),
+            preprocessor,
+            JourneyKind::DefaultKind,
+            None,
+        )
+        .unwrap()
+    };
+
+    assert_eq!(
+        import_file(&gpx_path),
+        0,
+        "matching source revisions are skipped"
+    );
+    db.with_txn(|txn| {
+        txn.update_journey_metadata(
+            &ids[0],
+            first_date,
+            Some(start),
+            Some(end),
+            Some("local edit".to_owned()),
+            JourneyKind::DefaultKind,
+        )
+    })
+    .unwrap();
+    assert_eq!(
+        import_file(&gpx_path),
+        0,
+        "unchanged geometry is not copied again"
+    );
+
+    db.with_txn(|txn| {
+        txn.update_journey_data_with_latest_postprocessor(&ids[0], export_test_vector(30.0))
+    })
+    .unwrap();
+    let local_revision = db
+        .with_txn(|txn| Ok(txn.get_journey_header(&ids[0])?.unwrap().revision))
+        .unwrap();
+    assert_eq!(
+        import_file(&gpx_path),
+        1,
+        "a changed local journey is kept and the source imports as a copy"
+    );
+    assert_eq!(import_file(&gpx_path), 0, "reimporting the copy is skipped");
+    assert_eq!(
+        import_file(&kml_path),
+        0,
+        "the equivalent KML is also skipped"
+    );
+
+    db.with_txn(|txn| {
+        let local = txn.get_journey_header(&ids[0])?.unwrap();
+        assert_eq!(local.revision, local_revision);
+        assert_eq!(local.note.as_deref(), Some("local edit"));
+        let headers = txn.query_journeys(None, None, None)?;
+        for header in headers {
+            if header.journey_type == memolanes_core::journey_header::JourneyType::Vector {
+                txn.delete_journey(&header.id)?;
+            }
+        }
+        Ok(())
+    })
+    .unwrap();
+
+    assert_eq!(
+        import_file(&gpx_path),
+        3,
+        "first import restores all separate journeys"
+    );
+    assert_eq!(
+        import_file(&gpx_path),
+        0,
+        "second import finds the imported copies"
+    );
+    assert_eq!(
+        import_file(&kml_path),
+        0,
+        "the same journeys in KML are duplicates"
+    );
+
+    db.with_txn(|txn| {
+        let imported_headers = txn
+            .query_journeys(None, None, None)?
+            .into_iter()
+            .filter(|header| {
+                header.journey_type == memolanes_core::journey_header::JourneyType::Vector
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(imported_headers.len(), 3);
+        let mut offsets = Vec::new();
+        for header in imported_headers {
+            assert_eq!(header.start, Some(start));
+            assert_eq!(header.end, Some(end));
+            let JourneyData::Vector(vector) = txn.get_journey_data(&header.id)? else {
+                panic!("imported journey is not vector data");
+            };
+            assert_eq!(vector.track_segments.len(), 2);
+            assert_eq!(vector.track_segments[0].track_points.len(), 2);
+            assert_eq!(vector.track_segments[1].track_points.len(), 1);
+            let offset = vector.track_segments[0].track_points[0].latitude;
+            assert_eq!(
+                header.journey_date,
+                if offset == 20.0 {
+                    second_date
+                } else {
+                    first_date
+                }
+            );
+            offsets.push(offset as i32);
+        }
+        offsets.sort_unstable();
+        assert_eq!(offsets, vec![1, 10, 20]);
+        Ok(())
+    })
+    .unwrap();
 }

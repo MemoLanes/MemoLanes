@@ -145,8 +145,9 @@ fn run_though_test_data(name: &str) -> HashMap<ProcessResult, i32> {
     const GENERATE_RESULT_GPX_FOR_INSPECTION: bool = false;
     let mut gps_preprocessor = GpsPreprocessor::new();
     let mut counter = HashMap::new();
-    let (loaded_data, _preprocessor) =
+    let (parsed, _preprocessor) =
         import_data::gpx::load_gpx(&format!("./tests/data/raw_gps_{name}.gpx")).unwrap();
+    let loaded_data = parsed.flatten();
     for data in loaded_data.iter().flatten() {
         let result = gps_preprocessor.preprocess(data);
         counter.entry(result).and_modify(|c| *c += 1).or_insert(1);

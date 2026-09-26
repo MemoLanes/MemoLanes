@@ -1,7 +1,10 @@
+use crate::export_data::JourneyExport;
 use crate::journey_vector::JourneyVector;
 use anyhow::{Context, Ok, Result};
 use auto_context::auto_context;
 use kml::{Kml, KmlDocument, KmlWriter};
+use quick_xml::events::{BytesDecl, BytesEnd, BytesStart, BytesText, Event};
+use quick_xml::Writer;
 use std::collections::HashMap;
 use std::io::{Seek, Write};
 
@@ -60,10 +63,124 @@ pub fn journey_vector_to_kml_file<T: Write + Seek>(
     Ok(())
 }
 
+fn write_text<W: Write>(xml: &mut Writer<W>, tag: &str, value: &str) -> Result<()> {
+    xml.write_event(Event::Start(BytesStart::new(tag)))?;
+    xml.write_event(Event::Text(BytesText::new(value)))?;
+    xml.write_event(Event::End(BytesEnd::new(tag)))?;
+    Ok(())
+}
+
+fn write_data<W: Write>(xml: &mut Writer<W>, name: &str, value: &str) -> Result<()> {
+    let mut data = BytesStart::new("Data");
+    let name = format!("memolanes:{name}");
+    data.push_attribute(("name", name.as_str()));
+    xml.write_event(Event::Start(data))?;
+    write_text(xml, "value", value)?;
+    xml.write_event(Event::End(BytesEnd::new("Data")))?;
+    Ok(())
+}
+
+/// Streams each Folder, Placemark and coordinate without building a KML tree
+/// or a segment-sized coordinate string in memory.
+pub(crate) struct KmlJourneyWriter<W: Write> {
+    xml: Writer<W>,
+}
+
+impl<W: Write> KmlJourneyWriter<W> {
+    pub(crate) fn new(writer: W) -> Result<Self> {
+        let mut xml = Writer::new(writer);
+        xml.write_event(Event::Decl(BytesDecl::new("1.0", Some("UTF-8"), None)))?;
+        let mut root = BytesStart::new("kml");
+        root.push_attribute(("xmlns", "http://www.opengis.net/kml/2.2"));
+        xml.write_event(Event::Start(root))?;
+        xml.write_event(Event::Start(BytesStart::new("Document")))?;
+        Ok(Self { xml })
+    }
+
+    pub(crate) fn write_journey(&mut self, journey: &JourneyExport) -> Result<()> {
+        let xml = &mut self.xml;
+        xml.write_event(Event::Start(BytesStart::new("Folder")))?;
+        write_text(
+            xml,
+            "name",
+            &format!("MemoLanes Journey {}", journey.journey_date),
+        )?;
+        xml.write_event(Event::Start(BytesStart::new("TimeStamp")))?;
+        write_text(xml, "when", &journey.journey_date.to_string())?;
+        xml.write_event(Event::End(BytesEnd::new("TimeStamp")))?;
+        xml.write_event(Event::Start(BytesStart::new("ExtendedData")))?;
+        write_data(xml, "version", "1")?;
+        write_data(xml, "sourceJourneyId", &journey.source_journey_id)?;
+        write_data(xml, "sourceRevision", &journey.source_revision)?;
+        write_data(xml, "date", &journey.journey_date.to_string())?;
+        if let Some(start) = journey.start {
+            write_data(xml, "start", &start.to_rfc3339())?;
+        }
+        if let Some(end) = journey.end {
+            write_data(xml, "end", &end.to_rfc3339())?;
+        }
+        xml.write_event(Event::End(BytesEnd::new("ExtendedData")))?;
+
+        for segment in &journey.vector.track_segments {
+            xml.write_event(Event::Start(BytesStart::new("Placemark")))?;
+            write_text(xml, "name", "MemoLanes Track Segment")?;
+            xml.write_event(Event::Start(BytesStart::new("LineString")))?;
+            write_text(xml, "tessellate", "1")?;
+            xml.write_event(Event::Start(BytesStart::new("coordinates")))?;
+            for point in &segment.track_points {
+                // Coordinate text contains only numbers and separators; no XML escaping is needed.
+                writeln!(xml.get_mut(), "{},{}", point.longitude, point.latitude)?;
+            }
+            xml.write_event(Event::End(BytesEnd::new("coordinates")))?;
+            xml.write_event(Event::End(BytesEnd::new("LineString")))?;
+            xml.write_event(Event::End(BytesEnd::new("Placemark")))?;
+        }
+        xml.write_event(Event::End(BytesEnd::new("Folder")))?;
+        Ok(())
+    }
+
+    pub(crate) fn finish(mut self) -> Result<()> {
+        self.xml
+            .write_event(Event::End(BytesEnd::new("Document")))?;
+        self.xml.write_event(Event::End(BytesEnd::new("kml")))?;
+        Ok(())
+    }
+}
+
+#[auto_context]
+pub(crate) fn journeys_to_kml_file<T: Write + Seek>(
+    journeys: &[JourneyExport],
+    writer: &mut T,
+) -> Result<()> {
+    if journeys.is_empty() {
+        anyhow::bail!("No track segments");
+    }
+    let mut xml = KmlJourneyWriter::new(writer)?;
+    for journey in journeys {
+        xml.write_journey(journey)?;
+    }
+    xml.finish()
+}
+
 #[auto_context]
 fn write_kml_document<T: Write + Seek>(
     name: String,
     description: String,
+    elements: Vec<Kml>,
+    writer: &mut T,
+) -> Result<()> {
+    write_kml_document_with_elements(
+        vec![Kml::Folder(kml::types::Folder {
+            name: Some(name),
+            description: Some(description),
+            elements,
+            ..Default::default()
+        })],
+        writer,
+    )
+}
+
+fn write_kml_document_with_elements<T: Write + Seek>(
     elements: Vec<Kml>,
     writer: &mut T,
 ) -> Result<()> {
@@ -87,12 +204,7 @@ fn write_kml_document<T: Write + Seek>(
                 "http://www.w3.org/2005/Atom".to_owned(),
             ),
         ]),
-        elements: vec![Kml::Folder(kml::types::Folder {
-            name: Some(name),
-            description: Some(description),
-            elements,
-            ..kml::types::Folder::default()
-        })],
+        elements,
     };
 
     let mut writer = KmlWriter::<_, f64>::from_writer(writer);

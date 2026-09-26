@@ -86,8 +86,9 @@ fn run_tests() {
     ] {
         const GENERATE_RESULT_GPX_FOR_INSPECTION: bool = false;
 
-        let (loaded_data, _preprocessor) =
+        let (parsed, _preprocessor) =
             import_data::kml::load_kml(&format!("./tests/data/flight_{name}.kml")).unwrap();
+        let loaded_data = parsed.flatten();
         let result = flight_track_processor::process(&loaded_data).unwrap();
         let input_point_count: usize = loaded_data.iter().map(Vec::len).sum();
         let output_point_count: usize = result

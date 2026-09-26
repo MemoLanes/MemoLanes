@@ -3,8 +3,8 @@ import 'dart:io';
 import 'package:memolanes/theme/app_colors.dart';
 
 import 'package:easy_localization/easy_localization.dart';
+import 'package:file_saver/file_saver.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_file_saver/flutter_file_saver.dart';
 import 'package:memolanes/common/component/app_button.dart';
 import 'package:memolanes/common/component/app_dialog.dart';
 import 'package:memolanes/common/component/app_option_tile.dart';
@@ -174,12 +174,20 @@ Future<bool> showCommonExport(
     if (action == null || !context.mounted) return false;
     switch (action) {
       case _PreparedExportAction.save:
-        await _saveFile(filePath);
-        return true;
+        return await _saveFile(filePath);
       case _PreparedExportAction.share:
         await _shareFile(filePath, computeSharePositionOrigin(context));
         return true;
     }
+  } catch (error, stack) {
+    log.error('[export] Save or share failed: $error', stack);
+    if (context.mounted) {
+      await showCommonDialog(
+        context,
+        context.tr('data.export_data.error.unexpected'),
+      );
+    }
+    return false;
   } finally {
     if (deleteFile) {
       await _deleteExportFile(filePath);
@@ -205,14 +213,16 @@ Future<void> _shareFile(String filePath, Rect sharePositionOrigin) {
   );
 }
 
-Future<void> _saveFile(String filePath) async {
-  final file = File(filePath);
-  // TODO: This is pretty inefficient, but I don't think `FlutterFileSaver`
-  // provides other API.
-  await FlutterFileSaver().writeFileAsBytes(
-    fileName: p.basename(filePath),
-    bytes: await file.readAsBytes(),
-  );
+Future<bool> _saveFile(String filePath) {
+  return GlobalLoadingManager.instance.runWithLoading(() async {
+    final savedPath = await FileSaver.instance.saveAs(
+      name: p.basenameWithoutExtension(filePath),
+      filePath: filePath,
+      fileExtension: p.extension(filePath).replaceFirst('.', ''),
+      mimeType: MimeType.other,
+    );
+    return savedPath != null;
+  }, blockNavigation: true);
 }
 
 Future<void> _deleteExportFile(String filePath) async {
@@ -299,7 +309,11 @@ class _ExportFormatDialogState extends State<_ExportFormatDialog> {
           const SizedBox(width: 8.0),
           Expanded(
             child: Text(
-              context.tr('data.export_data.lossy_format_warning'),
+              context.tr(switch (_selectedFormat) {
+                CommonExportFormat.kml || CommonExportFormat.gpx =>
+                  'data.export_data.vector_format_warning',
+                _ => 'data.export_data.lossy_format_warning',
+              }),
               style: AppTypography.supporting,
             ),
           ),

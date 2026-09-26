@@ -21,8 +21,9 @@ fn journey_area_calculation(c: &mut Criterion) {
     group.bench_function(
         "journey_bitmap_area_m2_rounded: nelson_to_wharariki_beach",
         |b| {
-            let (raw_data, _preprocessor) =
+            let (parsed, _preprocessor) =
                 import_data::gpx::load_gpx("./tests/data/nelson_to_wharariki_beach.gpx").unwrap();
+            let raw_data = parsed.flatten();
 
             let journey_vector =
                 import_data::conversion::journey_vector_from_raw_data_with_gps_preprocessor(
@@ -50,7 +51,8 @@ fn journey_bitmap(c: &mut Criterion) {
     group.bench_function("merge_vector", |b| {
         let load_journey_vector = |name| {
             let filename = format!("./tests/data/{name}.gpx");
-            let (raw_data, _preprocessor) = import_data::gpx::load_gpx(&filename).unwrap();
+            let (parsed, _preprocessor) = import_data::gpx::load_gpx(&filename).unwrap();
+            let raw_data = parsed.flatten();
             import_data::conversion::journey_vector_from_raw_data_with_gps_preprocessor(
                 &raw_data,
                 Some(SegmentGapRule::Default),
