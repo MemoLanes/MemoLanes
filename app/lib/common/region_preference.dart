@@ -1,8 +1,9 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show rootBundle;
+import 'package:flutter/services.dart' show MethodChannel, rootBundle;
 import 'package:memolanes/common/component/app_option_tile.dart';
 import 'package:memolanes/common/component/setup_bottom_sheet.dart';
+import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/src/rust/api/achievement.dart' as achievement;
 import 'package:mutex/mutex.dart';
@@ -15,13 +16,46 @@ const _worldviewDisplayOrder = [
   achievement.Worldview.usa,
 ];
 
+const _deviceRegionChannel = MethodChannel('com.memolanes/device_region');
+
 class WorldviewManager {
-  WorldviewManager._();
+  WorldviewManager._()
+    : this.forTesting(
+        readSavedWorldview: _loadSavedWorldview,
+        hasConfirmedPreference: () =>
+            // Version 1 already asked the user to confirm their preference.
+            // Preserve it even when a later setup version needs to be shown.
+            MMKVUtil.getInt(MMKVKey.firstLaunchSetupCompletedVersion) >= 1,
+        readDeviceLocales: () =>
+            WidgetsBinding.instance.platformDispatcher.locales,
+        readDeviceRegion: _readDeviceRegionFromPlatform,
+        activateGeoData: _activateGeoData,
+        persistWorldview: _persistWorldview,
+      );
+
+  @visibleForTesting
+  WorldviewManager.forTesting({
+    required this._readSavedWorldview,
+    required this._hasConfirmedPreference,
+    required this._readDeviceLocales,
+    required Future<String?> Function() readDeviceRegion,
+    required Future<void> Function(achievement.Worldview) activateGeoData,
+    required void Function(achievement.Worldview) persistWorldview,
+  }) : _readDeviceRegionCallback = readDeviceRegion,
+       _activate = activateGeoData,
+       _persist = persistWorldview;
 
   static final WorldviewManager instance = WorldviewManager._();
 
   final Mutex _mutex = Mutex();
+  final achievement.Worldview? Function() _readSavedWorldview;
+  final bool Function() _hasConfirmedPreference;
+  final List<Locale> Function() _readDeviceLocales;
+  final Future<String?> Function() _readDeviceRegionCallback;
+  final Future<void> Function(achievement.Worldview) _activate;
+  final void Function(achievement.Worldview) _persist;
   achievement.Worldview? _currentWorldview;
+  achievement.Worldview? _confirmedWorldview;
 
   achievement.Worldview get currentWorldview =>
       _currentWorldview ??
@@ -30,38 +64,66 @@ class WorldviewManager {
   Future<void> initialize() {
     return _mutex.protect(() async {
       if (_currentWorldview != null) return;
-      final saved = _loadSavedWorldview();
-      final worldview = saved ?? _defaultWorldviewFromDeviceLocale();
+      // Older builds persisted recommendations before setup was accepted.
+      // Only a confirmed preference may override a fresh recommendation.
+      final saved = _hasConfirmedPreference() ? _readSavedWorldview() : null;
+      final worldview = saved ?? await _recommendedWorldview();
       // TODO: right now we make sure the geo data is fully loaded during
       // app initialization, which can be a bit expensive. We should consider
       // delaying this.
-      await _applyAndStore(worldview, persist: saved == null);
+      await _activate(worldview);
+      _currentWorldview = worldview;
+      _confirmedWorldview = saved;
     });
   }
+
+  Future<achievement.Worldview> _recommendedWorldview() async {
+    try {
+      final region = await _readDeviceRegionCallback();
+      if (region != null && region.trim().isNotEmpty) {
+        return defaultWorldviewFromRegion(region);
+      }
+    } catch (error) {
+      log.warning('Failed to read device region: $error');
+    }
+    return defaultWorldviewFromLocales(_readDeviceLocales());
+  }
+
+  static Future<String?> _readDeviceRegionFromPlatform() =>
+      _deviceRegionChannel.invokeMethod<String>('getRegion');
 
   Future<void> update(achievement.Worldview worldview) {
     return _mutex.protect(() async {
       if (_currentWorldview == null) {
         throw StateError('WorldviewManager has not been initialized');
       }
-      if (_currentWorldview == worldview) return;
-
-      await _applyAndStore(worldview, persist: true);
+      if (_currentWorldview != worldview) {
+        await _activate(worldview);
+        _currentWorldview = worldview;
+      }
+      // Accepting the recommendation is still an explicit confirmation, even
+      // though the already-active geo data does not need to be loaded again.
+      if (_confirmedWorldview != worldview) {
+        try {
+          _persist(worldview);
+          _confirmedWorldview = worldview;
+        } catch (error, stackTrace) {
+          // Keep the UI in sync with the active data even if saving fails.
+          // Allow a later confirmation to retry saving.
+          _confirmedWorldview = null;
+          log.error('Failed to save worldview preference: $error', stackTrace);
+        }
+      }
     });
   }
 
-  Future<void> _applyAndStore(
-    achievement.Worldview worldview, {
-    required bool persist,
-  }) async {
-    await _activateGeoData(worldview);
-    if (persist) {
-      MMKVUtil.putString(MMKVKey.worldviewPreference, worldview.id);
+  static void _persistWorldview(achievement.Worldview worldview) {
+    if (!MMKVUtil.putString(MMKVKey.worldviewPreference, worldview.id)) {
+      throw StateError('Failed to save worldview preference');
     }
-    _currentWorldview = worldview;
   }
 
-  Future<void> _activateGeoData(achievement.Worldview worldview) async {
+  static Future<void> _activateGeoData(achievement.Worldview worldview) async {
     await achievement.activateGeoData(
       worldview: worldview,
       loadAsset: () async =>
@@ -69,23 +131,29 @@ class WorldviewManager {
     );
   }
 
-  achievement.Worldview? _loadSavedWorldview() {
+  static achievement.Worldview? _loadSavedWorldview() {
     final id = MMKVUtil.getStringOpt(MMKVKey.worldviewPreference);
     return id == null ? null : achievement.Worldview.fromId(id: id);
   }
+}
 
-  achievement.Worldview _defaultWorldviewFromDeviceLocale() {
-    final locales = WidgetsBinding.instance.platformDispatcher.locales;
-    final countryCode = locales.isNotEmpty
-        ? locales.first.countryCode?.toUpperCase()
-        : null;
+/// Map a system region to a first-use recommendation, independently of language.
+achievement.Worldview defaultWorldviewFromRegion(String region) {
+  return switch (region.trim().toUpperCase()) {
+    'CN' => achievement.Worldview.chn,
+    'US' => achievement.Worldview.usa,
+    _ => achievement.Worldview.iso,
+  };
+}
 
-    return switch (countryCode) {
-      'CN' => achievement.Worldview.chn,
-      'US' => achievement.Worldview.usa,
-      _ => achievement.Worldview.iso,
-    };
+/// Fallback for platforms where a separate device region is unavailable.
+achievement.Worldview defaultWorldviewFromLocales(Iterable<Locale> locales) {
+  for (final locale in locales) {
+    final region = locale.countryCode?.trim();
+    if (region == null || region.isEmpty) continue;
+    return defaultWorldviewFromRegion(region);
   }
+  return achievement.Worldview.iso;
 }
 
 String regionPreferenceTitle(
@@ -93,7 +161,7 @@ String regionPreferenceTitle(
   achievement.Worldview worldview,
 ) {
   return switch (worldview) {
-    achievement.Worldview.chn => context.tr("privacy.region_mainland_china"),
+    achievement.Worldview.chn => context.tr("privacy.region_china"),
     achievement.Worldview.iso => context.tr("privacy.region_international"),
     achievement.Worldview.usa => context.tr("privacy.region_united_states"),
   };
