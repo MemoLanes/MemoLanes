@@ -159,6 +159,8 @@
     "shared_file": {
       "confirm_title": "Import data",
       "confirm_message": "Do you want to import the file: {}?",
+      "busy_title": "Import in progress",
+      "busy_message": "The current file import has not finished. Complete or cancel this import before sharing another file.",
       "multi_message": "You selected multiple files. Only one file can be imported at a time.\nPlease select a single file and try again."
     },
     "unsupported_file_failed": "Unsupported file",

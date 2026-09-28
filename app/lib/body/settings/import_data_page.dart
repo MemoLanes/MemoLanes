@@ -22,10 +22,14 @@ class ImportDataPage extends StatefulWidget {
     super.key,
     required this.path,
     required this.importType,
+    this.onImportContinued,
   });
 
   final String path;
   final ImportType importType;
+
+  /// Reports the final page's lifetime when this entry route is replaced.
+  final ValueChanged<Future<dynamic>>? onImportContinued;
 
   @override
   State<ImportDataPage> createState() => _ImportDataPage();
@@ -82,7 +86,7 @@ class _ImportDataPage extends State<ImportDataPage> {
           f.Right(value: final data) => data,
           f.Left() => throw StateError('Expected vector import data'),
         };
-        await Navigator.of(context).pushReplacement(
+        final previewClosed = Navigator.of(context).pushReplacement(
           MaterialPageRoute(
             builder: (context) => GlobalPopScope(
               child: VectorMultiImportPage(
@@ -93,6 +97,8 @@ class _ImportDataPage extends State<ImportDataPage> {
             ),
           ),
         );
+        widget.onImportContinued?.call(previewClosed);
+        await previewClosed;
         return;
       }
       final hasData = await GlobalLoadingManager.instance.runWithWakelock(
