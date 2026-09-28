@@ -1014,10 +1014,10 @@ packages:
     dependency: "direct main"
     description:
       name: notification_when_app_is_killed
-      sha256: "281c9ff61ef1b426ffef4169bb6193bf518d5e516ad57e340c1b151c52f87687"
+      sha256: "0ebc900d18e5eb1bdfc0eaa11f1b65b5ab3fa6ccbe2f3eeef5d12e5ddf1acffa"
       url: "https://pub.dev"
     source: hosted
-    version: "0.0.9"
+    version: "0.1.0"
   objective_c:
     dependency: transitive
     description:
@@ -1110,18 +1110,18 @@ packages:
     dependency: "direct main"
     description:
       name: permission_handler
-      sha256: fe54465bcc62a4564c6e4db337bbaded6c0c0fa6e10487414436d163114784f6
+      sha256: e6bcecadfe40df6b888141f23cbaf6ba6c3da49fb33f6ff887d060dd48544fbd
       url: "https://pub.dev"
     source: hosted
-    version: "12.0.3"
+    version: "13.0.2"
   permission_handler_android:
     dependency: transitive
     description:
       name: permission_handler_android
-      sha256: "1e3bc410ca1bf84662104b100eb126e066cb55791b7451307f9708d4007350e6"
+      sha256: b1ce660f4d0dcaffdf2605a19544c129fb5adda4e6fd039992ae356c4e437039
       url: "https://pub.dev"
     source: hosted
-    version: "13.0.1"
+    version: "14.1.0"
   permission_handler_apple:
     dependency: transitive
     description:
