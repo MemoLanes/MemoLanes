@@ -2,13 +2,14 @@
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
+import 'package:memolanes/theme/app_colors.dart';
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/common/component/custom_popup.dart';
 import 'package:memolanes/common/component/liquid_glass_surface.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/constants/app_typography.dart';
-import 'package:memolanes/constants/style_constants.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:provider/provider.dart';
 
@@ -41,7 +42,7 @@ class AccuracyDisplay extends StatelessWidget {
             horizontalOffset: -16,
             contentRadius: 24,
             barrierColor: Colors.transparent,
-            contentDecoration: _popupDecoration(),
+            contentDecorationBuilder: _popupDecoration,
             content: PointerInterceptor(child: const _AccuracyPopupContent()),
             child: button,
           );
@@ -50,21 +51,21 @@ class AccuracyDisplay extends StatelessWidget {
     );
   }
 
-  BoxDecoration _popupDecoration() {
+  BoxDecoration _popupDecoration(BuildContext context) {
     return BoxDecoration(
-      color: StyleConstants.glassColor.withValues(
-        alpha: StyleConstants.isDarkMode ? 0.94 : 0.68,
+      color: context.appColors.glassColor.withValues(
+        alpha: context.appColors.mapPopupBackgroundAlpha,
       ),
       borderRadius: BorderRadius.circular(24),
       border: Border.all(
-        color: StyleConstants.glassBorderColor.withValues(
-          alpha: StyleConstants.isDarkMode ? 0.48 : 0.8,
+        color: context.appColors.glassBorderColor.withValues(
+          alpha: context.appColors.mapPopupBorderAlpha,
         ),
       ),
       boxShadow: [
         BoxShadow(
-          color: StyleConstants.shadowColor.withValues(
-            alpha: StyleConstants.isDarkMode ? 0.48 : 0.14,
+          color: context.appColors.shadowColor.withValues(
+            alpha: context.appColors.mapPopupShadowAlpha,
           ),
           blurRadius: 22,
           offset: const Offset(0, 8),
@@ -98,12 +99,12 @@ String getSignalStatus(BuildContext context, AccuracyLevel accuracyLevel) {
   };
 }
 
-Color getStatusColor(AccuracyLevel accuracyLevel) {
+Color getStatusColor(AppColors colors, AccuracyLevel accuracyLevel) {
   return switch (accuracyLevel) {
-    AccuracyLevel.excellent => StyleConstants.statusExcellentColor,
-    AccuracyLevel.good => StyleConstants.statusGoodColor,
-    AccuracyLevel.fair => StyleConstants.statusFairColor,
-    AccuracyLevel.poor => StyleConstants.statusPoorColor,
+    AccuracyLevel.excellent => colors.statusExcellentColor,
+    AccuracyLevel.good => colors.statusGoodColor,
+    AccuracyLevel.fair => colors.statusFairColor,
+    AccuracyLevel.poor => colors.statusPoorColor,
   };
 }
 
@@ -144,7 +145,7 @@ class _AccuracyButton extends StatelessWidget {
                   hasData ? '${accuracy.round()}m\nACC' : 'NO\nGPS',
                   textAlign: TextAlign.center,
                   style: AppTypography.micro.copyWith(
-                    color: StyleConstants.mutedInkColor,
+                    color: context.appColors.mutedInkColor,
                     height: 1.1,
                   ),
                 ),
@@ -153,8 +154,11 @@ class _AccuracyButton extends StatelessWidget {
                 CustomPaint(
                   size: const ui.Size(44, 44),
                   painter: AccuracyTicksPainter(
+                    inactiveColor: context.appColors.mutedInkColor.withValues(
+                      alpha: 0.52,
+                    ),
                     filledTicks: accuracyLevel.filledTicks,
-                    color: getStatusColor(accuracyLevel),
+                    color: getStatusColor(context.appColors, accuracyLevel),
                   ),
                 ),
             ],
@@ -176,7 +180,7 @@ class _AccuracyPopupContent extends StatelessWidget {
         if (position == null) return const SizedBox.shrink();
 
         final accuracyLevel = getAccuracyLevel(position.accuracy);
-        final statusColor = getStatusColor(accuracyLevel);
+        final statusColor = getStatusColor(context.appColors, accuracyLevel);
 
         return GestureDetector(
           onTap: () => Navigator.of(context).pop(),
@@ -196,14 +200,14 @@ class _AccuracyPopupContent extends StatelessWidget {
                         child: Text(
                           '${position.accuracy.round()} m',
                           style: AppTypography.dataValue.copyWith(
-                            color: StyleConstants.inkColor,
+                            color: context.appColors.inkColor,
                           ),
                         ),
                       ),
                       Text(
                         context.tr('home.gps_accuracy'),
                         style: AppTypography.bodyLarge.copyWith(
-                          color: StyleConstants.mutedInkColor,
+                          color: context.appColors.mutedInkColor,
                         ),
                       ),
                     ],
@@ -220,9 +224,7 @@ class _AccuracyPopupContent extends StatelessWidget {
                     child: Text(
                       getSignalStatus(context, accuracyLevel),
                       style: AppTypography.caption.copyWith(
-                        color: StyleConstants.isDarkMode
-                            ? StyleConstants.inverseInkColor
-                            : StyleConstants.surfaceColor,
+                        color: context.appColors.badgeForeground,
                       ),
                     ),
                   ),
@@ -232,13 +234,13 @@ class _AccuracyPopupContent extends StatelessWidget {
               Text(
                 '${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}',
                 style: AppTypography.caption.copyWith(
-                  color: StyleConstants.mutedInkColor,
+                  color: context.appColors.mutedInkColor,
                 ),
               ),
               Text(
                 position.timestamp.toLocal().toString().substring(0, 19),
                 style: AppTypography.caption.copyWith(
-                  color: StyleConstants.mutedInkColor,
+                  color: context.appColors.mutedInkColor,
                 ),
               ),
             ],
@@ -253,7 +255,13 @@ class AccuracyTicksPainter extends CustomPainter {
   final int filledTicks;
   final Color color;
 
-  AccuracyTicksPainter({required this.filledTicks, required this.color});
+  final Color inactiveColor;
+
+  AccuracyTicksPainter({
+    required this.filledTicks,
+    required this.color,
+    required this.inactiveColor,
+  });
 
   @override
   void paint(Canvas canvas, ui.Size size) {
@@ -270,9 +278,7 @@ class AccuracyTicksPainter extends CustomPainter {
     const gapAngle = (totalArcSpan - (tickArcLength * 4)) / 3;
 
     for (int i = 0; i < 4; i++) {
-      paint.color = i < filledTicks
-          ? color
-          : StyleConstants.mutedInkColor.withValues(alpha: 0.52);
+      paint.color = i < filledTicks ? color : inactiveColor;
 
       final tickStartAngle = startAngle + (i * (tickArcLength + gapAngle));
 
@@ -288,6 +294,8 @@ class AccuracyTicksPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant AccuracyTicksPainter oldDelegate) {
-    return oldDelegate.filledTicks != filledTicks || oldDelegate.color != color;
+    return oldDelegate.filledTicks != filledTicks ||
+        oldDelegate.color != color ||
+        oldDelegate.inactiveColor != inactiveColor;
   }
 }

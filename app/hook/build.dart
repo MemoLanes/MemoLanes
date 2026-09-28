@@ -6,10 +6,7 @@ import 'package:path/path.dart' as path;
 
 void main(List<String> args) async {
   await build(args, (input, output) async {
-    final cargoEnvironmentVariables = await _cargoEnvironmentVariablesFor(
-      input: input,
-      output: output,
-    );
+    final cargoEnvironmentVariables = _cargoEnvironmentVariablesFor(input);
 
     await FlutterRustBridgeNativeAssetsBuilder(
       cratePath: 'rust',
@@ -18,10 +15,7 @@ void main(List<String> args) async {
   });
 }
 
-Future<Map<String, String>> _cargoEnvironmentVariablesFor({
-  required BuildInput input,
-  required BuildOutputBuilder output,
-}) async {
+Map<String, String> _cargoEnvironmentVariablesFor(BuildInput input) {
   if (!input.config.buildCodeAssets) {
     return const <String, String>{};
   }
@@ -37,15 +31,11 @@ Future<Map<String, String>> _cargoEnvironmentVariablesFor({
     return const <String, String>{};
   }
 
-  // TODO: Temporary workaround for native_toolchain_rust, which currently does
-  // not forward CodeConfig.iOS.targetVersion as IPHONEOS_DEPLOYMENT_TARGET.
-  final projectFile = input.packageRoot.resolve(
-    'ios/Runner.xcodeproj/project.pbxproj',
-  );
-  output.dependencies.add(projectFile);
-  final deploymentTarget = await _readDeploymentTarget(projectFile);
-
-  return <String, String>{'IPHONEOS_DEPLOYMENT_TARGET': deploymentTarget};
+  // Use the same target as Flutter's generated framework Info.plist. The app
+  // may require a newer iOS version than this library.
+  return <String, String>{
+    'IPHONEOS_DEPLOYMENT_TARGET': '${input.config.code.iOS.targetVersion}.0',
+  };
 }
 
 Map<String, String> _androidCargoEnvironmentVariables(CodeConfig codeConfig) {
@@ -93,35 +83,4 @@ Map<String, String> _androidCargoEnvironmentVariables(CodeConfig codeConfig) {
     'CXX_$targetEnvironmentName': clangPpPath,
     'CARGO_TARGET_${targetEnvironmentName.toUpperCase()}_LINKER': clangPath,
   };
-}
-
-Future<String> _readDeploymentTarget(Uri projectFile) async {
-  final file = File.fromUri(projectFile);
-  if (!await file.exists()) {
-    throw StateError(
-      'Cannot find the iOS Xcode project at ${file.path}. '
-      'Native Assets cannot determine IPHONEOS_DEPLOYMENT_TARGET.',
-    );
-  }
-
-  final deploymentTargets =
-      RegExp(r'IPHONEOS_DEPLOYMENT_TARGET\s*=\s*([0-9]+(?:\.[0-9]+){0,2})\s*;')
-          .allMatches(await file.readAsString())
-          .map((match) => match.group(1)!)
-          .toSet();
-
-  if (deploymentTargets.isEmpty) {
-    throw StateError(
-      'No numeric IPHONEOS_DEPLOYMENT_TARGET was found in ${file.path}. '
-      'Set it in the Xcode project before building Native Assets.',
-    );
-  }
-  if (deploymentTargets.length > 1) {
-    throw StateError(
-      'All iOS targets must use the same IPHONEOS_DEPLOYMENT_TARGET for '
-      'Native Assets. Found: ${deploymentTargets.join(', ')} in ${file.path}.',
-    );
-  }
-
-  return deploymentTargets.single;
 }

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:memolanes/common/component/app_dialog.dart';
-import 'package:memolanes/constants/style_constants.dart';
 
 /// Shows a centered, constrained application card.
 Future<T?> showBasicDialogCard<T>(
@@ -23,7 +22,7 @@ Future<T?> showBasicDialogCard<T>(
       showHeader: showTitle && title != null,
       maxHeightFactor: maxHeightFactor ?? 0.78,
       contentPadding: contentPadding,
-      backgroundColor: backgroundColor ?? StyleConstants.canvasColor,
+      backgroundColor: backgroundColor,
       actions: actions,
       child: builder(dialogContext),
     ),
