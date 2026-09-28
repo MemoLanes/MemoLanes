@@ -24,13 +24,13 @@ class MapStyle {
       id: 'openfreemap',
       url: 'https://tiles.openfreemap.org/styles/liberty',
       copyright: '[OpenFreeMap](https://openfreemap.org) [© OpenMapTiles](https://www.openmaptiles.org/) Data from [OpenStreetMap](https://www.openstreetmap.org/copyright)',
-      fogOpacityByStyle: {MapFogStyle.dark: 0.50, MapFogStyle.light: 0.60},
+      fogOpacityByStyle: {MapFogStyle.dark: 0.50, MapFogStyle.light: 0.50},
     ),
     MapStyle(
       id: 'maplibre',
       url: 'https://demotiles.maplibre.org/style.json',
       copyright: '[MapLibre](https://maplibre.org/)',
-      fogOpacityByStyle: {MapFogStyle.dark: 0.50, MapFogStyle.light: 0.60},
+      fogOpacityByStyle: {MapFogStyle.dark: 0.50, MapFogStyle.light: 0.50},
     ),
   ];
 

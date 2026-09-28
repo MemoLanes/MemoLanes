@@ -1,3 +1,4 @@
+import 'package:memolanes/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_appbar/flutter_appbar.dart' as fappbar;
 import 'package:memolanes/common/component/capsule_style_bar_content.dart';
@@ -17,6 +18,7 @@ class CapsuleStyleOverlayAppBar extends StatelessWidget
     this.backgroundColor,
     this.foregroundColor,
     this.showOnlyBackButton = false,
+    this.surfaceStyle = CapsuleBarSurfaceStyle.solid,
   });
 
   final bool showOnlyBackButton;
@@ -27,6 +29,7 @@ class CapsuleStyleOverlayAppBar extends StatelessWidget
   final Widget? moreIcon;
   final Color? backgroundColor;
   final Color? foregroundColor;
+  final CapsuleBarSurfaceStyle surfaceStyle;
 
   @override
   Size get preferredSize => const Size.fromHeight(
@@ -46,6 +49,7 @@ class CapsuleStyleOverlayAppBar extends StatelessWidget
     Widget? moreMenuContent,
     Widget? moreIcon,
     bool showOnlyBackButton = false,
+    CapsuleBarSurfaceStyle surfaceStyle = CapsuleBarSurfaceStyle.solid,
   }) {
     return _OverlayBarOnly(
       key: key,
@@ -56,6 +60,7 @@ class CapsuleStyleOverlayAppBar extends StatelessWidget
       moreMenuContent: moreMenuContent,
       moreIcon: moreIcon,
       showOnlyBackButton: showOnlyBackButton,
+      surfaceStyle: surfaceStyle,
     );
   }
 
@@ -92,6 +97,7 @@ class CapsuleStyleOverlayAppBar extends StatelessWidget
     Color? backgroundColor,
     Color? foregroundColor,
     bool showOnlyBackButton = false,
+    CapsuleBarSurfaceStyle surfaceStyle = CapsuleBarSurfaceStyle.solid,
   }) {
     return _CapsuleOverlayConnection(
       key: key,
@@ -103,6 +109,7 @@ class CapsuleStyleOverlayAppBar extends StatelessWidget
       backgroundColor: backgroundColor,
       foregroundColor: foregroundColor,
       showOnlyBackButton: showOnlyBackButton,
+      surfaceStyle: surfaceStyle,
       child: child,
     );
   }
@@ -111,17 +118,6 @@ class CapsuleStyleOverlayAppBar extends StatelessWidget
   Widget build(BuildContext context) {
     final padding = MediaQuery.paddingOf(context);
     final topInset = padding.top * 0.8;
-    final barColor = backgroundColor ?? CapsuleBarConstants.defaultBackground;
-    final isLight = barColor.computeLuminance() > 0.5;
-    final pillColor = isLight
-        ? CapsuleBarConstants.lightPillBackground
-        : CapsuleBarConstants.defaultPill;
-    final subtitleFg = isLight
-        ? CapsuleBarConstants.subtitleColorLight
-        : CapsuleBarConstants.defaultSubtitleFg;
-    final borderColor = isLight
-        ? CapsuleBarConstants.barBorderColorLight
-        : CapsuleBarConstants.barBorderColor;
 
     return Container(
       height:
@@ -129,8 +125,10 @@ class CapsuleStyleOverlayAppBar extends StatelessWidget
           CapsuleBarConstants.barContentHeight +
           CapsuleBarConstants.barBottomInset,
       decoration: BoxDecoration(
-        color: barColor,
-        border: Border(bottom: BorderSide(color: borderColor, width: 0.5)),
+        color: backgroundColor ?? context.appColors.canvasColor,
+        border: Border(
+          bottom: BorderSide(color: context.appColors.lineColor, width: 0.5),
+        ),
       ),
       child: Padding(
         padding: EdgeInsets.only(
@@ -144,10 +142,10 @@ class CapsuleStyleOverlayAppBar extends StatelessWidget
           onBack: onBack,
           onMoreTap: onMoreTap,
           moreIcon: moreIcon,
-          foregroundColor:
-              foregroundColor ?? CapsuleBarConstants.defaultForeground,
-          pillColor: pillColor,
-          subtitleFg: subtitleFg,
+          foregroundColor: foregroundColor ?? context.appColors.inkColor,
+          pillColor: context.appColors.surfaceColor,
+          subtitleFg: context.appColors.mutedInkColor,
+          surfaceStyle: surfaceStyle,
         ),
       ),
     );
@@ -164,6 +162,7 @@ class _OverlayBarOnly extends StatelessWidget {
     this.moreMenuContent,
     this.moreIcon,
     this.showOnlyBackButton = false,
+    this.surfaceStyle = CapsuleBarSurfaceStyle.solid,
   });
 
   final String? title;
@@ -173,6 +172,7 @@ class _OverlayBarOnly extends StatelessWidget {
   final Widget? moreMenuContent;
   final Widget? moreIcon;
   final bool showOnlyBackButton;
+  final CapsuleBarSurfaceStyle surfaceStyle;
 
   @override
   Widget build(BuildContext context) {
@@ -201,9 +201,10 @@ class _OverlayBarOnly extends StatelessWidget {
             onMoreTap: onMoreTap,
             moreMenuContent: moreMenuContent,
             moreIcon: moreIcon,
-            foregroundColor: CapsuleBarConstants.defaultForeground,
-            pillColor: CapsuleBarConstants.defaultPill,
-            subtitleFg: CapsuleBarConstants.defaultSubtitleFg,
+            foregroundColor: context.appColors.inkColor,
+            pillColor: context.appColors.surfaceColor,
+            subtitleFg: context.appColors.mutedInkColor,
+            surfaceStyle: surfaceStyle,
           ),
         ),
       ),
@@ -223,6 +224,7 @@ class _CapsuleOverlayConnection extends StatelessWidget {
     this.backgroundColor,
     this.foregroundColor,
     this.showOnlyBackButton = false,
+    this.surfaceStyle = CapsuleBarSurfaceStyle.solid,
   });
 
   final Widget child;
@@ -234,6 +236,7 @@ class _CapsuleOverlayConnection extends StatelessWidget {
   final Color? backgroundColor;
   final Color? foregroundColor;
   final bool showOnlyBackButton;
+  final CapsuleBarSurfaceStyle surfaceStyle;
 
   @override
   Widget build(BuildContext context) {
@@ -258,10 +261,10 @@ class _CapsuleOverlayConnection extends StatelessWidget {
           onBack: onBack,
           onMoreTap: onMoreTap,
           moreIcon: moreIcon,
-          foregroundColor:
-              foregroundColor ?? CapsuleBarConstants.defaultForeground,
-          pillColor: CapsuleBarConstants.defaultPill,
-          subtitleFg: CapsuleBarConstants.defaultSubtitleFg,
+          foregroundColor: foregroundColor ?? context.appColors.inkColor,
+          pillColor: context.appColors.surfaceColor,
+          subtitleFg: context.appColors.mutedInkColor,
+          surfaceStyle: surfaceStyle,
         ),
       ),
     );
