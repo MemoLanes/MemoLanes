@@ -1,13 +1,20 @@
 import 'dart:convert';
 
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:json_annotation/json_annotation.dart';
 import 'package:memolanes/body/map/overlay/journey_overlay.dart';
+import 'package:memolanes/body/map/journey_flow_controller.dart';
+import 'package:memolanes/body/map/overlay/journey_detail_overlay.dart';
 import 'package:memolanes/body/map/overlay/normal_map_overlay.dart';
 import 'package:memolanes/body/map/overlay/time_machine_overlay.dart';
 import 'package:memolanes/common/component/base_map_webview.dart';
+import 'package:memolanes/common/component/capsule_style_overlay_app_bar.dart';
 import 'package:memolanes/common/gps_manager.dart';
+import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/mmkv_util.dart';
+import 'package:memolanes/common/utils.dart';
+import 'package:memolanes/src/rust/journey_header.dart';
 import 'package:memolanes/utils/nav_helper.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:provider/provider.dart';
@@ -44,9 +51,15 @@ class MapState {
 }
 
 class MapBody extends StatefulWidget {
-  const MapBody({super.key, this.mode = MapMode.normal});
+  const MapBody({
+    super.key,
+    this.mode = MapMode.normal,
+    required this.journeys,
+  });
 
   final MapMode mode;
+
+  final JourneyFlowController journeys;
 
   @override
   State<StatefulWidget> createState() => MapBodyState();
@@ -58,7 +71,6 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
   final _mapRendererProxy = api.getMapRendererProxyForMainMap();
   MapView? _roughMapView;
   api.MapRendererProxy? _journeyMapRendererProxy;
-
   TrackingMode _currentTrackingMode = TrackingMode.off;
 
   /// Map tracking controls only belong to Record mode. Timeline and Journeys
@@ -73,6 +85,27 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
 
   void setJourneyMapRendererProxy(api.MapRendererProxy? proxy) {
     setState(() => _journeyMapRendererProxy = proxy);
+  }
+
+  Future<void> _openJourneyDetails(JourneyHeader journey) async {
+    try {
+      await widget.journeys.open(
+        journey,
+        readMapView: () async =>
+            await _mainMapKey.currentState?.getCurrentMapView() ??
+            _roughMapView,
+      );
+      // The detail uses this WebView, but the persisted home camera should
+      // remain the one captured immediately before the journey was opened.
+      if (widget.journeys.session != null) _saveMapState();
+    } catch (error, stackTrace) {
+      log.error('Loading journey map failed: $error', stackTrace);
+      if (!mounted) return;
+      await showCommonDialog(
+        context,
+        context.tr('journey.editor.operation_failed'),
+      );
+    }
   }
 
   Future<void> _syncTrackingModeWithGpsManager() async {
@@ -160,14 +193,14 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
   // TODO: We don't enough time to save if the app got killed. Losing data here
   // is fine but we could consider saving every minute or so.
   void _saveMapState() {
-    final roughMapView = _roughMapView;
-    if (roughMapView == null) return;
+    final mapView = widget.journeys.session?.returnView ?? _roughMapView;
+    if (mapView == null) return;
 
     final mapState = MapState(
       _currentTrackingMode,
-      roughMapView.zoom,
-      roughMapView.lng,
-      roughMapView.lat,
+      mapView.zoom,
+      mapView.lng,
+      mapView.lat,
       0,
     );
 
@@ -197,18 +230,38 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
   Widget _buildMapLayer() {
     // After Time Machine date selection: reuse same WebView, only swap proxy;
     // didUpdateWidget triggers refreshMapData(), no full page reload.
-    final proxy =
-        (widget.mode == MapMode.timeMachine && _journeyMapRendererProxy != null)
+    final session = widget.journeys.session;
+    final proxy = widget.mode == MapMode.journeys && session != null
+        ? session.mapData.$1
+        : (widget.mode == MapMode.timeMachine &&
+              _journeyMapRendererProxy != null)
         ? _journeyMapRendererProxy!
         : _mapRendererProxy;
+    final detailCardPadding =
+        MediaQuery.orientationOf(context) == Orientation.landscape
+        ? 190.0
+        : 330.0;
+    final journeyBounds = session?.mapData.$2;
     final mainMap = BaseMapWebview(
       key: _mainMapKey,
       mapRendererProxy: proxy,
       initialMapView: _roughMapView,
+      flyToBounds: widget.mode == MapMode.journeys ? journeyBounds : null,
+      flyToView: widget.mode == MapMode.journeys
+          ? widget.journeys.returnToView
+          : null,
+      flyToBoundsPadding: journeyBounds == null
+          ? null
+          : CapsuleStyleOverlayAppBar.mapFitPaddingForBottomOverlay(
+              context,
+              edgePadding: 28,
+              bottomOverlayHeight:
+                  detailCardPadding + MediaQuery.viewPaddingOf(context).bottom,
+            ),
       trackingMode: _effectiveTrackingMode,
       onRoughMapViewUpdate: (roughMapView) {
         _roughMapView = roughMapView;
-        _saveMapState();
+        if (widget.journeys.session == null) _saveMapState();
       },
       onMapMoved: () {
         if (widget.mode == MapMode.normal &&
@@ -239,7 +292,18 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
           onJourneyRangeLoaded: setJourneyMapRendererProxy,
         );
       case MapMode.journeys:
-        return const JourneyOverlay();
+        final session = widget.journeys.session;
+        return JourneyOverlay(
+          onJourneySelected: _openJourneyDetails,
+          isLoading: widget.journeys.phase == JourneyPhase.opening,
+          refreshRevision: widget.journeys.pickerRevision,
+          detail: session == null
+              ? null
+              : JourneyDetailOverlay(
+                  key: ValueKey(session.journey.id),
+                  controller: widget.journeys,
+                ),
+        );
     }
   }
 

@@ -13,6 +13,7 @@ import 'package:memolanes/common/share_handler_util.dart';
 import 'package:memolanes/src/rust/api/import.dart';
 import 'package:memolanes/src/rust/frb_generated.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
+import 'package:memolanes/theme/app_theme.dart';
 import 'package:zikzak_share_handler/zikzak_share_handler.dart';
 
 SharedMedia _media(String name) => SharedMedia(
@@ -122,6 +123,7 @@ Widget _app(GlobalKey<NavigatorState> key) => EasyLocalization(
   assetLoader: _Translations(),
   child: Builder(
     builder: (context) => MaterialApp(
+      theme: AppTheme.light,
       navigatorKey: key,
       localizationsDelegates: context.localizationDelegates,
       supportedLocales: context.supportedLocales,

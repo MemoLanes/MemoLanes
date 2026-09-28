@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io' show Platform;
 
+import 'package:memolanes/theme/app_colors.dart';
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/common/component/app_button.dart';
@@ -10,7 +12,6 @@ import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/service/permission_service.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/constants/app_typography.dart';
-import 'package:memolanes/constants/style_constants.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 /// Shows the unified permission request card (layout + copy only).
@@ -193,7 +194,7 @@ class _PermissionRequestSheetContentState
       leading: IconButton(
         icon: Icon(
           Icons.arrow_back_ios,
-          color: StyleConstants.deepGreen,
+          color: context.appColors.deepGreen,
           size: 20,
         ),
         onPressed: _closeSheet,
@@ -286,14 +287,14 @@ class _PermissionTile extends StatelessWidget {
                     padding: EdgeInsets.zero,
                     minimumSize: Size.zero,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    foregroundColor: StyleConstants.deepGreen,
+                    foregroundColor: context.appColors.deepGreen,
                   ),
                   child: Text(
                     context.tr('permission_sheet.open_system_settings'),
                     style: AppTypography.supporting.copyWith(
                       fontWeight: FontWeight.w600,
                       decoration: TextDecoration.underline,
-                      decorationColor: StyleConstants.deepGreen,
+                      decorationColor: context.appColors.deepGreen,
                     ),
                   ),
                 ),
@@ -329,7 +330,7 @@ class _PermissionStatusIndicator extends StatelessWidget {
         child: Center(
           child: Icon(
             Icons.check_circle,
-            color: StyleConstants.deepGreen,
+            color: context.appColors.deepGreen,
             size: 24,
           ),
         ),
@@ -337,7 +338,6 @@ class _PermissionStatusIndicator extends StatelessWidget {
     }
 
     if (isDenied) {
-      final color = StyleConstants.dangerColor;
       return SizedBox(
         width: 52,
         height: 40,
@@ -349,12 +349,18 @@ class _PermissionStatusIndicator extends StatelessWidget {
               width: 30,
               height: 30,
               decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.12),
+                color: context.appColors.dangerColor.withValues(alpha: 0.12),
                 shape: BoxShape.circle,
-                border: Border.all(color: color.withValues(alpha: 0.75)),
+                border: Border.all(
+                  color: context.appColors.dangerColor.withValues(alpha: 0.75),
+                ),
               ),
               alignment: Alignment.center,
-              child: Icon(Icons.close, color: color, size: 18),
+              child: Icon(
+                Icons.close,
+                color: context.appColors.dangerColor,
+                size: 18,
+              ),
             ),
           ),
         ),
@@ -373,17 +379,17 @@ class _PermissionStatusIndicator extends StatelessWidget {
             height: 30,
             padding: const EdgeInsets.symmetric(horizontal: 10),
             decoration: BoxDecoration(
-              color: StyleConstants.deepGreen.withValues(alpha: 0.12),
+              color: context.appColors.deepGreen.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(999),
               border: Border.all(
-                color: StyleConstants.deepGreen.withValues(alpha: 0.75),
+                color: context.appColors.deepGreen.withValues(alpha: 0.75),
               ),
             ),
             alignment: Alignment.center,
             child: Text(
               label,
               style: AppTypography.label.copyWith(
-                color: StyleConstants.deepGreen,
+                color: context.appColors.deepGreen,
               ),
             ),
           ),
@@ -406,7 +412,7 @@ class _PermissionInfoIcon extends StatelessWidget {
       child: Icon(
         Icons.info_outline,
         size: 18.0,
-        color: StyleConstants.mutedInkColor,
+        color: context.appColors.mutedInkColor,
       ),
     );
   }

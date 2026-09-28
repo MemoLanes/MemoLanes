@@ -11,7 +11,7 @@ export interface FogStyle {
 /** Canonical fog palette owned by the map renderer. */
 export const FOG_STYLES: Record<FogStyleId, FogStyle> = {
   dark: { rgba: [0.0, 0.07, 0.16, 0.5] },
-  light: { rgba: [0.75, 0.84, 0.89, 0.6] },
+  light: { rgba: [0.26, 0.33, 0.42, 0.5] },
 };
 
 export const DEFAULT_FOG_STYLE: FogStyleId = "dark";

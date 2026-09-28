@@ -659,11 +659,11 @@ function generatePrecisionTable(
   ): string {
     return `
       <tr>
-        <td style="border: 1px solid #dee2e6; padding: 8px; font-weight: bold;">${label}</td>
-        <td style="border: 1px solid #dee2e6; padding: 8px; text-align: center;">${formatBits(vsFormat)}</td>
-        <td style="border: 1px solid #dee2e6; padding: 8px; font-family: monospace; font-size: 11px;">${formatPrecision(vsFormat)}</td>
-        <td style="border: 1px solid #dee2e6; padding: 8px; text-align: center;">${formatBits(fsFormat)}</td>
-        <td style="border: 1px solid #dee2e6; padding: 8px; font-family: monospace; font-size: 11px;">${formatPrecision(fsFormat)}</td>
+        <td style="border: 1px solid #2b3730; padding: 8px; font-weight: bold;">${label}</td>
+        <td style="border: 1px solid #2b3730; padding: 8px; text-align: center;">${formatBits(vsFormat)}</td>
+        <td style="border: 1px solid #2b3730; padding: 8px; font-family: monospace; font-size: 11px;">${formatPrecision(vsFormat)}</td>
+        <td style="border: 1px solid #2b3730; padding: 8px; text-align: center;">${formatBits(fsFormat)}</td>
+        <td style="border: 1px solid #2b3730; padding: 8px; font-family: monospace; font-size: 11px;">${formatPrecision(fsFormat)}</td>
       </tr>
     `;
   }
@@ -673,17 +673,17 @@ function generatePrecisionTable(
     <h5 style="margin: 10px 0 5px 0;">WebGL Shader Precision (GLSL)</h5>
     <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
       <thead>
-        <tr style="background: #e9ecef;">
-          <th style="border: 1px solid #dee2e6; padding: 8px; text-align: left;">Type</th>
-          <th colspan="2" style="border: 1px solid #dee2e6; padding: 8px; text-align: center;">Vertex Shader</th>
-          <th colspan="2" style="border: 1px solid #dee2e6; padding: 8px; text-align: center;">Fragment Shader</th>
+        <tr style="background: #1c2620;">
+          <th style="border: 1px solid #2b3730; padding: 8px; text-align: left;">Type</th>
+          <th colspan="2" style="border: 1px solid #2b3730; padding: 8px; text-align: center;">Vertex Shader</th>
+          <th colspan="2" style="border: 1px solid #2b3730; padding: 8px; text-align: center;">Fragment Shader</th>
         </tr>
-        <tr style="background: #f8f9fa;">
-          <th style="border: 1px solid #dee2e6; padding: 8px;"></th>
-          <th style="border: 1px solid #dee2e6; padding: 8px; text-align: center;">bits</th>
-          <th style="border: 1px solid #dee2e6; padding: 8px; text-align: center;">precision</th>
-          <th style="border: 1px solid #dee2e6; padding: 8px; text-align: center;">bits</th>
-          <th style="border: 1px solid #dee2e6; padding: 8px; text-align: center;">precision</th>
+        <tr style="background: #151c18;">
+          <th style="border: 1px solid #2b3730; padding: 8px;"></th>
+          <th style="border: 1px solid #2b3730; padding: 8px; text-align: center;">bits</th>
+          <th style="border: 1px solid #2b3730; padding: 8px; text-align: center;">precision</th>
+          <th style="border: 1px solid #2b3730; padding: 8px; text-align: center;">bits</th>
+          <th style="border: 1px solid #2b3730; padding: 8px; text-align: center;">precision</th>
         </tr>
       </thead>
       <tbody>
@@ -695,7 +695,7 @@ function generatePrecisionTable(
         ${createRow("lowp int", precisionFormats.vertexShader.lowpInt, precisionFormats.fragmentShader.lowpInt)}
       </tbody>
     </table>
-    <p style="font-size: 11px; color: #666; margin-top: 8px;">
+    <p style="font-size: 11px; color: #a2ada6; margin-top: 8px;">
       Note: rangeMin/rangeMax represent the log2 of the absolute value of min/max representable values. 
       Precision represents the number of bits of precision. Bits is calculated as: for int types = rangeMin + 1, for float types = precision + log2(rangeMin + 1) + 2.
     </p>

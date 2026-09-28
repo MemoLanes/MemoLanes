@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 
+import 'package:memolanes/theme/app_colors.dart';
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/body/time_machine/time_machine_glass_surface.dart';
@@ -7,7 +9,6 @@ import 'package:memolanes/common/app_haptics.dart';
 import 'package:memolanes/common/component/app_date_picker_dialog.dart';
 import 'package:memolanes/common/simple_date_utils.dart';
 import 'package:memolanes/constants/app_typography.dart';
-import 'package:memolanes/constants/style_constants.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 
 import 'time_ruler.dart';
@@ -517,7 +518,7 @@ class _TimeMachineViewModeAndLayerMenuState
     return VerticalDivider(
       width: _dividerWidth,
       thickness: _dividerWidth,
-      color: StyleConstants.lineColor,
+      color: context.appColors.lineColor,
       indent: 8,
       endIndent: 8,
     );
@@ -535,7 +536,7 @@ class _TimeMachineViewModeAndLayerMenuState
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
             style: AppTypography.sectionLabel.copyWith(
-              color: StyleConstants.mutedInkColor,
+              color: context.appColors.mutedInkColor,
             ),
           ),
         ),
@@ -553,7 +554,7 @@ class _TimeMachineViewModeAndLayerMenuState
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
       child: Material(
         color: isSelected
-            ? StyleConstants.softGreen.withValues(alpha: 0.62)
+            ? context.appColors.softGreen.withValues(alpha: 0.62)
             : Colors.transparent,
         borderRadius: BorderRadius.circular(9),
         child: InkWell(
@@ -569,7 +570,7 @@ class _TimeMachineViewModeAndLayerMenuState
                     Icon(
                       Icons.check_rounded,
                       size: 18,
-                      color: StyleConstants.deepGreen,
+                      color: context.appColors.deepGreen,
                     )
                   else
                     const SizedBox(width: 18, height: 18),
@@ -581,8 +582,10 @@ class _TimeMachineViewModeAndLayerMenuState
                       overflow: TextOverflow.ellipsis,
                       style: AppTypography.itemTitle.copyWith(
                         color: isSelected
-                            ? StyleConstants.deepGreen
-                            : StyleConstants.deepGreen.withValues(alpha: 0.82),
+                            ? context.appColors.deepGreen
+                            : context.appColors.deepGreen.withValues(
+                                alpha: 0.82,
+                              ),
                         fontWeight: isSelected
                             ? FontWeight.w700
                             : FontWeight.w600,
@@ -662,10 +665,11 @@ class TimeRangeControllerBall extends StatelessWidget {
 
   static const double _buttonSize = 60;
   static const double _borderRadius = 12;
-  TextStyle get _contentStyle => AppTypography.sectionLabel.copyWith(
-    color: StyleConstants.deepGreen,
-    fontWeight: FontWeight.w700,
-  );
+  TextStyle _contentStyle(BuildContext context) =>
+      AppTypography.sectionLabel.copyWith(
+        color: context.appColors.deepGreen,
+        fontWeight: FontWeight.w700,
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -697,13 +701,13 @@ class TimeRangeControllerBall extends StatelessWidget {
             child: Text(
               caption,
               style: AppTypography.micro.copyWith(
-                color: StyleConstants.mutedInkColor,
+                color: context.appColors.mutedInkColor,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
           ),
-        Text(mainText, style: _contentStyle),
+        Text(mainText, style: _contentStyle(context)),
       ],
     );
 
@@ -778,7 +782,7 @@ class TimeRangeOverlayPicker extends StatelessWidget {
     final fromValue = _fmt.format(fromDate);
     final toValue = _fmt.format(toDate);
     final valueStyle = AppTypography.label.copyWith(
-      color: StyleConstants.deepGreen,
+      color: context.appColors.deepGreen,
     );
     final widestValue = math.max(
       _singleLineWidth(context, fromValue, valueStyle),
@@ -889,7 +893,7 @@ class _TapTile extends StatelessWidget {
       builder: (context, constraints) {
         final horizontalPadding = compactSpacing ? 4.0 : 10.0;
         final valueStyle = AppTypography.label.copyWith(
-          color: StyleConstants.deepGreen,
+          color: context.appColors.deepGreen,
           fontSize: compactSpacing ? 11 : null,
         );
         final valueWidth = TimeRangeOverlayPicker._singleLineWidth(
@@ -922,7 +926,7 @@ class _TapTile extends StatelessWidget {
                     softWrap: false,
                     overflow: TextOverflow.ellipsis,
                     style: AppTypography.micro.copyWith(
-                      color: StyleConstants.mutedInkColor,
+                      color: context.appColors.mutedInkColor,
                     ),
                   ),
                   SizedBox(height: splitValue ? 0 : 2),

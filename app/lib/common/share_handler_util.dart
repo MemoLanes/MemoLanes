@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show lerpDouble;
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -8,7 +9,7 @@ import 'package:memolanes/common/component/app_dialog.dart';
 import 'package:memolanes/common/component/common_dialog.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/common/log.dart';
-import 'package:memolanes/constants/style_constants.dart';
+import 'package:memolanes/theme/app_colors.dart';
 import 'package:memolanes/utils/nav_helper.dart';
 import 'package:path/path.dart' as p;
 import 'package:pointer_interceptor/pointer_interceptor.dart';
@@ -103,8 +104,8 @@ class ShareHandlerUtil {
         children: [
           ModalBarrier(
             dismissible: false,
-            color: StyleConstants.shadowColor.withValues(
-              alpha: StyleConstants.isDarkMode ? 0.58 : 0.22,
+            color: context.appColors.shadowColor.withValues(
+              alpha: lerpDouble(0.22, 0.58, context.appColors.darkProgress)!,
             ),
           ),
           Dialog(
