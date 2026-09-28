@@ -790,6 +790,24 @@ impl Block {
         // Create a new bitarray for mipmaps (only mipmap levels, not including original data)
         let mut mipmap = bitarr![u8, Msb0; 0; MIPMAP_BIT_SIZE];
 
+        // Below 1/32 (3.125%) source occupancy, scatter each occupied pixel
+        // directly into all six ancestor levels. Counting once and retaining
+        // the dense path avoids repeated writes becoming costly on fuller blocks.
+        if self.count() < (BITMAP_WIDTH * BITMAP_WIDTH / 32) as u32 {
+            for index in self.data.view_bits::<Msb0>().iter_ones() {
+                let mut x = index % BITMAP_WIDTH as usize;
+                let mut y = index / BITMAP_WIDTH as usize;
+                let mut offset = 0;
+                for dim in MIPMAP_LEVELS {
+                    x /= 2;
+                    y /= 2;
+                    mipmap.set(offset + y * dim + x, true);
+                    offset += dim * dim;
+                }
+            }
+            return mipmap;
+        }
+
         let mut mipmap_offset = 0;
 
         let mut src_offset: Option<usize> = None; // None means read from original data
@@ -1034,7 +1052,64 @@ impl Block {
 
 #[cfg(test)]
 mod tests {
-    use crate::journey_bitmap::{Block, BlockKey};
+    use crate::journey_bitmap::{Block, BlockKey, BITMAP_SIZE, MIPMAP_LEVELS};
+
+    #[test]
+    fn regenerated_mipmaps_preserve_every_single_pixel() {
+        for index in 0..4096 {
+            let mut data = [0; BITMAP_SIZE];
+            data[index / 8] = 1 << (7 - index % 8);
+            let block = Block::new_with_data(data);
+            let mipmap = block.regenerate_mipmaps();
+            // Exactly one occupied ancestor in each level, with no stray bits.
+            assert_eq!(mipmap.count_ones(), MIPMAP_LEVELS.len(), "pixel={index}");
+            let mut offset = 0;
+            for dim in MIPMAP_LEVELS {
+                let x = (index % 64) * dim / 64;
+                let y = (index / 64) * dim / 64;
+                assert!(mipmap[offset + y * dim + x], "pixel={index}, dim={dim}");
+                offset += dim * dim;
+            }
+        }
+    }
+
+    #[test]
+    fn regenerated_mipmaps_match_source_regions_at_varied_densities() {
+        // Include both sides of the 128-pixel cutoff, empty and full blocks,
+        // and clustered/dispersed inputs with exactly the requested occupancy.
+        for occupied in [0, 1, 127, 128, 129, 2048, 4096] {
+            for clustered in [false, true] {
+                let mut data = [0; BITMAP_SIZE];
+                for i in 0..occupied {
+                    let index = if clustered { i } else { (i * 7919) % 4096 };
+                    data[index / 8] |= 1 << (7 - index % 8);
+                }
+                let block = Block::new_with_data(data);
+                assert_eq!(block.count(), occupied as u32);
+                let mipmap = block.regenerate_mipmaps();
+                let mut offset = 0;
+                for dim in MIPMAP_LEVELS {
+                    let scale = 64 / dim;
+                    for y in 0..dim {
+                        for x in 0..dim {
+                            // Read the original footprint independently of all
+                            // generated levels, rather than repeating either path.
+                            let expected = (y * scale..(y + 1) * scale).any(|sy| {
+                                (x * scale..(x + 1) * scale)
+                                    .any(|sx| block.is_visited(sx as u8, sy as u8))
+                            });
+                            assert_eq!(
+                                mipmap[offset + y * dim + x],
+                                expected,
+                                "occupied={occupied}, clustered={clustered}, dim={dim}, x={x}, y={y}"
+                            );
+                        }
+                    }
+                    offset += dim * dim;
+                }
+            }
+        }
+    }
 
     #[test]
     fn block_key_conversion() {

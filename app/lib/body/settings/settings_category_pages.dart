@@ -1,3 +1,5 @@
+import 'package:memolanes/body/settings/appearance_picker.dart';
+import 'package:memolanes/common/app_theme_controller.dart';
 import 'package:badges/badges.dart' as badges;
 import 'package:easy_localization/easy_localization.dart';
 import 'package:file_picker/file_picker.dart';
@@ -22,7 +24,7 @@ import 'package:memolanes/common/update_notifier.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/body/settings/settings_section.dart';
 import 'package:memolanes/constants/app_typography.dart';
-import 'package:memolanes/constants/style_constants.dart';
+import 'package:memolanes/theme/app_colors.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/utils/nav_helper.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -108,18 +110,20 @@ class _JourneyRecordingSettingsPageState
     bool value,
     GpsManager gpsManager,
   ) async {
-    if (value && !await Permission.notification.isGranted) {
+    if (value) {
+      final granted = await Permission.notification.isGranted;
       if (!context.mounted) return;
-      setState(() => _notificationEnabled = false);
-      if (!context.mounted) return;
-      await showCommonDialog(
-        context,
-        context.tr(
-          'unexpected_exit_notification.notification_permission_denied',
-        ),
-      );
-      await Geolocator.openAppSettings();
-      return;
+      if (!granted) {
+        setState(() => _notificationEnabled = false);
+        await showCommonDialog(
+          context,
+          context.tr(
+            'unexpected_exit_notification.notification_permission_denied',
+          ),
+        );
+        await Geolocator.openAppSettings();
+        return;
+      }
     }
     MMKVUtil.putBool(MMKVKey.isUnexpectedExitNotificationEnabled, value);
     setState(() => _notificationEnabled = value);
@@ -221,8 +225,19 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
             title: context.tr('settings.groups.appearance'),
             children: [
               LabelTile(
-                label: context.tr('settings.language.title'),
+                label: context.tr('general.appearance.title'),
                 position: LabelTilePosition.top,
+                trailing: LabelTileContent(
+                  content: context.tr(
+                    'general.appearance.mode_name.${context.watch<AppThemeController>().preference.id}',
+                  ),
+                  showArrow: true,
+                ),
+                onTap: () => showAppearancePicker(context),
+              ),
+              LabelTile(
+                label: context.tr('settings.language.title'),
+                position: LabelTilePosition.middle,
                 trailing: LabelTileContent(
                   content: _languageLabel(context),
                   showArrow: true,
@@ -325,13 +340,13 @@ class _DataManagementSettingsPageState
               LabelTile(
                 label: context.tr('journey.delete_all'),
                 labelStyle: AppTypography.itemTitle.copyWith(
-                  color: StyleConstants.dangerInkColor,
+                  color: context.appColors.dangerInkColor,
                 ),
-                prefix: const Padding(
-                  padding: EdgeInsets.only(right: 12),
+                prefix: Padding(
+                  padding: const EdgeInsets.only(right: 12),
                   child: Icon(
                     Icons.delete_outline_rounded,
-                    color: StyleConstants.dangerInkColor,
+                    color: context.appColors.dangerInkColor,
                     size: 20,
                   ),
                 ),
@@ -405,6 +420,7 @@ class _DataManagementSettingsPageState
         )) {
       return;
     }
+    if (!mounted) return;
     await showLoadingDialog(asyncTask: api.optimizeMainDb());
     if (mounted) {
       await showCommonDialog(context, context.tr('db_optimization.finish'));
@@ -562,17 +578,13 @@ class _AboutSettingsPageState extends State<AboutSettingsPage> {
                           shape: badges.BadgeShape.square,
                           borderRadius: BorderRadius.circular(5),
                           padding: const EdgeInsets.all(2),
-                          badgeGradient: const badges.BadgeGradient.linear(
-                            colors: [
-                              Color(0xFFB7CC1F),
-                              Color(0xFFB6E13D),
-                              Color(0xFFB7CC1F),
-                            ],
-                          ),
+                          badgeColor: context.appColors.deepGreen,
                         ),
-                        badgeContent: const Text(
+                        badgeContent: Text(
                           'NEW',
-                          style: TextStyle(color: Colors.white, fontSize: 8),
+                          style: AppTypography.badge.copyWith(
+                            color: context.appColors.inverseInkColor,
+                          ),
                         ),
                         child: LabelTileContent(content: _version),
                       )

@@ -21,11 +21,7 @@ import {
   isMapboxURL,
   transformMapboxUrl,
 } from "maplibregl-mapbox-request-transformer";
-import {
-  AVAILABLE_LAYERS,
-  type ReactiveParams,
-  type ProjectionType,
-} from "./params";
+import { AVAILABLE_LAYERS, type ReactiveParams } from "./params";
 import { JourneyTileProvider } from "./journey-tile-provider";
 import { getFogStyle } from "./fog-style";
 import { detectMapLocale, type MapLocale } from "./map-locale";
@@ -33,6 +29,11 @@ import { transformStyleWithProjection } from "./utils";
 import { JOURNEY_LAYER_ID } from "./layers/journey-layer-interface";
 import type { JourneyLayer } from "./layers/journey-layer-interface";
 import { MAX_MAP_ZOOM } from "./layer-config";
+import { waitForRenderedFrame } from "./display-ready";
+import {
+  PLACEHOLDER_STYLE_METADATA_KEY,
+  StyleLoadRetry,
+} from "./style-load-retry";
 
 const DATA_POLL_INTERVAL_MS = 1_000;
 
@@ -75,7 +76,7 @@ export class MapController {
   private DisableAutoRefresh: boolean;
   private currentJourneyLayer: JourneyLayer | null = null;
   private journeyTileProvider: JourneyTileProvider | null = null;
-  private styleRetryIntervalId: ReturnType<typeof setInterval> | null = null;
+  private styleLoadRetry: StyleLoadRetry | null = null;
   private pollIntervalId: ReturnType<typeof setInterval> | null = null;
   private webGLContextLost = false;
   private webGLContextLossCount = 0;
@@ -110,6 +111,7 @@ export class MapController {
       maxZoom: MAX_MAP_ZOOM,
       style: {
         version: 8,
+        metadata: { [PLACEHOLDER_STYLE_METADATA_KEY]: true },
         sources: {},
         layers: [
           {
@@ -239,22 +241,12 @@ export class MapController {
    * Build the transform request function for Mapbox URL transformation
    */
   private buildTransformRequest(): RequestTransformFunction {
-    if (this.params.requiresMapboxToken && this.params.accessKey) {
-      return (url: string, resourceType?: ResourceType) => {
-        if (isMapboxURL(url)) {
-          // transformMapboxUrl expects ResourceType to be string, safe to cast
-          return transformMapboxUrl(
-            url,
-            resourceType as any,
-            this.params.accessKey!,
-          );
-        }
-        return { url };
-      };
-    }
-
-    return (url: string, _resourceType?: ResourceType) => {
-      return { url };
+    return (url: string, resourceType?: ResourceType) => {
+      return this.params.requiresMapboxToken &&
+        this.params.accessKey &&
+        isMapboxURL(url)
+        ? transformMapboxUrl(url, resourceType as any, this.params.accessKey)
+        : { url };
     };
   }
 
@@ -272,10 +264,6 @@ export class MapController {
           this.map,
           this.params,
         );
-
-        // Initial tile buffer load
-        await this.journeyTileProvider.waitForTileBufferUpdate();
-        console.log("initial tile buffer loaded");
 
         // Register hooks for reactive property changes
         this.registerParamsHooks();
@@ -295,10 +283,17 @@ export class MapController {
         }
 
         // Apply the actual map style (deferred until journey layer is added)
+        this.styleLoadRetry = new StyleLoadRetry(
+          this.map,
+          () => this.applyMapStyle(),
+          () => !this.webGLContextLost,
+        );
         this.applyMapStyle();
 
-        // Set up retry logic for failed style loads
-        this.setupStyleRetryLogic();
+        // The provider has already started loading. Let the basemap load
+        // overlap tile-buffer preparation before waiting for the initial data.
+        await this.journeyTileProvider.waitForTileBufferUpdate();
+        console.log("initial tile buffer loaded");
 
         // Workaround: WebView may report stale GL surface dimensions
         // when the app starts, causing the canvas to
@@ -316,6 +311,19 @@ export class MapController {
    */
   getMap(): MaplibreMap {
     return this.map;
+  }
+
+  /** Wait for a displayable frame from whichever renderer is currently active. */
+  waitForDisplay(): Promise<void> {
+    return waitForRenderedFrame(this.map, () => {
+      const layer = this.currentJourneyLayer;
+      return (
+        !this.webGLContextLost &&
+        !!this.map.getLayer(JOURNEY_LAYER_ID) &&
+        layer !== null &&
+        layer.isReadyForDisplay()
+      );
+    });
   }
 
   /**
@@ -445,15 +453,7 @@ export class MapController {
       console.log(
         `[MapController] projection changed: ${oldProjection} -> ${newProjection}`,
       );
-      this.map.setStyle(this.params.mapStyle, {
-        transformStyle: (previousStyle: any, nextStyle: any) =>
-          transformStyleWithProjection(
-            previousStyle,
-            nextStyle,
-            newProjection as ProjectionType,
-            this.mapLocale,
-          ),
-      });
+      this.applyMapStyle();
     });
   }
 
@@ -490,32 +490,13 @@ export class MapController {
    */
   private applyMapStyle(): void {
     this.map.setStyle(this.params.mapStyle, {
-      transformStyle: (previousStyle: any, nextStyle: any) =>
+      transformStyle: (_previousStyle: any, nextStyle: any) =>
         transformStyleWithProjection(
-          previousStyle,
           nextStyle,
           this.params.projection,
           this.mapLocale,
         ),
     });
-  }
-
-  /**
-   * Set up retry logic for failed style loads
-   * This handles cases where network access fails (e.g., mainland China iPhones)
-   */
-  private setupStyleRetryLogic(): void {
-    this.styleRetryIntervalId = setInterval(() => {
-      if (this.webGLContextLost) {
-        return;
-      }
-
-      const layerCount = this.map.getLayersOrder().length;
-      if (layerCount <= 1) {
-        console.log("Re-attempting to load map style");
-        this.applyMapStyle();
-      }
-    }, 8 * 1000);
   }
 
   /**
@@ -577,10 +558,8 @@ export class MapController {
   destroy(): void {
     this.map.off("webglcontextlost", this.handleWebGLContextLost);
     this.map.off("webglcontextrestored", this.handleWebGLContextRestored);
-    if (this.styleRetryIntervalId) {
-      clearInterval(this.styleRetryIntervalId);
-      this.styleRetryIntervalId = null;
-    }
+    this.styleLoadRetry?.dispose();
+    this.styleLoadRetry = null;
     this.clearAutoRefreshInterval();
     if (this.currentJourneyLayer) {
       this.currentJourneyLayer.remove();

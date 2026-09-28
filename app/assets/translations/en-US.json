@@ -50,6 +50,7 @@
     "save": "Save",
     "share": "Share",
     "export": "Export",
+    "more": "More",
     "edit": "Edit",
     "delete": "Delete",
     "reset": "Reset",
@@ -68,6 +69,8 @@
     "exit": "Exit"
   },
   "journey": {
+    "picker_title": "Choose a journey",
+    "picker_subtitle": "Choose a date, then select a journey to view or edit",
     "editor_overview_title": "Edit journeys",
     "records_title": "Journeys on this day",
     "editor": {
@@ -106,7 +109,6 @@
     "delete_journey_title": "Delete Journey",
     "delete_journey_message": "Delete this journey record?",
     "stop_ongoing_journey": "Please stop the current ongoing journey before this operation.",
-    "delete_all_title": "Delete All Journeys",
     "delete_all_journey_message": "This will delete all journeys in this app. Are you sure?",
     "journey_info_page_title": "Journey Information",
     "journey_info_edit_page_title": "Edit Journey Information",
@@ -121,7 +123,8 @@
     "created_at": "Created At",
     "note": "Note",
     "finalize_saved": "New journey added",
-    "finalize_empty": "No journey detected"
+    "finalize_empty": "No journey detected",
+    "delete_all_title": "Delete All Journeys"
   },
   "db_optimization": {
     "notification": "Your database requires optimization. Go to [Settings] > [Data] > [Optimize database].",
@@ -302,6 +305,14 @@
       "reset_local_prefs": "Reset Preferences",
       "reset_local_prefs_message": "This will reset all preferences and immediately shut down the app. Journey data will not be deleted.",
       "render_diagnostics": "Render Diagnostics"
+    },
+    "appearance": {
+      "title": "Appearance",
+      "mode_name": {
+        "system": "Follow System",
+        "light": "Light Mode",
+        "dark": "Dark Mode"
+      }
     }
   },
   "data": {
@@ -314,6 +325,7 @@
     },
     "import_data": {
       "title": "Import data",
+      "description": "Choose the data source and format you want to import.",
       "mldx_desc": "Restore a backup or migrate MemoLanes data",
       "vector_desc": "Supports GPX, KML, and CSV track files",
       "fog_of_world_desc": "Supports ZIP and FWSS data"
@@ -340,16 +352,35 @@
     }
   },
   "settings": {
-    "title": "Settings",
     "other": "Other",
     "about": "About",
+    "page_title": "Settings",
+    "title": "Settings",
     "categories": {
-      "journey_recording": {"title": "Journey & Recording", "desc": "Recording notifications and interruption alerts"},
-      "map": {"title": "Map Settings", "desc": "Map style, fog mode, and region"},
-      "appearance": {"title": "Appearance", "desc": "Language and haptic feedback"},
-      "data": {"title": "Data", "desc": "Import, export, and maintenance"},
-      "advanced": {"title": "Advanced", "desc": "Diagnostics, location status, and reset options"},
-      "about": {"title": "About MemoLanes", "desc": "Version information, privacy, and contact"}
+      "journey_recording": {
+        "title": "Journey & Recording",
+        "desc": "Recording notifications and interruption alerts"
+      },
+      "map": {
+        "title": "Map Settings",
+        "desc": "Map style, fog mode, and region"
+      },
+      "appearance": {
+        "title": "Appearance",
+        "desc": "Theme, language and haptic feedback"
+      },
+      "data": {
+        "title": "Data",
+        "desc": "Import, export, and maintenance"
+      },
+      "advanced": {
+        "title": "Advanced",
+        "desc": "Diagnostics, location status, and reset options"
+      },
+      "about": {
+        "title": "About MemoLanes",
+        "desc": "Version information, privacy, and contact"
+      }
     },
     "groups": {
       "recording_protection": "Recording Protection",

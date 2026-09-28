@@ -42,6 +42,7 @@ export class JourneyCanvasLayer implements JourneyLayer {
     coverage: Uint8Array;
   };
   private _repaintCallback?: TileBufferCallback;
+  private canvasPrepared = false;
 
   constructor(
     map: maplibregl.Map,
@@ -130,6 +131,14 @@ export class JourneyCanvasLayer implements JourneyLayer {
         [0, 0],
       ],
     };
+  }
+
+  isReadyForDisplay(): boolean {
+    return (
+      this.canvasPrepared &&
+      !!this.map.getSource(this.sourceId) &&
+      this.map.isSourceLoaded(this.sourceId)
+    );
   }
 
   redrawCanvas(
@@ -287,9 +296,11 @@ export class JourneyCanvasLayer implements JourneyLayer {
     ]);
     mainCanvasSource?.play();
     mainCanvasSource?.pause();
+    this.canvasPrepared = !!mainCanvasSource;
   }
 
   remove(): void {
+    this.canvasPrepared = false;
     if (this.map.getLayer(this.layerId)) {
       this.map.removeLayer(this.layerId);
     }

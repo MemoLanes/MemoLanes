@@ -7,17 +7,24 @@ import 'package:memolanes/body/settings/settings_section.dart';
 import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
 import 'package:memolanes/constants/app_typography.dart';
-import 'package:memolanes/constants/style_constants.dart';
+import 'package:memolanes/theme/app_colors.dart';
 import 'package:memolanes/utils/nav_helper.dart';
 
 class SettingsBody extends StatelessWidget {
-  const SettingsBody({super.key});
+  const SettingsBody({
+    super.key,
+    required this.topSafeArea,
+    required this.bottomSafeArea,
+  });
+
+  final double topSafeArea;
+  final double bottomSafeArea;
 
   @override
   Widget build(BuildContext context) {
     return SettingsPageLayout(
-      topPadding: 24,
-      bottomPadding: StyleConstants.navBarSafeArea + 16,
+      topPadding: topSafeArea + 24,
+      bottomPadding: bottomSafeArea + 16,
       children: [
         SizedBox(
           width: double.infinity,
@@ -25,7 +32,7 @@ class SettingsBody extends StatelessWidget {
             context.tr('settings.title'),
             textAlign: TextAlign.left,
             style: AppTypography.pageTitle.copyWith(
-              color: StyleConstants.inkColor,
+              color: context.appColors.inkColor,
             ),
           ),
         ),
@@ -38,7 +45,7 @@ class SettingsBody extends StatelessWidget {
               'journey_recording',
               const JourneyRecordingSettingsPage(),
               Icons.route_rounded,
-              StyleConstants.journeyYellow,
+              context.appColors.deepYellow,
               LabelTilePosition.top,
             ),
             _categoryTile(
@@ -46,7 +53,7 @@ class SettingsBody extends StatelessWidget {
               'map',
               const MapSettingsPage(),
               Icons.map_outlined,
-              StyleConstants.primaryGreen,
+              context.appColors.deepGreen,
               LabelTilePosition.middle,
             ),
             _categoryTile(
@@ -54,7 +61,7 @@ class SettingsBody extends StatelessWidget {
               'appearance',
               const AppearanceSettingsPage(),
               Icons.tune_rounded,
-              StyleConstants.journeyYellow,
+              context.appColors.deepYellow,
               LabelTilePosition.bottom,
             ),
           ],
@@ -67,7 +74,7 @@ class SettingsBody extends StatelessWidget {
               'data',
               const DataManagementSettingsPage(),
               Icons.inventory_2_outlined,
-              StyleConstants.primaryGreen,
+              context.appColors.deepGreen,
               LabelTilePosition.top,
             ),
             _categoryTile(
@@ -75,7 +82,7 @@ class SettingsBody extends StatelessWidget {
               'advanced',
               const AdvancedSettingsPage(),
               Icons.build_outlined,
-              StyleConstants.journeyYellow,
+              context.appColors.deepYellow,
               LabelTilePosition.bottom,
             ),
           ],
@@ -88,7 +95,7 @@ class SettingsBody extends StatelessWidget {
               'about',
               const AboutSettingsPage(),
               Icons.info_outline_rounded,
-              StyleConstants.primaryGreen,
+              context.appColors.deepGreen,
               LabelTilePosition.single,
             ),
           ],
@@ -108,12 +115,12 @@ class SettingsBody extends StatelessWidget {
     return LabelTile(
       label: context.tr('settings.categories.$key.title'),
       labelStyle: AppTypography.cardTitle.copyWith(
-        color: StyleConstants.inkColor,
+        color: context.appColors.inkColor,
       ),
       desc: context.tr('settings.categories.$key.desc'),
       descMaxLines: 1,
       descStyle: AppTypography.caption.copyWith(
-        color: StyleConstants.mutedInkColor,
+        color: context.appColors.mutedInkColor,
       ),
       minHeight: 64,
       position: position,

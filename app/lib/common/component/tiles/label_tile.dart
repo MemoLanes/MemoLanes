@@ -1,4 +1,6 @@
+import 'package:memolanes/theme/app_colors.dart';
 import 'package:flutter/material.dart';
+import 'package:memolanes/constants/app_typography.dart';
 
 enum LabelTilePosition { single, top, middle, bottom }
 
@@ -9,8 +11,8 @@ class LabelTile extends StatelessWidget {
     required this.label,
     this.labelStyle,
     this.desc = '',
-    this.descMaxLines = 1,
     this.descStyle,
+    this.descMaxLines = 1,
     this.prefix,
     this.suffix,
     this.trailing,
@@ -32,9 +34,9 @@ class LabelTile extends StatelessWidget {
 
   final String desc;
 
-  final int descMaxLines;
-
   final TextStyle? descStyle;
+
+  final int descMaxLines;
 
   final Widget? prefix;
 
@@ -78,48 +80,59 @@ class LabelTile extends StatelessWidget {
       borderRadius = borderRadius.copyWith(topLeft: radius, topRight: radius);
     }
 
-    final labelContent = GestureDetector(
-      onTap: infoLabelOnTap,
-      child: Row(
-        children: [
-          Flexible(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: labelStyle,
+    List<Widget> children = [
+      Expanded(
+        child: GestureDetector(
+          onTap: infoLabelOnTap,
+          child: Row(
+            children: [
+              Flexible(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style:
+                          labelStyle ??
+                          AppTypography.itemTitle.copyWith(
+                            color: context.appColors.inkColor,
+                          ),
+                    ),
+                    if (desc.isNotEmpty)
+                      Text(
+                        desc,
+                        maxLines: descMaxLines,
+                        overflow: TextOverflow.ellipsis,
+                        style:
+                            descStyle ??
+                            AppTypography.caption.copyWith(
+                              color: context.appColors.mutedInkColor,
+                            ),
+                      ),
+                  ],
                 ),
-                if (desc.isNotEmpty)
-                  Text(
-                    desc,
-                    maxLines: descMaxLines,
-                    overflow: TextOverflow.ellipsis,
-                    style: descStyle,
-                  ),
+              ),
+              if (infoLabelOnTap != null) ...[
+                const SizedBox(width: 6),
+                Icon(
+                  Icons.info_outline,
+                  size: 18.0,
+                  color: context.appColors.mutedInkColor,
+                ),
               ],
-            ),
+            ],
           ),
-          if (infoLabelOnTap != null) ...[
-            const SizedBox(width: 6),
-            const Icon(
-              Icons.info_outline,
-              size: 18.0,
-              color: Color(0x99FFFFFF),
-            ),
-          ],
-        ],
+        ),
       ),
-    );
-    final children = <Widget>[
-      ?prefix,
-      Expanded(child: labelContent),
-      ?suffix,
-      ?trailing,
     ];
+    if (prefix != null) children.insert(0, prefix!);
+    if (suffix != null) children.add(suffix!);
+    if (trailing != null) {
+      children.add(trailing!);
+    }
 
     return Container(
       margin: margin,
@@ -138,10 +151,20 @@ class LabelTile extends StatelessWidget {
                   minHeight: minHeight,
                 ),
                 child: Ink(
-                  padding: EdgeInsets.symmetric(horizontal: 16.0),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
-                    color: const Color(0x1AFFFFFF),
+                    color: context.appColors.surfaceColor,
                     borderRadius: borderRadius,
+                    border: Border(
+                      bottom:
+                          position == LabelTilePosition.top ||
+                              position == LabelTilePosition.middle
+                          ? BorderSide(color: context.appColors.lineColor)
+                          : BorderSide.none,
+                    ),
                   ),
                   child: IntrinsicHeight(
                     child: Row(

@@ -2,3 +2,7 @@ rust_input: rust/src/api/**/*.rs
 dart_output: lib/src/rust
 c_output: frb_generated.h
 dart_format_line_length: 80
+
+# Use FRB's default CST/DCO codec. It has better performance for `MapRendererProxy::handle_request`
+full_dep: true
+default_rust_opaque_codec: Moi

@@ -48,12 +48,12 @@ Future<bool> showCommonDialog(
           DialogButton(
             text: resolvedCancelButtonText,
             variant: AppButtonVariant.secondary,
-            onPressed: () => Navigator.of(dialogContext).pop(false),
+            onPressed: () => popCurrentRoute(dialogContext, false),
           ),
         DialogButton(
           text: resolvedConfirmButtonText,
           variant: confirmVariant,
-          onPressed: () => Navigator.of(dialogContext).pop(true),
+          onPressed: () => popCurrentRoute(dialogContext, true),
         ),
       ],
       markdown: markdown,

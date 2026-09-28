@@ -50,6 +50,7 @@
     "save": "保存",
     "share": "分享",
     "export": "导出",
+    "more": "更多",
     "edit": "编辑",
     "delete": "删除",
     "reset": "重置",
@@ -68,6 +69,8 @@
     "exit": "退出应用"
   },
   "journey": {
+    "picker_title": "选择旅途",
+    "picker_subtitle": "选择日期，再选择要查看或编辑的旅途",
     "editor_overview_title": "编辑旅途",
     "records_title": "当日记录",
     "editor": {
@@ -104,9 +107,8 @@
     },
     "journey_date_is_empty": "旅程日期是空的",
     "delete_journey_title": "删除旅程",
-    "delete_journey_message": "确认删除该旅程记录?",
+    "delete_journey_message": "确认删除该旅程记录？",
     "stop_ongoing_journey": "在此操作之前，请先停止当前正在进行的旅程。",
-    "delete_all_title": "删除所有旅程",
     "delete_all_journey_message": "这将删除此应用中的所有旅程，您确定吗？",
     "journey_info_page_title": "旅程信息",
     "journey_info_edit_page_title": "编辑旅程信息",
@@ -121,7 +123,8 @@
     "created_at": "创建时间",
     "note": "备注",
     "finalize_saved": "新增旅程",
-    "finalize_empty": "未检测到新旅程"
+    "finalize_empty": "未检测到新旅程",
+    "delete_all_title": "删除所有旅程"
   },
   "db_optimization": {
     "notification": "你的数据库需要优化，请前往「设置」>「数据管理」>「优化数据库」。",
@@ -302,6 +305,14 @@
       "reset_local_prefs": "重置偏好设置",
       "reset_local_prefs_message": "该操作会重置所有偏好设置并立即关闭应用。不会删除旅程数据。",
       "render_diagnostics": "渲染诊断"
+    },
+    "appearance": {
+      "title": "外观",
+      "mode_name": {
+        "system": "跟随系统",
+        "light": "浅色模式",
+        "dark": "深色模式"
+      }
     }
   },
   "data": {
@@ -314,6 +325,7 @@
     },
     "import_data": {
       "title": "导入数据",
+      "description": "选择要导入的数据来源与格式。",
       "mldx_desc": "用于恢复备份或迁移迹忆数据",
       "vector_desc": "支持 GPX、KML 和 CSV 轨迹文件",
       "fog_of_world_desc": "支持 ZIP 和 FWSS 数据"
@@ -340,16 +352,35 @@
     }
   },
   "settings": {
-    "title": "设置",
     "other": "其他",
     "about": "关于",
+    "page_title": "设置",
+    "title": "设置",
     "categories": {
-      "journey_recording": {"title": "旅途与录制", "desc": "录制通知与中断提醒"},
-      "map": {"title": "地图设置", "desc": "地图样式、遮罩模式与地区偏好"},
-      "appearance": {"title": "界面外观", "desc": "语言与触感反馈"},
-      "data": {"title": "数据管理", "desc": "数据导入、导出与维护"},
-      "advanced": {"title": "高级设置", "desc": "诊断信息、定位状态与设置重置"},
-      "about": {"title": "关于迹忆", "desc": "版本信息、隐私政策与联系我们"}
+      "journey_recording": {
+        "title": "旅途与录制",
+        "desc": "录制通知与中断提醒"
+      },
+      "map": {
+        "title": "地图设置",
+        "desc": "地图样式、遮罩模式与地区偏好"
+      },
+      "appearance": {
+        "title": "界面外观",
+        "desc": "主题、语言与触感反馈"
+      },
+      "data": {
+        "title": "数据管理",
+        "desc": "数据导入、导出与维护"
+      },
+      "advanced": {
+        "title": "高级设置",
+        "desc": "诊断信息、定位状态与设置重置"
+      },
+      "about": {
+        "title": "关于迹忆",
+        "desc": "版本信息、隐私政策与联系我们"
+      }
     },
     "groups": {
       "recording_protection": "录制保护",

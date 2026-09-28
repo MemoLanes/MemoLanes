@@ -1,8 +1,8 @@
+import 'package:memolanes/theme/app_colors.dart';
 import 'package:calendar_date_picker2/calendar_date_picker2.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/constants/app_typography.dart';
-import 'package:memolanes/constants/style_constants.dart';
 
 /// A calendar mode selector that compensates for calendar_date_picker2's
 /// fixed month-first slot order while keeping the matching tap targets.
@@ -16,6 +16,7 @@ class AppCalendarModePicker extends StatelessWidget {
     required this.onModeChanged,
     this.trailing,
     this.trailingGap = 8,
+    this.abbreviateMonth = false,
   });
 
   final CalendarDatePicker2Mode viewMode;
@@ -28,6 +29,7 @@ class AppCalendarModePicker extends StatelessWidget {
   final ValueChanged<CalendarDatePicker2Mode> onModeChanged;
   final Widget? trailing;
   final double trailingGap;
+  final bool abbreviateMonth;
 
   @override
   Widget build(BuildContext context) {
@@ -35,9 +37,10 @@ class AppCalendarModePicker extends StatelessWidget {
         ? CalendarDatePicker2Mode.year
         : CalendarDatePicker2Mode.month;
     final isActive = viewMode == targetMode;
+    final locale = Localizations.localeOf(context).toString();
     final label = targetMode == CalendarDatePicker2Mode.year
         ? MaterialLocalizations.of(context).formatYear(monthDate)
-        : DateFormat.MMMM(Localizations.localeOf(context).toString())
+        : (abbreviateMonth ? DateFormat.MMM(locale) : DateFormat.MMMM(locale))
               .format(monthDate);
 
     return Row(
@@ -65,7 +68,7 @@ class AppCalendarModePicker extends StatelessWidget {
                   curve: Curves.easeOut,
                   child: Icon(
                     Icons.arrow_drop_down,
-                    color: StyleConstants.deepGreen,
+                    color: context.appColors.deepGreen,
                   ),
                 ),
               ],
@@ -102,22 +105,20 @@ class AppCalendarGridOption extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final foregroundColor = isDisabled
-        ? StyleConstants.mutedInkColor.withValues(alpha: 0.42)
+        ? context.appColors.mutedInkColor.withValues(alpha: 0.42)
         : isSelected
-        ? (StyleConstants.isDarkMode
-              ? StyleConstants.onPrimaryActionColor
-              : StyleConstants.inkColor)
+        ? (context.appColors.selectedCalendarInk)
         : isCurrent
-        ? StyleConstants.deepGreen
-        : StyleConstants.inkColor;
+        ? context.appColors.deepGreen
+        : context.appColors.inkColor;
     final decoration = isSelected
         ? BoxDecoration(
-            color: StyleConstants.primaryGreen,
+            color: context.appColors.primaryGreen,
             borderRadius: BorderRadius.circular(18),
           )
         : isOriginal
         ? BoxDecoration(
-            border: Border.all(color: StyleConstants.primaryGreen, width: 2),
+            border: Border.all(color: context.appColors.primaryGreen, width: 2),
             borderRadius: BorderRadius.circular(18),
           )
         : null;

@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:memolanes/constants/style_constants.dart';
+import 'package:memolanes/theme/app_colors.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 /// Global loading manager (singleton + reference counting).
@@ -12,23 +12,38 @@ class GlobalLoadingManager extends ChangeNotifier {
 
   int _activeWakelockTaskCount = 0;
   int _activeOverlayTaskCount = 0;
+  int _activeNavigationBlockCount = 0;
   bool _isLoading = false;
   Timer? _loadingDelayTimer;
 
   /// Whether the global loading overlay is active.
   bool get isLoading => _isLoading;
 
+  /// Whether navigation must be blocked immediately for an active task.
+  bool get isNavigationBlocked => _activeNavigationBlockCount > 0;
+
   /// Manages the loading lifecycle for async tasks in a unified way.
   ///
   /// - Supports parallel/nested tasks (reference counting).
-  Future<T> runWithLoading<T>(Future<T> Function() task) async {
-    await _incrementWakelock();
-    _incrementOverlay();
+  /// - Set [blockNavigation] for mutations that must finish before leaving the
+  ///   current route. This takes effect immediately, before the delayed loading
+  ///   overlay becomes visible.
+  Future<T> runWithLoading<T>(
+    Future<T> Function() task, {
+    bool blockNavigation = false,
+  }) async {
+    if (blockNavigation) _incrementNavigationBlock();
     try {
-      return await task();
+      await _incrementWakelock();
+      _incrementOverlay();
+      try {
+        return await task();
+      } finally {
+        _decrementOverlay();
+        await _decrementWakelock();
+      }
     } finally {
-      _decrementOverlay();
-      await _decrementWakelock();
+      if (blockNavigation) _decrementNavigationBlock();
     }
   }
 
@@ -87,6 +102,19 @@ class GlobalLoadingManager extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  void _incrementNavigationBlock() {
+    final wasUnblocked = _activeNavigationBlockCount == 0;
+    _activeNavigationBlockCount += 1;
+    if (wasUnblocked) notifyListeners();
+  }
+
+  void _decrementNavigationBlock() {
+    if (_activeNavigationBlockCount > 0) {
+      _activeNavigationBlockCount -= 1;
+    }
+    if (_activeNavigationBlockCount == 0) notifyListeners();
+  }
 }
 
 /// Global loading overlay that wraps the app root.
@@ -108,7 +136,7 @@ class GlobalLoadingOverlay extends StatelessWidget {
         final isLoading = manager.isLoading;
 
         return PopScope(
-          canPop: !isLoading,
+          canPop: !isLoading && !manager.isNavigationBlocked,
           child: Stack(
             alignment: Alignment.topLeft,
             children: [
@@ -120,7 +148,11 @@ class GlobalLoadingOverlay extends StatelessWidget {
                     children: [
                       ModalBarrier(
                         dismissible: false,
-                        color: StyleConstants.loadingMaskColor,
+                        color: Color.lerp(
+                          AppColors.light.shadowColor.withAlpha(0x59),
+                          AppColors.dark.shadowColor.withAlpha(0xAD),
+                          context.appColors.darkProgress,
+                        )!,
                       ),
                       const Center(child: _DefaultLoadingCard()),
                     ],
@@ -150,7 +182,10 @@ class GlobalPopScope extends StatelessWidget {
       animation: manager,
       child: child,
       builder: (context, child) {
-        return PopScope(canPop: !manager.isLoading, child: child!);
+        return PopScope(
+          canPop: !manager.isLoading && !manager.isNavigationBlocked,
+          child: child!,
+        );
       },
     );
   }
@@ -166,7 +201,7 @@ class _DefaultLoadingCard extends StatelessWidget {
       width: 80,
       height: 80,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.appColors.surfaceColor,
         borderRadius: BorderRadius.circular(16),
       ),
       child: const Center(

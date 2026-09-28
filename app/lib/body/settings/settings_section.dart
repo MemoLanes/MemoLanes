@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:memolanes/common/component/scroll_views/single_child_scroll_view.dart';
 import 'package:memolanes/constants/app_typography.dart';
-import 'package:memolanes/constants/style_constants.dart';
+import 'package:memolanes/theme/app_colors.dart';
 
 class SettingsPageFrame extends StatelessWidget {
   const SettingsPageFrame({
@@ -80,7 +80,7 @@ class SettingsSection extends StatelessWidget {
             child: Text(
               title,
               style: AppTypography.sectionLabel.copyWith(
-                color: StyleConstants.mutedInkColor,
+                color: context.appColors.mutedInkColor,
               ),
             ),
           ),
