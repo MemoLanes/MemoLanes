@@ -7,8 +7,10 @@ import 'package:memolanes/body/settings/settings_section.dart';
 import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
 import 'package:memolanes/constants/app_typography.dart';
+import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/theme/app_colors.dart';
 import 'package:memolanes/utils/nav_helper.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 class SettingsBody extends StatelessWidget {
   const SettingsBody({
@@ -100,6 +102,7 @@ class SettingsBody extends StatelessWidget {
             ),
           ],
         ),
+        const _SettingsVersionFooter(),
       ],
     );
   }
@@ -138,6 +141,45 @@ class SettingsBody extends StatelessWidget {
       ),
       trailing: const LabelTileContent(showArrow: true),
       onTap: () => navigatorPush(context, page: page),
+    );
+  }
+}
+
+class _SettingsVersionFooter extends StatefulWidget {
+  const _SettingsVersionFooter();
+
+  @override
+  State<_SettingsVersionFooter> createState() => _SettingsVersionFooterState();
+}
+
+class _SettingsVersionFooterState extends State<_SettingsVersionFooter> {
+  String _version = '';
+
+  @override
+  void initState() {
+    super.initState();
+    PackageInfo.fromPlatform().then((info) {
+      if (!mounted) return;
+      setState(() {
+        _version =
+            '${info.version} (${info.buildNumber}) [${api.shortCommitHash()}]';
+      });
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Center(
+        child: Text(
+          _version,
+          textAlign: TextAlign.center,
+          style: AppTypography.caption.copyWith(
+            color: context.appColors.mutedInkColor,
+          ),
+        ),
+      ),
     );
   }
 }

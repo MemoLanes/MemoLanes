@@ -6,13 +6,23 @@ import 'package:memolanes/body/settings/settings_body.dart';
 import 'package:memolanes/body/settings/settings_section.dart';
 import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
+import 'package:memolanes/src/rust/frb_generated.dart';
 import 'package:memolanes/theme/app_colors.dart';
 import 'package:memolanes/theme/app_theme.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUpAll(() async {
+    PackageInfo.setMockInitialValues(
+      appName: 'MemoLanes',
+      packageName: 'com.memolanes',
+      version: '1.2.3',
+      buildNumber: '45',
+      buildSignature: '',
+    );
+    RustLib.initMock(api: _SettingsApi());
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
           const MethodChannel('plugins.flutter.io/shared_preferences'),
@@ -20,6 +30,7 @@ void main() {
         );
     await EasyLocalization.ensureInitialized();
   });
+  tearDownAll(RustLib.dispose);
 
   testWidgets('settings retains six categories and scrollable safe insets', (
     tester,
@@ -74,6 +85,12 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('About MemoLanes').hitTestable(), findsOneWidget);
+    final version = find.text('1.2.3 (45) [abc1234]');
+    expect(version.hitTestable(), findsOneWidget);
+    expect(
+      tester.getTopLeft(version).dy,
+      greaterThan(tester.getBottomLeft(find.byType(LabelTile).last).dy),
+    );
     expect(
       tester.getBottomLeft(find.byType(LabelTile).last).dy,
       lessThanOrEqualTo(494),
@@ -136,4 +153,9 @@ void main() {
       expect(tester.takeException(), isNull);
     }
   });
+}
+
+class _SettingsApi extends Fake implements RustLibApi {
+  @override
+  String crateApiApiShortCommitHash() => 'abc1234';
 }
