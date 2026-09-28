@@ -361,7 +361,7 @@
     "setup_title": "First-time setup",
     "setup_desc": "Before using MemoLanes, choose your region preference and confirm the privacy policy.",
     "region_title": "Region preference",
-    "region_mainland_china": "Mainland China",
+    "region_china": "China",
     "region_international": "International",
     "region_united_states": "United States",
     "agreement_title": "Read and agree to the Privacy Policy",
