@@ -1,14 +1,12 @@
 import 'dart:ui';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/constants/app_typography.dart';
 import 'package:memolanes/constants/style_constants.dart';
 import 'package:memolanes/theme/app_colors.dart';
 
-// TODO(perf): Re-enable the REC pulse on Android when Flutter/WebView
-// cross-Surface composition can animate without frame jitter. Other platforms,
-// including iOS, retain the animation.
+// TODO(perf): Re-enable the REC pulse once Flutter/WebView composition can
+// animate without frame jitter, including on iOS in Low Power Mode.
 class RecIndicator extends StatefulWidget {
   const RecIndicator({
     super.key,
@@ -30,7 +28,7 @@ class _RecIndicatorState extends State<RecIndicator>
   late final AnimationController _controller;
   late final Animation<double> _pulse;
 
-  bool get _shouldAnimate => defaultTargetPlatform != TargetPlatform.android;
+  static const bool _shouldAnimate = false;
 
   @override
   void initState() {

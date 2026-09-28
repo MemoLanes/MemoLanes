@@ -167,40 +167,15 @@ class AppDialogCard extends StatelessWidget {
 }
 
 class AppDialogActions extends StatelessWidget {
-  const AppDialogActions({super.key, required this.children, this.spacing = 10})
-    : assert(spacing >= 0);
+  const AppDialogActions({super.key, required this.children});
 
   final List<Widget> children;
-  final double spacing;
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final textScale = MediaQuery.textScalerOf(context).scale(14) / 14;
-        final useColumn = constraints.maxWidth < 280 || textScale > 1.25;
-
-        if (useColumn) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              for (var i = 0; i < children.length; i++) ...[
-                if (i > 0) SizedBox(height: spacing),
-                children[i],
-              ],
-            ],
-          );
-        }
-
-        return Row(
-          children: [
-            for (var i = 0; i < children.length; i++) ...[
-              if (i > 0) SizedBox(width: spacing),
-              Expanded(child: children[i]),
-            ],
-          ],
-        );
-      },
+    return Row(
+      spacing: 10,
+      children: [for (final child in children) Expanded(child: child)],
     );
   }
 }
