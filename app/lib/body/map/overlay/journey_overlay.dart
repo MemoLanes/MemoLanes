@@ -8,61 +8,25 @@ import 'package:memolanes/constants/app_typography.dart';
 import 'package:memolanes/constants/style_constants.dart';
 import 'package:memolanes/body/journey/journey_body.dart';
 import 'package:memolanes/body/journey/compact_journey_info_card.dart';
-import 'package:memolanes/common/log.dart';
-import 'package:memolanes/common/utils.dart';
-import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/journey_header.dart';
-import 'package:memolanes/utils/nav_helper.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
-
-import 'journey_map_detail_page.dart';
 
 /// Journeys keeps the current map visible without Record mode's three map
 /// controls. Its picker is an in-page floating card, so the app navigation bar
-/// remains visible and unobstructed below it. Selecting a journey pushes a
-/// dedicated map-detail route where the app navigation bar is intentionally
-/// absent.
-class JourneyOverlay extends StatefulWidget {
-  const JourneyOverlay({super.key});
+/// remains visible and unobstructed below it.
+class JourneyOverlay extends StatelessWidget {
+  const JourneyOverlay({
+    super.key,
+    required this.onJourneySelected,
+    required this.isLoading,
+    required this.refreshRevision,
+    this.detail,
+  });
 
-  @override
-  State<JourneyOverlay> createState() => _JourneyOverlayState();
-}
-
-class _JourneyOverlayState extends State<JourneyOverlay> {
-  bool _isLoadingJourney = false;
-  int _pickerRevision = 0;
-
-  Future<void> _openJourneyDetails(JourneyHeader journey) async {
-    if (_isLoadingJourney) return;
-    setState(() => _isLoadingJourney = true);
-
-    try {
-      final rendererAndBounds = await api.getMapRendererProxyForJourney(
-        journeyId: journey.id,
-      );
-      if (!mounted) return;
-      await navigatorPush<void>(
-        context,
-        page: JourneyMapDetailPage(
-          journey: journey,
-          mapRendererProxy: rendererAndBounds.$1,
-          initialMapBounds: rendererAndBounds.$2,
-        ),
-      );
-      if (!mounted) return;
-      setState(() => _pickerRevision++);
-    } catch (error, stackTrace) {
-      log.error('Loading journey map failed: $error', stackTrace);
-      if (!mounted) return;
-      await showCommonDialog(
-        context,
-        context.tr('journey.editor.operation_failed'),
-      );
-    } finally {
-      if (mounted) setState(() => _isLoadingJourney = false);
-    }
-  }
+  final Future<void> Function(JourneyHeader journey) onJourneySelected;
+  final bool isLoading;
+  final int refreshRevision;
+  final Widget? detail;
 
   @override
   Widget build(BuildContext context) {
@@ -84,31 +48,39 @@ class _JourneyOverlayState extends State<JourneyOverlay> {
 
     return Stack(
       children: [
-        Positioned(
-          left: viewPadding.left + 16,
-          right: viewPadding.right + 16,
-          bottom: bottom,
-          child: Align(
-            alignment: Alignment.bottomCenter,
-            child: SizedBox(
-              width: math.min(
-                mediaQuery.size.width -
-                    viewPadding.left -
-                    viewPadding.right -
-                    32,
-                pickerMaxWidth,
-              ),
-              height: pickerHeight,
-              child: PointerInterceptor(
-                child: _JourneyPickerCard(
-                  onJourneySelected: _openJourneyDetails,
-                  isLoading: _isLoadingJourney,
-                  refreshRevision: _pickerRevision,
+        Offstage(
+          offstage: detail != null,
+          child: Stack(
+            children: [
+              Positioned(
+                left: viewPadding.left + 16,
+                right: viewPadding.right + 16,
+                bottom: bottom,
+                child: Align(
+                  alignment: Alignment.bottomCenter,
+                  child: SizedBox(
+                    width: math.min(
+                      mediaQuery.size.width -
+                          viewPadding.left -
+                          viewPadding.right -
+                          32,
+                      pickerMaxWidth,
+                    ),
+                    height: pickerHeight,
+                    child: PointerInterceptor(
+                      child: _JourneyPickerCard(
+                        onJourneySelected: onJourneySelected,
+                        isLoading: isLoading,
+                        refreshRevision: refreshRevision,
+                      ),
+                    ),
+                  ),
                 ),
               ),
-            ),
+            ],
           ),
         ),
+        ?detail,
       ],
     );
   }

@@ -49,9 +49,7 @@ class SetupDialogCard extends StatelessWidget {
       showHeader: showTitle,
       maxHeightFactor: maxHeightFactor,
       contentPadding: contentPadding,
-      actions: actions.isEmpty
-          ? null
-          : AppDialogActions(spacing: 10, children: actions),
+      actions: actions.isEmpty ? null : AppDialogActions(children: actions),
       child: child,
     );
   }
