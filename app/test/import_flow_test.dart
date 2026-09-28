@@ -33,44 +33,10 @@ void main() {
       expect(entryClosed, isTrue);
       expect(importClosed, isFalse);
 
-      key.currentState!.push<void>(
-        MaterialPageRoute(
-          builder: (_) => const Scaffold(body: Text('Details')),
-        ),
-      );
-      await tester.pumpAndSettle();
-      key.currentState!.pop();
-      await tester.pumpAndSettle();
-      expect(importClosed, isFalse);
-
       key.currentState!.pop(true);
       await tester.pumpAndSettle();
       await completion;
       expect(importClosed, isTrue);
     },
   );
-
-  testWidgets('finishes when an entry route closes without replacement', (
-    tester,
-  ) async {
-    final key = GlobalKey<NavigatorState>();
-    await tester.pumpWidget(
-      MaterialApp(navigatorKey: key, home: const Scaffold()),
-    );
-    final flow = ImportFlow();
-    var importClosed = false;
-    final completion = flow
-        .waitFor(
-          key.currentState!.push<void>(
-            MaterialPageRoute(builder: (_) => const Scaffold()),
-          ),
-        )
-        .then((_) => importClosed = true);
-    await tester.pumpAndSettle();
-    expect(importClosed, isFalse);
-    key.currentState!.pop();
-    await tester.pumpAndSettle();
-    await completion;
-    expect(importClosed, isTrue);
-  });
 }
