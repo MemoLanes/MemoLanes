@@ -16,7 +16,7 @@ void main() {
         ),
       ),
       reason:
-          'MemoLanes handles incoming share intents with share_handler. '
+          'MemoLanes handles incoming share intents with zikzak_share_handler. '
           'Flutter must not also interpret a shared Intent.data URI as a route.',
     );
   });

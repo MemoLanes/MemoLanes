@@ -79,7 +79,7 @@ dependencies:
   fpdart: ^1.1.1
   sliding_up_panel: ^2.0.0+1
   mmkv: ^2.2.2
-  share_handler: ^0.0.25
+  zikzak_share_handler: ^1.0.1
   flutter_fgbg: ^0.8.0
   flutter_appbar: ^1.9.0
   flutter_app_intents: ^0.7.0

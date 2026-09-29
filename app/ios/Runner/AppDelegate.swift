@@ -1,7 +1,6 @@
 import UIKit
 import Flutter
 import notification_when_app_is_killed
-import share_handler_ios
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
@@ -25,15 +24,11 @@ import share_handler_ios
   }
 
   private func registerPlugins(with registry: FlutterPluginRegistry) {
-    let sceneBridgeKey = "ShareHandlerIosSceneBridge"
     // The storyboard may reuse the launch engine or create a new one. Check
     // its registry rather than keeping a process-wide registration flag.
-    guard !registry.hasPlugin(sceneBridgeKey) else { return }
+    guard !registry.hasPlugin("ShareHandlerIosPlatform") else { return }
 
     GeneratedPluginRegistrant.register(with: registry)
-    if let registrar = registry.registrar(forPlugin: sceneBridgeKey) {
-      registrar.addSceneDelegate(SwiftShareHandlerIosPlatform.instance)
-    }
   }
 
   override func applicationWillTerminate(_ application: UIApplication) {
