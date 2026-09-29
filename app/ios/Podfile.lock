@@ -2,26 +2,20 @@ PODS:
   - Flutter (1.0.0)
   - flutter_app_intents (0.1.0):
     - Flutter
-  - notification_when_app_is_killed (0.0.1):
-    - Flutter
 
 DEPENDENCIES:
   - Flutter (from `Flutter`)
   - flutter_app_intents (from `.symlinks/plugins/flutter_app_intents/ios`)
-  - notification_when_app_is_killed (from `.symlinks/plugins/notification_when_app_is_killed/ios`)
 
 EXTERNAL SOURCES:
   Flutter:
     :path: Flutter
   flutter_app_intents:
     :path: ".symlinks/plugins/flutter_app_intents/ios"
-  notification_when_app_is_killed:
-    :path: ".symlinks/plugins/notification_when_app_is_killed/ios"
 
 SPEC CHECKSUMS:
   Flutter: 71a624a5bc0c04062bf19101d501e466baf2fb47
   flutter_app_intents: e77f999f398c841ab584a1925dbce33ee0168fb5
-  notification_when_app_is_killed: d11c6b91df3fc39bb18eeb878ad435cf8fc0e4c7
 
 PODFILE CHECKSUM: f67fed480b379004eca3e5e42b940b483c1944dd
 
