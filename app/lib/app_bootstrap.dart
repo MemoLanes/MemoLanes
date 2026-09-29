@@ -201,8 +201,19 @@ class AppBootstrap {
     await showFirstLaunchSetupIfNeeded(context);
     if (!context.mounted) return;
 
-    if (!_mainMapReady.isCompleted) {
-      await showLoadingDialog(asyncTask: _mainMapReady.future);
+    try {
+      if (!_mainMapReady.isCompleted) {
+        await showLoadingDialog(asyncTask: _mainMapReady.future);
+      } else {
+        await _mainMapReady.future;
+      }
+    } catch (e, s) {
+      log.error('Failed to initialize the main map during UI startup: $e', s);
+      if (!context.mounted) return;
+      await showCommonDialog(
+        context,
+        context.tr('startup_error.map_initialization_failed'),
+      );
     }
     if (!context.mounted) return;
     await tryShowPermissionSheetIfFirstTime();
