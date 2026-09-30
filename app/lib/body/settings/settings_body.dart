@@ -102,7 +102,9 @@ class SettingsBody extends StatelessWidget {
               Icons.info_outline_rounded,
               context.appColors.deepGreen,
               LabelTilePosition.single,
-              hasUpdate: context.watch<UpdateNotifier>().updateUrl != null,
+              hasUpdate: context
+                  .watch<UpdateNotifier>()
+                  .hasUpdateNotification(),
             ),
           ],
         ),

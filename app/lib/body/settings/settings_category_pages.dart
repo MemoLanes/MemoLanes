@@ -565,7 +565,8 @@ class _AboutSettingsPageState extends State<AboutSettingsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final updateUrl = context.watch<UpdateNotifier>().updateUrl;
+    final updateNotifier = context.watch<UpdateNotifier>();
+    final updateUrl = updateNotifier.updateUrl;
     return Scaffold(
       appBar: CapsuleStyleAppBar(
         title: context.tr('settings.categories.about.title'),
@@ -578,7 +579,7 @@ class _AboutSettingsPageState extends State<AboutSettingsPage> {
               LabelTile(
                 label: context.tr('general.version.title'),
                 position: LabelTilePosition.top,
-                trailing: updateUrl != null
+                trailing: updateNotifier.hasUpdateNotification()
                     ? badges.Badge(
                         badgeStyle: badges.BadgeStyle(
                           shape: badges.BadgeShape.square,
