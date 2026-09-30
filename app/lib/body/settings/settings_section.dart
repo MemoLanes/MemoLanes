@@ -35,7 +35,7 @@ class SettingsPageLayout extends StatelessWidget {
   const SettingsPageLayout({
     super.key,
     required this.children,
-    this.topPadding = 0,
+    this.topPadding = 24,
     this.bottomPadding = 24,
     this.framePadding = const EdgeInsets.symmetric(horizontal: 16),
   });

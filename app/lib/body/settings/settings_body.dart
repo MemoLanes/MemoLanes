@@ -63,7 +63,7 @@ class SettingsBody extends StatelessWidget {
               context,
               'appearance',
               const AppearanceSettingsPage(),
-              Icons.tune_rounded,
+              Icons.palette_outlined,
               context.appColors.deepYellow,
               LabelTilePosition.bottom,
             ),
