@@ -550,15 +550,17 @@ class AboutSettingsPage extends StatefulWidget {
 
 class _AboutSettingsPageState extends State<AboutSettingsPage> {
   String _version = '';
+  String _commitHash = '';
+  bool _showCommitHash = false;
   @override
   void initState() {
     super.initState();
     PackageInfo.fromPlatform().then((info) {
       if (mounted) {
-        setState(
-          () => _version =
-              '${info.version} (${info.buildNumber}) [${api.shortCommitHash()}]',
-        );
+        setState(() {
+          _version = '${info.version} (${info.buildNumber})';
+          _commitHash = api.shortCommitHash();
+        });
       }
     });
   }
@@ -579,8 +581,11 @@ class _AboutSettingsPageState extends State<AboutSettingsPage> {
               LabelTile(
                 label: context.tr('general.version.title'),
                 position: LabelTilePosition.top,
-                trailing: updateNotifier.hasUpdateNotification()
-                    ? badges.Badge(
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (updateNotifier.hasUpdateNotification()) ...[
+                      badges.Badge(
                         badgeStyle: badges.BadgeStyle(
                           shape: badges.BadgeShape.square,
                           borderRadius: BorderRadius.circular(5),
@@ -593,9 +598,19 @@ class _AboutSettingsPageState extends State<AboutSettingsPage> {
                             color: context.appColors.inverseInkColor,
                           ),
                         ),
-                        child: LabelTileContent(content: _version),
-                      )
-                    : LabelTileContent(content: _version),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () =>
+                          setState(() => _showCommitHash = !_showCommitHash),
+                      child: LabelTileContent(
+                        content: _showCommitHash ? _commitHash : _version,
+                      ),
+                    ),
+                  ],
+                ),
                 onTap: () async {
                   if (updateUrl != null) {
                     final url = Uri.parse(updateUrl);
