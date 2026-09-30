@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:memolanes/common/component/cards/option_card.dart';
 import 'package:memolanes/common/component/scroll_views/single_child_scroll_view.dart';
 import 'package:memolanes/constants/app_typography.dart';
 import 'package:memolanes/theme/app_colors.dart';
@@ -36,11 +37,13 @@ class SettingsPageLayout extends StatelessWidget {
     required this.children,
     this.topPadding = 0,
     this.bottomPadding = 24,
+    this.framePadding = const EdgeInsets.symmetric(horizontal: 16),
   });
 
   final List<Widget> children;
   final double topPadding;
   final double bottomPadding;
+  final EdgeInsetsGeometry framePadding;
 
   @override
   Widget build(BuildContext context) {
@@ -48,6 +51,7 @@ class SettingsPageLayout extends StatelessWidget {
       padding: EdgeInsets.only(top: topPadding, bottom: bottomPadding),
       children: [
         SettingsPageFrame(
+          padding: framePadding,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: children,
@@ -84,7 +88,7 @@ class SettingsSection extends StatelessWidget {
               ),
             ),
           ),
-          ...children,
+          OptionCard(useSafeArea: false, separators: false, children: children),
           const SizedBox(height: 4),
         ],
       ),

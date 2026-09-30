@@ -58,6 +58,7 @@ class AdvancedSettingsPage extends StatelessWidget {
                   'general.advanced_settings.render_diagnostics',
                 ),
                 position: LabelTilePosition.bottom,
+                bottom: false,
                 trailing: const LabelTileContent(showArrow: true),
                 onTap: () =>
                     navigatorPush(context, page: const RenderDiagnosticsPage()),
@@ -72,6 +73,7 @@ class AdvancedSettingsPage extends StatelessWidget {
                   'general.advanced_settings.reset_local_prefs',
                 ),
                 position: LabelTilePosition.single,
+                bottom: false,
                 onTap: () => _resetPreferences(context, gpsManager),
               ),
             ],

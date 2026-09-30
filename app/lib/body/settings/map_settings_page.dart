@@ -141,6 +141,7 @@ class _MapSettingsPageState extends State<MapSettingsPage> {
               LabelTile(
                 label: context.tr("general.map_settings.fog_mode"),
                 position: LabelTilePosition.bottom,
+                bottom: false,
                 trailing: LabelTileContent(
                   content: _fogStyleLabelFor(_currentFogStyle),
                   showArrow: true,
@@ -155,6 +156,7 @@ class _MapSettingsPageState extends State<MapSettingsPage> {
               LabelTile(
                 label: context.tr("privacy.region_title"),
                 position: LabelTilePosition.single,
+                bottom: false,
                 trailing: LabelTileContent(
                   content: regionPreferenceTitle(context, _worldview),
                   showArrow: true,

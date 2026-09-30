@@ -3,13 +3,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:memolanes/body/settings/settings_body.dart';
+import 'package:memolanes/body/settings/appearance_picker.dart';
 import 'package:memolanes/body/settings/settings_section.dart';
+import 'package:memolanes/common/app_theme_controller.dart';
+import 'package:memolanes/common/component/cards/option_card.dart';
 import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
 import 'package:memolanes/src/rust/frb_generated.dart';
 import 'package:memolanes/theme/app_colors.dart';
 import 'package:memolanes/theme/app_theme.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:provider/provider.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -66,8 +70,18 @@ void main() {
     final layout = tester.widget<SettingsPageLayout>(
       find.byType(SettingsPageLayout),
     );
+    final cards = tester
+        .widgetList<OptionCard>(find.byType(OptionCard))
+        .toList();
+    expect(cards, hasLength(3));
+    expect(
+      cards.every((card) => !card.useSafeArea && !card.separators),
+      isTrue,
+    );
     expect(layout.topPadding, 56);
     expect(layout.bottomPadding, 106);
+    expect(layout.framePadding, const EdgeInsets.symmetric(horizontal: 8));
+    expect(tester.getTopLeft(find.byType(OptionCard).first).dx, 8);
     expect(tester.getTopLeft(find.text('Settings')).dy, 56);
     final tiles = tester.widgetList<LabelTile>(find.byType(LabelTile)).toList();
     expect(tiles.map((tile) => tile.label), [
@@ -95,6 +109,59 @@ void main() {
       tester.getBottomLeft(find.byType(LabelTile).last).dy,
       lessThanOrEqualTo(494),
     );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('appearance picker offers system, light, and dark modes', (
+    tester,
+  ) async {
+    final saved = <String>[];
+    final controller = AppThemeController(
+      readPreference: () => null,
+      writePreference: saved.add,
+    );
+    addTearDown(controller.dispose);
+
+    await tester.runAsync(() async {
+      await tester.pumpWidget(
+        EasyLocalization(
+          supportedLocales: const [Locale('en', 'US')],
+          path: 'assets/translations',
+          saveLocale: false,
+          child: ChangeNotifierProvider.value(
+            value: controller,
+            child: Builder(
+              builder: (context) => MaterialApp(
+                theme: AppTheme.light,
+                locale: context.locale,
+                supportedLocales: context.supportedLocales,
+                localizationsDelegates: context.localizationDelegates,
+                home: Scaffold(
+                  body: Builder(
+                    builder: (context) => TextButton(
+                      onPressed: () => showAppearancePicker(context),
+                      child: const Text('Appearance'),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(seconds: 1));
+    });
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Appearance'));
+    await tester.pumpAndSettle();
+    expect(find.text('Follow System'), findsOneWidget);
+    expect(find.text('Light Mode'), findsOneWidget);
+    expect(find.text('Dark Mode'), findsOneWidget);
+    await tester.tap(find.text('Dark Mode'));
+    await tester.pumpAndSettle();
+    expect(controller.themeMode, ThemeMode.dark);
+    expect(saved, ['dark']);
     expect(tester.takeException(), isNull);
   });
 

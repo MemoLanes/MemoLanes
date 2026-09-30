@@ -66,6 +66,7 @@ class ContactUsSection extends StatelessWidget {
         LabelTile(
           label: context.tr('contact_us.email'),
           position: LabelTilePosition.bottom,
+          bottom: false,
           trailing: const LabelTileContent(
             content: emailText,
             rightIcon: Icons.copy,

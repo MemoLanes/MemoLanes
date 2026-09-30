@@ -74,6 +74,7 @@ class _JourneyRecordingSettingsPageState
                 position: defaultTargetPlatform == TargetPlatform.android
                     ? LabelTilePosition.top
                     : LabelTilePosition.single,
+                bottom: false,
                 trailing: Switch(
                   value: _notificationEnabled,
                   onChanged: (value) =>
@@ -84,6 +85,7 @@ class _JourneyRecordingSettingsPageState
                 LabelTile(
                   label: context.tr('recording_health.setting_title'),
                   position: LabelTilePosition.bottom,
+                  bottom: false,
                   trailing: ListenableBuilder(
                     listenable: RecordingHealthService.instance,
                     builder: (context, _) => Switch(
@@ -247,6 +249,7 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
               LabelTile(
                 label: context.tr('haptics.setting_title'),
                 position: LabelTilePosition.bottom,
+                bottom: false,
                 trailing: Switch(
                   value: AppHaptics.isUserHapticsEnabled,
                   onChanged: (value) {
@@ -308,6 +311,7 @@ class _DataManagementSettingsPageState
               LabelTile(
                 label: context.tr('data.export_data.export_all'),
                 position: LabelTilePosition.bottom,
+                bottom: false,
                 trailing: const LabelTileContent(showArrow: true),
                 onTap: () => _exportAll(context, gpsManager),
               ),
@@ -330,6 +334,7 @@ class _DataManagementSettingsPageState
               LabelTile(
                 label: context.tr('general.advanced_settings.rebuild_cache'),
                 position: LabelTilePosition.bottom,
+                bottom: false,
                 onTap: () => showLoadingDialog(asyncTask: api.rebuildCache()),
               ),
             ],
@@ -351,6 +356,7 @@ class _DataManagementSettingsPageState
                   ),
                 ),
                 position: LabelTilePosition.single,
+                bottom: false,
                 onTap: () => _deleteAll(context, gpsManager),
               ),
             ],
@@ -611,6 +617,7 @@ class _AboutSettingsPageState extends State<AboutSettingsPage> {
               LabelTile(
                 label: context.tr('privacy.name'),
                 position: LabelTilePosition.bottom,
+                bottom: false,
                 trailing: const LabelTileContent(rightIcon: Icons.open_in_new),
                 onTap: () => launchUrlString(
                   context.tr('privacy.url'),

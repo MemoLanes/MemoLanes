@@ -27,6 +27,7 @@ class SettingsBody extends StatelessWidget {
     return SettingsPageLayout(
       topPadding: topSafeArea + 24,
       bottomPadding: bottomSafeArea + 16,
+      framePadding: const EdgeInsets.symmetric(horizontal: 8),
       children: [
         SizedBox(
           width: double.infinity,
@@ -127,6 +128,7 @@ class SettingsBody extends StatelessWidget {
       ),
       minHeight: 64,
       position: position,
+      bottom: false,
       prefix: Padding(
         padding: const EdgeInsets.only(right: 12),
         child: Container(
