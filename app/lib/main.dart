@@ -13,7 +13,6 @@ import 'package:memolanes/body/achievement/achievement_body.dart'
     deferred as achievement;
 import 'package:memolanes/body/map/map_body.dart';
 import 'package:memolanes/body/map/journey_flow_controller.dart';
-import 'package:memolanes/body/first_launch_setup.dart';
 import 'package:memolanes/body/settings/settings_body.dart'
     deferred as settings;
 import 'package:memolanes/common/achievement_stats_store.dart';
@@ -29,7 +28,6 @@ import 'package:memolanes/common/map_style.dart';
 import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/utils/nav_helper.dart';
 import 'package:memolanes/common/update_notifier.dart';
-import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/common/loading_manager.dart';
 import 'package:memolanes/constants/index.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
@@ -185,15 +183,7 @@ class _MyHomePageState extends State<MyHomePage> {
     super.initState();
     _journeys.addListener(_onJourneysChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await showFirstLaunchSetupIfNeeded(context);
-      if (!context.mounted) return;
-
-      final mainMapReady = AppBootstrap.mainMapReady;
-      if (!mainMapReady.isCompleted) {
-        await showLoadingDialog(asyncTask: mainMapReady.future);
-      }
-      if (!context.mounted) return;
-      await tryShowPermissionSheetIfFirstTime();
+      await AppBootstrap.completeUiStartup(context);
     });
   }
 
