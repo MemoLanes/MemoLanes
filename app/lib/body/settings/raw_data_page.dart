@@ -52,10 +52,17 @@ class _RawDataSwitchState extends State<RawDataSwitch> {
 
   @override
   Widget build(BuildContext context) {
-    return LabelTile(
-      label: context.tr("general.advanced_settings.raw_data_mode"),
-      position: LabelTilePosition.single,
-      trailing: Switch(value: enabled, onChanged: _busy ? null : _setMode),
+    return OptionCard(
+      useSafeArea: false,
+      separators: false,
+      children: [
+        LabelTile(
+          label: context.tr("general.advanced_settings.raw_data_mode"),
+          position: LabelTilePosition.single,
+          bottom: false,
+          trailing: Switch(value: enabled, onChanged: _busy ? null : _setMode),
+        ),
+      ],
     );
   }
 }
