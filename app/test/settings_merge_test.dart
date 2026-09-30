@@ -9,6 +9,7 @@ import 'package:memolanes/common/app_theme_controller.dart';
 import 'package:memolanes/common/component/cards/option_card.dart';
 import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
+import 'package:memolanes/common/update_notifier.dart';
 import 'package:memolanes/src/rust/frb_generated.dart';
 import 'package:memolanes/theme/app_colors.dart';
 import 'package:memolanes/theme/app_theme.dart';
@@ -39,6 +40,8 @@ void main() {
   testWidgets('settings retains six categories and scrollable safe insets', (
     tester,
   ) async {
+    final updateNotifier = UpdateNotifier();
+    addTearDown(updateNotifier.dispose);
     tester.view.physicalSize = const Size(320, 600);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -50,14 +53,17 @@ void main() {
           supportedLocales: const [Locale('en', 'US')],
           path: 'assets/translations',
           saveLocale: false,
-          child: Builder(
-            builder: (context) => MaterialApp(
-              theme: AppTheme.light,
-              locale: context.locale,
-              supportedLocales: context.supportedLocales,
-              localizationsDelegates: context.localizationDelegates,
-              home: const Scaffold(
-                body: SettingsBody(topSafeArea: 32, bottomSafeArea: 90),
+          child: ChangeNotifierProvider.value(
+            value: updateNotifier,
+            child: Builder(
+              builder: (context) => MaterialApp(
+                theme: AppTheme.light,
+                locale: context.locale,
+                supportedLocales: context.supportedLocales,
+                localizationsDelegates: context.localizationDelegates,
+                home: const Scaffold(
+                  body: SettingsBody(topSafeArea: 32, bottomSafeArea: 90),
+                ),
               ),
             ),
           ),
@@ -93,6 +99,15 @@ void main() {
       'About MemoLanes',
     ]);
     expect(tiles.every((tile) => tile.onTap != null), isTrue);
+    expect(find.text('NEW'), findsNothing);
+    updateNotifier.setUpdateUrl('https://example.com/release');
+    await tester.pump();
+    expect(find.text('NEW'), findsOneWidget);
+    final aboutTile = tester.widget<LabelTile>(find.byType(LabelTile).last);
+    expect(aboutTile.trailing, isA<Row>());
+    updateNotifier.setUpdateUrl(null);
+    await tester.pump();
+    expect(find.text('NEW'), findsNothing);
     await tester.drag(
       find.byType(SingleChildScrollView),
       const Offset(0, -1000),

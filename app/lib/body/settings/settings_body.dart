@@ -6,11 +6,13 @@ import 'package:memolanes/body/settings/settings_category_pages.dart';
 import 'package:memolanes/body/settings/settings_section.dart';
 import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
+import 'package:memolanes/common/update_notifier.dart';
 import 'package:memolanes/constants/app_typography.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/theme/app_colors.dart';
 import 'package:memolanes/utils/nav_helper.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:provider/provider.dart';
 
 class SettingsBody extends StatelessWidget {
   const SettingsBody({
@@ -100,6 +102,7 @@ class SettingsBody extends StatelessWidget {
               Icons.info_outline_rounded,
               context.appColors.deepGreen,
               LabelTilePosition.single,
+              hasUpdate: context.watch<UpdateNotifier>().updateUrl != null,
             ),
           ],
         ),
@@ -114,8 +117,9 @@ class SettingsBody extends StatelessWidget {
     Widget page,
     IconData icon,
     Color accent,
-    LabelTilePosition position,
-  ) {
+    LabelTilePosition position, {
+    bool hasUpdate = false,
+  }) {
     return LabelTile(
       label: context.tr('settings.categories.$key.title'),
       labelStyle: AppTypography.cardTitle.copyWith(
@@ -141,7 +145,28 @@ class SettingsBody extends StatelessWidget {
           child: Icon(icon, color: accent, size: 19),
         ),
       ),
-      trailing: const LabelTileContent(showArrow: true),
+      trailing: hasUpdate
+          ? Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    color: context.appColors.deepGreen,
+                    borderRadius: BorderRadius.circular(5),
+                  ),
+                  child: Text(
+                    'NEW',
+                    style: AppTypography.badge.copyWith(
+                      color: context.appColors.inverseInkColor,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                const LabelTileContent(showArrow: true),
+              ],
+            )
+          : const LabelTileContent(showArrow: true),
       onTap: () => navigatorPush(context, page: page),
     );
   }
