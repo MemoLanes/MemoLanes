@@ -9,7 +9,9 @@ class LabelTile extends StatelessWidget {
     super.key,
     this.position = LabelTilePosition.single,
     required this.label,
+    this.labelStyle,
     this.desc = '',
+    this.descStyle,
     this.descMaxLines = 1,
     this.prefix,
     this.suffix,
@@ -28,7 +30,11 @@ class LabelTile extends StatelessWidget {
 
   final String label;
 
+  final TextStyle? labelStyle;
+
   final String desc;
+
+  final TextStyle? descStyle;
 
   final int descMaxLines;
 
@@ -75,7 +81,7 @@ class LabelTile extends StatelessWidget {
     }
 
     List<Widget> children = [
-      Flexible(
+      Expanded(
         child: GestureDetector(
           onTap: infoLabelOnTap,
           child: Row(
@@ -89,18 +95,22 @@ class LabelTile extends StatelessWidget {
                       label,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: AppTypography.itemTitle.copyWith(
-                        color: context.appColors.inkColor,
-                      ),
+                      style:
+                          labelStyle ??
+                          AppTypography.itemTitle.copyWith(
+                            color: context.appColors.inkColor,
+                          ),
                     ),
                     if (desc.isNotEmpty)
                       Text(
                         desc,
                         maxLines: descMaxLines,
                         overflow: TextOverflow.ellipsis,
-                        style: AppTypography.caption.copyWith(
-                          color: context.appColors.mutedInkColor,
-                        ),
+                        style:
+                            descStyle ??
+                            AppTypography.caption.copyWith(
+                              color: context.appColors.mutedInkColor,
+                            ),
                       ),
                   ],
                 ),
