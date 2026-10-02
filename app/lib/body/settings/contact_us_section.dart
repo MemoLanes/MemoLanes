@@ -5,6 +5,7 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:memolanes/body/settings/settings_section.dart';
 import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
+import 'package:memolanes/theme/app_colors.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 class ContactUsSection extends StatelessWidget {
@@ -21,6 +22,7 @@ class ContactUsSection extends StatelessWidget {
     const weiboUrl = 'https://weibo.com/u/8445160502';
 
     return SettingsSection(
+      titleColor: context.appColors.deepGreen,
       title: context.tr('contact_us.title'),
       children: [
         LabelTile(

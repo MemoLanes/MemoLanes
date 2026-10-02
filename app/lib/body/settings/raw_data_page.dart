@@ -7,7 +7,7 @@ import 'package:memolanes/common/component/capsule_style_app_bar.dart';
 import 'package:memolanes/common/component/app_option_tile.dart';
 import 'package:memolanes/common/component/cards/option_card.dart';
 import 'package:memolanes/common/component/common_export.dart';
-import 'package:memolanes/common/component/tiles/label_tile.dart';
+import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/storage.dart';
@@ -20,7 +20,7 @@ class RawDataSwitch extends StatefulWidget {
 }
 
 class _RawDataSwitchState extends State<RawDataSwitch> {
-  bool enabled = false;
+  bool? enabled;
   bool _busy = true;
 
   @override
@@ -30,21 +30,26 @@ class _RawDataSwitchState extends State<RawDataSwitch> {
   }
 
   Future<void> _loadMode() async {
-    final value = await api.getRawDataMode();
-    if (!mounted) return;
-    setState(() {
-      enabled = value;
-      _busy = false;
-    });
+    try {
+      final value = await api.getRawDataMode();
+      if (!mounted) return;
+      setState(() => enabled = value);
+    } catch (error, stackTrace) {
+      log.error('Failed to load raw data mode: $error', stackTrace);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   Future<void> _setMode(bool value) async {
-    if (_busy) return;
+    if (_busy || enabled == null) return;
     setState(() => _busy = true);
     try {
       await api.toggleRawDataMode(enable: value);
       if (!mounted) return;
       setState(() => enabled = value);
+    } catch (error, stackTrace) {
+      log.error('Failed to change raw data mode: $error', stackTrace);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -52,17 +57,9 @@ class _RawDataSwitchState extends State<RawDataSwitch> {
 
   @override
   Widget build(BuildContext context) {
-    return OptionCard(
-      useSafeArea: false,
-      separators: false,
-      children: [
-        LabelTile(
-          label: context.tr("general.advanced_settings.raw_data_mode"),
-          position: LabelTilePosition.single,
-          bottom: false,
-          trailing: Switch(value: enabled, onChanged: _busy ? null : _setMode),
-        ),
-      ],
+    return Switch(
+      value: enabled ?? false,
+      onChanged: _busy || enabled == null ? null : _setMode,
     );
   }
 }
@@ -76,6 +73,7 @@ class RawDataPage extends StatefulWidget {
 
 class _RawDataPage extends State<RawDataPage> {
   List<RawDataFile> items = [];
+  bool _loading = true;
 
   @override
   void initState() {
@@ -84,9 +82,17 @@ class _RawDataPage extends State<RawDataPage> {
   }
 
   Future<void> _loadList() async {
-    final list = await api.listAllRawData();
-    if (!mounted) return;
-    setState(() => items = list);
+    try {
+      final list = await api.listAllRawData();
+      if (!mounted) return;
+      setState(() {
+        items = list;
+        _loading = false;
+      });
+    } catch (error, stackTrace) {
+      log.error('Failed to load raw data files: $error', stackTrace);
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   void _showExportCard(BuildContext context, String filePath) {
@@ -126,22 +132,28 @@ class _RawDataPage extends State<RawDataPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: CapsuleStyleAppBar(
-        title: context.tr("general.advanced_settings.raw_data_mode"),
+        title: context.tr("general.advanced_settings.raw_data_files"),
       ),
       body: SettingsPageFrame(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            const RawDataSwitch(),
-            const SizedBox(height: 16),
             Expanded(
-              child: ListView(
-                shrinkWrap: true,
-                padding: EdgeInsets.zero,
-                children: items.isEmpty
-                    ? []
-                    : [
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : items.isEmpty
+                  ? Center(
+                      child: Text(
+                        context.tr(
+                          'general.advanced_settings.no_raw_data_files',
+                        ),
+                      ),
+                    )
+                  : ListView(
+                      shrinkWrap: true,
+                      padding: EdgeInsets.zero,
+                      children: [
                         OptionCard(
                           useSafeArea: false,
                           children: items.map((item) {
@@ -181,7 +193,7 @@ class _RawDataPage extends State<RawDataPage> {
                           }).toList(),
                         ),
                       ],
-              ),
+                    ),
             ),
           ],
         ),

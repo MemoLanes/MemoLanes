@@ -127,12 +127,7 @@ class SettingsBody extends StatelessWidget {
       labelStyle: AppTypography.cardTitle.copyWith(
         color: context.appColors.inkColor,
       ),
-      desc: context.tr('settings.categories.$key.desc'),
-      descMaxLines: 1,
-      descStyle: AppTypography.caption.copyWith(
-        color: context.appColors.mutedInkColor,
-      ),
-      minHeight: 64,
+      minHeight: 56,
       position: position,
       bottom: false,
       prefix: Padding(

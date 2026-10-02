@@ -302,6 +302,8 @@
       "title": "Advanced settings",
       "export_logs": "Export Logs",
       "raw_data_mode": "Raw Data Mode",
+      "raw_data_files": "Raw Data Files",
+      "no_raw_data_files": "No raw data files",
       "raw_data_export_csv": "Export as CSV",
       "raw_data_export_gpx": "Export as GPX",
       "rebuild_cache": "Rebuild Cache",
@@ -328,10 +330,16 @@
     },
     "import_data": {
       "title": "Import data",
-      "description": "Choose the data source and format you want to import.",
-      "mldx_desc": "Restore a backup or migrate MemoLanes data",
-      "vector_desc": "Supports GPX, KML, and CSV track files",
-      "fog_of_world_desc": "Supports ZIP and FWSS data"
+      "description": "Supported formats are detected automatically after you choose a file.",
+      "mldx_title": "MemoLanes archive",
+      "mldx_desc": ".mldx",
+      "vector_title": "Track files",
+      "vector_desc": ".gpx / .kml / .csv",
+      "fog_of_world_title": "Fog of World data",
+      "fog_of_world_desc": ".fwss / .zip",
+      "choose_file": "Choose File",
+      "unsupported_format": "Unsupported file format. Choose a .mldx, .gpx, .kml, .csv, .fwss, or .zip file.",
+      "unreadable_file": "Cannot read the selected file. Save it to your device and try again."
     },
     "export_data": {
       "export_all": "Export All Data",
@@ -361,28 +369,22 @@
     "title": "Settings",
     "categories": {
       "journey_recording": {
-        "title": "Journey & Recording",
-        "desc": "Recording notifications and interruption alerts"
+        "title": "Journey & Recording"
       },
       "map": {
-        "title": "Map Settings",
-        "desc": "Map style, fog mode, and region"
+        "title": "Map Settings"
       },
       "appearance": {
-        "title": "Appearance",
-        "desc": "Theme, language and haptic feedback"
+        "title": "Appearance"
       },
       "data": {
-        "title": "Data",
-        "desc": "Import, export, and maintenance"
+        "title": "Data"
       },
       "advanced": {
-        "title": "Advanced",
-        "desc": "Diagnostics, location status, and reset options"
+        "title": "Advanced"
       },
       "about": {
-        "title": "About MemoLanes",
-        "desc": "Version information, privacy, and contact"
+        "title": "About MemoLanes"
       }
     },
     "groups": {

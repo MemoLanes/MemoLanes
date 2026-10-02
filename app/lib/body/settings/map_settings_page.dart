@@ -11,6 +11,7 @@ import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/common/region_preference.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/body/settings/settings_section.dart';
+import 'package:memolanes/theme/app_colors.dart';
 
 class MapSettingsPage extends StatefulWidget {
   const MapSettingsPage({super.key});
@@ -127,6 +128,7 @@ class _MapSettingsPageState extends State<MapSettingsPage> {
       body: SettingsPageLayout(
         children: [
           SettingsSection(
+            titleColor: context.appColors.deepGreen,
             title: context.tr('settings.groups.map_display'),
             children: [
               LabelTile(
@@ -151,6 +153,7 @@ class _MapSettingsPageState extends State<MapSettingsPage> {
             ],
           ),
           SettingsSection(
+            titleColor: context.appColors.deepGreen,
             title: context.tr('settings.groups.region'),
             children: [
               LabelTile(

@@ -302,6 +302,8 @@
       "title": "高级设置",
       "export_logs": "导出日志",
       "raw_data_mode": "原始数据模式",
+      "raw_data_files": "原始数据列表",
+      "no_raw_data_files": "暂无原始数据文件",
       "raw_data_export_csv": "导出为 CSV",
       "raw_data_export_gpx": "导出为 GPX",
       "rebuild_cache": "重建缓存",
@@ -328,10 +330,16 @@
     },
     "import_data": {
       "title": "导入数据",
-      "description": "选择要导入的数据来源与格式。",
-      "mldx_desc": "用于恢复备份或迁移迹忆数据",
-      "vector_desc": "支持 GPX、KML 和 CSV 轨迹文件",
-      "fog_of_world_desc": "支持 ZIP 和 FWSS 数据"
+      "description": "选择文件后将自动识别格式。支持以下文件：",
+      "mldx_title": "迹忆归档",
+      "mldx_desc": ".mldx",
+      "vector_title": "轨迹文件",
+      "vector_desc": ".gpx / .kml / .csv",
+      "fog_of_world_title": "世界迷雾数据",
+      "fog_of_world_desc": ".fwss / .zip",
+      "choose_file": "选择文件",
+      "unsupported_format": "不支持此文件格式。请选择 .mldx、.gpx、.kml、.csv、.fwss 或 .zip 文件。",
+      "unreadable_file": "无法读取所选文件，请保存到设备后重试。"
     },
     "export_data": {
       "export_all": "导出所有数据",
@@ -361,28 +369,22 @@
     "title": "设置",
     "categories": {
       "journey_recording": {
-        "title": "旅途与录制",
-        "desc": "录制通知与中断提醒"
+        "title": "旅途与录制"
       },
       "map": {
-        "title": "地图设置",
-        "desc": "地图样式、遮罩模式与地区偏好"
+        "title": "地图设置"
       },
       "appearance": {
-        "title": "界面外观",
-        "desc": "主题、语言与触感反馈"
+        "title": "界面外观"
       },
       "data": {
-        "title": "数据管理",
-        "desc": "数据导入、导出与维护"
+        "title": "数据管理"
       },
       "advanced": {
-        "title": "高级设置",
-        "desc": "诊断信息、定位状态与设置重置"
+        "title": "高级设置"
       },
       "about": {
-        "title": "关于迹忆",
-        "desc": "版本信息、隐私政策与联系我们"
+        "title": "关于迹忆"
       }
     },
     "groups": {

@@ -5,6 +5,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:memolanes/body/settings/contact_us_section.dart';
 import 'package:memolanes/body/settings/import_data_page.dart';
@@ -18,8 +19,10 @@ import 'package:memolanes/common/component/common_export.dart';
 import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
 import 'package:memolanes/common/gps_manager.dart';
+import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/common/recording_health_service.dart';
+import 'package:memolanes/common/share_handler_util.dart';
 import 'package:memolanes/common/update_notifier.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/body/settings/settings_section.dart';
@@ -33,8 +36,6 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:url_launcher/url_launcher_string.dart';
-
-enum _ImportDataSource { mldx, vector, fogOfWorld }
 
 class JourneyRecordingSettingsPage extends StatefulWidget {
   const JourneyRecordingSettingsPage({super.key});
@@ -67,6 +68,7 @@ class _JourneyRecordingSettingsPageState
       body: SettingsPageLayout(
         children: [
           SettingsSection(
+            titleColor: context.appColors.deepGreen,
             title: context.tr('settings.groups.recording_protection'),
             children: [
               LabelTile(
@@ -224,6 +226,7 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
       body: SettingsPageLayout(
         children: [
           SettingsSection(
+            titleColor: context.appColors.deepGreen,
             title: context.tr('settings.groups.appearance'),
             children: [
               LabelTile(
@@ -277,16 +280,25 @@ class DataManagementSettingsPage extends StatefulWidget {
 
 class _DataManagementSettingsPageState
     extends State<DataManagementSettingsPage> {
-  Future<void> _selectImportFile(
-    BuildContext context,
-    ImportType importType,
-  ) async {
-    final result = await FilePicker.pickFile(type: FileType.any);
-    if (result?.path != null && context.mounted) {
-      navigatorPush(
-        context,
-        page: ImportDataPage(path: result!.path!, importType: importType),
-      );
+  bool _hasRawDataFiles = false;
+  int _rawDataRefreshId = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshRawDataFiles();
+  }
+
+  Future<void> _refreshRawDataFiles() async {
+    final requestId = ++_rawDataRefreshId;
+    try {
+      final files = await api.listAllRawData();
+      if (!mounted || requestId != _rawDataRefreshId) return;
+      setState(() => _hasRawDataFiles = files.isNotEmpty);
+    } catch (error, stackTrace) {
+      log.error('Failed to list raw data files: $error', stackTrace);
+      if (!mounted || requestId != _rawDataRefreshId) return;
+      setState(() => _hasRawDataFiles = false);
     }
   }
 
@@ -300,6 +312,7 @@ class _DataManagementSettingsPageState
       body: SettingsPageLayout(
         children: [
           SettingsSection(
+            titleColor: context.appColors.deepGreen,
             title: context.tr('settings.groups.import_export'),
             children: [
               LabelTile(
@@ -318,14 +331,24 @@ class _DataManagementSettingsPageState
             ],
           ),
           SettingsSection(
+            titleColor: context.appColors.deepGreen,
             title: context.tr('settings.groups.data_maintenance'),
             children: [
               LabelTile(
                 label: context.tr('general.advanced_settings.raw_data_mode'),
                 position: LabelTilePosition.top,
-                trailing: const LabelTileContent(showArrow: true),
-                onTap: () => navigatorPush(context, page: const RawDataPage()),
+                trailing: const RawDataSwitch(),
               ),
+              if (_hasRawDataFiles)
+                LabelTile(
+                  label: context.tr('general.advanced_settings.raw_data_files'),
+                  position: LabelTilePosition.middle,
+                  trailing: const LabelTileContent(showArrow: true),
+                  onTap: () async {
+                    await navigatorPush(context, page: const RawDataPage());
+                    if (mounted) await _refreshRawDataFiles();
+                  },
+                ),
               LabelTile(
                 label: context.tr('db_optimization.button'),
                 position: LabelTilePosition.middle,
@@ -340,6 +363,7 @@ class _DataManagementSettingsPageState
             ],
           ),
           SettingsSection(
+            titleColor: context.appColors.deepGreen,
             title: context.tr('settings.groups.delete_data'),
             children: [
               LabelTile(
@@ -467,78 +491,171 @@ class _DataManagementSettingsPageState
   }
 
   Future<void> _showImportDataCard(BuildContext context) async {
-    final source = await showBasicCard<_ImportDataSource>(
+    final shouldSelectFile = await showBasicDialogCard<bool>(
       context,
       title: context.tr('data.import_data.title'),
+      contentPadding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+      actions: Builder(
+        builder: (dialogContext) => AppButton(
+          label: dialogContext.tr('data.import_data.choose_file'),
+          expand: true,
+          onPressed: () => Navigator.of(dialogContext).pop(true),
+        ),
+      ),
       builder: (dialogContext) => Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          AppOptionTile(
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Text(
+              dialogContext.tr('data.import_data.description'),
+              style: AppTypography.supporting.copyWith(
+                color: dialogContext.appColors.mutedInkColor,
+              ),
+            ),
+          ),
+          _ImportFormatInfoRow(
             icon: Icons.archive_outlined,
-            title: context.tr('journey.import_mldx_data'),
-            subtitle: context.tr('data.import_data.mldx_desc'),
-            onTap: () =>
-                Navigator.of(dialogContext).pop(_ImportDataSource.mldx),
+            title: dialogContext.tr('data.import_data.mldx_title'),
+            subtitle: dialogContext.tr('data.import_data.mldx_desc'),
           ),
           const SizedBox(height: 8),
-          AppOptionTile(
+          _ImportFormatInfoRow(
             icon: Icons.route_outlined,
-            title: context.tr('import.vector.title'),
-            subtitle: context.tr('data.import_data.vector_desc'),
-            onTap: () =>
-                Navigator.of(dialogContext).pop(_ImportDataSource.vector),
+            title: dialogContext.tr('data.import_data.vector_title'),
+            subtitle: dialogContext.tr('data.import_data.vector_desc'),
           ),
           const SizedBox(height: 8),
-          AppOptionTile(
+          _ImportFormatInfoRow(
             icon: Icons.public_outlined,
-            title: context.tr('journey.import_fog_of_world_data'),
-            subtitle: context.tr('data.import_data.fog_of_world_desc'),
-            onTap: () =>
-                Navigator.of(dialogContext).pop(_ImportDataSource.fogOfWorld),
+            title: dialogContext.tr('data.import_data.fog_of_world_title'),
+            subtitle: dialogContext.tr('data.import_data.fog_of_world_desc'),
           ),
         ],
       ),
     );
 
-    if (source == null || !context.mounted) return;
-
-    switch (source) {
-      case _ImportDataSource.mldx:
-        final result = await FilePicker.pickFile(type: FileType.any);
-        if (result?.path != null && context.mounted) {
-          await importMldx(context, result!.path!);
-        }
-        return;
-      case _ImportDataSource.vector:
-        await showCommonDialog(
-          context,
-          context.tr('import.vector.description_md'),
-          markdown: true,
-        );
-        if (context.mounted) {
-          await _selectImportFile(context, ImportType.vector);
-        }
-        return;
-      case _ImportDataSource.fogOfWorld:
-        await showCommonDialog(
-          context,
-          context.tr('import.import_fow_data.description_md'),
-          markdown: true,
-        );
-        if (await api.containsBitmapJourney() && context.mounted) {
-          await showCommonDialog(
-            context,
-            context.tr(
-              'import.import_fow_data.warning_for_import_multiple_data_md',
-            ),
-            markdown: true,
-          );
-        }
-        if (context.mounted) {
-          await _selectImportFile(context, ImportType.fow);
-        }
-        return;
+    if (shouldSelectFile != true || !context.mounted) return;
+    final file = await FilePicker.pickFile(type: FileType.any);
+    if (file == null || !context.mounted) return;
+    final isMldx = file.name.toLowerCase().endsWith('.mldx');
+    final importType = ShareHandlerUtil.resolveImportType(file.name);
+    if (!isMldx && importType == null) {
+      await showCommonDialog(
+        context,
+        context.tr('data.import_data.unsupported_format'),
+      );
+      return;
     }
+    final path = file.path;
+    if (path == null) {
+      await showCommonDialog(
+        context,
+        context.tr('data.import_data.unreadable_file'),
+      );
+      return;
+    }
+    if (isMldx) {
+      await importMldx(context, path);
+      return;
+    }
+
+    final selectedType = importType!;
+
+    if (selectedType == ImportType.vector) {
+      await showCommonDialog(
+        context,
+        context.tr('import.vector.description_md'),
+        markdown: true,
+      );
+    } else {
+      await showCommonDialog(
+        context,
+        context.tr('import.import_fow_data.description_md'),
+        markdown: true,
+      );
+      if (!context.mounted) return;
+      if (await api.containsBitmapJourney()) {
+        if (!context.mounted) return;
+        await showCommonDialog(
+          context,
+          context.tr(
+            'import.import_fow_data.warning_for_import_multiple_data_md',
+          ),
+          markdown: true,
+        );
+      }
+    }
+    if (!context.mounted) return;
+    navigatorPush(
+      context,
+      page: ImportDataPage(path: path, importType: selectedType),
+    );
+  }
+}
+
+class _ImportFormatInfoRow extends StatelessWidget {
+  const _ImportFormatInfoRow({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(minHeight: 58),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: context.appColors.surfaceColor.withValues(alpha: 0.76),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: context.appColors.lineColor),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: context.appColors.softGreen,
+              borderRadius: BorderRadius.circular(11),
+            ),
+            child: Icon(icon, color: context.appColors.deepGreen, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.itemTitle.copyWith(
+                    color: context.appColors.inkColor,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  subtitle,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.caption.copyWith(
+                    color: context.appColors.mutedInkColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -576,6 +693,7 @@ class _AboutSettingsPageState extends State<AboutSettingsPage> {
       body: SettingsPageLayout(
         children: [
           SettingsSection(
+            titleColor: context.appColors.deepGreen,
             title: context.tr('settings.about'),
             children: [
               LabelTile(
@@ -621,9 +739,8 @@ class _AboutSettingsPageState extends State<AboutSettingsPage> {
                       );
                     }
                   } else if (context.mounted) {
-                    await showCommonDialog(
-                      context,
-                      context.tr(
+                    Fluttertoast.showToast(
+                      msg: context.tr(
                         'general.version.currently_the_latest_version',
                       ),
                     );

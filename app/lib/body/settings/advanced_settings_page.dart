@@ -13,6 +13,7 @@ import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
+import 'package:memolanes/theme/app_colors.dart';
 import 'package:memolanes/utils/nav_helper.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
@@ -30,6 +31,7 @@ class AdvancedSettingsPage extends StatelessWidget {
       body: SettingsPageLayout(
         children: [
           SettingsSection(
+            titleColor: context.appColors.deepGreen,
             title: context.tr('settings.groups.diagnostics'),
             children: [
               LabelTile(
@@ -66,6 +68,7 @@ class AdvancedSettingsPage extends StatelessWidget {
             ],
           ),
           SettingsSection(
+            titleColor: context.appColors.deepGreen,
             title: context.tr('settings.groups.recovery'),
             children: [
               LabelTile(
