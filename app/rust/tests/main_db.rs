@@ -48,9 +48,9 @@ fn rejects_newer_major_schema_version_without_migrating() {
 
 #[test]
 fn basic() {
-    let (raw_data, _preprocessor) =
+    let (parsed, _preprocessor) =
         import_data::gpx::load_gpx("./tests/data/raw_gps_shanghai.gpx").unwrap();
-
+    let raw_data = parsed.flatten();
     let test_data: Vec<RawData> = raw_data.into_iter().flatten().collect();
     let num_of_gpx_data_in_input = test_data.len();
     println!("total test data: {num_of_gpx_data_in_input}");

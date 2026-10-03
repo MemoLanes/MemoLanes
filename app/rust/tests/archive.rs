@@ -16,8 +16,9 @@ use std::io::Cursor;
 use tempdir::TempDir;
 
 fn add_vector_journeys(main_db: &mut MainDb) {
-    let (raw_data, _preprocessor) =
+    let (parsed, _preprocessor) =
         import_data::gpx::load_gpx("./tests/data/raw_gps_shanghai.gpx").unwrap();
+    let raw_data = parsed.flatten();
 
     for (i, raw_data) in raw_data.iter().flatten().enumerate() {
         if i > 1000 && i % 1000 == 0 {

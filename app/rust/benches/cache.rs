@@ -121,7 +121,8 @@ fn setup_storage_with(src: &DataSource) -> (Storage, TempDir, TempDir, TempDir, 
 // ---------------------------------------------------------------------------
 
 fn load_sample_bitmap() -> JourneyBitmap {
-    let (raw_data, _) = import_data::gpx::load_gpx("./tests/data/raw_gps_shanghai.gpx").unwrap();
+    let (parsed, _) = import_data::gpx::load_gpx("./tests/data/raw_gps_shanghai.gpx").unwrap();
+    let raw_data = parsed.flatten();
     let vector = import_data::conversion::journey_vector_from_raw_data_with_gps_preprocessor(
         &raw_data, None,
     )

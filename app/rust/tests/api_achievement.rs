@@ -33,8 +33,9 @@ use tempdir::TempDir;
 
 /// Import one GPX track as a finalized journey via the public GPS ingest path.
 fn import_gpx_as_journey(path: &str) {
-    let (raw, _pre) = import_data::gpx::load_gpx(path).unwrap();
-    let points: Vec<RawData> = raw
+    let (parsed, _pre) = import_data::gpx::load_gpx(path).unwrap();
+    let points: Vec<RawData> = parsed
+        .flatten()
         .into_iter()
         .flatten()
         .filter(|p| p.timestamp_ms.is_some())

@@ -17,7 +17,6 @@ use crate::gps_processor::{GpsPreprocessor, ProcessResult};
 use crate::journey_bitmap::JourneyBitmap;
 use crate::journey_data::JourneyData;
 use crate::journey_header::{JourneyHeader, JourneyKind, JourneyType};
-use crate::journey_vector::JourneyVector;
 use crate::logs;
 use crate::renderer::internal_server::{dispatch_request, WebviewResponse};
 use crate::renderer::MapRenderer;
@@ -634,6 +633,34 @@ pub fn export_all_journeys_as_fwss(target_filepath: String) -> Result<ExportResu
     }
 }
 
+pub fn export_all_journeys_as_gpx(target_filepath: String) -> Result<ExportResult> {
+    Ok(
+        if export_data::export_all_vector_journeys(
+            &get().storage,
+            &target_filepath,
+            export_data::VectorExportFormat::Gpx,
+        )? {
+            ExportResult::Succeed
+        } else {
+            ExportResult::DataIsEmpty
+        },
+    )
+}
+
+pub fn export_all_journeys_as_kml(target_filepath: String) -> Result<ExportResult> {
+    Ok(
+        if export_data::export_all_vector_journeys(
+            &get().storage,
+            &target_filepath,
+            export_data::VectorExportFormat::Kml,
+        )? {
+            ExportResult::Succeed
+        } else {
+            ExportResult::DataIsEmpty
+        },
+    )
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ExportType {
     GPX = 0,
@@ -650,8 +677,8 @@ pub enum ExportResult {
 enum InternalDataForExport {
     Mldx(JourneyHeader, JourneyData),
     Fwss(JourneyData),
-    Gpx(JourneyVector),
-    Kml(JourneyVector),
+    Gpx(export_data::JourneyExport),
+    Kml(export_data::JourneyExport),
 }
 
 pub fn export_journey(
@@ -684,11 +711,25 @@ pub fn export_journey(
             ExportType::FWSS => Ok(Some(InternalDataForExport::Fwss(journey_data))),
             ExportType::GPX => match journey_data {
                 JourneyData::Bitmap(_) => Err(anyhow!("cannot export bitmap data as gpx")),
-                JourneyData::Vector(vector) => Ok(Some(InternalDataForExport::Gpx(vector))),
+                JourneyData::Vector(vector) => {
+                    let header = txn
+                        .get_journey_header(&journey_id)?
+                        .expect("header must exist");
+                    Ok(Some(InternalDataForExport::Gpx(
+                        export_data::JourneyExport::from_header(header, vector),
+                    )))
+                }
             },
             ExportType::KML => match journey_data {
                 JourneyData::Bitmap(_) => Err(anyhow!("cannot export bitmap data as kml")),
-                JourneyData::Vector(vector) => Ok(Some(InternalDataForExport::Kml(vector))),
+                JourneyData::Vector(vector) => {
+                    let header = txn
+                        .get_journey_header(&journey_id)?
+                        .expect("header must exist");
+                    Ok(Some(InternalDataForExport::Kml(
+                        export_data::JourneyExport::from_header(header, vector),
+                    )))
+                }
             },
         }
     })?;
@@ -720,11 +761,11 @@ pub fn export_journey(
                     };
                     export_data::fow::journey_bitmap_to_fwss_file(&bitmap, &mut file)?
                 }
-                InternalDataForExport::Gpx(vector) => {
-                    export_data::gpx::journey_vector_to_gpx_file(&vector, &mut file)?
+                InternalDataForExport::Gpx(journey) => {
+                    export_data::gpx::journeys_to_gpx_file(&[journey], &mut file)?
                 }
-                InternalDataForExport::Kml(vector) => {
-                    export_data::kml::journey_vector_to_kml_file(&vector, &mut file)?
+                InternalDataForExport::Kml(journey) => {
+                    export_data::kml::journeys_to_kml_file(&[journey], &mut file)?
                 }
             };
             Ok(ExportResult::Succeed)
