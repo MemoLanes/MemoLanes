@@ -27,6 +27,7 @@ void main() {
     createdAt: DateTime.utc(2024),
     journeyType: JourneyType.vector,
     journeyKind: JourneyKind.defaultKind,
+    hasRawData: false,
   );
   const view = (lng: 113.0, lat: 22.0, zoom: 10.0);
 
@@ -144,6 +145,7 @@ void main() {
       createdAt: journey.createdAt,
       journeyType: journey.journeyType,
       journeyKind: journey.journeyKind,
+      hasRawData: journey.hasRawData,
       note: 'Updated track',
     );
     backend.header = updated;

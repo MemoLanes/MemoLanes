@@ -2,6 +2,7 @@ use crate::{
     journey_date_picker::JourneyDatePicker,
     journey_header::{JourneyHeader, JourneyType},
     journey_vector::{JourneyVector, TrackPoint, TrackSegment},
+    raw_data::RawGPSPoint,
 };
 use anyhow::{Context, Result};
 use auto_context::auto_context;
@@ -67,15 +68,6 @@ impl Point {
         }
         lon
     }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct RawData {
-    pub point: Point,
-    pub timestamp_ms: Option<i64>,
-    pub accuracy: Option<f32>,
-    pub altitude: Option<f32>,
-    pub speed: Option<f32>,
 }
 
 #[cfg(test)]
@@ -166,7 +158,7 @@ impl BadDataDetector {
         }
     }
 
-    fn is_bad_data(&mut self, curr_data: &RawData) -> bool {
+    fn is_bad_data(&mut self, curr_data: &RawGPSPoint) -> bool {
         const ACCURACY_THRESHOLD: f32 = 50.;
         const ACCELERATION_THRESHOLD: f32 = 10.;
         // We mostly don't care deceleration, but just in case we had a very bad
@@ -281,7 +273,7 @@ impl GpsPreprocessor {
         rule: SegmentGapRule,
         last_point: &Point,
         last_timestamp_ms: Option<i64>,
-        curr_data: &RawData,
+        curr_data: &RawGPSPoint,
     ) -> ProcessResult {
         // Rules must be ordered by `distance_m` in ascending order.
         // The first matching rule is applied.
@@ -356,7 +348,7 @@ impl GpsPreprocessor {
         }
     }
 
-    pub fn preprocess(&mut self, curr_data: &RawData) -> ProcessResult {
+    pub fn preprocess(&mut self, curr_data: &RawGPSPoint) -> ProcessResult {
         // Something to note:
         // * Accuracy is not well defined. The unit is meters but: On android,
         //  it is the radius of this location at the 68th percentile confidence
@@ -381,7 +373,7 @@ impl GpsPreprocessor {
             return ProcessResult::Ignore;
         };
 
-        let start_moving = |curr_data: &RawData| Moving {
+        let start_moving = |curr_data: &RawGPSPoint| Moving {
             last_point: curr_data.point.clone(),
             last_timestamp_ms: curr_data.timestamp_ms,
             possible_center_point: curr_data.point.clone(),

@@ -1,5 +1,9 @@
 pub mod test_utils;
-use memolanes_core::{api::api, gps_processor::RawData, import_data};
+use memolanes_core::{
+    api::api,
+    import_data,
+    raw_data::{ExtendedRawGPSPoint, RawGPSPoint},
+};
 use std::fs;
 use tempdir::TempDir;
 
@@ -25,13 +29,16 @@ fn basic() {
     let (raw_data, _preprocessor) =
         import_data::gpx::load_gpx("./tests/data/raw_gps_shanghai.gpx").unwrap();
 
-    let mut raw_data_list: Vec<RawData> = raw_data.into_iter().flatten().collect();
+    let mut raw_data_list: Vec<RawGPSPoint> = raw_data.into_iter().flatten().collect();
     let (first_elements, remaining_elements) = raw_data_list.split_at_mut(2000);
     let main_map_state = api::for_testing::get_main_map_state();
 
     assert!(!api::has_ongoing_journey().unwrap());
     for (i, raw_data) in first_elements.iter().enumerate() {
-        api::on_location_update(raw_data.clone(), raw_data.timestamp_ms.unwrap());
+        api::on_location_update(ExtendedRawGPSPoint {
+            raw_gps_point: raw_data.clone(),
+            received_timestamp_ms: raw_data.timestamp_ms.unwrap(),
+        });
         if i == 1000 {
             assert!(api::has_ongoing_journey().unwrap());
             assert!(api::finalize_ongoing_journey().unwrap());
@@ -59,7 +66,10 @@ fn basic() {
     assert!(!api::finalize_ongoing_journey().unwrap());
 
     for raw_data in remaining_elements {
-        api::on_location_update(raw_data.clone(), raw_data.timestamp_ms.unwrap());
+        api::on_location_update(ExtendedRawGPSPoint {
+            raw_gps_point: raw_data.clone(),
+            received_timestamp_ms: raw_data.timestamp_ms.unwrap(),
+        });
     }
 
     {
