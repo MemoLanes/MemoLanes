@@ -73,15 +73,10 @@ fn attribute(event: &BytesStart<'_>, name: &str) -> Result<Option<String>> {
 }
 
 fn metadata(event: &BytesStart<'_>) -> Result<Option<ImportedJourney>> {
-    let version = attribute(event, "version")?;
     let date = attribute(event, "date")?;
     let journey_date = date
         .as_deref()
         .and_then(|value| NaiveDate::parse_from_str(value, "%Y-%m-%d").ok());
-    if version.as_deref() != Some("1") {
-        warn!("Unsupported MemoLanes GPX journey version {version:?}; using generic GPX import");
-        return Ok(None);
-    }
     if journey_date.is_none() {
         warn!("Invalid MemoLanes GPX journey date {date:?}; using generic GPX import");
         return Ok(None);

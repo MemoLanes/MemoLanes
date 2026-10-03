@@ -4,7 +4,8 @@ extern crate assert_float_eq;
 use chrono::{DateTime, NaiveDate, Utc};
 use itertools::Itertools;
 use memolanes_core::api::api::{
-    export_all_journeys_as_gpx, export_all_journeys_as_kml, init, ExportResult,
+    export_all_journeys_as_gpx, export_all_journeys_as_kml, export_journey, init, ExportResult,
+    ExportType,
 };
 use memolanes_core::api::import::{self as import_api, ImportPreprocessor, JourneyInfo};
 use memolanes_core::export_data::gpx::raw_data_csv_to_gpx_file;
@@ -418,6 +419,8 @@ fn bulk_api_preserves_journeys_without_overwriting_local_edits() {
     let kml_xml = fs::read_to_string(&kml_path).unwrap();
     assert!(gpx_xml.contains("xmlns:memolanes=\"https://app.memolanes.com/ns/journey/1\""));
     assert!(!kml_xml.contains("xmlns:memolanes"));
+    assert!(!gpx_xml.contains("version=\"1\""));
+    assert!(!kml_xml.contains("memolanes:version"));
     for xml in [&gpx_xml, &kml_xml] {
         assert!(!xml.contains("sourceJourneyId"));
         assert!(!xml.contains("sourceRevision"));
@@ -441,7 +444,7 @@ fn bulk_api_preserves_journeys_without_overwriting_local_edits() {
         gpx_xml.replace(
             "<memolanes:journey ",
             &format!(
-                "<memolanes:journey sourceJourneyId=\"{}\" sourceId=\"legacy\" sourceRevision=\"{}\" ",
+                "<memolanes:journey version=\"1\" sourceJourneyId=\"{}\" sourceId=\"legacy\" sourceRevision=\"{}\" ",
                 ids[1], legacy_revision
             ),
         ),
@@ -452,7 +455,7 @@ fn bulk_api_preserves_journeys_without_overwriting_local_edits() {
         kml_xml.replace(
             "<ExtendedData>",
             &format!(
-                "<ExtendedData><Data name=\"memolanes:sourceJourneyId\"><value>{}</value></Data><Data name=\"memolanes:sourceRevision\"><value>{}</value></Data>",
+                "<ExtendedData><Data name=\"memolanes:version\"><value>1</value></Data><Data name=\"memolanes:sourceJourneyId\"><value>{}</value></Data><Data name=\"memolanes:sourceRevision\"><value>{}</value></Data>",
                 ids[1], legacy_revision
             ),
         ),
@@ -473,6 +476,59 @@ fn bulk_api_preserves_journeys_without_overwriting_local_edits() {
             .0,
         kml
     );
+    // Ignored fields must also remain irrelevant when their values are invalid.
+    let ignored_gpx_path = temp.path().join("ignored.gpx");
+    let ignored_kml_path = temp.path().join("ignored.kml");
+    fs::write(
+        &ignored_gpx_path,
+        gpx_xml.replace(
+            "<memolanes:journey ",
+            "<memolanes:journey version=\"unknown\" sourceJourneyId=\"&unknown;\" sourceRevision=\"&unknown;\" ",
+        ),
+    )
+    .unwrap();
+    fs::write(
+        &ignored_kml_path,
+        kml_xml.replace(
+            "<ExtendedData>",
+            "<ExtendedData><Data name=\"memolanes:version\"><value>unknown</value></Data><Data name=\"memolanes:sourceJourneyId\"><value>&unknown;</value></Data><Data name=\"memolanes:sourceRevision\"><value>&unknown;</value></Data>",
+        ),
+    )
+    .unwrap();
+    assert_eq!(
+        import_data::gpx::load_gpx(ignored_gpx_path.to_str().unwrap())
+            .unwrap()
+            .0,
+        gpx
+    );
+    assert_eq!(
+        import_data::kml::load_kml(ignored_kml_path.to_str().unwrap())
+            .unwrap()
+            .0,
+        kml
+    );
+    for (format, extension, parsed) in [
+        (ExportType::GPX, "gpx", &gpx),
+        (ExportType::KML, "kml", &kml),
+    ] {
+        let path = temp.path().join(format!("single.{extension}"));
+        assert!(matches!(
+            export_journey(path.to_string_lossy().into_owned(), ids[0].clone(), format).unwrap(),
+            ExportResult::Succeed
+        ));
+        let xml = fs::read_to_string(&path).unwrap();
+        assert!(!xml.contains("sourceJourneyId"));
+        assert!(!xml.contains("sourceRevision"));
+        assert!(!xml.contains("version=\"1\""));
+        assert!(!xml.contains("memolanes:version"));
+        let (single, _) = match format {
+            ExportType::GPX => import_data::gpx::load_gpx(path.to_str().unwrap()).unwrap(),
+            ExportType::KML => import_data::kml::load_kml(path.to_str().unwrap()).unwrap(),
+            _ => unreachable!(),
+        };
+        assert_eq!(single.groups.len(), 1);
+        assert!(parsed.groups.contains(&single.groups[0]));
+    }
     for parsed in [gpx, kml] {
         assert_eq!(parsed.groups.len(), 3);
         let mut offsets = Vec::new();

@@ -109,7 +109,6 @@ impl<W: Write> GpxJourneyWriter<W> {
         let start = journey.start.map(|value| value.to_rfc3339());
         let end = journey.end.map(|value| value.to_rfc3339());
         let mut metadata = BytesStart::new("memolanes:journey");
-        metadata.push_attribute(("version", "1"));
         metadata.push_attribute(("date", date.as_str()));
         if let Some(value) = start.as_deref() {
             metadata.push_attribute(("start", value));

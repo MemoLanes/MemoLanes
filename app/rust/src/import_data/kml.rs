@@ -43,7 +43,6 @@ pub fn load_kml(file_path: &str) -> Result<(ParsedVectorData, ImportPreprocessor
 struct KmlFolder {
     order: usize,
     journey: ImportedJourney,
-    version: Option<String>,
     marked: bool,
     placemarks: usize,
     coordinates: Vec<String>,
@@ -71,7 +70,6 @@ fn parse_memolanes_kml(xml: &str) -> Result<Option<ParsedVectorData>> {
                 folders.push(KmlFolder {
                     order: next_order,
                     journey: ImportedJourney::generic(Vec::new()),
-                    version: None,
                     marked: false,
                     placemarks: 0,
                     coordinates: Vec::new(),
@@ -82,8 +80,7 @@ fn parse_memolanes_kml(xml: &str) -> Result<Option<ParsedVectorData>> {
                 if let Some(folder) = folders.pop() {
                     if folder.marked {
                         has_marker = true;
-                        if folder.version.as_deref() != Some("1")
-                            || folder.journey.journey_date.is_none()
+                        if folder.journey.journey_date.is_none()
                             || folder.placemarks != folder.coordinates.len()
                         {
                             invalid_marker = true;
@@ -142,11 +139,14 @@ fn parse_memolanes_kml(xml: &str) -> Result<Option<ParsedVectorData>> {
                         attr.normalized_value(quick_xml::XmlVersion::Implicit1_0)
                             .ok()
                             .map(|value| value.into_owned())
+                    })
+                    .filter(|name| {
+                        matches!(
+                            name.as_str(),
+                            "memolanes:date" | "memolanes:start" | "memolanes:end"
+                        )
                     });
-                if data_name
-                    .as_deref()
-                    .is_some_and(|name| name.starts_with("memolanes:"))
-                {
+                if data_name.is_some() {
                     if let Some(folder) = folders.last_mut() {
                         folder.marked = true;
                     }
@@ -162,7 +162,6 @@ fn parse_memolanes_kml(xml: &str) -> Result<Option<ParsedVectorData>> {
                 let value = quick_xml::escape::unescape(raw.as_ref())?.into_owned();
                 if let (Some(folder), Some(name)) = (folders.last_mut(), data_name.as_deref()) {
                     match name {
-                        "memolanes:version" => folder.version = Some(value),
                         "memolanes:date" => {
                             folder.journey.journey_date =
                                 NaiveDate::parse_from_str(&value, "%Y-%m-%d").ok();
