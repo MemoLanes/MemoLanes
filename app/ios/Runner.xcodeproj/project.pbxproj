@@ -8,8 +8,11 @@
 
 /* Begin PBXBuildFile section */
 		1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */ = {isa = PBXBuildFile; fileRef = 1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */; };
+		2AF10DE6F51A9D3E0E663D6A /* RecordingActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70257A5F31C1DF0F13324326 /* RecordingActivityAttributes.swift */; };
 		331C808B294A63AB00263BE5 /* RunnerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 331C807B294A618700263BE5 /* RunnerTests.swift */; };
 		3B3967161E833CAA004F5970 /* AppFrameworkInfo.plist in Resources */ = {isa = PBXBuildFile; fileRef = 3B3967151E833CAA004F5970 /* AppFrameworkInfo.plist */; };
+		59CDBF66FB321D84A16DB6AC /* RecordingLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = A27CC7C600C62DDF0CF80E9D /* RecordingLiveActivity.swift */; };
+		624D53C3708164C880B9FDE0 /* RecordingLiveActivityBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61BC2C094494BD0BC14EEF51 /* RecordingLiveActivityBridge.swift */; };
 		6DFA5DAC2DE1DB8800948F41 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 6DFA5DAA2DE1DB8800948F41 /* InfoPlist.strings */; };
 		6FA661F8216768DE36799CA5 /* Pods_RunnerTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CC7A8186529620A3A5B187E6 /* Pods_RunnerTests.framework */; };
 		6FBFE1D0F2FD28F7538AB0C8 /* Pods_Runner.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C6C84A1652EE5A6811CE5399 /* Pods_Runner.framework */; };
@@ -19,10 +22,14 @@
 		97C146FC1CF9000F007C117D /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FA1CF9000F007C117D /* Main.storyboard */; };
 		97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FD1CF9000F007C117D /* Assets.xcassets */; };
 		97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */; };
+		97CDCF3342EB4A7EC63270B1 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 585EC2C042D049640E1F78F0 /* Localizable.strings */; };
+		B068BDCC502469F7F37C9CB3 /* RecordingLiveActivity.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = C486ECF00BDA7E8BAFD347AE /* RecordingLiveActivity.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		D1C74EA9B35F191D882F3A77 /* RecordingActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70257A5F31C1DF0F13324326 /* RecordingActivityAttributes.swift */; };
 		EC207E782F29D570003C4334 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = EC207E772F29D570003C4334 /* LaunchScreen.storyboard */; };
 		EC2080012F2A1000003C4334 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = EC2080022F2A1000003C4334 /* Localizable.strings */; };
 		EC946C1B2F0E1A7C00214BC0 /* ShareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = EC946C112F0E1A7C00214BC0 /* ShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		F7B13A802FCA000000000003 /* zikzak-share-handler-ios-models in Frameworks */ = {isa = PBXBuildFile; productRef = F7B13A802FCA000000000004 /* zikzak-share-handler-ios-models */; };
+		F0E8A91138AADB1CC5FEB8CC /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B1294E8C1444B996EBA1B7D3 /* Foundation.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -32,6 +39,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = 97C146ED1CF9000F007C117D;
 			remoteInfo = Runner;
+		};
+		6304B66525CCF289EDC73A01 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 97C146E61CF9000F007C117D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2E408362A2832D498DA86F94;
+			remoteInfo = RecordingLiveActivity;
 		};
 		EC946C192F0E1A7C00214BC0 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -60,6 +74,7 @@
 			dstSubfolderSpec = 13;
 			files = (
 				EC946C1B2F0E1A7C00214BC0 /* ShareExtension.appex in Embed Foundation Extensions */,
+				B068BDCC502469F7F37C9CB3 /* RecordingLiveActivity.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -67,19 +82,24 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		0599E1C6DBC5E637D1710981 /* RecordingLiveActivity.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = Flutter/RecordingLiveActivity.xcconfig; sourceTree = "<group>"; };
+		13D2991B6B3AABA3C87B0E4C /* en */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		1498D2321E8E86230040F4C2 /* GeneratedPluginRegistrant.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GeneratedPluginRegistrant.h; sourceTree = "<group>"; };
 		1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = GeneratedPluginRegistrant.m; sourceTree = "<group>"; };
 		26AA68CDC2CCD94D47F17F53 /* Pods-RunnerTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.release.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.release.xcconfig"; sourceTree = "<group>"; };
 		2DA6B2DA829B665EA4A2DE5A /* Pods-Runner.profile.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.profile.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.profile.xcconfig"; sourceTree = "<group>"; };
 		331C807B294A618700263BE5 /* RunnerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerTests.swift; sourceTree = "<group>"; };
 		331C8081294A63A400263BE5 /* RunnerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RunnerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		36377FD5E2D548E5276ACE23 /* zh-Hans */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
 		3B3967151E833CAA004F5970 /* AppFrameworkInfo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = AppFrameworkInfo.plist; path = Flutter/AppFrameworkInfo.plist; sourceTree = "<group>"; };
 		54745E68CAF1F6B61043D822 /* Pods-Runner.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.release.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"; sourceTree = "<group>"; };
+		61BC2C094494BD0BC14EEF51 /* RecordingLiveActivityBridge.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecordingLiveActivityBridge.swift; sourceTree = "<group>"; };
 		6D4D40BF2C42C764001DBE24 /* Runner.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Runner.entitlements; sourceTree = "<group>"; };
 		6DFA5DA62DE1C8D500948F41 /* en */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = en; path = en.lproj/Main.storyboard; sourceTree = "<group>"; };
 		6DFA5DA72DE1C8D500948F41 /* en */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = en; path = en.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		6DFA5DAB2DE1DB8800948F41 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		6DFA5DAD2DE1DC0700948F41 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
+		70257A5F31C1DF0F13324326 /* RecordingActivityAttributes.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecordingActivityAttributes.swift; sourceTree = "<group>"; };
 		703477406A52C10AD1A8DD05 /* Pods-RunnerTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.debug.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.debug.xcconfig"; sourceTree = "<group>"; };
 		74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Runner-Bridging-Header.h"; sourceTree = "<group>"; };
 		74858FAE1ED2DC5600515810 /* AppDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -92,7 +112,11 @@
 		97C146EE1CF9000F007C117D /* Runner.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Runner.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		97C146FD1CF9000F007C117D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		97C147021CF9000F007C117D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A27CC7C600C62DDF0CF80E9D /* RecordingLiveActivity.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecordingLiveActivity.swift; sourceTree = "<group>"; };
+		B1294E8C1444B996EBA1B7D3 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		BD5EAAB5F9DB584B368232E4 /* Pods-RunnerTests.profile.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.profile.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.profile.xcconfig"; sourceTree = "<group>"; };
+		BD61322B98181E31E79BB397 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		C486ECF00BDA7E8BAFD347AE /* RecordingLiveActivity.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = RecordingLiveActivity.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		C6C84A1652EE5A6811CE5399 /* Pods_Runner.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_Runner.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		CC7A8186529620A3A5B187E6 /* Pods_RunnerTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_RunnerTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		EC207E772F29D570003C4334 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
@@ -127,6 +151,14 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		232A138C6EFD48375F1FF8F8 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F0E8A91138AADB1CC5FEB8CC /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		97C146EB1CF9000F007C117D /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -155,12 +187,31 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		1B9BCA1AEAE5D02D9443C2BA /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				B1294E8C1444B996EBA1B7D3 /* Foundation.framework */,
+			);
+			name = iOS;
+			sourceTree = "<group>";
+		};
 		331C8082294A63A400263BE5 /* RunnerTests */ = {
 			isa = PBXGroup;
 			children = (
 				331C807B294A618700263BE5 /* RunnerTests.swift */,
 			);
 			path = RunnerTests;
+			sourceTree = "<group>";
+		};
+		7348976B3C4EA8A3D18D86DD /* RecordingLiveActivity */ = {
+			isa = PBXGroup;
+			children = (
+				A27CC7C600C62DDF0CF80E9D /* RecordingLiveActivity.swift */,
+				BD61322B98181E31E79BB397 /* Info.plist */,
+				585EC2C042D049640E1F78F0 /* Localizable.strings */,
+			);
+			name = RecordingLiveActivity;
+			path = RecordingLiveActivity;
 			sourceTree = "<group>";
 		};
 		77F6CE8D0FF6716142AC01FD /* Pods */ = {
@@ -184,6 +235,7 @@
 				9740EEB21CF90195004384FC /* Debug.xcconfig */,
 				7AFA3C8E1D35360C0083082E /* Release.xcconfig */,
 				9740EEB31CF90195004384FC /* Generated.xcconfig */,
+				0599E1C6DBC5E637D1710981 /* RecordingLiveActivity.xcconfig */,
 			);
 			name = Flutter;
 			sourceTree = "<group>";
@@ -201,6 +253,8 @@
 				331C8082294A63A400263BE5 /* RunnerTests */,
 				77F6CE8D0FF6716142AC01FD /* Pods */,
 				AEDDB7F22CCD628D4E84CF65 /* Frameworks */,
+				A35B9205F553ACA876F41915 /* Shared */,
+				7348976B3C4EA8A3D18D86DD /* RecordingLiveActivity */,
 			);
 			sourceTree = "<group>";
 		};
@@ -210,6 +264,7 @@
 				97C146EE1CF9000F007C117D /* Runner.app */,
 				331C8081294A63A400263BE5 /* RunnerTests.xctest */,
 				EC946C112F0E1A7C00214BC0 /* ShareExtension.appex */,
+				C486ECF00BDA7E8BAFD347AE /* RecordingLiveActivity.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -227,8 +282,18 @@
 				74858FAE1ED2DC5600515810 /* AppDelegate.swift */,
 				8A8F4D662A7B4A3B00112233 /* AppShortcuts.swift */,
 				74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */,
+				61BC2C094494BD0BC14EEF51 /* RecordingLiveActivityBridge.swift */,
 			);
 			path = Runner;
+			sourceTree = "<group>";
+		};
+		A35B9205F553ACA876F41915 /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				70257A5F31C1DF0F13324326 /* RecordingActivityAttributes.swift */,
+			);
+			name = Shared;
+			path = Shared;
 			sourceTree = "<group>";
 		};
 		AEDDB7F22CCD628D4E84CF65 /* Frameworks */ = {
@@ -236,6 +301,7 @@
 			children = (
 				C6C84A1652EE5A6811CE5399 /* Pods_Runner.framework */,
 				CC7A8186529620A3A5B187E6 /* Pods_RunnerTests.framework */,
+				1B9BCA1AEAE5D02D9443C2BA /* iOS */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -243,6 +309,23 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		2E408362A2832D498DA86F94 /* RecordingLiveActivity */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 526F95A7B24F4C165D448261 /* Build configuration list for PBXNativeTarget "RecordingLiveActivity" */;
+			buildPhases = (
+				C663AF880E86CBA068A619C7 /* Sources */,
+				232A138C6EFD48375F1FF8F8 /* Frameworks */,
+				DB765E8530B3255F17AB7B46 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = RecordingLiveActivity;
+			productName = RecordingLiveActivity;
+			productReference = C486ECF00BDA7E8BAFD347AE /* RecordingLiveActivity.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		331C8080294A63A400263BE5 /* RunnerTests */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 331C8087294A63A400263BE5 /* Build configuration list for PBXNativeTarget "RunnerTests" */;
@@ -280,6 +363,7 @@
 			);
 			dependencies = (
 				EC946C1A2F0E1A7C00214BC0 /* PBXTargetDependency */,
+				B7AA2769CD2214DFF7C31104 /* PBXTargetDependency */,
 			);
 			name = Runner;
 			packageProductDependencies = (
@@ -356,6 +440,7 @@
 				97C146ED1CF9000F007C117D /* Runner */,
 				331C8080294A63A400263BE5 /* RunnerTests */,
 				EC946C102F0E1A7C00214BC0 /* ShareExtension */,
+				2E408362A2832D498DA86F94 /* RecordingLiveActivity */,
 			);
 		};
 /* End PBXProject section */
@@ -379,6 +464,14 @@
 				97C146FC1CF9000F007C117D /* Main.storyboard in Resources */,
 				6DFA5DAC2DE1DB8800948F41 /* InfoPlist.strings in Resources */,
 				EC2080012F2A1000003C4334 /* Localizable.strings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DB765E8530B3255F17AB7B46 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				97CDCF3342EB4A7EC63270B1 /* Localizable.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -502,6 +595,17 @@
 				8A8F4D672A7B4A3B00112233 /* AppShortcuts.swift in Sources */,
 				74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */,
 				1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */,
+				624D53C3708164C880B9FDE0 /* RecordingLiveActivityBridge.swift in Sources */,
+				2AF10DE6F51A9D3E0E663D6A /* RecordingActivityAttributes.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C663AF880E86CBA068A619C7 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				59CDBF66FB321D84A16DB6AC /* RecordingLiveActivity.swift in Sources */,
+				D1C74EA9B35F191D882F3A77 /* RecordingActivityAttributes.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -520,6 +624,12 @@
 			target = 97C146ED1CF9000F007C117D /* Runner */;
 			targetProxy = 331C8085294A63A400263BE5 /* PBXContainerItemProxy */;
 		};
+		B7AA2769CD2214DFF7C31104 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = RecordingLiveActivity;
+			target = 2E408362A2832D498DA86F94 /* RecordingLiveActivity */;
+			targetProxy = 6304B66525CCF289EDC73A01 /* PBXContainerItemProxy */;
+		};
 		EC946C1A2F0E1A7C00214BC0 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = EC946C102F0E1A7C00214BC0 /* ShareExtension */;
@@ -528,6 +638,15 @@
 /* End PBXTargetDependency section */
 
 /* Begin PBXVariantGroup section */
+		585EC2C042D049640E1F78F0 /* Localizable.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				13D2991B6B3AABA3C87B0E4C /* en */,
+				36377FD5E2D548E5276ACE23 /* zh-Hans */,
+			);
+			name = Localizable.strings;
+			sourceTree = "<group>";
+		};
 		6DFA5DAA2DE1DB8800948F41 /* InfoPlist.strings */ = {
 			isa = PBXVariantGroup;
 			children = (
@@ -565,6 +684,93 @@
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
+		03A51CB8C0D9C62AB33C734C /* Profile */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 0599E1C6DBC5E637D1710981 /* RecordingLiveActivity.xcconfig */;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				DEVELOPMENT_TEAM = C98DNSYY7Q;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = RecordingLiveActivity/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = MemoLanes;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = com.memolanes.oss.dev.RecordingLiveActivity;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Profile;
+		};
+		08CCDCF2F3C749F61F4F7E15 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 0599E1C6DBC5E637D1710981 /* RecordingLiveActivity.xcconfig */;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				DEVELOPMENT_TEAM = C98DNSYY7Q;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = RecordingLiveActivity/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = MemoLanes;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = com.memolanes.oss.dev.RecordingLiveActivity;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		0E04FCDEE2F58C82E6165502 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 0599E1C6DBC5E637D1710981 /* RecordingLiveActivity.xcconfig */;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				DEVELOPMENT_TEAM = C98DNSYY7Q;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = RecordingLiveActivity/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = MemoLanes;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = "$(FLUTTER_BUILD_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = com.memolanes.oss.dev.RecordingLiveActivity;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
 		249021D3217E4FDB00AE95B9 /* Profile */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -995,6 +1201,16 @@
 				331C8088294A63A400263BE5 /* Debug */,
 				331C8089294A63A400263BE5 /* Release */,
 				331C808A294A63A400263BE5 /* Profile */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		526F95A7B24F4C165D448261 /* Build configuration list for PBXNativeTarget "RecordingLiveActivity" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				08CCDCF2F3C749F61F4F7E15 /* Release */,
+				0E04FCDEE2F58C82E6165502 /* Debug */,
+				03A51CB8C0D9C62AB33C734C /* Profile */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

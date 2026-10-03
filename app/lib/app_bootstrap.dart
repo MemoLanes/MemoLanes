@@ -11,6 +11,7 @@ import 'package:memolanes/common/share_handler_util.dart';
 import 'package:memolanes/common/shortcut_handler_util.dart';
 import 'package:memolanes/common/update_notifier.dart';
 import 'package:memolanes/common/gps_manager.dart';
+import 'package:memolanes/common/recording_live_activity_service.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/common/region_preference.dart';
@@ -174,6 +175,7 @@ class AppBootstrap {
 
     _shareImport.init();
     ShortcutHandlerUtil.init(gpsManager: gpsManager);
+    RecordingLiveActivityService.start(gpsManager);
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _onFirstFrame();
