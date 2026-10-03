@@ -69,8 +69,23 @@ Future<T> showLoadingDialog<T>({required Future<T> asyncTask}) async {
   return result;
 }
 
+/// Keeps an import active when its entry route is replaced by a final page.
+class ImportFlow {
+  Future<dynamic>? _continuation;
+
+  void continueWith(Future<dynamic> continuation) {
+    _continuation = continuation;
+  }
+
+  Future<void> waitFor(Future<dynamic> entry) async {
+    await entry;
+    await _continuation;
+  }
+}
+
 Future<void> importMldx(BuildContext context, String path) async {
-  await Navigator.of(context).push<void>(
+  final flow = ImportFlow();
+  final entryClosed = Navigator.of(context).push<void>(
     MaterialPageRoute(
       builder: (context) => ImportLoadingPage(
         filePath: path,
@@ -100,12 +115,15 @@ Future<void> importMldx(BuildContext context, String path) async {
               popCurrentRoute(loadingContext);
             }
           } else if (loadingContext.mounted) {
-            await Navigator.of(loadingContext).pushReplacement<bool, void>(
-              MaterialPageRoute(
-                builder: (context) =>
-                    MldxImportPage(journeys: preview, mldxReader: mldxFile),
-              ),
-            );
+            final previewClosed = Navigator.of(loadingContext)
+                .pushReplacement<bool, void>(
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        MldxImportPage(journeys: preview, mldxReader: mldxFile),
+                  ),
+                );
+            flow.continueWith(previewClosed);
+            await previewClosed;
           }
         },
         onError: (loadingContext, error, stackTrace) async {
@@ -121,4 +139,5 @@ Future<void> importMldx(BuildContext context, String path) async {
       ),
     ),
   );
+  await flow.waitFor(entryClosed);
 }

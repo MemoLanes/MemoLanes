@@ -53,6 +53,12 @@ class PermissionService {
 
   factory PermissionService() => _instance;
 
+  bool _isPermanentlyDeniedFromStatus(PermissionStatus status) {
+    // Android status cannot distinguish permanent denial from "Ask every time".
+    // Only request() results can report permanent denial there.
+    return !Platform.isAndroid && status.isPermanentlyDenied;
+  }
+
   Future<void> logPermissionState(String event) async {
     try {
       final locationServiceEnabled =
@@ -112,6 +118,10 @@ class PermissionService {
         !isAndroid || await Permission.ignoreBatteryOptimizations.isGranted;
     final notificationStatus = await Permission.notification.status;
     final notificationGranted = notificationStatus.isGranted;
+    final locationPermanentlyDenied = _isPermanentlyDeniedFromStatus(locStatus);
+    final notificationPermanentlyDenied = _isPermanentlyDeniedFromStatus(
+      notificationStatus,
+    );
     final locationRequested = MMKVUtil.getBool(
       MMKVKey.requestedLocation,
       defaultValue: false,
@@ -128,9 +138,8 @@ class PermissionService {
     final snapshot = PermissionSnapshot(
       location: PermissionTileStatus(
         granted: hasLocation,
-        denied:
-            !hasLocation && locationRequested && !locStatus.isPermanentlyDenied,
-        permanentlyDenied: locStatus.isPermanentlyDenied,
+        denied: !hasLocation && locationRequested && !locationPermanentlyDenied,
+        permanentlyDenied: locationPermanentlyDenied,
       ),
       battery: PermissionTileStatus(
         granted: batteryGranted,
@@ -141,8 +150,8 @@ class PermissionService {
         denied:
             !notificationGranted &&
             notificationRequested &&
-            !notificationStatus.isPermanentlyDenied,
-        permanentlyDenied: notificationStatus.isPermanentlyDenied,
+            !notificationPermanentlyDenied,
+        permanentlyDenied: notificationPermanentlyDenied,
       ),
     );
     return snapshot;
@@ -164,7 +173,7 @@ class PermissionService {
     final notificationStatus = await Permission.notification.status;
     if (!notificationStatus.isGranted &&
         !MMKVUtil.getBool(MMKVKey.requestedNotification, defaultValue: false) &&
-        !notificationStatus.isPermanentlyDenied) {
+        !_isPermanentlyDeniedFromStatus(notificationStatus)) {
       return true;
     }
     return false;
@@ -199,7 +208,7 @@ class PermissionService {
 
     var status = await Permission.location.status;
 
-    if (status.isPermanentlyDenied) {
+    if (_isPermanentlyDeniedFromStatus(status)) {
       MMKVUtil.putBool(MMKVKey.requestedLocation, true);
       log.info(
         '[PermissionService] runLocationRequest open app settings: '
@@ -282,7 +291,7 @@ class PermissionService {
       return const [];
     }
 
-    if (status.isPermanentlyDenied) {
+    if (_isPermanentlyDeniedFromStatus(status)) {
       MMKVUtil.putBool(MMKVKey.requestedNotification, true);
       log.info(
         '[PermissionService] runNotificationRequest open app settings: '

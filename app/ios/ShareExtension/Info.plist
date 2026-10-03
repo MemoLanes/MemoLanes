@@ -30,6 +30,7 @@
                     $attachment,
                     (
                     ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "public.file-url"
+                    || ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "public.data"
                     || ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "public.image"
                     || ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "public.text"
                     || ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "public.movie"
