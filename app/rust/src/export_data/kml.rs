@@ -110,8 +110,6 @@ impl<W: Write> KmlJourneyWriter<W> {
         xml.write_event(Event::End(BytesEnd::new("TimeStamp")))?;
         xml.write_event(Event::Start(BytesStart::new("ExtendedData")))?;
         write_data(xml, "version", "1")?;
-        write_data(xml, "sourceJourneyId", &journey.source_journey_id)?;
-        write_data(xml, "sourceRevision", &journey.source_revision)?;
         write_data(xml, "date", &journey.journey_date.to_string())?;
         if let Some(start) = journey.start {
             write_data(xml, "start", &start.to_rfc3339())?;

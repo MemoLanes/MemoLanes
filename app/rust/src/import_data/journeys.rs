@@ -20,8 +20,6 @@ use crate::storage::Storage;
 /// One explicitly marked MemoLanes journey in a GPX/KML interchange file.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ImportedJourney {
-    pub source_journey_id: Option<String>,
-    pub source_revision: Option<String>,
     pub journey_date: Option<NaiveDate>,
     pub start: Option<DateTime<Utc>>,
     pub end: Option<DateTime<Utc>>,
@@ -31,8 +29,6 @@ pub struct ImportedJourney {
 impl ImportedJourney {
     pub fn generic(segments: Vec<Vec<RawData>>) -> Self {
         Self {
-            source_journey_id: None,
-            source_revision: None,
             journey_date: None,
             start: None,
             end: None,
@@ -41,7 +37,7 @@ impl ImportedJourney {
     }
 
     pub fn has_memolanes_metadata(&self) -> bool {
-        self.source_journey_id.is_some() && self.journey_date.is_some()
+        self.journey_date.is_some()
     }
 }
 
@@ -179,17 +175,6 @@ impl ImportPart {
     pub(crate) fn is_memolanes_journey(&self) -> bool {
         matches!(self.source, ImportPartSource::Journey(_))
     }
-
-    fn source_version<'a>(&self, parsed: &'a ParsedVectorData) -> Option<(&'a str, &'a str)> {
-        let ImportPartSource::Journey(index) = self.source else {
-            return None;
-        };
-        let group = &parsed.groups[index];
-        Some((
-            group.source_journey_id.as_deref()?,
-            group.source_revision.as_deref()?,
-        ))
-    }
 }
 
 pub(crate) fn part_for_key<'a>(parts: &'a [ImportPart], key: &str) -> Result<&'a ImportPart> {
@@ -260,14 +245,6 @@ pub(crate) fn import_selected_parts(
         let mut imported_count = 0;
         for (part, data) in prepared {
             if part.is_memolanes_journey() {
-                if let Some((source_id, source_revision)) = part.source_version(parsed) {
-                    if txn
-                        .get_journey_header(source_id)?
-                        .is_some_and(|header| header.revision == source_revision)
-                    {
-                        continue;
-                    }
-                }
                 let JourneyData::Vector(vector) = &data else {
                     unreachable!("MemoLanes GPX/KML parts are vector data")
                 };

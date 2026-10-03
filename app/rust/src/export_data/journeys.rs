@@ -49,8 +49,6 @@ impl<W: Write> VectorWriter<W> {
 /// MLDX remains the complete backup format.
 #[derive(Clone, Debug)]
 pub(crate) struct JourneyExport {
-    pub source_journey_id: String,
-    pub source_revision: String,
     pub journey_date: NaiveDate,
     pub start: Option<DateTime<Utc>>,
     pub end: Option<DateTime<Utc>>,
@@ -60,8 +58,6 @@ pub(crate) struct JourneyExport {
 impl JourneyExport {
     pub(crate) fn from_header(header: JourneyHeader, vector: JourneyVector) -> Self {
         Self {
-            source_journey_id: header.id,
-            source_revision: header.revision,
             journey_date: header.journey_date,
             start: header.start,
             end: header.end,

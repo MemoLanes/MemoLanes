@@ -83,7 +83,6 @@ fn parse_memolanes_kml(xml: &str) -> Result<Option<ParsedVectorData>> {
                     if folder.marked {
                         has_marker = true;
                         if folder.version.as_deref() != Some("1")
-                            || folder.journey.source_journey_id.is_none()
                             || folder.journey.journey_date.is_none()
                             || folder.placemarks != folder.coordinates.len()
                         {
@@ -164,10 +163,6 @@ fn parse_memolanes_kml(xml: &str) -> Result<Option<ParsedVectorData>> {
                 if let (Some(folder), Some(name)) = (folders.last_mut(), data_name.as_deref()) {
                     match name {
                         "memolanes:version" => folder.version = Some(value),
-                        "memolanes:sourceJourneyId" => {
-                            folder.journey.source_journey_id = Some(value)
-                        }
-                        "memolanes:sourceRevision" => folder.journey.source_revision = Some(value),
                         "memolanes:date" => {
                             folder.journey.journey_date =
                                 NaiveDate::parse_from_str(&value, "%Y-%m-%d").ok();

@@ -414,32 +414,82 @@ fn bulk_api_preserves_journeys_without_overwriting_local_edits() {
         .unwrap();
     assert!(matches!(export_gpx().unwrap(), ExportResult::Succeed));
     assert!(matches!(export_kml().unwrap(), ExportResult::Succeed));
-    assert!(fs::read_to_string(&gpx_path)
-        .unwrap()
-        .contains("xmlns:memolanes=\"https://app.memolanes.com/ns/journey/1\""));
-    assert!(!fs::read_to_string(&kml_path)
-        .unwrap()
-        .contains("xmlns:memolanes"));
+    let gpx_xml = fs::read_to_string(&gpx_path).unwrap();
+    let kml_xml = fs::read_to_string(&kml_path).unwrap();
+    assert!(gpx_xml.contains("xmlns:memolanes=\"https://app.memolanes.com/ns/journey/1\""));
+    assert!(!kml_xml.contains("xmlns:memolanes"));
+    for xml in [&gpx_xml, &kml_xml] {
+        assert!(!xml.contains("sourceJourneyId"));
+        assert!(!xml.contains("sourceRevision"));
+        for id in &ids {
+            assert!(!xml.contains(id));
+        }
+    }
+
+    // Legacy identity metadata must not affect parsing or duplicate detection,
+    // even when it matches an existing journey with different geometry.
+    let legacy_revision = db
+        .with_txn(|txn| Ok(txn.get_journey_header(&ids[1])?.unwrap().revision))
+        .unwrap();
+    for xml in [&gpx_xml, &kml_xml] {
+        assert!(!xml.contains(&legacy_revision));
+    }
+    let legacy_gpx_path = temp.path().join("legacy.gpx");
+    let legacy_kml_path = temp.path().join("legacy.kml");
+    fs::write(
+        &legacy_gpx_path,
+        gpx_xml.replace(
+            "<memolanes:journey ",
+            &format!(
+                "<memolanes:journey sourceJourneyId=\"{}\" sourceId=\"legacy\" sourceRevision=\"{}\" ",
+                ids[1], legacy_revision
+            ),
+        ),
+    )
+    .unwrap();
+    fs::write(
+        &legacy_kml_path,
+        kml_xml.replace(
+            "<ExtendedData>",
+            &format!(
+                "<ExtendedData><Data name=\"memolanes:sourceJourneyId\"><value>{}</value></Data><Data name=\"memolanes:sourceRevision\"><value>{}</value></Data>",
+                ids[1], legacy_revision
+            ),
+        ),
+    )
+    .unwrap();
 
     let (gpx, _) = import_data::gpx::load_gpx(gpx_path.to_str().unwrap()).unwrap();
     let (kml, _) = import_data::kml::load_kml(kml_path.to_str().unwrap()).unwrap();
+    assert_eq!(
+        import_data::gpx::load_gpx(legacy_gpx_path.to_str().unwrap())
+            .unwrap()
+            .0,
+        gpx
+    );
+    assert_eq!(
+        import_data::kml::load_kml(legacy_kml_path.to_str().unwrap())
+            .unwrap()
+            .0,
+        kml
+    );
     for parsed in [gpx, kml] {
         assert_eq!(parsed.groups.len(), 3);
-        let exported_ids = parsed
-            .groups
-            .iter()
-            .map(|group| group.source_journey_id.as_deref().unwrap())
-            .collect::<HashSet<_>>();
-        assert_eq!(exported_ids, ids.iter().map(String::as_str).collect());
+        let mut offsets = Vec::new();
         for group in &parsed.groups {
-            assert!(group.source_revision.is_some());
+            assert!(group.has_memolanes_metadata());
             assert_eq!(group.start, Some(start));
             assert_eq!(group.end, Some(end));
-            let source_index = ids
-                .iter()
-                .position(|id| Some(id.as_str()) == group.source_journey_id.as_deref())
-                .unwrap();
-            let offset = [1.0, 10.0, 20.0][source_index];
+            let offset = group.segments[0][0].point.latitude;
+            offsets.push(offset as i32);
+            assert_eq!(
+                group.journey_date,
+                Some(if offset == 20.0 {
+                    second_date
+                } else {
+                    first_date
+                })
+            );
             let points = group
                 .segments
                 .iter()
@@ -464,6 +514,8 @@ fn bulk_api_preserves_journeys_without_overwriting_local_edits() {
                 ]
             );
         }
+        offsets.sort_unstable();
+        assert_eq!(offsets, vec![1, 10, 20]);
         assert_eq!(
             parsed
                 .groups
@@ -517,7 +569,7 @@ fn bulk_api_preserves_journeys_without_overwriting_local_edits() {
     assert_eq!(
         import_file(&gpx_path),
         0,
-        "matching source revisions are skipped"
+        "matching date, time range and geometry are skipped"
     );
     db.with_txn(|txn| {
         txn.update_journey_metadata(
@@ -544,16 +596,27 @@ fn bulk_api_preserves_journeys_without_overwriting_local_edits() {
         .with_txn(|txn| Ok(txn.get_journey_header(&ids[0])?.unwrap().revision))
         .unwrap();
     assert_eq!(
-        import_file(&gpx_path),
+        import_file(&legacy_gpx_path),
         1,
-        "a changed local journey is kept and the source imports as a copy"
+        "legacy identity metadata is ignored and changed geometry imports as a copy"
     );
     assert_eq!(import_file(&gpx_path), 0, "reimporting the copy is skipped");
     assert_eq!(
-        import_file(&kml_path),
+        import_file(&legacy_kml_path),
         0,
-        "the equivalent KML is also skipped"
+        "the equivalent legacy KML is skipped by geometry"
     );
+
+    db.with_txn(|txn| {
+        txn.update_journey_data_with_latest_postprocessor(&ids[1], export_test_vector(40.0))
+    })
+    .unwrap();
+    assert_eq!(
+        import_file(&legacy_kml_path),
+        1,
+        "legacy KML identity metadata does not prevent importing changed geometry"
+    );
+    assert_eq!(import_file(&gpx_path), 0, "GPX finds the KML-imported copy");
 
     db.with_txn(|txn| {
         let local = txn.get_journey_header(&ids[0])?.unwrap();

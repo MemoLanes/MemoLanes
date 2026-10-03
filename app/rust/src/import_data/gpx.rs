@@ -74,17 +74,12 @@ fn attribute(event: &BytesStart<'_>, name: &str) -> Result<Option<String>> {
 
 fn metadata(event: &BytesStart<'_>) -> Result<Option<ImportedJourney>> {
     let version = attribute(event, "version")?;
-    let source_journey_id = attribute(event, "sourceJourneyId")?.or(attribute(event, "sourceId")?);
     let date = attribute(event, "date")?;
     let journey_date = date
         .as_deref()
         .and_then(|value| NaiveDate::parse_from_str(value, "%Y-%m-%d").ok());
     if version.as_deref() != Some("1") {
         warn!("Unsupported MemoLanes GPX journey version {version:?}; using generic GPX import");
-        return Ok(None);
-    }
-    if source_journey_id.as_deref().is_none_or(str::is_empty) {
-        warn!("MemoLanes GPX journey has no sourceJourneyId; using generic GPX import");
         return Ok(None);
     }
     if journey_date.is_none() {
@@ -106,8 +101,6 @@ fn metadata(event: &BytesStart<'_>) -> Result<Option<ImportedJourney>> {
     };
 
     Ok(Some(ImportedJourney {
-        source_journey_id,
-        source_revision: attribute(event, "sourceRevision")?,
         journey_date,
         start: optional_time("start")?,
         end: optional_time("end")?,
@@ -170,14 +163,7 @@ fn parse_memolanes_gpx(xml: &str) -> Result<Option<ParsedVectorData>> {
 
                 match local_name(&name) {
                     "trk" if path.len() == 1 => {
-                        current = Some(ImportedJourney {
-                            source_journey_id: None,
-                            source_revision: None,
-                            journey_date: None,
-                            start: None,
-                            end: None,
-                            segments: Vec::new(),
-                        });
+                        current = Some(ImportedJourney::generic(Vec::new()));
                     }
                     "journey"
                         if path.len() == 3
@@ -191,8 +177,6 @@ fn parse_memolanes_gpx(xml: &str) -> Result<Option<ParsedVectorData>> {
                         match metadata(&element) {
                             Ok(Some(parsed)) => {
                                 if let Some(group) = current.as_mut() {
-                                    group.source_journey_id = parsed.source_journey_id;
-                                    group.source_revision = parsed.source_revision;
                                     group.journey_date = parsed.journey_date;
                                     group.start = parsed.start;
                                     group.end = parsed.end;
@@ -250,7 +234,7 @@ fn parse_memolanes_gpx(xml: &str) -> Result<Option<ParsedVectorData>> {
         }
         return Ok(None);
     }
-    if groups.iter().any(|group| group.source_journey_id.is_none()) {
+    if groups.iter().any(|group| !group.has_memolanes_metadata()) {
         warn!("MemoLanes GPX contains unmarked tracks; using generic GPX import");
         return Ok(None);
     }
