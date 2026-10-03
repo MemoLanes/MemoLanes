@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter_app_intents/flutter_app_intents.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/log.dart';
+import 'package:memolanes/common/recording_live_activity_service.dart';
 
 class ShortcutHandlerUtil {
   ShortcutHandlerUtil._();
@@ -64,6 +65,8 @@ class ShortcutHandlerUtil {
     } catch (e, s) {
       log.error('${spec.id} failed: $e', s);
       return AppIntentResult.failed(error: '$e');
+    } finally {
+      await RecordingLiveActivityService.flush();
     }
   }
 }
