@@ -63,6 +63,7 @@
     "save_confirm": "Do you want to save the changes?"
   },
   "startup_error": {
+    "map_initialization_failed": "Map initialization failed. Restart the app and try again.",
     "title": "Data Version Incompatible",
     "database_version_too_new": "The data on this device was created by a newer version of MemoLanes and can't be opened by this version. Update MemoLanes and try again.",
     "update": "Go to Update",
@@ -159,6 +160,8 @@
     "shared_file": {
       "confirm_title": "Import data",
       "confirm_message": "Do you want to import the file: {}?",
+      "busy_title": "Import in progress",
+      "busy_message": "The current file import has not finished. Complete or cancel this import before sharing another file.",
       "multi_message": "You selected multiple files. Only one file can be imported at a time.\nPlease select a single file and try again."
     },
     "unsupported_file_failed": "Unsupported file",

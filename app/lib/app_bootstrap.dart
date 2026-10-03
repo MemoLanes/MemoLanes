@@ -5,6 +5,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:memolanes/body/first_launch_setup.dart';
 import 'package:memolanes/common/app_lifecycle_service.dart';
 import 'package:memolanes/common/share_handler_util.dart';
 import 'package:memolanes/common/shortcut_handler_util.dart';
@@ -92,6 +93,11 @@ void delayedInit(UpdateNotifier updateNotifier) {
 class AppBootstrap {
   static bool _started = false;
   static final Completer<void> _mainMapReady = Completer<void>();
+  static final Completer<void> _uiReady = Completer<void>();
+  static final ShareHandlerUtil _shareImport = ShareHandlerUtil(
+    navigatorKey: navigatorKey,
+    uiReady: _uiReady.future,
+  );
   static bool _didApplyInitialLocale = false;
 
   // TODO: This naive version is good enough for now, as we only have two locales.
@@ -166,7 +172,7 @@ class AppBootstrap {
     if (_started) return;
     _started = true;
 
-    ShareHandlerUtil.init(navigatorKey: navigatorKey);
+    _shareImport.init();
     ShortcutHandlerUtil.init(gpsManager: gpsManager);
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -188,8 +194,31 @@ class AppBootstrap {
     delayedInit(updateNotifier);
   }
 
-  /// the return value should be considered readonly
-  static Completer<void> get mainMapReady {
-    return _mainMapReady;
+  /// Runs the home page's startup UI in order, then releases pending shares.
+  /// Call after the home page's first frame, when its Navigator is mounted.
+  static Future<void> completeUiStartup(BuildContext context) async {
+    if (!context.mounted) return;
+    await showFirstLaunchSetupIfNeeded(context);
+    if (!context.mounted) return;
+
+    try {
+      if (!_mainMapReady.isCompleted) {
+        await showLoadingDialog(asyncTask: _mainMapReady.future);
+      } else {
+        await _mainMapReady.future;
+      }
+    } catch (e, s) {
+      log.error('Failed to initialize the main map during UI startup: $e', s);
+      if (!context.mounted) return;
+      await showCommonDialog(
+        context,
+        context.tr('startup_error.map_initialization_failed'),
+      );
+    }
+    if (!context.mounted) return;
+    await tryShowPermissionSheetIfFirstTime();
+    if (!context.mounted) return;
+
+    if (!_uiReady.isCompleted) _uiReady.complete();
   }
 }
