@@ -3,7 +3,7 @@ import Flutter
 import notification_when_app_is_killed
 
 @main
-@objc class AppDelegate: FlutterAppDelegate {
+@objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
@@ -12,21 +12,40 @@ import notification_when_app_is_killed
       UNUserNotificationCenter.current().delegate = self as? UNUserNotificationCenterDelegate
     }
 
-    GeneratedPluginRegistrant.register(with: self)
-    if let controller = window?.rootViewController as? FlutterViewController {
-      let channel = FlutterMethodChannel(
-        name: "com.memolanes/device_region",
-        binaryMessenger: controller.binaryMessenger
-      )
-      channel.setMethodCallHandler { call, result in
-        guard call.method == "getRegion" else {
-          result(FlutterMethodNotImplemented)
-          return
-        }
-        result(Locale.current.regionCode)
-      }
-    }
+    // TODO: This is a compatibility workaround for the current Flutter version; revisit on upgrade.
+    // AppIntents can launch without a scene. Early registration uses Flutter's
+    // launch-engine compatibility path; Main.storyboard later adopts that engine.
+    registerPlugins(with: self)
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  }
+
+  func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
+    registerPlugins(with: engineBridge.pluginRegistry)
+  }
+
+  private func registerPlugins(with registry: FlutterPluginRegistry) {
+    // The storyboard may reuse the launch engine or create a new one. Check
+    // its registry rather than keeping a process-wide registration flag.
+    if !registry.hasPlugin("ShareHandlerIosPlatform") {
+      GeneratedPluginRegistrant.register(with: registry)
+    }
+
+    // Register on this engine so scene-free launches can also read the region.
+    guard !registry.hasPlugin("MemoLanesDeviceRegion"),
+      let registrar = registry.registrar(forPlugin: "MemoLanesDeviceRegion")
+    else { return }
+
+    let channel = FlutterMethodChannel(
+      name: "com.memolanes/device_region",
+      binaryMessenger: registrar.messenger()
+    )
+    channel.setMethodCallHandler { call, result in
+      guard call.method == "getRegion" else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      result(Locale.current.regionCode)
+    }
   }
 
   override func applicationWillTerminate(_ application: UIApplication) {
