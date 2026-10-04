@@ -370,7 +370,7 @@
     "agreement_title": "Read and agree to the Privacy Policy",
     "view_policy": "View Privacy Policy",
     "name": "Privacy Policy",
-    "disagree_and_exit": "Disagree And Exit"
+    "exit": "Exit"
   },
   "contact_us": {
     "title": "Contact Us",
