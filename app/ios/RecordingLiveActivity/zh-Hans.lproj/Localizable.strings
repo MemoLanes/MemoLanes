@@ -1,0 +1,10 @@
+"status_recording" = "记录中";
+"status_paused" = "已暂停";
+"status_unknown" = "待确认";
+"accessibility_unknown" = "状态待确认";
+"locating" = "定位中";
+"open_app" = "打开 App 查看";
+"gps_updated" = "GPS 更新时间";
+"accuracy_title" = "定位精度";
+"accuracy_value" = "±%.0f 米";
+"gps_updated_at %@" = "%@ 更新";

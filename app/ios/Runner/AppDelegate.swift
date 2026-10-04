@@ -4,6 +4,8 @@ import notification_when_app_is_killed
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
+  private var recordingLiveActivityBridge: AnyObject?
+
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
@@ -29,6 +31,14 @@ import notification_when_app_is_killed
     guard !registry.hasPlugin("ShareHandlerIosPlatform") else { return }
 
     GeneratedPluginRegistrant.register(with: registry)
+    if let registrar = registry.registrar(forPlugin: "RecordingLiveActivityBridge") {
+      if #available(iOS 16.1, *) {
+        recordingLiveActivityBridge = RecordingLiveActivityBridge(messenger: registrar.messenger())
+      } else {
+        FlutterMethodChannel(name: "com.memolanes/recording_live_activity", binaryMessenger: registrar.messenger())
+          .setMethodCallHandler { _, result in result(nil) }
+      }
+    }
   }
 
   override func applicationWillTerminate(_ application: UIApplication) {
