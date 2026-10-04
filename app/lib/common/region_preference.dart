@@ -22,10 +22,6 @@ class WorldviewManager {
   WorldviewManager._()
     : this.forTesting(
         readSavedWorldview: _loadSavedWorldview,
-        hasConfirmedPreference: () =>
-            // Version 1 already asked the user to confirm their preference.
-            // Preserve it even when a later setup version needs to be shown.
-            MMKVUtil.getInt(MMKVKey.firstLaunchSetupCompletedVersion) >= 1,
         readDeviceLocales: () =>
             WidgetsBinding.instance.platformDispatcher.locales,
         readDeviceRegion: _readDeviceRegionFromPlatform,
@@ -36,7 +32,6 @@ class WorldviewManager {
   @visibleForTesting
   WorldviewManager.forTesting({
     required this._readSavedWorldview,
-    required this._hasConfirmedPreference,
     required this._readDeviceLocales,
     required Future<String?> Function() readDeviceRegion,
     required Future<void> Function(achievement.Worldview) activateGeoData,
@@ -49,13 +44,12 @@ class WorldviewManager {
 
   final Mutex _mutex = Mutex();
   final achievement.Worldview? Function() _readSavedWorldview;
-  final bool Function() _hasConfirmedPreference;
   final List<Locale> Function() _readDeviceLocales;
   final Future<String?> Function() _readDeviceRegionCallback;
   final Future<void> Function(achievement.Worldview) _activate;
   final void Function(achievement.Worldview) _persist;
   achievement.Worldview? _currentWorldview;
-  achievement.Worldview? _confirmedWorldview;
+  achievement.Worldview? _persistedWorldview;
 
   achievement.Worldview get currentWorldview =>
       _currentWorldview ??
@@ -64,16 +58,14 @@ class WorldviewManager {
   Future<void> initialize() {
     return _mutex.protect(() async {
       if (_currentWorldview != null) return;
-      // Older builds persisted recommendations before setup was accepted.
-      // Only a confirmed preference may override a fresh recommendation.
-      final saved = _hasConfirmedPreference() ? _readSavedWorldview() : null;
+      final saved = _readSavedWorldview();
       final worldview = saved ?? await _recommendedWorldview();
       // TODO: right now we make sure the geo data is fully loaded during
       // app initialization, which can be a bit expensive. We should consider
       // delaying this.
       await _activate(worldview);
       _currentWorldview = worldview;
-      _confirmedWorldview = saved;
+      _persistedWorldview = saved;
     });
   }
 
@@ -103,14 +95,14 @@ class WorldviewManager {
       }
       // Accepting the recommendation is still an explicit confirmation, even
       // though the already-active geo data does not need to be loaded again.
-      if (_confirmedWorldview != worldview) {
+      if (_persistedWorldview != worldview) {
         try {
           _persist(worldview);
-          _confirmedWorldview = worldview;
+          _persistedWorldview = worldview;
         } catch (error, stackTrace) {
           // Keep the UI in sync with the active data even if saving fails.
           // Allow a later confirmation to retry saving.
-          _confirmedWorldview = null;
+          _persistedWorldview = null;
           log.error('Failed to save worldview preference: $error', stackTrace);
         }
       }
