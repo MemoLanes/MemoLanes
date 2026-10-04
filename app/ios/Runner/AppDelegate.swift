@@ -30,22 +30,7 @@ import notification_when_app_is_killed
       GeneratedPluginRegistrant.register(with: registry)
     }
 
-    // Register on this engine so scene-free launches can also read the region.
-    guard !registry.hasPlugin("MemoLanesDeviceRegion"),
-      let registrar = registry.registrar(forPlugin: "MemoLanesDeviceRegion")
-    else { return }
-
-    let channel = FlutterMethodChannel(
-      name: "com.memolanes/device_region",
-      binaryMessenger: registrar.messenger()
-    )
-    channel.setMethodCallHandler { call, result in
-      guard call.method == "getRegion" else {
-        result(FlutterMethodNotImplemented)
-        return
-      }
-      result(Locale.current.regionCode)
-    }
+    DeviceRegionPlugin.register(with: registry)
   }
 
   override func applicationWillTerminate(_ application: UIApplication) {

@@ -1,5 +1,3 @@
-import 'dart:ui' show Locale;
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:memolanes/common/region_preference.dart';
 
@@ -12,7 +10,6 @@ class _Preferences {
 
   WorldviewManager createManager() => WorldviewManager.forTesting(
     readSavedWorldview: () => saved,
-    readDeviceLocales: () => const [Locale('zh', 'CN')],
     readDeviceRegion: () async => deviceRegion,
     activateGeoData: (worldview) async {
       activations.add(worldview);
