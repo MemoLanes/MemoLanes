@@ -387,7 +387,7 @@
     "agreement_title": "阅读并同意隐私协议",
     "view_policy": "查看隐私协议",
     "name": "隐私协议",
-    "disagree_and_exit": "不同意并退出"
+    "exit": "退出"
   },
   "contact_us": {
     "title": "联系我们",
