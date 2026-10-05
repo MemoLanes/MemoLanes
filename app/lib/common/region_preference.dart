@@ -43,7 +43,6 @@ class WorldviewManager {
   final Future<void> Function(achievement.Worldview) _activate;
   final void Function(achievement.Worldview) _persist;
   achievement.Worldview? _currentWorldview;
-  achievement.Worldview? _persistedWorldview;
 
   achievement.Worldview get currentWorldview =>
       _currentWorldview ??
@@ -60,7 +59,6 @@ class WorldviewManager {
       // delaying this.
       await _activate(worldview);
       _currentWorldview = worldview;
-      _persistedWorldview = saved;
     });
   }
 
@@ -75,16 +73,12 @@ class WorldviewManager {
       }
       // Accepting the recommendation is still an explicit confirmation, even
       // though the already-active geo data does not need to be loaded again.
-      if (_persistedWorldview != worldview) {
-        try {
-          _persist(worldview);
-          _persistedWorldview = worldview;
-        } catch (error, stackTrace) {
-          // Keep the UI in sync with the active data even if saving fails.
-          // Allow a later confirmation to retry saving.
-          _persistedWorldview = null;
-          log.error('Failed to save worldview preference: $error', stackTrace);
-        }
+      try {
+        _persist(worldview);
+      } catch (error, stackTrace) {
+        // Keep the UI in sync with the active data even if saving fails.
+        // Allow a later confirmation to retry saving.
+        log.error('Failed to save worldview preference: $error', stackTrace);
       }
     });
   }
