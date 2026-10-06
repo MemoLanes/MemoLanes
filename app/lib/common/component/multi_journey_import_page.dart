@@ -209,11 +209,14 @@ class MultiJourneyImportPage extends StatelessWidget {
     return LabelTile(
       label: item.label,
       desc: item.description,
-      prefix: AppCheckbox(
-        value: selected,
-        onChanged: (value) {
-          onToggleItem(item.keyValue, value);
-        },
+      prefix: Padding(
+        padding: const EdgeInsets.only(right: 12),
+        child: AppCheckbox(
+          value: selected,
+          onChanged: (value) {
+            onToggleItem(item.keyValue, value);
+          },
+        ),
       ),
       trailing: item.trailing ?? const LabelTileContent(showArrow: true),
       onTap: () => onPreview(item.keyValue),
