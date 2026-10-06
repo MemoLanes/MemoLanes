@@ -6,6 +6,7 @@ import 'package:memolanes/body/time_machine/time_range_picker.dart';
 import 'package:memolanes/common/app_translation_loader.dart';
 import 'package:memolanes/common/simple_date_utils.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
+import 'package:memolanes/theme/app_theme.dart';
 
 const _loader = AppTranslationLoader();
 const _enUs = Locale('en', 'US');
@@ -20,6 +21,7 @@ Widget _buildTestApp({
     fallbackLocale: _enUs,
     child: Builder(
       builder: (context) => MaterialApp(
+        theme: AppTheme.light,
         localizationsDelegates: context.localizationDelegates,
         supportedLocales: context.supportedLocales,
         locale: context.locale,

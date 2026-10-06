@@ -63,6 +63,7 @@
     "save_confirm": "Do you want to save the changes?"
   },
   "startup_error": {
+    "map_initialization_failed": "Map initialization failed. Restart the app and try again.",
     "title": "Data Version Incompatible",
     "database_version_too_new": "The data on this device was created by a newer version of MemoLanes and can't be opened by this version. Update MemoLanes and try again.",
     "update": "Go to Update",
@@ -159,6 +160,8 @@
     "shared_file": {
       "confirm_title": "Import data",
       "confirm_message": "Do you want to import the file: {}?",
+      "busy_title": "Import in progress",
+      "busy_message": "The current file import has not finished. Complete or cancel this import before sharing another file.",
       "multi_message": "You selected multiple files. Only one file can be imported at a time.\nPlease select a single file and try again."
     },
     "unsupported_file_failed": "Unsupported file",
@@ -304,6 +307,14 @@
       "reset_local_prefs": "Reset Preferences",
       "reset_local_prefs_message": "This will reset all preferences and immediately shut down the app. Journey data will not be deleted.",
       "render_diagnostics": "Render Diagnostics"
+    },
+    "appearance": {
+      "title": "Appearance",
+      "mode_name": {
+        "system": "Follow System",
+        "light": "Light Mode",
+        "dark": "Dark Mode"
+      }
     }
   },
   "data": {
@@ -315,7 +326,8 @@
       "delete_backup_data": "Delete backup data"
     },
     "import_data": {
-      "title": "Import data"
+      "title": "Import data",
+      "description": "Choose the data source and format you want to import."
     },
     "export_data": {
       "export_all": "Export All Data",
@@ -340,7 +352,8 @@
   },
   "settings": {
     "other": "Other",
-    "about": "About"
+    "about": "About",
+    "page_title": "Settings"
   },
   "beta_testing_notice": {
     "title": "Welcome to MemoLanes Public Beta",
@@ -351,13 +364,13 @@
     "setup_title": "First-time setup",
     "setup_desc": "Before using MemoLanes, choose your region preference and confirm the privacy policy.",
     "region_title": "Region preference",
-    "region_mainland_china": "Mainland China",
+    "region_china": "China",
     "region_international": "International",
     "region_united_states": "United States",
     "agreement_title": "Read and agree to the Privacy Policy",
     "view_policy": "View Privacy Policy",
     "name": "Privacy Policy",
-    "disagree_and_exit": "Disagree And Exit"
+    "exit": "Exit"
   },
   "contact_us": {
     "title": "Contact Us",

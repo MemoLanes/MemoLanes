@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:memolanes/theme/app_colors.dart';
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/body/journey/list/journey_list_calendar.dart';
@@ -26,8 +28,9 @@ class JourneyBody extends StatefulWidget {
   final Future<void> Function(JourneyHeader journey) onJourneySelected;
 
   /// Change this value to refresh data using the existing list controller.
-  /// Journey-kind filters are preserved. If the selected date no longer has
-  /// journeys, the controller selects the nearest date with journeys, if any.
+  /// The current calendar month, selected date, and journey-kind filters stay
+  /// in place when returning from a detail overlay, unless the selected date
+  /// falls before the earliest remaining journey.
   final int refreshRevision;
 
   @override
@@ -56,9 +59,7 @@ class _JourneyBodyState extends State<JourneyBody> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.refreshRevision == widget.refreshRevision) return;
     unawaited(
-      GlobalLoadingManager.instance.runWithLoading(
-        () => _controller.refresh(adjustSelectedDate: true),
-      ),
+      GlobalLoadingManager.instance.runWithLoading(() => _controller.refresh()),
     );
   }
 
@@ -113,12 +114,12 @@ class _JourneyBodyState extends State<JourneyBody> {
               height: 34,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: StyleConstants.softGreen,
+                color: context.appColors.softGreen,
                 borderRadius: BorderRadius.circular(11),
               ),
               child: JourneyKindIcon(
                 kind: header.journeyKind,
-                color: StyleConstants.deepGreen,
+                color: context.appColors.deepGreen,
                 size: 18,
               ),
             ),
@@ -135,12 +136,12 @@ class _JourneyBodyState extends State<JourneyBody> {
     return ScrollbarTheme(
       data: ScrollbarThemeData(
         thumbColor: WidgetStatePropertyAll(
-          StyleConstants.deepGreen.withValues(alpha: 0.72),
+          context.appColors.deepGreen.withValues(alpha: 0.72),
         ),
         trackColor: WidgetStatePropertyAll(
-          StyleConstants.softGreen.withValues(alpha: 0.88),
+          context.appColors.softGreen.withValues(alpha: 0.88),
         ),
-        trackBorderColor: WidgetStatePropertyAll(StyleConstants.lineColor),
+        trackBorderColor: WidgetStatePropertyAll(context.appColors.lineColor),
       ),
       child: Scrollbar(
         controller: _journeyListScrollController,
@@ -242,7 +243,7 @@ class _JourneyBodyState extends State<JourneyBody> {
           Text(
             context.tr('journey.records_title'),
             style: AppTypography.itemTitle.copyWith(
-              color: StyleConstants.inkColor,
+              color: context.appColors.inkColor,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -263,9 +264,9 @@ class _CalendarSurface extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: StyleConstants.surfaceColor,
+        color: context.appColors.surfaceColor,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: StyleConstants.lineColor),
+        border: Border.all(color: context.appColors.lineColor),
       ),
       child: child,
     );

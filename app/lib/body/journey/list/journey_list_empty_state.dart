@@ -1,8 +1,8 @@
+import 'package:memolanes/theme/app_colors.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/common/component/app_button.dart';
 import 'package:memolanes/constants/app_typography.dart';
-import 'package:memolanes/constants/style_constants.dart';
 
 enum JourneyListEmptyType { all, filtered, month }
 
@@ -56,9 +56,9 @@ class JourneyListEmptyState extends StatelessWidget {
               width: double.infinity,
               padding: EdgeInsets.all(compact ? 18 : 24),
               decoration: BoxDecoration(
-                color: StyleConstants.surfaceColor,
+                color: context.appColors.surfaceColor,
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: StyleConstants.lineColor),
+                border: Border.all(color: context.appColors.lineColor),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -67,12 +67,12 @@ class JourneyListEmptyState extends StatelessWidget {
                     width: 48,
                     height: 48,
                     decoration: BoxDecoration(
-                      color: StyleConstants.softYellow,
+                      color: context.appColors.softYellow,
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
                       icon,
-                      color: StyleConstants.deepYellow,
+                      color: context.appColors.deepYellow,
                       size: 25,
                     ),
                   ),
@@ -81,7 +81,7 @@ class JourneyListEmptyState extends StatelessWidget {
                     context.tr(titleKey),
                     textAlign: TextAlign.center,
                     style: AppTypography.subpageTitle.copyWith(
-                      color: StyleConstants.inkColor,
+                      color: context.appColors.inkColor,
                     ),
                   ),
                   const SizedBox(height: 6),
@@ -89,7 +89,7 @@ class JourneyListEmptyState extends StatelessWidget {
                     context.tr(descriptionKey),
                     textAlign: TextAlign.center,
                     style: AppTypography.supporting.copyWith(
-                      color: StyleConstants.mutedInkColor,
+                      color: context.appColors.mutedInkColor,
                     ),
                   ),
                   if (onShowAll != null) ...[

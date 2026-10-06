@@ -1,4 +1,6 @@
+import 'package:memolanes/theme/app_colors.dart';
 import 'package:flutter/material.dart';
+import 'package:memolanes/constants/app_typography.dart';
 
 class LabelTileContent extends StatelessWidget {
   const LabelTileContent({
@@ -29,15 +31,17 @@ class LabelTileContent extends StatelessWidget {
       constraints: BoxConstraints(maxWidth: width * maxWidthPercent),
       child: Text(
         content,
-        style: const TextStyle(fontSize: 14.0, color: Color(0x99FFFFFF)),
-        textAlign: TextAlign.justify,
+        style: AppTypography.body.copyWith(
+          color: context.appColors.mutedInkColor,
+        ),
+        textAlign: TextAlign.end,
         maxLines: contentMaxLines,
         overflow: TextOverflow.ellipsis,
       ),
     );
   }
 
-  Widget? _buildIcon() {
+  Widget? _buildIcon(BuildContext context) {
     final IconData? effectiveIcon =
         rightIcon ?? (showArrow ? Icons.arrow_forward_ios : null);
     if (effectiveIcon == null) return null;
@@ -45,13 +49,13 @@ class LabelTileContent extends StatelessWidget {
     return Icon(
       effectiveIcon,
       size: 16.0,
-      color: rightIconColor ?? const Color(0x99FFFFFF),
+      color: rightIconColor ?? context.appColors.mutedInkColor,
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final icon = _buildIcon();
+    final icon = _buildIcon(context);
     return Row(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,

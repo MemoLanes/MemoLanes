@@ -63,6 +63,7 @@
     "save_confirm": "是否保存？"
   },
   "startup_error": {
+    "map_initialization_failed": "地图初始化失败，请重启应用后重试。",
     "title": "数据版本不兼容",
     "database_version_too_new": "此设备上的数据由更高版本的迹忆创建，当前版本无法打开。请将迹忆升级到最新版本后重试。",
     "update": "前往更新",
@@ -159,6 +160,8 @@
     "shared_file": {
       "confirm_title": "导入数据",
       "confirm_message": "是否导入文件: {}?",
+      "busy_title": "正在导入",
+      "busy_message": "当前文件的导入尚未结束，请完成或取消本次导入后，再次分享文件。",
       "multi_message": "当前选择了多个文件，仅支持一次导入一个文件。\n请重新选择单个文件后再尝试。"
     },
     "unsupported_file_failed": "不支持的文件",
@@ -304,6 +307,14 @@
       "reset_local_prefs": "重置偏好设置",
       "reset_local_prefs_message": "该操作会重置所有偏好设置并立即关闭应用。不会删除旅程数据。",
       "render_diagnostics": "渲染诊断"
+    },
+    "appearance": {
+      "title": "外观",
+      "mode_name": {
+        "system": "跟随系统",
+        "light": "浅色模式",
+        "dark": "深色模式"
+      }
     }
   },
   "data": {
@@ -315,7 +326,8 @@
       "delete_backup_data": "删除备份数据"
     },
     "import_data": {
-      "title": "导入数据"
+      "title": "导入数据",
+      "description": "选择要导入的数据来源与格式。"
     },
     "export_data": {
       "export_all": "导出所有数据",
@@ -340,7 +352,8 @@
   },
   "settings": {
     "other": "其他",
-    "about": "关于"
+    "about": "关于",
+    "page_title": "设置"
   },
   "beta_testing_notice": {
     "title": "欢迎体验「迹忆」公测版",
@@ -351,13 +364,13 @@
     "setup_title": "首次使用设置",
     "setup_desc": "开始使用前，请先选择地区偏好并确认隐私协议。",
     "region_title": "地区偏好",
-    "region_mainland_china": "中国大陆",
+    "region_china": "中国",
     "region_international": "国际",
     "region_united_states": "美国",
     "agreement_title": "阅读并同意隐私协议",
     "view_policy": "查看隐私协议",
     "name": "隐私协议",
-    "disagree_and_exit": "不同意并退出"
+    "exit": "退出"
   },
   "contact_us": {
     "title": "联系我们",
