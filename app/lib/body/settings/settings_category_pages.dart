@@ -71,7 +71,7 @@ class _JourneyRecordingSettingsPageState
             titleColor: context.appColors.deepGreen,
             title: context.tr('settings.groups.recording_protection'),
             children: [
-              LabelTile(
+              SettingsTile(
                 label: context.tr('unexpected_exit_notification.setting_title'),
                 position: defaultTargetPlatform == TargetPlatform.android
                     ? LabelTilePosition.top
@@ -84,7 +84,7 @@ class _JourneyRecordingSettingsPageState
                 ),
               ),
               if (defaultTargetPlatform == TargetPlatform.android)
-                LabelTile(
+                SettingsTile(
                   label: context.tr('recording_health.setting_title'),
                   position: LabelTilePosition.bottom,
                   bottom: false,
@@ -229,7 +229,7 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
             titleColor: context.appColors.deepGreen,
             title: context.tr('settings.groups.appearance'),
             children: [
-              LabelTile(
+              SettingsTile(
                 label: context.tr('general.appearance.title'),
                 position: LabelTilePosition.top,
                 trailing: LabelTileContent(
@@ -240,7 +240,7 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
                 ),
                 onTap: () => showAppearancePicker(context),
               ),
-              LabelTile(
+              SettingsTile(
                 label: context.tr('settings.language.title'),
                 position: LabelTilePosition.middle,
                 trailing: LabelTileContent(
@@ -249,7 +249,7 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
                 ),
                 onTap: _selectLanguage,
               ),
-              LabelTile(
+              SettingsTile(
                 label: context.tr('haptics.setting_title'),
                 position: LabelTilePosition.bottom,
                 bottom: false,
@@ -315,13 +315,13 @@ class _DataManagementSettingsPageState
             titleColor: context.appColors.deepGreen,
             title: context.tr('settings.groups.import_export'),
             children: [
-              LabelTile(
+              SettingsTile(
                 label: context.tr('data.import_data.title'),
                 position: LabelTilePosition.top,
                 trailing: const LabelTileContent(showArrow: true),
                 onTap: () => _showImportDataCard(context),
               ),
-              LabelTile(
+              SettingsTile(
                 label: context.tr('data.export_data.export_all'),
                 position: LabelTilePosition.bottom,
                 bottom: false,
@@ -334,13 +334,13 @@ class _DataManagementSettingsPageState
             titleColor: context.appColors.deepGreen,
             title: context.tr('settings.groups.data_maintenance'),
             children: [
-              LabelTile(
+              SettingsTile(
                 label: context.tr('general.advanced_settings.raw_data_mode'),
                 position: LabelTilePosition.top,
                 trailing: const RawDataSwitch(),
               ),
               if (_hasRawDataFiles)
-                LabelTile(
+                SettingsTile(
                   label: context.tr('general.advanced_settings.raw_data_files'),
                   position: LabelTilePosition.middle,
                   trailing: const LabelTileContent(showArrow: true),
@@ -349,12 +349,12 @@ class _DataManagementSettingsPageState
                     if (mounted) await _refreshRawDataFiles();
                   },
                 ),
-              LabelTile(
+              SettingsTile(
                 label: context.tr('db_optimization.button'),
                 position: LabelTilePosition.middle,
                 onTap: _optimizeDatabase,
               ),
-              LabelTile(
+              SettingsTile(
                 label: context.tr('general.advanced_settings.rebuild_cache'),
                 position: LabelTilePosition.bottom,
                 bottom: false,
@@ -366,7 +366,7 @@ class _DataManagementSettingsPageState
             titleColor: context.appColors.deepGreen,
             title: context.tr('settings.groups.delete_data'),
             children: [
-              LabelTile(
+              SettingsTile(
                 label: context.tr('journey.delete_all'),
                 labelStyle: AppTypography.itemTitle.copyWith(
                   color: context.appColors.dangerInkColor,
@@ -696,7 +696,7 @@ class _AboutSettingsPageState extends State<AboutSettingsPage> {
             titleColor: context.appColors.deepGreen,
             title: context.tr('settings.about'),
             children: [
-              LabelTile(
+              SettingsTile(
                 label: context.tr('general.version.title'),
                 position: LabelTilePosition.top,
                 trailing: Row(
@@ -747,7 +747,7 @@ class _AboutSettingsPageState extends State<AboutSettingsPage> {
                   }
                 },
               ),
-              LabelTile(
+              SettingsTile(
                 label: context.tr('privacy.name'),
                 position: LabelTilePosition.bottom,
                 bottom: false,

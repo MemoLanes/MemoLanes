@@ -24,6 +24,10 @@ class LabelTile extends StatelessWidget {
     this.bottom = true,
     this.maxHeight,
     this.minHeight = 54.0,
+    this.contentPadding = const EdgeInsets.symmetric(
+      horizontal: 16,
+      vertical: 8,
+    ),
   });
 
   final LabelTilePosition position;
@@ -59,6 +63,8 @@ class LabelTile extends StatelessWidget {
   final double? maxHeight;
 
   final double minHeight;
+
+  final EdgeInsetsGeometry contentPadding;
 
   @override
   Widget build(BuildContext context) {
@@ -151,10 +157,7 @@ class LabelTile extends StatelessWidget {
                   minHeight: minHeight,
                 ),
                 child: Ink(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
+                  padding: contentPadding,
                   decoration: BoxDecoration(
                     color: context.appColors.surfaceColor,
                     borderRadius: borderRadius,

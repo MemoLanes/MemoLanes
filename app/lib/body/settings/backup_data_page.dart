@@ -15,18 +15,18 @@ class BackupDataPage extends StatelessWidget {
       appBar: CapsuleStyleAppBar(title: context.tr("data.backup_data.title")),
       body: SettingsPageLayout(
         children: [
-          LabelTile(
+          SettingsTile(
             label: context.tr("data.backup_data.last_backup_time"),
             position: LabelTilePosition.top,
             trailing: LabelTileContent(content: '2025-07-12'),
           ),
-          LabelTile(
+          SettingsTile(
             label: context.tr("data.backup_data.backup"),
             position: LabelTilePosition.middle,
             trailing: LabelTileContent(showArrow: true),
             onTap: () {},
           ),
-          LabelTile(
+          SettingsTile(
             label: context.tr("data.backup_data.delete_backup_data"),
             position: LabelTilePosition.bottom,
             trailing: LabelTileContent(showArrow: true),

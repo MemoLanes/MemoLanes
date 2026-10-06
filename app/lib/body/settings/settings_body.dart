@@ -122,12 +122,11 @@ class SettingsBody extends StatelessWidget {
     LabelTilePosition position, {
     bool hasUpdate = false,
   }) {
-    return LabelTile(
+    return SettingsTile(
       label: context.tr('settings.categories.$key.title'),
       labelStyle: AppTypography.cardTitle.copyWith(
         color: context.appColors.inkColor,
       ),
-      minHeight: 56,
       position: position,
       bottom: false,
       prefix: Padding(

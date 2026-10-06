@@ -25,35 +25,35 @@ class ContactUsSection extends StatelessWidget {
       titleColor: context.appColors.deepGreen,
       title: context.tr('contact_us.title'),
       children: [
-        LabelTile(
+        SettingsTile(
           label: context.tr('contact_us.website'),
           position: LabelTilePosition.top,
           trailing: const LabelTileContent(rightIcon: Icons.open_in_new),
           onTap: () =>
               launchUrlString(websiteUrl, mode: LaunchMode.externalApplication),
         ),
-        LabelTile(
+        SettingsTile(
           label: 'GitHub',
           position: LabelTilePosition.middle,
           trailing: const LabelTileContent(rightIcon: Icons.open_in_new),
           onTap: () =>
               launchUrlString(githubUrl, mode: LaunchMode.externalApplication),
         ),
-        LabelTile(
+        SettingsTile(
           label: context.tr('contact_us.rednote'),
           position: LabelTilePosition.middle,
           trailing: const LabelTileContent(rightIcon: Icons.open_in_new),
           onTap: () =>
               launchUrlString(rednoteUrl, mode: LaunchMode.externalApplication),
         ),
-        LabelTile(
+        SettingsTile(
           label: context.tr('contact_us.weibo'),
           position: LabelTilePosition.middle,
           trailing: const LabelTileContent(rightIcon: Icons.open_in_new),
           onTap: () =>
               launchUrlString(weiboUrl, mode: LaunchMode.externalApplication),
         ),
-        LabelTile(
+        SettingsTile(
           label: context.tr('contact_us.qq_group'),
           position: LabelTilePosition.middle,
           trailing: const LabelTileContent(
@@ -65,7 +65,7 @@ class ContactUsSection extends StatelessWidget {
             Fluttertoast.showToast(msg: context.tr('common.copy_success'));
           },
         ),
-        LabelTile(
+        SettingsTile(
           label: context.tr('contact_us.email'),
           position: LabelTilePosition.bottom,
           bottom: false,

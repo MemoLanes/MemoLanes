@@ -131,7 +131,7 @@ class _MapSettingsPageState extends State<MapSettingsPage> {
             titleColor: context.appColors.deepGreen,
             title: context.tr('settings.groups.map_display'),
             children: [
-              LabelTile(
+              SettingsTile(
                 label: context.tr("general.map_settings.style"),
                 position: LabelTilePosition.top,
                 trailing: LabelTileContent(
@@ -140,7 +140,7 @@ class _MapSettingsPageState extends State<MapSettingsPage> {
                 ),
                 onTap: _showMapStylePicker,
               ),
-              LabelTile(
+              SettingsTile(
                 label: context.tr("general.map_settings.fog_mode"),
                 position: LabelTilePosition.bottom,
                 bottom: false,
@@ -156,7 +156,7 @@ class _MapSettingsPageState extends State<MapSettingsPage> {
             titleColor: context.appColors.deepGreen,
             title: context.tr('settings.groups.region'),
             children: [
-              LabelTile(
+              SettingsTile(
                 label: context.tr("privacy.region_title"),
                 position: LabelTilePosition.single,
                 bottom: false,

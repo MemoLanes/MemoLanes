@@ -34,7 +34,7 @@ class AdvancedSettingsPage extends StatelessWidget {
             titleColor: context.appColors.deepGreen,
             title: context.tr('settings.groups.diagnostics'),
             children: [
-              LabelTile(
+              SettingsTile(
                 label: context.tr('general.advanced_settings.export_logs'),
                 position: LabelTilePosition.top,
                 onTap: () async {
@@ -48,14 +48,14 @@ class AdvancedSettingsPage extends StatelessWidget {
                   }
                 },
               ),
-              LabelTile(
+              SettingsTile(
                 label: context.tr('location_service.location_backend.title'),
                 position: LabelTilePosition.middle,
                 trailing: LabelTileContent(
                   content: gpsManager.locationBackend.displayName(context),
                 ),
               ),
-              LabelTile(
+              SettingsTile(
                 label: context.tr(
                   'general.advanced_settings.render_diagnostics',
                 ),
@@ -71,7 +71,7 @@ class AdvancedSettingsPage extends StatelessWidget {
             titleColor: context.appColors.deepGreen,
             title: context.tr('settings.groups.recovery'),
             children: [
-              LabelTile(
+              SettingsTile(
                 label: context.tr(
                   'general.advanced_settings.reset_local_prefs',
                 ),

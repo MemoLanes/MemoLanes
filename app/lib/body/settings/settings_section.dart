@@ -1,8 +1,46 @@
 import 'package:flutter/material.dart';
 import 'package:memolanes/common/component/cards/option_card.dart';
 import 'package:memolanes/common/component/scroll_views/single_child_scroll_view.dart';
+import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/constants/app_typography.dart';
 import 'package:memolanes/theme/app_colors.dart';
+
+class SettingsTile extends StatelessWidget {
+  const SettingsTile({
+    super.key,
+    required this.label,
+    this.labelStyle,
+    this.position = LabelTilePosition.single,
+    this.bottom = true,
+    this.prefix,
+    this.trailing,
+    this.onTap,
+  });
+
+  final String label;
+  final TextStyle? labelStyle;
+  final LabelTilePosition position;
+  final bool bottom;
+  final Widget? prefix;
+  final Widget? trailing;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return LabelTile(
+      label: label,
+      labelStyle: labelStyle,
+      position: position,
+      bottom: bottom,
+      prefix: prefix,
+      trailing: trailing,
+      onTap: onTap,
+      minHeight: 56,
+      // Leave room for a 48px switch target and the bottom border within 56px.
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
+    );
+  }
+}
 
 class SettingsPageFrame extends StatelessWidget {
   const SettingsPageFrame({
@@ -86,7 +124,7 @@ class SettingsSection extends StatelessWidget {
             child: Text(
               title,
               style: AppTypography.sectionLabel.copyWith(
-                color: titleColor ?? context.appColors.mutedInkColor,
+                color: titleColor ?? context.appColors.deepGreen,
               ),
             ),
           ),
