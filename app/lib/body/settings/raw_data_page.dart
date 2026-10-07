@@ -10,7 +10,7 @@ import 'package:memolanes/common/component/common_export.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
-import 'package:memolanes/src/rust/storage.dart';
+import 'package:memolanes/src/rust/legacy_raw_data.dart';
 
 class RawDataSwitch extends StatefulWidget {
   const RawDataSwitch({super.key});
@@ -72,7 +72,7 @@ class RawDataPage extends StatefulWidget {
 }
 
 class _RawDataPage extends State<RawDataPage> {
-  List<RawDataFile> items = [];
+  List<LegacyRawDataFile> items = [];
   bool _loading = true;
 
   @override
@@ -83,7 +83,7 @@ class _RawDataPage extends State<RawDataPage> {
 
   Future<void> _loadList() async {
     try {
-      final list = await api.listAllRawData();
+      final list = await api.listAllLegacyRawData();
       if (!mounted) return;
       setState(() {
         items = list;
@@ -116,7 +116,7 @@ class _RawDataPage extends State<RawDataPage> {
             title: context.tr("general.advanced_settings.raw_data_export_gpx"),
             onTap: () async {
               Navigator.of(dialogContext).pop();
-              final gpxPath = await api.exportRawDataGpxFile(
+              final gpxPath = await api.exportLegacyRawDataGpxFile(
                 csvFilepath: filePath,
               );
               if (!context.mounted) return;
@@ -182,7 +182,7 @@ class _RawDataPage extends State<RawDataPage> {
                                     ),
                                     confirmVariant: AppButtonVariant.danger,
                                   )) {
-                                    await api.deleteRawDataFile(
+                                    await api.deleteLegacyRawDataFile(
                                       filename: item.name,
                                     );
                                     await _loadList();

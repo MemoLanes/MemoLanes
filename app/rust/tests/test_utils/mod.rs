@@ -5,6 +5,7 @@ use memolanes_core::journey_bitmap::JourneyBitmap;
 use memolanes_core::journey_data::JourneyData;
 use memolanes_core::journey_header::JourneyKind;
 use memolanes_core::main_db::MainDb;
+use memolanes_core::main_db::NewJourney;
 use memolanes_core::renderer::map_renderer::*;
 use memolanes_core::utils;
 mod render_utils;
@@ -230,15 +231,16 @@ pub fn insert_bitmap_journey(
     kind: JourneyKind,
     bitmap: JourneyBitmap,
 ) -> String {
-    txn.create_and_insert_journey(
-        date,
-        None,
-        None,
-        None,
-        kind,
-        None,
-        JourneyData::Bitmap(bitmap),
-    )
+    txn.create_and_insert_journey(NewJourney {
+        journey_date: date,
+        start: None,
+        end: None,
+        created_at: None,
+        journey_kind: kind,
+        note: None,
+        journey_data: JourneyData::Bitmap(bitmap),
+        raw_data: None,
+    })
     .unwrap()
 }
 

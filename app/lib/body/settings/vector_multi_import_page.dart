@@ -96,6 +96,7 @@ class _VectorMultiImportPageState extends State<VectorMultiImportPage> {
               journeyType: JourneyType.vector,
               journeyKind: _journeyKind,
               note: _noteController.text,
+              hasRawData: false,
             ),
             previewJourneyData: journeyData,
           ),

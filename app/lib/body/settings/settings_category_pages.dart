@@ -292,7 +292,7 @@ class _DataManagementSettingsPageState
   Future<void> _refreshRawDataFiles() async {
     final requestId = ++_rawDataRefreshId;
     try {
-      final files = await api.listAllRawData();
+      final files = await api.listAllLegacyRawData();
       if (!mounted || requestId != _rawDataRefreshId) return;
       setState(() => _hasRawDataFiles = files.isNotEmpty);
     } catch (error, stackTrace) {
@@ -421,6 +421,7 @@ class _DataManagementSettingsPageState
         final result = switch (format) {
           CommonExportFormat.mldx => await api.generateFullArchive(
             targetFilepath: filepath,
+            includeRawData: false,
           ),
           CommonExportFormat.fwss => await api.exportAllJourneysAsFwss(
             targetFilepath: filepath,
