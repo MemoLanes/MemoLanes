@@ -4,12 +4,12 @@ use chrono::NaiveDate;
 use memolanes_core::main_db::NewJourney;
 use memolanes_core::{
     cache_db::LayerKind,
-    gps_processor::{Point, ProcessResult},
+    gps::{ExtendedRawGPSPoint, Point, RawGPSPoint},
+    gps_processor::ProcessResult,
     import_data,
     journey_bitmap::JourneyBitmap,
     journey_data::JourneyData,
     journey_header::JourneyKind,
-    raw_data::{ExtendedRawGPSPoint, RawGPSPoint},
     storage::Storage,
 };
 use std::fs;
@@ -52,9 +52,7 @@ fn storage_for_main_map_renderer() {
             // TODO: reimplement the assert under new api
             // assert!(!storage.main_map_renderer_need_to_reload());
         } else if i == 1010 {
-            let _: bool = storage
-                .with_db_txn(|txn| txn.finalize_ongoing_journey(storage.get_raw_data_mode()))
-                .unwrap();
+            let _: bool = storage.finalize_ongoing_journey().unwrap();
         } else if i == 1020 {
             // assert!(storage.main_map_renderer_need_to_reload());
             let _: JourneyBitmap = storage
@@ -90,7 +88,25 @@ where
 fn raw_data_mode_controls_capture_and_finalization() {
     for auto_finalize in [false, true] {
         for retain_raw_data in [false, true] {
-            setup_storage_for_test(|storage| {
+            setup_storage_for_test(|mut storage| {
+                use std::sync::{
+                    atomic::{AtomicUsize, Ordering},
+                    Arc,
+                };
+                let notifications = Arc::new(AtomicUsize::new(0));
+                let callback_notifications = notifications.clone();
+                storage.set_finalized_journey_changed_callback(Box::new(move |storage| {
+                    // Re-entering Storage verifies callbacks run after releasing
+                    // the database lock and can observe the committed journey.
+                    assert_eq!(
+                        storage
+                            .with_db_txn(|txn| txn.query_journeys(None, None, None))
+                            .unwrap()
+                            .len(),
+                        1
+                    );
+                    callback_notifications.fetch_add(1, Ordering::Relaxed);
+                }));
                 assert!(!storage.get_raw_data_mode());
                 storage.toggle_raw_data_mode(true);
                 let point = ExtendedRawGPSPoint {
@@ -115,22 +131,31 @@ fn raw_data_mode_controls_capture_and_finalization() {
                 next_point.received_timestamp_ms += 1_000;
                 storage.record_gps_data(&next_point, ProcessResult::Append);
 
+                let expected_points = if retain_raw_data {
+                    vec![point, next_point]
+                } else {
+                    vec![point]
+                };
                 storage
                     .with_db_txn(|txn| {
                         let pending = txn.get_ongoing_journey_raw_data()?;
-                        let expected_points = if retain_raw_data {
-                            vec![point, next_point]
-                        } else {
-                            vec![point]
-                        };
                         assert_eq!(pending.points, expected_points);
-                        let raw_data_mode = storage.get_raw_data_mode();
-                        let finalized = if auto_finalize {
-                            txn.try_auto_finalize_journey(raw_data_mode)?
-                        } else {
-                            txn.finalize_ongoing_journey(raw_data_mode)?
-                        };
-                        assert!(finalized);
+                        Ok(())
+                    })
+                    .unwrap();
+                let finalize = || {
+                    if auto_finalize {
+                        storage.try_auto_finalize_journey()
+                    } else {
+                        storage.finalize_ongoing_journey()
+                    }
+                };
+                assert!(finalize().unwrap());
+                assert_eq!(notifications.load(Ordering::Relaxed), 1);
+                assert!(!finalize().unwrap());
+                assert_eq!(notifications.load(Ordering::Relaxed), 1);
+                storage
+                    .with_db_txn(|txn| {
                         let headers = txn.query_journeys(None, None, None)?;
                         assert_eq!(headers.len(), 1);
                         let header = &headers[0];

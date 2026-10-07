@@ -1,8 +1,8 @@
 pub mod test_utils;
 use memolanes_core::{
     api::api,
+    gps::{ExtendedRawGPSPoint, RawGPSPoint},
     import_data,
-    raw_data::{ExtendedRawGPSPoint, RawGPSPoint},
 };
 use std::fs;
 use tempdir::TempDir;

@@ -1,8 +1,7 @@
 pub mod test_utils;
 
 use memolanes_core::flight_track_processor;
-use memolanes_core::gps_processor::Point;
-use memolanes_core::raw_data::RawGPSPoint;
+use memolanes_core::gps::{Point, RawGPSPoint};
 use memolanes_core::{export_data, import_data};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;

@@ -3,13 +3,14 @@ pub mod test_utils;
 use chrono::{DateTime, Datelike, NaiveDate};
 use memolanes_core::main_db::NewJourney;
 use memolanes_core::{
-    gps_processor::{self, Point},
+    gps::{ExtendedRawGPSPoint, Point, RawGPSPoint},
+    gps_processor::{self},
     import_data,
     journey_data::JourneyData,
     journey_header::{JourneyHeader, JourneyKind, JourneyType},
     journey_vector::JourneyVector,
     main_db::{self, Action, CacheEntry, MainDb},
-    raw_data::{self, ExtendedRawGPSPoint, RawGPSPoint},
+    raw_data::{self},
     utils::db::{run_migrations, set_version_in_metadata, DbError, SchemaVersion},
 };
 use protobuf::Message;
@@ -1953,7 +1954,7 @@ fn finalize_ongoing_sets_merge_one() {
     // Record GPS data to create an ongoing journey
     main_db
         .record(
-            &raw_data::RawGPSPoint {
+            &RawGPSPoint {
                 point: Point {
                     latitude: 30.27,
                     longitude: 120.16,
@@ -1968,7 +1969,7 @@ fn finalize_ongoing_sets_merge_one() {
         .unwrap();
     main_db
         .record(
-            &raw_data::RawGPSPoint {
+            &RawGPSPoint {
                 point: Point {
                     latitude: 30.28,
                     longitude: 120.17,

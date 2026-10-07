@@ -1,10 +1,7 @@
 use memolanes_core::{
     export_data,
-    gps_processor::Point,
-    raw_data::{
-        ExtendedRawGPSPoint, JourneyRawData, JourneyRawDataHeader, RawGPSPoint,
-        SerializedJourneyRawData,
-    },
+    gps::{ExtendedRawGPSPoint, Point, RawGPSPoint},
+    raw_data::{JourneyRawData, JourneyRawDataHeader, SerializedJourneyRawData},
 };
 use std::io::Cursor;
 

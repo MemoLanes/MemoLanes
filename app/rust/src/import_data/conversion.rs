@@ -1,12 +1,12 @@
 use crate::api::import::JourneyInfo;
 use crate::flight_track_processor;
+use crate::gps::RawGPSPoint;
 use crate::gps_processor::{
     self, GpsPreprocessor, PreprocessedData, ProcessResult, SegmentGapRule,
 };
 use crate::journey_date_picker::JourneyDatePicker;
 use crate::journey_header::JourneyKind;
 use crate::journey_vector::{JourneyVector, TrackPoint};
-use crate::raw_data::RawGPSPoint;
 use chrono::{Local, TimeZone, Utc};
 
 /// `segment_gap_rule_for_preprocessor = None` meaning disable preprocessor

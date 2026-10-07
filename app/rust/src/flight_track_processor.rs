@@ -1,7 +1,6 @@
 use crate::{
-    gps_processor::Point,
+    gps::{Point, RawGPSPoint},
     journey_vector::{JourneyVector, TrackPoint, TrackSegment},
-    raw_data::RawGPSPoint,
 };
 
 // Fill gaps in raw data to produce a smooth `JourneyVector`.

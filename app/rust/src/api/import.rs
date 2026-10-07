@@ -16,8 +16,8 @@ use crate::gps_processor::SegmentGapRule;
 use crate::journey_header::JourneyHeader;
 use crate::journey_vector::JourneyVector;
 use crate::{
-    flight_track_processor, import_data, journey_data::JourneyData, journey_header::JourneyKind,
-    raw_data::RawGPSPoint,
+    flight_track_processor, gps::RawGPSPoint, import_data, journey_data::JourneyData,
+    journey_header::JourneyKind,
 };
 
 #[derive(Debug)]

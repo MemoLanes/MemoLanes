@@ -1,8 +1,10 @@
 pub mod test_utils;
 
-use memolanes_core::gps_processor::{GpsPreprocessor, Point, ProcessResult, SegmentGapRule};
-use memolanes_core::raw_data::RawGPSPoint;
 use memolanes_core::{export_data, import_data};
+use memolanes_core::{
+    gps::{Point, RawGPSPoint},
+    gps_processor::{GpsPreprocessor, ProcessResult, SegmentGapRule},
+};
 use std::collections::HashMap;
 use std::fs::File;
 

@@ -15,7 +15,7 @@ use crate::journey_data::JourneyData;
 use crate::journey_date_picker::JourneyDatePicker;
 use crate::journey_header::{JourneyHeader, JourneyKind, JourneyType};
 use crate::journey_vector::{JourneyVector, TrackPoint};
-use crate::{protos, raw_data, utils};
+use crate::{gps, protos, raw_data, utils};
 
 /* The main database, we are likely to store a lot of protobuf bytes in it,
 less relational stuff. Basically we will use it as a file system with better
@@ -128,7 +128,7 @@ impl Txn<'_> {
             .prepare("SELECT data FROM ongoing_journey_raw_data ORDER BY id;")?;
         let rows = query.query_map((), |row| row.get::<_, Vec<u8>>(0))?;
         let points = rows
-            .map(|row| raw_data::ExtendedRawGPSPoint::deserialize(&row?))
+            .map(|row| gps::ExtendedRawGPSPoint::deserialize(&row?))
             .collect::<Result<Vec<_>>>()?;
         Ok(raw_data::JourneyRawData::new(
             points,
@@ -1024,7 +1024,7 @@ impl MainDb {
     #[auto_context]
     pub fn record(
         &mut self,
-        raw_gps_point: &raw_data::RawGPSPoint,
+        raw_gps_point: &gps::RawGPSPoint,
         process_result: ProcessResult,
     ) -> Result<()> {
         self.record_impl(raw_gps_point, process_result, None)
@@ -1036,7 +1036,7 @@ impl MainDb {
     #[auto_context]
     pub fn record_with_raw_data(
         &mut self,
-        data: &raw_data::ExtendedRawGPSPoint,
+        data: &gps::ExtendedRawGPSPoint,
         process_result: ProcessResult,
         record_raw_data: bool,
     ) -> Result<()> {
@@ -1046,9 +1046,9 @@ impl MainDb {
 
     fn record_impl(
         &mut self,
-        raw_gps_point: &raw_data::RawGPSPoint,
+        raw_gps_point: &gps::RawGPSPoint,
         process_result: ProcessResult,
-        raw_data: Option<&raw_data::ExtendedRawGPSPoint>,
+        raw_data: Option<&gps::ExtendedRawGPSPoint>,
     ) -> Result<()> {
         if process_result == ProcessResult::Ignore && raw_data.is_none() {
             return Ok(());

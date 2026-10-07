@@ -4,7 +4,10 @@ use anyhow::{Context, Result};
 use csv::{Reader, ReaderBuilder, StringRecord, Trim};
 use serde::Deserialize;
 
-use crate::{api::import::ImportPreprocessor, gps_processor::Point, raw_data::RawGPSPoint};
+use crate::{
+    api::import::ImportPreprocessor,
+    gps::{Point, RawGPSPoint},
+};
 
 // CSV exported by 人生点点
 const DOL_HEADERS: &[&str] = &[

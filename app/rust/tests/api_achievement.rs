@@ -22,9 +22,9 @@ use memolanes_core::{
     },
     api::api,
     api::import::JourneyInfo,
+    gps::{ExtendedRawGPSPoint, RawGPSPoint},
     import_data,
     journey_header::JourneyKind,
-    raw_data::{ExtendedRawGPSPoint, RawGPSPoint},
 };
 use std::fs;
 use std::sync::atomic::{AtomicUsize, Ordering};

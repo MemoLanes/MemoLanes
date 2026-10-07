@@ -26,24 +26,12 @@ use std::io::Cursor;
 use anyhow::Result;
 use protobuf::{CodedInputStream, CodedOutputStream, Message};
 
-use crate::{gps_processor::Point, journey_data, protos, utils};
+use crate::{
+    gps::{ExtendedRawGPSPoint, Point, RawGPSPoint},
+    journey_data, protos, utils,
+};
 
 const JOURNEY_RAW_DATA_MAGIC_HEADER: [u8; 2] = *b"R0";
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct RawGPSPoint {
-    pub point: Point,
-    pub timestamp_ms: Option<i64>,
-    pub accuracy: Option<f32>,
-    pub altitude: Option<f32>,
-    pub speed: Option<f32>,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct ExtendedRawGPSPoint {
-    pub raw_gps_point: RawGPSPoint,
-    pub received_timestamp_ms: i64,
-}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct JourneyRawDataHeader {
