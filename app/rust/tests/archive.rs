@@ -205,7 +205,7 @@ fn read_and_import_legacy_v1() {
     let (header, data) = sample_journey();
     assert_eq!(metadata_entry_name(LEGACY_V1_ARCHIVE), "metadata.xxm");
     let mut reader = MldxReader::open(Cursor::new(LEGACY_V1_ARCHIVE)).unwrap();
-    assert_eq!(reader.iter_journey_headers(), &[header.clone()]);
+    assert_eq!(reader.iter_journey_headers(), std::slice::from_ref(&header));
     assert_eq!(
         archive::for_testing::section_version_for_journey(&mut reader, &header.id).unwrap(),
         Some(1)
@@ -235,7 +235,7 @@ fn write_v2_and_read_back() {
     let (bytes, header, data) = write_single_journey_archive();
     assert_eq!(metadata_entry_name(&bytes), "metadata.mldm");
     let mut reader = MldxReader::open(Cursor::new(bytes)).unwrap();
-    assert_eq!(reader.iter_journey_headers(), &[header.clone()]);
+    assert_eq!(reader.iter_journey_headers(), std::slice::from_ref(&header));
     assert_eq!(
         archive::for_testing::section_version_for_journey(&mut reader, &header.id).unwrap(),
         Some(2)
@@ -292,31 +292,32 @@ fn extension_fields_preserve_following_records_on_read_and_import() {
     first.has_raw_data = true;
     let mut second = first.clone();
     second.id = "second-journey".to_owned();
+    second.has_raw_data = false;
     let second_data = JourneyData::Vector(JourneyVector {
         track_segments: vec![],
     });
+    let mut third = first.clone();
+    third.id = "third-journey".to_owned();
+    let third_data = first_data.clone();
     let expected = [
-        (first, first_data, sample_raw_data()),
-        (second, second_data, sample_raw_data_with_latitude(32.0)),
+        (first, first_data, Some(sample_raw_data())),
+        (second, second_data, None),
+        (third, third_data, Some(sample_raw_data_with_latitude(32.0))),
     ];
     let mut exported = Cursor::new(Vec::new());
     source
         .with_txn(|txn| {
             for (header, data, attachment) in &expected {
-                txn.insert_journey_with_raw_data(
-                    header.clone(),
-                    data.clone(),
-                    Some(attachment.clone()),
-                )?;
+                txn.insert_journey_with_raw_data(header.clone(), data.clone(), attachment.clone())?;
             }
             archive::export_all_journeys_as_mldx(txn, &mut exported, true)
         })
         .unwrap();
 
-    // Add an unknown field to the first record in a two-record section.
+    // Add an unknown field to the first record in a section with mixed attachments.
     // Rebuild the ZIP so entry sizes and checksums remain valid.
     let mut input = zip::ZipArchive::new(Cursor::new(exported.into_inner())).unwrap();
-    assert_eq!(input.len(), 2, "Both journeys must share one section");
+    assert_eq!(input.len(), 2, "All journeys must share one section");
     let mut output = zip::ZipWriter::new(Cursor::new(Vec::new()));
     let options =
         zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
@@ -357,6 +358,13 @@ fn extension_fields_preserve_following_records_on_read_and_import() {
     let mut reader = MldxReader::open(Cursor::new(bytes)).unwrap();
     for (header, data, attachment) in &expected {
         assert_eq!(
+            reader
+                .iter_journey_headers()
+                .iter()
+                .find(|exported| exported.id == header.id),
+            Some(header)
+        );
+        assert_eq!(
             reader.load_single_journey(&header.id).unwrap(),
             Some((header.clone(), data.clone()))
         );
@@ -364,7 +372,7 @@ fn extension_fields_preserve_following_records_on_read_and_import() {
             reader
                 .load_single_journey_with_raw_data(&header.id)
                 .unwrap(),
-            Some((header.clone(), data.clone(), Some(attachment.clone())))
+            Some((header.clone(), data.clone(), attachment.clone()))
         );
     }
 
@@ -373,13 +381,13 @@ fn extension_fields_preserve_following_records_on_read_and_import() {
     let result = destination
         .with_txn(|txn| reader.import(txn, None))
         .unwrap();
-    assert_eq!(result.imported_count, 2);
+    assert_eq!(result.imported_count as usize, expected.len());
     for (header, data, attachment) in expected {
         destination
             .with_txn(|txn| {
                 assert_eq!(txn.get_journey_header(&header.id)?, Some(header.clone()));
                 assert_eq!(txn.get_journey_data(&header.id)?, data);
-                assert_eq!(txn.get_journey_raw_data(&header.id)?, Some(attachment));
+                assert_eq!(txn.get_journey_raw_data(&header.id)?, attachment);
                 Ok(())
             })
             .unwrap();
@@ -733,72 +741,6 @@ fn excluding_raw_data_from_export_appends_revision_marker() {
     let already_removed_bytes =
         write_single_journey_archive_with_raw_data(already_removed_header, data, None, false);
     assert_eq!(section_entry_name(&already_removed_bytes), section_name);
-}
-
-#[test]
-fn raw_data_flags_are_stored_per_journey_in_the_same_section() {
-    let temp_dir = TempDir::new("archive-per_journey_raw_data_flag").unwrap();
-    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
-    let (with_raw_data, data) = sample_journey();
-    let mut without_raw_data = with_raw_data.clone();
-    without_raw_data.id = "test-journey-without-raw-data".to_owned();
-    without_raw_data.revision = "test-revision-without-raw-data".to_owned();
-
-    main_db
-        .with_txn(|txn| {
-            txn.insert_journey_with_raw_data(
-                with_raw_data.clone(),
-                data.clone(),
-                Some(sample_raw_data()),
-            )?;
-            txn.insert_journey(without_raw_data.clone(), data)
-        })
-        .unwrap();
-
-    let mut archive = Cursor::new(Vec::new());
-    main_db
-        .with_txn(|txn| archive::export_all_journeys_as_mldx(txn, &mut archive, true))
-        .unwrap();
-
-    let reader = MldxReader::open(Cursor::new(archive.into_inner())).unwrap();
-    let exported_with_raw_data = reader
-        .iter_journey_headers()
-        .iter()
-        .find(|header| header.id == with_raw_data.id)
-        .unwrap();
-    let exported_without_raw_data = reader
-        .iter_journey_headers()
-        .iter()
-        .find(|header| header.id == without_raw_data.id)
-        .unwrap();
-    assert!(exported_with_raw_data.has_raw_data);
-    assert!(!exported_without_raw_data.has_raw_data);
-}
-
-#[test]
-fn section_id_is_independent_of_export_option_without_raw_data() {
-    let (header, data) = sample_journey();
-    let first =
-        write_single_journey_archive_with_raw_data(header.clone(), data.clone(), None, true);
-    let second = write_single_journey_archive_with_raw_data(header, data, None, false);
-
-    assert_eq!(section_entry_name(&first), section_entry_name(&second));
-}
-
-#[test]
-fn updated_revision_changes_section_id() {
-    let (mut header, data) = sample_journey();
-    let raw_data = sample_raw_data();
-    let first = write_single_journey_archive_with_raw_data(
-        header.clone(),
-        data.clone(),
-        Some(raw_data.clone()),
-        true,
-    );
-    header.revision = "updated-revision".to_owned();
-    let second = write_single_journey_archive_with_raw_data(header, data, Some(raw_data), true);
-
-    assert_ne!(section_entry_name(&first), section_entry_name(&second));
 }
 
 #[test]

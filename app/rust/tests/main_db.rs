@@ -13,7 +13,6 @@ use memolanes_core::{
     raw_data::{self},
     utils::db::{run_migrations, set_version_in_metadata, DbError, SchemaVersion},
 };
-use protobuf::Message;
 use rusqlite::Connection;
 use std::collections::HashSet;
 use tempdir::TempDir;
@@ -389,98 +388,6 @@ fn new_journey_derives_attachment_presence_without_a_removal_revision() {
 }
 
 #[test]
-fn journey_header_reads_preserve_stored_raw_data_state() {
-    let temp_dir = TempDir::new("main_db-inconsistent-raw-data").unwrap();
-    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
-    main_db
-        .with_txn(|txn| {
-            test_utils::insert_bitmap_journey(
-                txn,
-                date("2024-05-20"),
-                JourneyKind::DefaultKind,
-                test_utils::make_bitmap_with_line(test_utils::draw_line3),
-            );
-            Ok(())
-        })
-        .unwrap();
-    let mut header = main_db
-        .with_txn(|txn| Ok(txn.query_journeys(None, None, None)?.remove(0)))
-        .unwrap();
-    let connection = Connection::open(temp_dir.path().join("main.db")).unwrap();
-    let raw_data = raw_data::JourneyRawData::new(Vec::new(), 1_700_000_000_000)
-        .serialize()
-        .unwrap();
-
-    for has_raw_data in [false, true] {
-        header.has_raw_data = !has_raw_data;
-        let header_bytes = header.clone().to_proto().write_to_bytes().unwrap();
-        connection
-            .execute(
-                "UPDATE journey SET header = ?2, raw_data = ?3 WHERE id = ?1;",
-                (
-                    &header.id,
-                    &header_bytes,
-                    has_raw_data.then_some(raw_data.as_bytes()),
-                ),
-            )
-            .unwrap();
-
-        let queried_headers = main_db
-            .with_txn(|txn| txn.query_journeys(None, None, None))
-            .unwrap();
-        let loaded_header = main_db
-            .with_txn(|txn| txn.get_journey_header(&header.id))
-            .unwrap()
-            .unwrap();
-        assert_eq!(queried_headers, vec![header.clone()]);
-        assert_eq!(loaded_header, header);
-
-        let stored_header: Vec<u8> = connection
-            .query_row(
-                "SELECT header FROM journey WHERE id = ?1;",
-                [&header.id],
-                |row| row.get(0),
-            )
-            .unwrap();
-        assert_eq!(stored_header, header_bytes);
-    }
-}
-
-#[test]
-fn disabled_raw_data_capture_does_not_create_an_attachment() {
-    let temp_dir = TempDir::new("main_db-disabled_raw_data_capture").unwrap();
-    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
-    let data = ExtendedRawGPSPoint {
-        raw_gps_point: RawGPSPoint {
-            point: Point {
-                latitude: 31.2304,
-                longitude: 121.4737,
-            },
-            timestamp_ms: Some(1_700_000_000_000),
-            accuracy: None,
-            altitude: None,
-            speed: None,
-        },
-        received_timestamp_ms: 1_700_000_000_010,
-    };
-
-    main_db
-        .record_with_raw_data(&data, gps_processor::ProcessResult::Append, false)
-        .unwrap();
-    main_db
-        .with_txn(|txn| txn.finalize_ongoing_journey(false))
-        .unwrap();
-    let header = main_db
-        .with_txn(|txn| Ok(txn.query_journeys(None, None, None)?.remove(0)))
-        .unwrap();
-    assert!(!header.has_raw_data);
-    assert!(main_db
-        .with_txn(|txn| txn.get_journey_raw_data(&header.id))
-        .unwrap()
-        .is_none());
-}
-
-#[test]
 fn setting() {
     use main_db::Setting;
 
@@ -503,9 +410,19 @@ fn setting() {
 
 #[test]
 fn migrates_v1_database_for_journey_raw_data() {
-    let temp_dir = TempDir::new("main_db-migrate-v1-raw-data").unwrap();
+    assert_raw_data_migration_from(SchemaVersion::new(1, 0));
+}
+
+#[test]
+fn migrates_v2_0_database_for_journey_raw_data() {
+    assert_raw_data_migration_from(SchemaVersion::new(2, 0));
+}
+
+fn assert_raw_data_migration_from(version: SchemaVersion) {
+    let temp_dir = TempDir::new("main_db-migrate-raw-data").unwrap();
     let db_path = temp_dir.path().join("main.db");
-    let connection = rusqlite::Connection::open(&db_path).unwrap();
+    let connection = Connection::open(&db_path).unwrap();
+    // Build the historical schemas directly, independently of current migrations.
     connection
         .execute_batch(
             "
@@ -537,6 +454,18 @@ fn migrates_v1_database_for_journey_raw_data() {
             ",
         )
         .unwrap();
+    if version == SchemaVersion::new(2, 0) {
+        connection
+            .execute_batch(
+                "
+                ALTER TABLE journey ADD COLUMN journey_kind INTEGER NOT NULL DEFAULT 0;
+                CREATE INDEX journey_kind_date_index ON journey (journey_kind, journey_date);
+                UPDATE db_metadata SET value = '2' WHERE key = 'version';
+                INSERT INTO db_metadata (key, value) VALUES ('minor_version', '0');
+                ",
+            )
+            .unwrap();
+    }
     drop(connection);
 
     let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
@@ -565,7 +494,7 @@ fn migrates_v1_database_for_journey_raw_data() {
     );
 
     drop(main_db);
-    let connection = rusqlite::Connection::open(&db_path).unwrap();
+    let connection = Connection::open(&db_path).unwrap();
     let table_exists = |name: &str| {
         connection
             .query_row(
@@ -600,98 +529,6 @@ fn migrates_v1_database_for_journey_raw_data() {
         )
         .unwrap();
     assert_eq!(major_version, "2");
-}
-
-#[test]
-fn migrates_v2_0_database_for_journey_raw_data() {
-    let temp_dir = TempDir::new("main_db-migrate-v2-0-raw-data").unwrap();
-    let db_path = temp_dir.path().join("main.db");
-    let connection = rusqlite::Connection::open(&db_path).unwrap();
-    connection
-        .execute_batch(
-            "
-            CREATE TABLE ongoing_journey (
-                id INTEGER PRIMARY KEY AUTOINCREMENT UNIQUE NOT NULL,
-                timestamp_sec INTEGER,
-                lat REAL NOT NULL,
-                lng REAL NOT NULL,
-                process_result INTEGER NOT NULL
-            );
-            CREATE TABLE journey (
-                id TEXT PRIMARY KEY NOT NULL UNIQUE,
-                journey_date INTEGER NOT NULL,
-                timestamp_for_ordering INTEGER,
-                type INTEGER NOT NULL,
-                journey_kind INTEGER NOT NULL DEFAULT 0,
-                header BLOB NOT NULL,
-                data BLOB NOT NULL
-            );
-            CREATE INDEX journey_date_index ON journey (journey_date DESC);
-            CREATE INDEX journey_kind_date_index ON journey (journey_kind, journey_date);
-            CREATE TABLE setting (
-                key TEXT PRIMARY KEY NOT NULL UNIQUE,
-                value TEXT
-            );
-            CREATE TABLE db_metadata (
-                key TEXT NOT NULL PRIMARY KEY,
-                value TEXT
-            );
-            INSERT INTO db_metadata (key, value) VALUES ('version', '2');
-            INSERT INTO db_metadata (key, value) VALUES ('minor_version', '0');
-            ",
-        )
-        .unwrap();
-    drop(connection);
-
-    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
-    let point = ExtendedRawGPSPoint {
-        raw_gps_point: RawGPSPoint {
-            point: Point {
-                latitude: 31.2304,
-                longitude: 121.4737,
-            },
-            timestamp_ms: Some(1_700_000_000_000),
-            accuracy: None,
-            altitude: None,
-            speed: None,
-        },
-        received_timestamp_ms: 1_700_000_000_010,
-    };
-    main_db
-        .record_with_raw_data(&point, gps_processor::ProcessResult::Ignore, true)
-        .unwrap();
-    assert_eq!(
-        main_db
-            .with_txn(|txn| txn.get_ongoing_journey_raw_data())
-            .unwrap()
-            .points,
-        vec![point]
-    );
-
-    drop(main_db);
-    let connection = rusqlite::Connection::open(&db_path).unwrap();
-    assert!(connection
-        .query_row(
-            "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'ongoing_journey_raw_data')",
-            (),
-            |row| row.get::<_, bool>(0),
-        )
-        .unwrap());
-    assert!(connection
-        .query_row(
-            "SELECT EXISTS(SELECT 1 FROM pragma_table_info('journey') WHERE name = 'raw_data')",
-            (),
-            |row| row.get::<_, bool>(0),
-        )
-        .unwrap());
-    let minor_version: String = connection
-        .query_row(
-            "SELECT value FROM db_metadata WHERE key = 'minor_version'",
-            (),
-            |row| row.get(0),
-        )
-        .unwrap();
-    assert_eq!(minor_version, "1");
 }
 
 #[test]

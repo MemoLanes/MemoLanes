@@ -161,7 +161,7 @@ fn raw_data_rejects_truncated_compression_frame() {
 }
 
 #[test]
-fn journey_raw_data_exports_to_csv_gpx_and_kml() {
+fn journey_raw_data_csv_preserves_fields() {
     let raw_data = JourneyRawData {
         header: JourneyRawDataHeader {
             created_at_timestamp_ms: 1_700_000_000_000,
@@ -179,52 +179,88 @@ fn journey_raw_data_exports_to_csv_gpx_and_kml() {
 
     let mut csv = Vec::new();
     export_data::raw_csv::journey_raw_data_to_csv_file(&raw_data, &mut csv).unwrap();
-    let csv = String::from_utf8(csv).unwrap();
-    assert!(csv.contains("timestamp_ms,received_timestamp_ms,latitude,longitude"));
-    assert!(csv.contains("31.230416,121.473701"));
-
-    let mut gpx = Cursor::new(Vec::new());
-    export_data::gpx::journey_raw_data_to_gpx_file(&raw_data, &mut gpx).unwrap();
-    let gpx = String::from_utf8(gpx.into_inner()).unwrap();
-    assert!(gpx.contains("MemoLanes RawData"));
-    assert!(gpx.contains("lat=\"31.230416\" lon=\"121.473701\""));
-
-    let mut kml = Cursor::new(Vec::new());
-    export_data::kml::journey_raw_data_to_kml_file(&raw_data, &mut kml).unwrap();
-    let kml = String::from_utf8(kml.into_inner()).unwrap();
-    assert!(kml.contains("MemoLanes Raw Data"));
-    assert!(kml.contains("2023-11-14T22:13:20.000Z"));
-    assert!(kml.contains("121.473701 31.230416 12"));
+    let mut csv = csv::Reader::from_reader(csv.as_slice());
+    assert_eq!(
+        csv.headers().unwrap().iter().collect::<Vec<_>>(),
+        [
+            "timestamp_ms",
+            "received_timestamp_ms",
+            "latitude",
+            "longitude",
+            "accuracy",
+            "altitude",
+            "speed",
+        ]
+    );
+    assert_eq!(
+        csv.records().collect::<csv::Result<Vec<_>>>().unwrap(),
+        [csv::StringRecord::from(vec![
+            "1700000000000",
+            "1700000000010",
+            "31.230416",
+            "121.473701",
+            "4.5",
+            "12.0",
+            "1.25",
+        ])]
+    );
 }
 
 #[test]
-fn journey_raw_data_gpx_uses_received_timestamp_as_fallback() {
+fn journey_raw_data_gpx_preserves_fields_and_uses_received_timestamp_as_fallback() {
     let raw_data = JourneyRawData {
         header: JourneyRawDataHeader {
             created_at_timestamp_ms: 1_700_000_000_000,
         },
-        points: vec![point(
-            31.230416,
-            121.473701,
-            None,
-            None,
-            None,
-            None,
-            1_700_000_001_234,
-        )],
+        points: vec![
+            point(
+                31.230416,
+                121.473701,
+                Some(1_700_000_000_000),
+                Some(4.5),
+                Some(12.0),
+                Some(1.25),
+                1_700_000_000_010,
+            ),
+            point(
+                31.230417,
+                121.473702,
+                None,
+                None,
+                None,
+                None,
+                1_700_000_001_234,
+            ),
+        ],
     };
 
     let mut gpx = Cursor::new(Vec::new());
     export_data::gpx::journey_raw_data_to_gpx_file(&raw_data, &mut gpx).unwrap();
     gpx.set_position(0);
     let gpx = gpx::read(gpx).unwrap();
-    let exported_time: time::OffsetDateTime =
-        gpx.tracks[0].segments[0].points[0].time.unwrap().into();
-
     assert_eq!(
-        exported_time.unix_timestamp_nanos(),
-        1_700_000_001_234_000_000
+        gpx.metadata.unwrap().name.as_deref(),
+        Some("MemoLanes RawData")
     );
+    assert_eq!(gpx.tracks.len(), 1);
+    assert_eq!(gpx.tracks[0].segments.len(), 1);
+    let points = &gpx.tracks[0].segments[0].points;
+    assert_eq!(points.len(), raw_data.points.len());
+    let expected_timestamps = [1_700_000_000_000_i64, 1_700_000_001_234];
+    for ((exported, original), timestamp_ms) in
+        points.iter().zip(&raw_data.points).zip(expected_timestamps)
+    {
+        let raw = &original.raw_gps_point;
+        assert_eq!(exported.point().y(), raw.point.latitude);
+        assert_eq!(exported.point().x(), raw.point.longitude);
+        assert_eq!(exported.elevation, raw.altitude.map(f64::from));
+        assert_eq!(exported.hdop, raw.accuracy.map(f64::from));
+        let exported_time: time::OffsetDateTime = exported.time.unwrap().into();
+        assert_eq!(
+            exported_time.unix_timestamp_nanos(),
+            i128::from(timestamp_ms) * 1_000_000
+        );
+    }
 }
 
 #[test]
@@ -261,11 +297,11 @@ fn journey_raw_data_kml_orders_track_fields_and_rejects_invalid_timestamps() {
             point(
                 31.230416,
                 121.473701,
-                None,
-                None,
-                None,
-                None,
-                1_700_000_001_234,
+                Some(1_700_000_000_000),
+                Some(4.5),
+                Some(12.0),
+                Some(1.25),
+                1_700_000_000_010,
             ),
             point(
                 31.230417,
@@ -285,6 +321,60 @@ fn journey_raw_data_kml_orders_track_fields_and_rejects_invalid_timestamps() {
     let second_when = kml.rfind("<when>").unwrap();
     let first_coord = kml.find("<gx:coord>").unwrap();
     assert!(second_when < first_coord);
+
+    let kml::Kml::KmlDocument(document) = kml::KmlReader::<_, f64>::from_reader(Cursor::new(kml))
+        .read()
+        .unwrap()
+    else {
+        panic!("expected a KML document");
+    };
+    let kml::Kml::Folder(folder) = &document.elements[0] else {
+        panic!("expected a folder");
+    };
+    let kml::Kml::Placemark(placemark) = &folder.elements[0] else {
+        panic!("expected a placemark");
+    };
+    assert_eq!(placemark.name.as_deref(), Some("MemoLanes Raw Data"));
+    let track = placemark
+        .children
+        .iter()
+        .find(|e| e.name == "Track")
+        .unwrap();
+    assert_eq!(
+        track
+            .children
+            .iter()
+            .map(|e| e.name.as_str())
+            .collect::<Vec<_>>(),
+        ["when", "when", "coord", "coord"]
+    );
+    let timestamps = track.children[..2]
+        .iter()
+        .map(|e| {
+            chrono::DateTime::parse_from_rfc3339(e.content.as_deref().unwrap())
+                .unwrap()
+                .timestamp_millis()
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(timestamps, [1_700_000_000_000, 1_700_000_002_234]);
+    let coords = track.children[2..]
+        .iter()
+        .map(|e| {
+            e.content
+                .as_deref()
+                .unwrap()
+                .split_whitespace()
+                .map(|value| value.parse::<f64>().unwrap())
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        coords,
+        [
+            vec![121.473701, 31.230416, 12.0],
+            vec![121.473702, 31.230417, 0.0]
+        ]
+    );
 
     let invalid = JourneyRawData {
         header: JourneyRawDataHeader {
