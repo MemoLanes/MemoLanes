@@ -58,14 +58,13 @@ Future<CommonExportResult> _generateJourneyExport(
 
 Future<void> showJourneyExportPicker(
   BuildContext context,
-  JourneyHeader journey, {
-  required bool hasRawData,
-}) async {
+  JourneyHeader journey,
+) async {
   final supportsVector = journey.journeyType != JourneyType.bitmap;
   await showCommonExportWithFormatPicker(
     context: context,
     title: context.tr('data.export_data.export_journey_title'),
-    canIncludeRawData: hasRawData,
+    canIncludeRawData: journey.hasRawData,
     formatGroups: [
       CommonExportFormatGroup(
         label: context.tr('data.export_data.journey_data_group'),
@@ -76,7 +75,7 @@ Future<void> showJourneyExportPicker(
           if (supportsVector) CommonExportFormat.gpx,
         ],
       ),
-      if (hasRawData)
+      if (journey.hasRawData)
         CommonExportFormatGroup(
           label: context.tr('data.export_data.raw_data_group'),
           formats: const [

@@ -114,11 +114,7 @@ class _JourneyDetailOverlayState extends State<JourneyDetailOverlay> {
     if (_moreActionInProgress || _controller.phase != JourneyPhase.viewing) {
       return;
     }
-    await showJourneyExportPicker(
-      context,
-      _journey,
-      hasRawData: _journey.hasRawData,
-    );
+    await showJourneyExportPicker(context, _journey);
   }
 
   Future<void> _deleteRawData() async {
