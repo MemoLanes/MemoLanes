@@ -780,11 +780,13 @@ pub fn export_journey_raw_data(
     journey_id: String,
     export_type: RawDataExportType,
 ) -> Result<ExportResult> {
-    let raw_data = get().storage.with_db_txn(|txn| {
-        txn.get_journey_raw_data(&journey_id)?
-            .map(|raw_data| raw_data.deserialize())
-            .transpose()
-    })?;
+    let serialized_raw_data = get()
+        .storage
+        .with_db_txn(|txn| txn.get_journey_raw_data(&journey_id))?;
+    // The database lock is released before decompressing and decoding points.
+    let raw_data = serialized_raw_data
+        .map(|raw_data| raw_data.deserialize())
+        .transpose()?;
     let Some(raw_data) = raw_data.filter(|raw_data| !raw_data.is_empty()) else {
         return Ok(ExportResult::DataIsEmpty);
     };

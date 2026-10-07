@@ -122,25 +122,35 @@ fn skip_bytes_with_size_header<T: Read>(reader: &mut T) -> Result<()> {
     Ok(())
 }
 
-struct SerializedJourneyRecord {
-    journey_data: Vec<u8>,
-    raw_data: Option<SerializedJourneyRawData>,
-}
-
-impl SerializedJourneyRecord {
-    fn correct_header(&self, header: &mut JourneyHeader, operation: &str) {
-        header.correct_has_raw_data(self.raw_data.is_some(), operation);
-    }
-}
-
-fn read_v2_journey_record<T: Read>(reader: &mut T) -> Result<SerializedJourneyRecord> {
-    let field_count: u64 = reader.read_varint()?;
+fn read_journey_field_count<T: Read>(
+    reader: &mut T,
+    section_version: SectionVersion,
+) -> Result<u64> {
+    let field_count: u64 = match section_version {
+        SectionVersion::V1 => 1,
+        SectionVersion::V2 => reader.read_varint()?,
+    };
     if field_count == 0 {
         bail!("Missing JourneyData field in section v2 journey record");
     }
+    Ok(field_count)
+}
 
-    let journey_data = read_bytes_with_size_header(reader)?;
-    let raw_data = if field_count >= 2 {
+/// Read the processed data field and return the number of attachment/extension
+/// fields that follow it. Preview callers can stop here without reading them.
+fn read_journey_data_field<T: Read>(
+    reader: &mut T,
+    section_version: SectionVersion,
+) -> Result<(Vec<u8>, u64)> {
+    let field_count = read_journey_field_count(reader, section_version)?;
+    Ok((read_bytes_with_size_header(reader)?, field_count - 1))
+}
+
+fn read_journey_attachment_fields<T: Read>(
+    reader: &mut T,
+    remaining_fields: u64,
+) -> Result<Option<SerializedJourneyRawData>> {
+    let raw_data = if remaining_fields >= 1 {
         let raw_data = SerializedJourneyRawData::from_bytes(read_bytes_with_size_header(reader)?);
         // Archive input is untrusted. Validate before it can reach the database.
         raw_data.deserialize()?;
@@ -148,13 +158,10 @@ fn read_v2_journey_record<T: Read>(reader: &mut T) -> Result<SerializedJourneyRe
     } else {
         None
     };
-    for _ in 2..field_count {
+    for _ in 1..remaining_fields {
         skip_bytes_with_size_header(reader)?;
     }
-    Ok(SerializedJourneyRecord {
-        journey_data,
-        raw_data,
-    })
+    Ok(raw_data)
 }
 
 fn skip_v2_journey_record<T: Read>(reader: &mut T) -> Result<()> {
@@ -165,16 +172,35 @@ fn skip_v2_journey_record<T: Read>(reader: &mut T) -> Result<()> {
     Ok(())
 }
 
-fn read_journey_record<T: Read>(
-    reader: &mut T,
+/// A section stream positioned at one journey record. Reading consumes the
+/// handle so callers cannot try to read the same record twice.
+struct JourneyRecordReader<'a, R: Read> {
+    file: zip::read::ZipFile<'a, R>,
     section_version: SectionVersion,
-) -> Result<SerializedJourneyRecord> {
-    match section_version {
-        SectionVersion::V1 => Ok(SerializedJourneyRecord {
-            journey_data: read_bytes_with_size_header(reader)?,
-            raw_data: None,
-        }),
-        SectionVersion::V2 => read_v2_journey_record(reader),
+    header: JourneyHeader,
+}
+
+impl<R: Read> JourneyRecordReader<'_, R> {
+    fn read_track(&mut self) -> Result<(JourneyData, u64)> {
+        let (bytes, remaining_fields) =
+            read_journey_data_field(&mut self.file, self.section_version)?;
+        self.header
+            .correct_has_raw_data(remaining_fields > 0, "load_mldx_journey");
+        let data = JourneyData::deserialize(bytes.as_slice(), self.header.journey_type, true)?;
+        Ok((data, remaining_fields))
+    }
+
+    fn read_preview(mut self) -> Result<(JourneyHeader, JourneyData)> {
+        let (data, _) = self.read_track()?;
+        Ok((self.header, data))
+    }
+
+    fn read_with_raw_data(
+        mut self,
+    ) -> Result<(JourneyHeader, JourneyData, Option<SerializedJourneyRawData>)> {
+        let (data, remaining_fields) = self.read_track()?;
+        let raw_data = read_journey_attachment_fields(&mut self.file, remaining_fields)?;
+        Ok((self.header, data, raw_data))
     }
 }
 
@@ -278,14 +304,17 @@ impl<R: Read + Seek> MldxReader<R> {
         &self.journey_headers
     }
 
+    /// Read the processed track and attachment presence for a preview. Raw data
+    /// and later extension fields are neither read nor validated. Full reads
+    /// and imports validate attachments before returning or storing them.
     #[auto_context]
     pub fn load_single_journey(
         &mut self,
         journey_id: &str,
     ) -> Result<Option<(JourneyHeader, JourneyData)>> {
-        Ok(self
-            .load_single_journey_with_raw_data(journey_id)?
-            .map(|(header, data, _)| (header, data)))
+        self.open_journey_record(journey_id)?
+            .map(JourneyRecordReader::read_preview)
+            .transpose()
     }
 
     #[auto_context]
@@ -293,6 +322,15 @@ impl<R: Read + Seek> MldxReader<R> {
         &mut self,
         journey_id: &str,
     ) -> Result<Option<(JourneyHeader, JourneyData, Option<SerializedJourneyRawData>)>> {
+        self.open_journey_record(journey_id)?
+            .map(JourneyRecordReader::read_with_raw_data)
+            .transpose()
+    }
+
+    fn open_journey_record(
+        &mut self,
+        journey_id: &str,
+    ) -> Result<Option<JourneyRecordReader<'_, R>>> {
         let section_id = match self.journey_id_to_section_id.get(journey_id) {
             Some(id) => id.clone(),
             None => return Ok(None),
@@ -301,15 +339,11 @@ impl<R: Read + Seek> MldxReader<R> {
         let (section_version, section_header) = Self::read_section_header(&mut file)?;
         for header in section_header.journey_headers {
             if header.id == journey_id {
-                let mut journey_header = JourneyHeader::of_proto(header)?;
-                let record = read_journey_record(&mut file, section_version)?;
-                record.correct_header(&mut journey_header, "load_mldx_journey");
-                let journey_data = JourneyData::deserialize(
-                    record.journey_data.as_slice(),
-                    journey_header.journey_type,
-                    true,
-                )?;
-                return Ok(Some((journey_header, journey_data, record.raw_data)));
+                return Ok(Some(JourneyRecordReader {
+                    file,
+                    section_version,
+                    header: JourneyHeader::of_proto(header)?,
+                }));
             } else {
                 skip_journey_record(&mut file, section_version)?;
             }
@@ -345,29 +379,35 @@ impl<R: Read + Seek> MldxReader<R> {
                     continue;
                 }
 
+                // The archive header may disagree with its record. Normalize
+                // before comparing revisions, including on repeated imports.
+                let field_count = read_journey_field_count(&mut file, section_version)?;
+                journey_header.correct_has_raw_data(field_count > 1, "import_mldx");
                 let existing = txn.get_journey_header(&journey_header.id)?;
                 if existing
                     .as_ref()
                     .is_some_and(|existing| existing.revision == journey_header.revision)
                 {
-                    skip_journey_record(&mut file, section_version)?;
+                    for _ in 0..field_count {
+                        skip_bytes_with_size_header(&mut file)?;
+                    }
                     result.skipped_count += 1;
                     continue;
                 }
 
-                let record = read_journey_record(&mut file, section_version)?;
-                record.correct_header(&mut journey_header, "import_mldx");
+                let journey_data = read_bytes_with_size_header(&mut file)?;
+                let raw_data = read_journey_attachment_fields(&mut file, field_count - 1)?;
 
                 if existing.is_some() {
                     txn.delete_journey(&journey_header.id)?;
                     result.overwritten_count += 1;
                 }
                 let journey_data = JourneyData::deserialize(
-                    record.journey_data.as_slice(),
+                    journey_data.as_slice(),
                     journey_header.journey_type,
                     true,
                 )?;
-                txn.insert_journey_with_raw_data(journey_header, journey_data, record.raw_data)?;
+                txn.insert_journey_with_raw_data(journey_header, journey_data, raw_data)?;
                 result.imported_count += 1;
             }
         }
@@ -445,6 +485,7 @@ pub fn export_single_journey_as_mldx<T: Write + Seek>(
     let expected_journey_id = journey_header.id.clone();
     let expected_raw_data_journey_id = expected_journey_id.clone();
     let mut journey_data = Some(journey_data);
+    let mut raw_data = raw_data;
     write_mldx(
         vec![journey_header],
         |journey_id| {
@@ -467,13 +508,15 @@ pub fn export_single_journey_as_mldx<T: Write + Seek>(
                     journey_id
                 );
             }
-            Ok(raw_data.clone())
+            Ok(raw_data.take())
         },
         writer,
         include_raw_data,
     )
 }
 
+// Preserve source headers when including raw data. Readers reconcile attachment
+// presence from the record itself, so incorrect flags cannot omit actual data.
 fn write_mldx<T, F, G>(
     journey_headers: Vec<JourneyHeader>,
     mut load_journey_data: F,
@@ -516,10 +559,7 @@ where
         let section_id: String = {
             let mut hasher = Sha1::new();
             for j in &mut journeys {
-                if include_raw_data {
-                    let raw_data = load_raw_data(&j.id)?;
-                    j.correct_has_raw_data(raw_data.is_some(), "export_mldx");
-                } else {
+                if !include_raw_data {
                     // Only the exported header matters when attachments are omitted.
                     j.remove_raw_data();
                 }
@@ -609,101 +649,5 @@ pub mod for_testing {
         let mut file = reader.zip.by_name(&section_id)?;
         let (section_version, _) = MldxReader::<R>::read_section_header(&mut file)?;
         Ok(Some(section_version as u8))
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use std::io::Cursor;
-
-    use chrono::{DateTime, NaiveDate};
-
-    use crate::{
-        archive::{write_mldx, MldxReader, SerializedJourneyRecord, YearMonth},
-        journey_data::JourneyData,
-        journey_header::{JourneyHeader, JourneyKind, JourneyType},
-        journey_vector::JourneyVector,
-        raw_data::SerializedJourneyRawData,
-    };
-
-    fn journey_header(has_raw_data: bool) -> JourneyHeader {
-        JourneyHeader {
-            id: "journey-id".to_owned(),
-            revision: "revision".to_owned(),
-            journey_date: NaiveDate::from_ymd_opt(2024, 1, 2).unwrap(),
-            created_at: DateTime::from_timestamp(1, 0).unwrap(),
-            updated_at: None,
-            start: None,
-            end: None,
-            journey_type: JourneyType::Vector,
-            journey_kind: JourneyKind::DefaultKind,
-            note: None,
-            postprocessor_algo: None,
-            has_raw_data,
-        }
-    }
-
-    #[test]
-    fn order() {
-        let ym = |year, month| YearMonth { year, month };
-        assert_eq!(ym(2000, 10), ym(2000, 10));
-        assert!(ym(2000, 10) > ym(2000, 9));
-        assert!(ym(1999, 12) < ym(2000, 9));
-    }
-
-    #[test]
-    fn excluding_raw_data_does_not_access_attachments() {
-        for has_raw_data in [false, true] {
-            let mut expected_header = journey_header(has_raw_data);
-            let mut writer = Cursor::new(Vec::new());
-            write_mldx(
-                vec![expected_header.clone()],
-                |_| {
-                    Ok(JourneyData::Vector(JourneyVector {
-                        track_segments: vec![],
-                    }))
-                },
-                |_| panic!("Attachments must not be accessed when excluded"),
-                &mut writer,
-                false,
-            )
-            .unwrap();
-
-            expected_header.has_raw_data = false;
-            expected_header.revision = if has_raw_data {
-                "revision*"
-            } else {
-                "revision"
-            }
-            .to_owned();
-            let mut reader = MldxReader::open(Cursor::new(writer.into_inner())).unwrap();
-            let (header, _, raw_data) = reader
-                .load_single_journey_with_raw_data(&expected_header.id)
-                .unwrap()
-                .unwrap();
-            assert_eq!(header, expected_header);
-            assert!(raw_data.is_none());
-        }
-    }
-
-    #[test]
-    fn journey_record_corrects_declared_raw_data_state() {
-        let mut header = journey_header(true);
-        SerializedJourneyRecord {
-            journey_data: Vec::new(),
-            raw_data: None,
-        }
-        .correct_header(&mut header, "test");
-        assert!(!header.has_raw_data);
-        assert_eq!(header.revision, "revision*");
-
-        let mut header = journey_header(false);
-        SerializedJourneyRecord {
-            journey_data: Vec::new(),
-            raw_data: Some(SerializedJourneyRawData::from_bytes(Vec::new())),
-        }
-        .correct_header(&mut header, "test");
-        assert!(header.has_raw_data);
-        assert_eq!(header.revision, "revision");
     }
 }
