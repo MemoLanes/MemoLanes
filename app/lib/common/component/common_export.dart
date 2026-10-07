@@ -423,8 +423,6 @@ class _ExportFormatDialogState extends State<_ExportFormatDialog> {
                 const SizedBox(height: 3.0),
                 Text(
                   context.tr('data.export_data.include_raw_data_desc'),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
                   style: AppTypography.caption.copyWith(
                     color: context.appColors.mutedInkColor,
                   ),
