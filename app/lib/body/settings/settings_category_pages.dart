@@ -75,31 +75,26 @@ class _JourneyRecordingSettingsPageState
                 label: context.tr('general.advanced_settings.raw_data_mode'),
                 position: LabelTilePosition.single,
                 bottom: false,
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      tooltip: context.tr(
-                        'general.advanced_settings.raw_data_mode',
-                      ),
-                      icon: Icon(
-                        Icons.help_outline_rounded,
-                        color: context.appColors.mutedInkColor,
-                        size: 20,
-                      ),
-                      onPressed: () => showCommonDialog(
-                        context,
-                        context.tr(
-                          'general.advanced_settings.raw_data_mode_description',
-                        ),
-                        title: context.tr(
-                          'general.advanced_settings.raw_data_mode',
-                        ),
-                      ),
+                labelTrailing: IconButton(
+                  tooltip: context.tr(
+                    'general.advanced_settings.raw_data_mode',
+                  ),
+                  icon: Icon(
+                    Icons.help_outline_rounded,
+                    color: context.appColors.mutedInkColor,
+                    size: 20,
+                  ),
+                  onPressed: () => showCommonDialog(
+                    context,
+                    context.tr(
+                      'general.advanced_settings.raw_data_mode_description',
                     ),
-                    const RawDataSwitch(),
-                  ],
+                    title: context.tr(
+                      'general.advanced_settings.raw_data_mode',
+                    ),
+                  ),
                 ),
+                trailing: const RawDataSwitch(),
               ),
             ],
           ),
