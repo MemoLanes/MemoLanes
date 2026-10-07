@@ -4,7 +4,6 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:memolanes/body/journey/journey_export.dart';
 import 'package:memolanes/body/journey/list/journey_list_calendar.dart';
 import 'package:memolanes/body/journey/list/journey_list_controller.dart';
 import 'package:memolanes/body/map/overlay/journey_detail_card.dart';
@@ -82,16 +81,6 @@ void main() {
     note: 'Original note',
     hasRawData: false,
   );
-  final journeyWithRawData = JourneyHeader(
-    id: 'with-raw-data',
-    revision: 'revision',
-    journeyDate: DateTime.utc(2023, 11, 14),
-    createdAt: DateTime.utc(2023, 11, 14),
-    journeyType: JourneyType.vector,
-    journeyKind: JourneyKind.defaultKind,
-    hasRawData: true,
-  );
-
   final mockApi = _JourneyListApi(journey);
 
   setUpAll(() => RustLib.initMock(api: mockApi));
@@ -100,54 +89,14 @@ void main() {
     wakelockPlusPlatformInstance = originalWakelockPlatform;
   });
 
-  testWidgets('raw-data export choice survives format changes', (tester) async {
-    await pumpApp(
-      tester,
-      Builder(
-        builder: (context) => Scaffold(
-          body: TextButton(
-            onPressed: () => showJourneyExportPicker(
-              context,
-              journeyWithRawData,
-              hasRawData: true,
-            ),
-            child: const Text('Open Export'),
-          ),
-        ),
-      ),
-    );
-    await tester.tap(find.text('Open Export'));
-    await tester.pumpAndSettle();
-    expect(tester.widget<Switch>(find.byType(Switch)).value, isTrue);
-
-    Future<void> tapVisible(Finder finder) async {
-      await tester.ensureVisible(finder);
-      await tester.pumpAndSettle();
-      await tester.tap(finder);
-      await tester.pumpAndSettle();
-    }
-
-    await tapVisible(find.byType(Switch));
-    await tapVisible(find.text('Fog of World snapshot (*.fwss)'));
-    await tapVisible(find.text('MemoLanes standard format (*.mldx)'));
-
-    expect(tester.widget<Switch>(find.byType(Switch)).value, isFalse);
-
-    await tapVisible(find.text('Raw location data'));
-    await tapVisible(find.text('Journey data'));
-
-    expect(tester.widget<Switch>(find.byType(Switch)).value, isFalse);
-  });
-
   Future<JourneyFlowController> openDetail(
     WidgetTester tester, {
     TargetPlatform? platform,
-    JourneyHeader? header,
   }) async {
     final flow = JourneyFlowController();
     addTearDown(flow.dispose);
     await flow.open(
-      header ?? journey,
+      journey,
       readMapView: () async => (lng: 1.0, lat: 2.0, zoom: 3.0),
     );
     await pumpApp(
@@ -186,90 +135,6 @@ void main() {
     invokeConfirmationAction(tester, 'OK');
     await tester.pump();
   }
-
-  testWidgets('journey without raw data hides raw-data actions', (
-    tester,
-  ) async {
-    await openDetail(tester);
-    expect(find.text('Raw Data'), findsNothing);
-    await tester.tap(find.text('Export'));
-    await tester.pumpAndSettle();
-    expect(find.byType(Switch), findsNothing);
-    expect(find.text('Preserve raw location data'), findsNothing);
-    expect(find.text('Raw location data'), findsNothing);
-    await tester.tap(find.text('Cancel'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Edit'));
-    await tester.pumpAndSettle();
-    expect(find.text('Delete Raw Data'), findsNothing);
-  });
-
-  testWidgets(
-    'raw-data deletion permits retry and retains the track and camera',
-    (tester) async {
-      final pending = Completer<void>();
-      mockApi.pendingRawDataDelete = pending;
-      mockApi.rawDataDeleted = false;
-      mockApi.rawDataJourney = journeyWithRawData;
-      addTearDown(() {
-        mockApi.pendingRawDataDelete = null;
-        mockApi.rawDataJourney = null;
-        mockApi.rawDataDeleted = false;
-      });
-      final flow = await openDetail(tester, header: journeyWithRawData);
-      expect(find.text('Raw Data'), findsOneWidget);
-      expect(find.text('Included'), findsOneWidget);
-      final mapData = flow.session!.mapData;
-      final returnView = flow.session!.returnView;
-      await tester.tap(find.text('Edit'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Delete Raw Data'));
-      await tester.pumpAndSettle();
-      invokeConfirmationAction(tester, 'Cancel');
-      await tester.pumpAndSettle();
-      expect(mockApi.rawDataDeleted, isFalse);
-      expect(flow.session!.journey.hasRawData, isTrue);
-
-      await tester.tap(find.text('Edit'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Delete Raw Data'));
-      await tester.pumpAndSettle();
-      invokeConfirmationAction(tester, 'Delete');
-      await tester.pump();
-      expect(flow.phase, JourneyPhase.deleting);
-      expect(flow.requestBack(), JourneyBackResult.blocked);
-      expect(flow.leave(), isFalse);
-
-      pending.completeError(StateError('Storage unavailable'));
-      await tester.pumpAndSettle();
-      expect(
-        find.text('Something went wrong. Please try again.'),
-        findsOneWidget,
-      );
-      invokeConfirmationAction(tester, 'OK');
-      await tester.pumpAndSettle();
-      expect(flow.phase, JourneyPhase.viewing);
-      expect(flow.session!.journey.hasRawData, isTrue);
-      mockApi.pendingRawDataDelete = null;
-      await tester.tap(find.text('Edit'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Delete Raw Data'));
-      await tester.pumpAndSettle();
-      invokeConfirmationAction(tester, 'Delete');
-      await tester.pumpAndSettle();
-      expect(flow.phase, JourneyPhase.viewing);
-      expect(mockApi.rawDataDeleted, isTrue);
-      expect(flow.session!.journey.id, journeyWithRawData.id);
-      expect(flow.session!.journey.hasRawData, isFalse);
-      expect(flow.session!.mapData, same(mapData));
-      expect(flow.session!.returnView, returnView);
-      expect(find.text('Raw Data'), findsNothing);
-      await tester.tap(find.text('Edit'));
-      await tester.pumpAndSettle();
-      expect(find.text('Delete Raw Data'), findsNothing);
-      expect(tester.takeException(), isNull);
-    },
-  );
 
   testWidgets('journey calendar keeps its month after closing details', (
     tester,
@@ -914,18 +779,6 @@ class _JourneyListApi extends Fake implements RustLibApi {
   final List<JourneyInfo> savedMetadata = [];
   Completer<void>? pendingSave;
   Completer<void>? pendingDelete;
-  Completer<void>? pendingRawDataDelete;
-  JourneyHeader? rawDataJourney;
-  bool rawDataDeleted = false;
-
-  @override
-  Future<bool> crateApiApiDeleteJourneyRawData({
-    required String journeyId,
-  }) async {
-    await pendingRawDataDelete?.future;
-    rawDataDeleted = true;
-    return true;
-  }
 
   @override
   Future<(api.MapRendererProxy, MapBounds?)>
@@ -951,7 +804,6 @@ class _JourneyListApi extends Fake implements RustLibApi {
     required String journeyId,
   }) async {
     final latest = savedMetadata.isEmpty ? null : savedMetadata.last;
-    final journey = rawDataJourney ?? this.journey;
     return JourneyHeader(
       id: journey.id,
       revision: latest == null ? journey.revision : 'updated',
@@ -959,8 +811,8 @@ class _JourneyListApi extends Fake implements RustLibApi {
       createdAt: journey.createdAt,
       journeyType: journey.journeyType,
       journeyKind: latest?.journeyKind ?? journey.journeyKind,
-      hasRawData: journey.hasRawData && !rawDataDeleted,
       note: latest?.note ?? journey.note,
+      hasRawData: journey.hasRawData,
     );
   }
 

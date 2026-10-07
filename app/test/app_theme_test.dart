@@ -37,6 +37,20 @@ void main() {
     expect(restored.themeMode, ThemeMode.light);
   });
 
+  test('preferences map to Flutter theme modes', () {
+    final controller = AppThemeController(
+      readPreference: () => null,
+      writePreference: (_) {},
+    );
+    addTearDown(controller.dispose);
+    expect(controller.preference, AppThemePreference.system);
+    expect(controller.themeMode, ThemeMode.system);
+    controller.setPreference(AppThemePreference.light);
+    expect(controller.themeMode, ThemeMode.light);
+    controller.setPreference(AppThemePreference.dark);
+    expect(controller.themeMode, ThemeMode.dark);
+  });
+
   test('map status icons stay light without changing navigation bar style', () {
     for (final theme in [AppTheme.light, AppTheme.dark]) {
       final appStyle = theme.appBarTheme.systemOverlayStyle!;
