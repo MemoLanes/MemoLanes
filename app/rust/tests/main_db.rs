@@ -1,11 +1,12 @@
 pub mod test_utils;
 
 use chrono::{DateTime, Datelike, NaiveDate};
+use memolanes_core::main_db::NewJourney;
 use memolanes_core::{
     gps_processor::{self, Point},
     import_data,
     journey_data::JourneyData,
-    journey_header::JourneyKind,
+    journey_header::{JourneyHeader, JourneyKind, JourneyType},
     journey_vector::JourneyVector,
     main_db::{self, Action, CacheEntry, MainDb},
     raw_data::{self, ExtendedRawGPSPoint, RawGPSPoint},
@@ -241,6 +242,149 @@ fn journey_raw_data_lifecycle() {
     assert!(!main_db
         .with_txn(|txn| txn.has_journey_raw_data("missing-journey"))
         .unwrap());
+}
+
+fn journey_for_raw_data_insertion() -> (JourneyHeader, JourneyData) {
+    (
+        JourneyHeader {
+            id: "raw-data-insertion".to_owned(),
+            revision: "original".to_owned(),
+            journey_date: date("2024-05-20"),
+            created_at: DateTime::from_timestamp(1_700_000_000, 0).unwrap(),
+            updated_at: None,
+            start: None,
+            end: None,
+            journey_type: JourneyType::Vector,
+            journey_kind: JourneyKind::DefaultKind,
+            note: Some("Preserve metadata".to_owned()),
+            postprocessor_algo: None,
+            has_raw_data: false,
+        },
+        JourneyData::Vector(JourneyVector {
+            track_segments: vec![],
+        }),
+    )
+}
+
+#[test]
+fn inserting_journey_normalizes_raw_data_state() {
+    let attachment = raw_data::JourneyRawData::new(Vec::new(), 1_700_000_000_000)
+        .serialize()
+        .unwrap();
+    for declared in [false, true] {
+        for present in [false, true] {
+            let temp_dir = TempDir::new("main_db-normalize_raw_data").unwrap();
+            let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
+            let (mut header, data) = journey_for_raw_data_insertion();
+            header.has_raw_data = declared;
+            let raw_data = present.then_some(attachment.clone());
+            main_db
+                .with_txn(|txn| {
+                    if present {
+                        txn.insert_journey_with_raw_data(
+                            header.clone(),
+                            data.clone(),
+                            raw_data.clone(),
+                        )
+                    } else {
+                        txn.insert_journey(header.clone(), data.clone())
+                    }
+                })
+                .unwrap();
+
+            let mut expected = header.clone();
+            expected.has_raw_data = present;
+            expected.revision = if declared && !present {
+                "original*"
+            } else {
+                "original"
+            }
+            .to_owned();
+
+            // Both the original input and the stored representation must be
+            // idempotent; normalization must happen before duplicate detection.
+            for repeated_header in [header.clone(), expected.clone()] {
+                main_db
+                    .with_txn(|txn| {
+                        txn.insert_journey_with_raw_data(
+                            repeated_header,
+                            data.clone(),
+                            raw_data.clone(),
+                        )?;
+                        assert_eq!(txn.action, None);
+                        assert_eq!(txn.get_journey_header(&header.id)?, Some(expected.clone()));
+                        assert_eq!(txn.get_journey_raw_data(&header.id)?, raw_data);
+                        assert_eq!(txn.get_journey_data(&header.id)?, data);
+                        Ok(())
+                    })
+                    .unwrap();
+            }
+        }
+    }
+}
+
+#[test]
+fn missing_attachment_cannot_skip_a_conflict_with_the_full_revision() {
+    let temp_dir = TempDir::new("main_db-normalized_revision_conflict").unwrap();
+    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
+    let (mut header, data) = journey_for_raw_data_insertion();
+    header.has_raw_data = true;
+    let raw_data = raw_data::JourneyRawData::new(Vec::new(), 1_700_000_000_000)
+        .serialize()
+        .unwrap();
+    main_db
+        .with_txn(|txn| {
+            txn.insert_journey_with_raw_data(header.clone(), data.clone(), Some(raw_data.clone()))
+        })
+        .unwrap();
+
+    let error = main_db
+        .with_txn(|txn| txn.insert_journey(header.clone(), data.clone()))
+        .unwrap_err();
+    assert!(format!("{error:#}").contains("different revision"));
+    main_db
+        .with_txn(|txn| {
+            assert_eq!(txn.get_journey_header(&header.id)?, Some(header.clone()));
+            assert_eq!(txn.get_journey_raw_data(&header.id)?, Some(raw_data));
+            assert_eq!(txn.get_journey_data(&header.id)?, data);
+            Ok(())
+        })
+        .unwrap();
+}
+
+#[test]
+fn new_journey_derives_attachment_presence_without_a_removal_revision() {
+    let temp_dir = TempDir::new("main_db-new_journey_raw_data").unwrap();
+    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
+    for present in [false, true] {
+        let (input, data) = journey_for_raw_data_insertion();
+        let raw_data = present.then(|| {
+            raw_data::JourneyRawData::new(Vec::new(), 1_700_000_000_000)
+                .serialize()
+                .unwrap()
+        });
+        main_db
+            .with_txn(|txn| {
+                let id = txn.create_and_insert_journey(NewJourney {
+                    journey_date: input.journey_date,
+                    start: input.start,
+                    end: input.end,
+                    created_at: Some(input.created_at),
+                    journey_kind: input.journey_kind,
+                    note: input.note.clone(),
+                    journey_data: data,
+                    raw_data: raw_data.clone(),
+                })?;
+                let header = txn.get_journey_header(&id)?.unwrap();
+                assert_eq!(header.has_raw_data, present);
+                assert!(!header.revision.contains('*'));
+                assert_eq!(header.created_at, input.created_at);
+                assert_eq!(header.note, input.note);
+                assert_eq!(txn.get_journey_raw_data(&id)?, raw_data);
+                Ok(())
+            })
+            .unwrap();
+    }
 }
 
 #[test]
@@ -626,17 +770,18 @@ fn journey_query() {
     let date = |str| NaiveDate::parse_from_str(str, "%Y-%m-%d").unwrap();
 
     let add_empty_journey = |txn: &mut main_db::Txn, journey_date_str| {
-        txn.create_and_insert_journey(
-            date(journey_date_str),
-            None,
-            None,
-            None,
-            JourneyKind::DefaultKind,
-            None,
-            JourneyData::Vector(JourneyVector {
+        txn.create_and_insert_journey(NewJourney {
+            journey_date: date(journey_date_str),
+            start: None,
+            end: None,
+            created_at: None,
+            journey_kind: JourneyKind::DefaultKind,
+            note: None,
+            journey_data: JourneyData::Vector(JourneyVector {
                 track_segments: vec![],
             }),
-        )
+            raw_data: None,
+        })
         .unwrap()
     };
 
@@ -1674,15 +1819,16 @@ fn complete_rebuilt_survives_subsequent_insert() {
 
             // Insert after delete_all — action should remain CompleteRebuilt
             let bitmap2 = test_utils::make_bitmap_with_line(test_utils::draw_line2);
-            txn.create_and_insert_journey(
-                date("2024-03-15"),
-                None,
-                None,
-                None,
-                JourneyKind::DefaultKind,
-                None,
-                JourneyData::Bitmap(bitmap2),
-            )?;
+            txn.create_and_insert_journey(NewJourney {
+                journey_date: date("2024-03-15"),
+                start: None,
+                end: None,
+                created_at: None,
+                journey_kind: JourneyKind::DefaultKind,
+                note: None,
+                journey_data: JourneyData::Bitmap(bitmap2),
+                raw_data: None,
+            })?;
             Ok(txn.action.clone())
         })
         .unwrap();
@@ -1859,15 +2005,18 @@ fn finalize_ongoing_sets_merge_one() {
 #[test]
 fn merge_one_is_only_ever_a_single_fresh_insert() {
     fn insert_one(txn: &mut main_db::Txn, day: u32) -> anyhow::Result<String> {
-        txn.create_and_insert_journey(
-            NaiveDate::from_ymd_opt(2025, 1, day).unwrap(),
-            None,
-            None,
-            None,
-            JourneyKind::DefaultKind,
-            None,
-            JourneyData::Bitmap(test_utils::make_bitmap_with_line(test_utils::draw_line1)),
-        )
+        txn.create_and_insert_journey(NewJourney {
+            journey_date: NaiveDate::from_ymd_opt(2025, 1, day).unwrap(),
+            start: None,
+            end: None,
+            created_at: None,
+            journey_kind: JourneyKind::DefaultKind,
+            note: None,
+            journey_data: JourneyData::Bitmap(test_utils::make_bitmap_with_line(
+                test_utils::draw_line1,
+            )),
+            raw_data: None,
+        })
     }
 
     let temp_dir = TempDir::new("main_db_action_shape").unwrap();

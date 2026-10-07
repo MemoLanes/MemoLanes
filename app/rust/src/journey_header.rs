@@ -152,6 +152,10 @@ impl JourneyHeader {
         }
     }
 
+    /// Reconcile the declared flag with the actual attachment. Removing a
+    /// declared attachment changes the represented content and derives a `*`
+    /// revision; discovering an undeclared attachment only repairs metadata.
+    /// Reapplying this correction is idempotent.
     pub(crate) fn correct_has_raw_data(&mut self, actual_has_raw_data: bool, operation: &str) {
         if self.has_raw_data != actual_has_raw_data {
             log::warn!(

@@ -2,6 +2,7 @@ pub mod test_utils;
 
 use anyhow::Ok;
 use chrono::{DateTime, NaiveDate, Utc};
+use memolanes_core::main_db::NewJourney;
 use memolanes_core::{
     archive::{self, MldxReader},
     gps_processor, import_data,
@@ -11,6 +12,8 @@ use memolanes_core::{
     main_db::MainDb,
     raw_data::{self, ExtendedRawGPSPoint, JourneyRawData, JourneyRawDataHeader, RawGPSPoint},
 };
+use protobuf::Message;
+use rusqlite::Connection;
 use std::collections::HashSet;
 use std::fs::File;
 use std::io::Cursor;
@@ -40,15 +43,16 @@ fn add_bitmap_journey(main_db: &mut MainDb) {
         import_data::fow::load_fow_sync_data("./tests/data/fow_1.zip").unwrap();
     main_db
         .with_txn(|txn| {
-            let _id = txn.create_and_insert_journey(
-                Utc::now().date_naive(),
-                None,
-                None,
-                None,
-                memolanes_core::journey_header::JourneyKind::DefaultKind,
-                None,
-                JourneyData::Bitmap(bitmap),
-            )?;
+            let _id = txn.create_and_insert_journey(NewJourney {
+                journey_date: Utc::now().date_naive(),
+                start: None,
+                end: None,
+                created_at: None,
+                journey_kind: memolanes_core::journey_header::JourneyKind::DefaultKind,
+                note: None,
+                journey_data: JourneyData::Bitmap(bitmap),
+                raw_data: None,
+            })?;
             Ok(())
         })
         .unwrap()
@@ -286,6 +290,21 @@ fn export_corrects_raw_data_flag_to_match_attachment() {
     main_db
         .with_txn(|txn| txn.insert_journey(header_without_raw_data.clone(), data))
         .unwrap();
+
+    // Normal writes now reconcile attachment presence. Inject corrupt headers
+    // directly to keep testing archive repair of pre-existing inconsistent data.
+    let connection = Connection::open(temp_dir.path().join("main.db")).unwrap();
+    for header in [&header_with_raw_data, &header_without_raw_data] {
+        connection
+            .execute(
+                "UPDATE journey SET header = ?2 WHERE id = ?1;",
+                (
+                    &header.id,
+                    header.clone().to_proto().write_to_bytes().unwrap(),
+                ),
+            )
+            .unwrap();
+    }
     let mut archive = Cursor::new(Vec::new());
     main_db
         .with_txn(|txn| archive::export_all_journeys_as_mldx(txn, &mut archive, true))

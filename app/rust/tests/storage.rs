@@ -1,6 +1,7 @@
 pub mod test_utils;
 use crate::test_utils::{draw_line1, draw_line2, draw_line3};
 use chrono::NaiveDate;
+use memolanes_core::main_db::NewJourney;
 use memolanes_core::{
     cache_db::LayerKind,
     gps_processor::{Point, ProcessResult},
@@ -221,15 +222,16 @@ fn increment_journey_and_verify_cache_same_kind() {
 
         let journey1_id = storage
             .with_db_txn(|txn| {
-                txn.create_and_insert_journey(
-                    NaiveDate::from_ymd_opt(2025, 1, 1).unwrap(),
-                    None,
-                    None,
-                    None,
-                    JourneyKind::DefaultKind,
-                    None,
-                    JourneyData::Bitmap(journey_bitmap1.clone()),
-                )
+                txn.create_and_insert_journey(NewJourney {
+                    journey_date: NaiveDate::from_ymd_opt(2025, 1, 1).unwrap(),
+                    start: None,
+                    end: None,
+                    created_at: None,
+                    journey_kind: JourneyKind::DefaultKind,
+                    note: None,
+                    journey_data: JourneyData::Bitmap(journey_bitmap1.clone()),
+                    raw_data: None,
+                })
             })
             .unwrap();
 
@@ -237,15 +239,16 @@ fn increment_journey_and_verify_cache_same_kind() {
 
         let journey2_id = storage
             .with_db_txn(|txn| {
-                txn.create_and_insert_journey(
-                    NaiveDate::from_ymd_opt(2025, 1, 1).unwrap(),
-                    None,
-                    None,
-                    None,
-                    JourneyKind::DefaultKind,
-                    None,
-                    JourneyData::Bitmap(journey_bitmap2.clone()),
-                )
+                txn.create_and_insert_journey(NewJourney {
+                    journey_date: NaiveDate::from_ymd_opt(2025, 1, 1).unwrap(),
+                    start: None,
+                    end: None,
+                    created_at: None,
+                    journey_kind: JourneyKind::DefaultKind,
+                    note: None,
+                    journey_data: JourneyData::Bitmap(journey_bitmap2.clone()),
+                    raw_data: None,
+                })
             })
             .unwrap();
 
@@ -276,15 +279,16 @@ fn increment_journey_and_verify_cache_different_kind() {
 
         let journey1_id = storage
             .with_db_txn(|txn| {
-                txn.create_and_insert_journey(
-                    NaiveDate::from_ymd_opt(2025, 1, 1).unwrap(),
-                    None,
-                    None,
-                    None,
-                    JourneyKind::DefaultKind,
-                    None,
-                    JourneyData::Bitmap(journey_bitmap1.clone()),
-                )
+                txn.create_and_insert_journey(NewJourney {
+                    journey_date: NaiveDate::from_ymd_opt(2025, 1, 1).unwrap(),
+                    start: None,
+                    end: None,
+                    created_at: None,
+                    journey_kind: JourneyKind::DefaultKind,
+                    note: None,
+                    journey_data: JourneyData::Bitmap(journey_bitmap1.clone()),
+                    raw_data: None,
+                })
             })
             .unwrap();
 
@@ -292,15 +296,16 @@ fn increment_journey_and_verify_cache_different_kind() {
 
         let journey2_id = storage
             .with_db_txn(|txn| {
-                txn.create_and_insert_journey(
-                    NaiveDate::from_ymd_opt(2025, 1, 1).unwrap(),
-                    None,
-                    None,
-                    None,
-                    JourneyKind::Flight,
-                    None,
-                    JourneyData::Bitmap(journey_bitmap2.clone()),
-                )
+                txn.create_and_insert_journey(NewJourney {
+                    journey_date: NaiveDate::from_ymd_opt(2025, 1, 1).unwrap(),
+                    start: None,
+                    end: None,
+                    created_at: None,
+                    journey_kind: JourneyKind::Flight,
+                    note: None,
+                    journey_data: JourneyData::Bitmap(journey_bitmap2.clone()),
+                    raw_data: None,
+                })
             })
             .unwrap();
 
@@ -327,29 +332,31 @@ fn delete_journey_invalidates_monthly_cache() {
 
         let jan_id = storage
             .with_db_txn(|txn| {
-                txn.create_and_insert_journey(
-                    NaiveDate::from_ymd_opt(2024, 1, 15).unwrap(),
-                    None,
-                    None,
-                    None,
-                    JourneyKind::DefaultKind,
-                    None,
-                    JourneyData::Bitmap(bitmap_jan.clone()),
-                )
+                txn.create_and_insert_journey(NewJourney {
+                    journey_date: NaiveDate::from_ymd_opt(2024, 1, 15).unwrap(),
+                    start: None,
+                    end: None,
+                    created_at: None,
+                    journey_kind: JourneyKind::DefaultKind,
+                    note: None,
+                    journey_data: JourneyData::Bitmap(bitmap_jan.clone()),
+                    raw_data: None,
+                })
             })
             .unwrap();
 
         let _feb_id = storage
             .with_db_txn(|txn| {
-                txn.create_and_insert_journey(
-                    NaiveDate::from_ymd_opt(2024, 2, 15).unwrap(),
-                    None,
-                    None,
-                    None,
-                    JourneyKind::DefaultKind,
-                    None,
-                    JourneyData::Bitmap(bitmap_feb.clone()),
-                )
+                txn.create_and_insert_journey(NewJourney {
+                    journey_date: NaiveDate::from_ymd_opt(2024, 2, 15).unwrap(),
+                    start: None,
+                    end: None,
+                    created_at: None,
+                    journey_kind: JourneyKind::DefaultKind,
+                    note: None,
+                    journey_data: JourneyData::Bitmap(bitmap_feb.clone()),
+                    raw_data: None,
+                })
             })
             .unwrap();
 
@@ -385,15 +392,16 @@ fn update_metadata_cross_month_invalidates_both() {
 
         let id = storage
             .with_db_txn(|txn| {
-                txn.create_and_insert_journey(
-                    NaiveDate::from_ymd_opt(2024, 3, 15).unwrap(),
-                    None,
-                    None,
-                    None,
-                    JourneyKind::DefaultKind,
-                    None,
-                    JourneyData::Bitmap(bitmap.clone()),
-                )
+                txn.create_and_insert_journey(NewJourney {
+                    journey_date: NaiveDate::from_ymd_opt(2024, 3, 15).unwrap(),
+                    start: None,
+                    end: None,
+                    created_at: None,
+                    journey_kind: JourneyKind::DefaultKind,
+                    note: None,
+                    journey_data: JourneyData::Bitmap(bitmap.clone()),
+                    raw_data: None,
+                })
             })
             .unwrap();
 
@@ -449,15 +457,16 @@ fn update_metadata_change_kind_invalidates_both() {
 
         let id = storage
             .with_db_txn(|txn| {
-                txn.create_and_insert_journey(
-                    NaiveDate::from_ymd_opt(2024, 3, 15).unwrap(),
-                    None,
-                    None,
-                    None,
-                    JourneyKind::DefaultKind,
-                    None,
-                    JourneyData::Bitmap(bitmap.clone()),
-                )
+                txn.create_and_insert_journey(NewJourney {
+                    journey_date: NaiveDate::from_ymd_opt(2024, 3, 15).unwrap(),
+                    start: None,
+                    end: None,
+                    created_at: None,
+                    journey_kind: JourneyKind::DefaultKind,
+                    note: None,
+                    journey_data: JourneyData::Bitmap(bitmap.clone()),
+                    raw_data: None,
+                })
             })
             .unwrap();
 
@@ -515,43 +524,46 @@ fn get_range_bitmap_works() {
 
         storage
             .with_db_txn(|txn| {
-                txn.create_and_insert_journey(
-                    NaiveDate::from_ymd_opt(2024, 1, 15).unwrap(),
-                    None,
-                    None,
-                    None,
-                    JourneyKind::DefaultKind,
-                    None,
-                    JourneyData::Bitmap(bitmap_jan.clone()),
-                )
+                txn.create_and_insert_journey(NewJourney {
+                    journey_date: NaiveDate::from_ymd_opt(2024, 1, 15).unwrap(),
+                    start: None,
+                    end: None,
+                    created_at: None,
+                    journey_kind: JourneyKind::DefaultKind,
+                    note: None,
+                    journey_data: JourneyData::Bitmap(bitmap_jan.clone()),
+                    raw_data: None,
+                })
             })
             .unwrap();
 
         storage
             .with_db_txn(|txn| {
-                txn.create_and_insert_journey(
-                    NaiveDate::from_ymd_opt(2024, 3, 15).unwrap(),
-                    None,
-                    None,
-                    None,
-                    JourneyKind::DefaultKind,
-                    None,
-                    JourneyData::Bitmap(bitmap_mar.clone()),
-                )
+                txn.create_and_insert_journey(NewJourney {
+                    journey_date: NaiveDate::from_ymd_opt(2024, 3, 15).unwrap(),
+                    start: None,
+                    end: None,
+                    created_at: None,
+                    journey_kind: JourneyKind::DefaultKind,
+                    note: None,
+                    journey_data: JourneyData::Bitmap(bitmap_mar.clone()),
+                    raw_data: None,
+                })
             })
             .unwrap();
 
         storage
             .with_db_txn(|txn| {
-                txn.create_and_insert_journey(
-                    NaiveDate::from_ymd_opt(2024, 1, 20).unwrap(),
-                    None,
-                    None,
-                    None,
-                    JourneyKind::Flight,
-                    None,
-                    JourneyData::Bitmap(bitmap_flight.clone()),
-                )
+                txn.create_and_insert_journey(NewJourney {
+                    journey_date: NaiveDate::from_ymd_opt(2024, 1, 20).unwrap(),
+                    start: None,
+                    end: None,
+                    created_at: None,
+                    journey_kind: JourneyKind::Flight,
+                    note: None,
+                    journey_data: JourneyData::Bitmap(bitmap_flight.clone()),
+                    raw_data: None,
+                })
             })
             .unwrap();
 
@@ -606,29 +618,31 @@ fn insert_cache_delete_requery_range() {
 
         let jan_id = storage
             .with_db_txn(|txn| {
-                txn.create_and_insert_journey(
-                    date("2024-01-15"),
-                    None,
-                    None,
-                    None,
-                    JourneyKind::DefaultKind,
-                    None,
-                    JourneyData::Bitmap(bitmap_jan.clone()),
-                )
+                txn.create_and_insert_journey(NewJourney {
+                    journey_date: date("2024-01-15"),
+                    start: None,
+                    end: None,
+                    created_at: None,
+                    journey_kind: JourneyKind::DefaultKind,
+                    note: None,
+                    journey_data: JourneyData::Bitmap(bitmap_jan.clone()),
+                    raw_data: None,
+                })
             })
             .unwrap();
 
         storage
             .with_db_txn(|txn| {
-                txn.create_and_insert_journey(
-                    date("2024-03-15"),
-                    None,
-                    None,
-                    None,
-                    JourneyKind::DefaultKind,
-                    None,
-                    JourneyData::Bitmap(bitmap_mar.clone()),
-                )
+                txn.create_and_insert_journey(NewJourney {
+                    journey_date: date("2024-03-15"),
+                    start: None,
+                    end: None,
+                    created_at: None,
+                    journey_kind: JourneyKind::DefaultKind,
+                    note: None,
+                    journey_data: JourneyData::Bitmap(bitmap_mar.clone()),
+                    raw_data: None,
+                })
             })
             .unwrap();
 
@@ -676,15 +690,16 @@ fn update_journey_data_invalidates_and_requery_correct() {
 
         let id = storage
             .with_db_txn(|txn| {
-                txn.create_and_insert_journey(
-                    date("2024-03-15"),
-                    None,
-                    None,
-                    None,
-                    JourneyKind::DefaultKind,
-                    None,
-                    JourneyData::Bitmap(bitmap_line1.clone()),
-                )
+                txn.create_and_insert_journey(NewJourney {
+                    journey_date: date("2024-03-15"),
+                    start: None,
+                    end: None,
+                    created_at: None,
+                    journey_kind: JourneyKind::DefaultKind,
+                    note: None,
+                    journey_data: JourneyData::Bitmap(bitmap_line1.clone()),
+                    raw_data: None,
+                })
             })
             .unwrap();
 
@@ -733,15 +748,16 @@ fn multiple_inserts_in_sequence_final_state_correct() {
         // Insert 3 journeys one-at-a-time (3 separate with_db_txn), same month+kind
         let _id1 = storage
             .with_db_txn(|txn| {
-                txn.create_and_insert_journey(
-                    date("2024-03-10"),
-                    None,
-                    None,
-                    None,
-                    JourneyKind::DefaultKind,
-                    None,
-                    JourneyData::Bitmap(bitmap1.clone()),
-                )
+                txn.create_and_insert_journey(NewJourney {
+                    journey_date: date("2024-03-10"),
+                    start: None,
+                    end: None,
+                    created_at: None,
+                    journey_kind: JourneyKind::DefaultKind,
+                    note: None,
+                    journey_data: JourneyData::Bitmap(bitmap1.clone()),
+                    raw_data: None,
+                })
             })
             .unwrap();
 
@@ -756,15 +772,16 @@ fn multiple_inserts_in_sequence_final_state_correct() {
 
         let id2 = storage
             .with_db_txn(|txn| {
-                txn.create_and_insert_journey(
-                    date("2024-03-15"),
-                    None,
-                    None,
-                    None,
-                    JourneyKind::DefaultKind,
-                    None,
-                    JourneyData::Bitmap(bitmap2.clone()),
-                )
+                txn.create_and_insert_journey(NewJourney {
+                    journey_date: date("2024-03-15"),
+                    start: None,
+                    end: None,
+                    created_at: None,
+                    journey_kind: JourneyKind::DefaultKind,
+                    note: None,
+                    journey_data: JourneyData::Bitmap(bitmap2.clone()),
+                    raw_data: None,
+                })
             })
             .unwrap();
 
@@ -781,15 +798,16 @@ fn multiple_inserts_in_sequence_final_state_correct() {
 
         storage
             .with_db_txn(|txn| {
-                txn.create_and_insert_journey(
-                    date("2024-03-20"),
-                    None,
-                    None,
-                    None,
-                    JourneyKind::DefaultKind,
-                    None,
-                    JourneyData::Bitmap(bitmap3.clone()),
-                )
+                txn.create_and_insert_journey(NewJourney {
+                    journey_date: date("2024-03-20"),
+                    start: None,
+                    end: None,
+                    created_at: None,
+                    journey_kind: JourneyKind::DefaultKind,
+                    note: None,
+                    journey_data: JourneyData::Bitmap(bitmap3.clone()),
+                    raw_data: None,
+                })
             })
             .unwrap();
 
@@ -831,29 +849,31 @@ fn delete_all_clears_cache_and_requery_empty() {
 
         storage
             .with_db_txn(|txn| {
-                txn.create_and_insert_journey(
-                    date("2024-01-15"),
-                    None,
-                    None,
-                    None,
-                    JourneyKind::DefaultKind,
-                    None,
-                    JourneyData::Bitmap(bitmap_jan),
-                )
+                txn.create_and_insert_journey(NewJourney {
+                    journey_date: date("2024-01-15"),
+                    start: None,
+                    end: None,
+                    created_at: None,
+                    journey_kind: JourneyKind::DefaultKind,
+                    note: None,
+                    journey_data: JourneyData::Bitmap(bitmap_jan),
+                    raw_data: None,
+                })
             })
             .unwrap();
 
         storage
             .with_db_txn(|txn| {
-                txn.create_and_insert_journey(
-                    date("2024-03-15"),
-                    None,
-                    None,
-                    None,
-                    JourneyKind::Flight,
-                    None,
-                    JourneyData::Bitmap(bitmap_mar),
-                )
+                txn.create_and_insert_journey(NewJourney {
+                    journey_date: date("2024-03-15"),
+                    start: None,
+                    end: None,
+                    created_at: None,
+                    journey_kind: JourneyKind::Flight,
+                    note: None,
+                    journey_data: JourneyData::Bitmap(bitmap_mar),
+                    raw_data: None,
+                })
             })
             .unwrap();
 
@@ -889,15 +909,16 @@ fn update_metadata_same_month_cache_still_correct() {
 
         let id = storage
             .with_db_txn(|txn| {
-                txn.create_and_insert_journey(
-                    date("2024-03-15"),
-                    None,
-                    None,
-                    None,
-                    JourneyKind::DefaultKind,
-                    None,
-                    JourneyData::Bitmap(bitmap.clone()),
-                )
+                txn.create_and_insert_journey(NewJourney {
+                    journey_date: date("2024-03-15"),
+                    start: None,
+                    end: None,
+                    created_at: None,
+                    journey_kind: JourneyKind::DefaultKind,
+                    note: None,
+                    journey_data: JourneyData::Bitmap(bitmap.clone()),
+                    raw_data: None,
+                })
             })
             .unwrap();
 

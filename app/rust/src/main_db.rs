@@ -39,6 +39,19 @@ pub struct Txn<'a> {
     pub action: Option<Action>,
 }
 
+/// Inputs for a new journey. Identity, revision, processed data metadata and
+/// attachment presence are derived when the journey is created.
+pub struct NewJourney {
+    pub journey_date: NaiveDate,
+    pub start: Option<DateTime<Utc>>,
+    pub end: Option<DateTime<Utc>>,
+    pub created_at: Option<DateTime<Utc>>,
+    pub journey_kind: JourneyKind,
+    pub note: Option<String>,
+    pub journey_data: JourneyData,
+    pub raw_data: Option<raw_data::SerializedJourneyRawData>,
+}
+
 #[derive(PartialEq, Debug, Clone)]
 pub enum Action {
     /// `MergeOne` is aimed to optimize the most common case: end the current ongoing journey and update the internal state.
@@ -204,11 +217,15 @@ impl Txn<'_> {
         self.insert_journey_with_raw_data(header, data, None)
     }
 
+    /// Insert an existing journey, normalizing its header to the supplied
+    /// attachment before comparing revisions. A missing declared attachment
+    /// produces the deterministic raw-data-free revision; an undeclared but
+    /// present attachment only corrects the flag. See `correct_has_raw_data`.
     // TODO: consider return structured result so the caller know if it is skipped or other cases
     #[auto_context]
     pub fn insert_journey_with_raw_data(
         &mut self,
-        header: JourneyHeader,
+        mut header: JourneyHeader,
         mut data: JourneyData,
         raw_data: Option<raw_data::SerializedJourneyRawData>,
     ) -> Result<()> {
@@ -216,6 +233,7 @@ impl Txn<'_> {
         if journey_type != data.type_() {
             bail!("[insert_journey] Mismatch journey type")
         }
+        header.correct_has_raw_data(raw_data.is_some(), "insert_journey");
         let id = header.id.clone();
 
         match self.get_journey_header(&id)? {
@@ -281,19 +299,9 @@ impl Txn<'_> {
         Ok(())
     }
 
-    #[allow(clippy::too_many_arguments)]
     #[auto_context]
-    pub fn create_and_insert_journey(
-        &mut self,
-        journey_date: NaiveDate,
-        start: Option<DateTime<Utc>>,
-        end: Option<DateTime<Utc>>,
-        created_at: Option<DateTime<Utc>>,
-        journey_kind: JourneyKind,
-        note: Option<String>,
-        journey_data: JourneyData,
-    ) -> Result<String> {
-        self.create_and_insert_journey_with_raw_data(
+    pub fn create_and_insert_journey(&mut self, journey: NewJourney) -> Result<String> {
+        let NewJourney {
             journey_date,
             start,
             end,
@@ -301,23 +309,8 @@ impl Txn<'_> {
             journey_kind,
             note,
             journey_data,
-            None,
-        )
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    #[auto_context]
-    pub fn create_and_insert_journey_with_raw_data(
-        &mut self,
-        journey_date: NaiveDate,
-        start: Option<DateTime<Utc>>,
-        end: Option<DateTime<Utc>>,
-        created_at: Option<DateTime<Utc>>,
-        journey_kind: JourneyKind,
-        note: Option<String>,
-        journey_data: JourneyData,
-        raw_data: Option<raw_data::SerializedJourneyRawData>,
-    ) -> Result<String> {
+            raw_data,
+        } = journey;
         let (journey_data, postprocessor_algo) = match journey_data {
             JourneyData::Vector(journey_vector) => (
                 JourneyData::Vector(GpsPostprocessor::process(journey_vector)),
@@ -476,20 +469,20 @@ impl Txn<'_> {
                     None
                 };
 
-                self.create_and_insert_journey_with_raw_data(
+                self.create_and_insert_journey(NewJourney {
                     // In practice, `end` could never be none but just in case ...
                     // TODO: Maybe we want better journey date strategy
-                    journey_date_picker
+                    journey_date: journey_date_picker
                         .pick_journey_date()
                         .unwrap_or_else(|| Local::now().date_naive()),
-                    journey_date_picker.min_time(),
-                    journey_date_picker.max_time(),
-                    None,
+                    start: journey_date_picker.min_time(),
+                    end: journey_date_picker.max_time(),
+                    created_at: None,
                     journey_kind,
-                    None,
-                    JourneyData::Vector(journey_vector),
-                    serialized_raw_data,
-                )?;
+                    note: None,
+                    journey_data: JourneyData::Vector(journey_vector),
+                    raw_data: serialized_raw_data,
+                })?;
                 true
             }
         };
