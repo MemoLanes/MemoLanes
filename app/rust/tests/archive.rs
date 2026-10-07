@@ -5,12 +5,13 @@ use chrono::{DateTime, NaiveDate, Utc};
 use memolanes_core::main_db::NewJourney;
 use memolanes_core::{
     archive::{self, MldxReader},
+    gps::{ExtendedRawGPSPoint, Point, RawGPSPoint},
     gps_processor, import_data,
     journey_data::JourneyData,
     journey_header::{JourneyHeader, JourneyKind, JourneyType},
     journey_vector::{JourneyVector, TrackPoint, TrackSegment},
     main_db::MainDb,
-    raw_data::{self, ExtendedRawGPSPoint, JourneyRawData, JourneyRawDataHeader, RawGPSPoint},
+    raw_data::{self, JourneyRawData, JourneyRawDataHeader},
 };
 use protobuf::Message;
 use rusqlite::Connection;
@@ -112,7 +113,7 @@ fn sample_raw_data_with_latitude(latitude: f64) -> raw_data::SerializedJourneyRa
         },
         points: vec![ExtendedRawGPSPoint {
             raw_gps_point: RawGPSPoint {
-                point: gps_processor::Point {
+                point: Point {
                     latitude,
                     longitude: 121.4737,
                 },
