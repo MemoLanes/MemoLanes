@@ -97,7 +97,10 @@ enum CommonExportFormat {
     CommonExportFormat.rawDataCsv ||
     CommonExportFormat.rawDataGpx ||
     CommonExportFormat.rawDataKml => true,
-    _ => false,
+    CommonExportFormat.mldx ||
+    CommonExportFormat.fwss ||
+    CommonExportFormat.kml ||
+    CommonExportFormat.gpx => false,
   };
 }
 
