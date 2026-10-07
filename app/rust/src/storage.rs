@@ -2,13 +2,13 @@ extern crate simplelog;
 use crate::achievement::AchievementReader;
 use crate::cache_db::{self, CacheDb, LayerKind};
 use crate::geo::{GeoAssetError, GeoIndex, GeoLookup};
+use crate::gps::ExtendedRawGPSPoint;
 use crate::gps_processor::ProcessResult;
 use crate::journey_bitmap::JourneyBitmap;
 use crate::journey_header::JourneyKind;
 use crate::journey_snapshot::JourneySnapshot;
 use crate::legacy_raw_data::{self, LegacyRawDataFile};
 use crate::main_db::{self, Action, MainDb};
-use crate::raw_data::ExtendedRawGPSPoint;
 use anyhow::{Context, Ok, Result};
 use auto_context::auto_context;
 use chrono::NaiveDate;
@@ -156,6 +156,18 @@ impl Storage {
         main_db
             .record_with_raw_data(data, process_result, self.get_raw_data_mode())
             .unwrap();
+    }
+
+    /// Sample the retention setting under the same lock as recording and mode
+    /// changes. Finalization also updates caches and notifies listeners.
+    #[auto_context]
+    pub fn finalize_ongoing_journey(&self) -> Result<bool> {
+        self.with_db_txn(|txn| txn.finalize_ongoing_journey(self.get_raw_data_mode()))
+    }
+
+    #[auto_context]
+    pub fn try_auto_finalize_journey(&self) -> Result<bool> {
+        self.with_db_txn(|txn| txn.try_auto_finalize_journey(self.get_raw_data_mode()))
     }
 
     pub fn list_all_legacy_raw_data(&self) -> Result<Vec<LegacyRawDataFile>> {

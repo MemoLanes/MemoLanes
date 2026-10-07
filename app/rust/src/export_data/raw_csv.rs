@@ -6,7 +6,7 @@ use anyhow::{Context, Result};
 use auto_context::auto_context;
 use serde::Serialize;
 
-use crate::raw_data::{JourneyRawData, RawGPSPoint};
+use crate::{gps::RawGPSPoint, raw_data::JourneyRawData};
 
 #[derive(Serialize)]
 struct JourneyRawDataCsvRow {

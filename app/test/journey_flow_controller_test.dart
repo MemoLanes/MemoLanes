@@ -145,8 +145,8 @@ void main() {
       createdAt: journey.createdAt,
       journeyType: journey.journeyType,
       journeyKind: journey.journeyKind,
-      hasRawData: journey.hasRawData,
       note: 'Updated track',
+      hasRawData: journey.hasRawData,
     );
     backend.header = updated;
     final refreshing = flow.refreshTrack();

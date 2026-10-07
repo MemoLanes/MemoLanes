@@ -4,10 +4,9 @@ use memolanes_core::{
         analyze_vector_data_by_date, import_vector_data_by_date, is_journey_data_empty,
         load_vector_data, process_vector_data_for_date, ImportPreprocessor, RawVectorData,
     },
-    gps_processor::Point,
+    gps::{Point, RawGPSPoint},
     import_data::journey_partition::{group_by_date, summarize},
     journey_header::JourneyKind,
-    raw_data::RawGPSPoint,
 };
 
 fn point(timestamp_ms: Option<i64>, longitude: f64) -> RawGPSPoint {

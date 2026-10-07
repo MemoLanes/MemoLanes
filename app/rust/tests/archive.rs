@@ -2,15 +2,19 @@ pub mod test_utils;
 
 use anyhow::Ok;
 use chrono::{DateTime, NaiveDate, Utc};
+use memolanes_core::main_db::NewJourney;
 use memolanes_core::{
     archive::{self, MldxReader},
+    gps::{ExtendedRawGPSPoint, Point, RawGPSPoint},
     gps_processor, import_data,
     journey_data::JourneyData,
     journey_header::{JourneyHeader, JourneyKind, JourneyType},
     journey_vector::{JourneyVector, TrackPoint, TrackSegment},
     main_db::MainDb,
-    raw_data::{self, ExtendedRawGPSPoint, JourneyRawData, JourneyRawDataHeader, RawGPSPoint},
+    raw_data::{self, JourneyRawData, JourneyRawDataHeader},
 };
+use protobuf::Message;
+use rusqlite::Connection;
 use std::collections::HashSet;
 use std::fs::File;
 use std::io::Cursor;
@@ -40,15 +44,16 @@ fn add_bitmap_journey(main_db: &mut MainDb) {
         import_data::fow::load_fow_sync_data("./tests/data/fow_1.zip").unwrap();
     main_db
         .with_txn(|txn| {
-            let _id = txn.create_and_insert_journey(
-                Utc::now().date_naive(),
-                None,
-                None,
-                None,
-                memolanes_core::journey_header::JourneyKind::DefaultKind,
-                None,
-                JourneyData::Bitmap(bitmap),
-            )?;
+            let _id = txn.create_and_insert_journey(NewJourney {
+                journey_date: Utc::now().date_naive(),
+                start: None,
+                end: None,
+                created_at: None,
+                journey_kind: memolanes_core::journey_header::JourneyKind::DefaultKind,
+                note: None,
+                journey_data: JourneyData::Bitmap(bitmap),
+                raw_data: None,
+            })?;
             Ok(())
         })
         .unwrap()
@@ -108,7 +113,7 @@ fn sample_raw_data_with_latitude(latitude: f64) -> raw_data::SerializedJourneyRa
         },
         points: vec![ExtendedRawGPSPoint {
             raw_gps_point: RawGPSPoint {
-                point: gps_processor::Point {
+                point: Point {
                     latitude,
                     longitude: 121.4737,
                 },
@@ -200,10 +205,14 @@ fn read_and_import_legacy_v1() {
     let (header, data) = sample_journey();
     assert_eq!(metadata_entry_name(LEGACY_V1_ARCHIVE), "metadata.xxm");
     let mut reader = MldxReader::open(Cursor::new(LEGACY_V1_ARCHIVE)).unwrap();
-    assert_eq!(reader.iter_journey_headers(), &[header.clone()]);
+    assert_eq!(reader.iter_journey_headers(), std::slice::from_ref(&header));
     assert_eq!(
         archive::for_testing::section_version_for_journey(&mut reader, &header.id).unwrap(),
         Some(1)
+    );
+    assert_eq!(
+        reader.load_single_journey(&header.id).unwrap(),
+        Some((header.clone(), data.clone()))
     );
     assert_eq!(
         reader
@@ -226,10 +235,14 @@ fn write_v2_and_read_back() {
     let (bytes, header, data) = write_single_journey_archive();
     assert_eq!(metadata_entry_name(&bytes), "metadata.mldm");
     let mut reader = MldxReader::open(Cursor::new(bytes)).unwrap();
-    assert_eq!(reader.iter_journey_headers(), &[header.clone()]);
+    assert_eq!(reader.iter_journey_headers(), std::slice::from_ref(&header));
     assert_eq!(
         archive::for_testing::section_version_for_journey(&mut reader, &header.id).unwrap(),
         Some(2)
+    );
+    assert_eq!(
+        reader.load_single_journey(&header.id).unwrap(),
+        Some((header.clone(), data.clone()))
     );
     assert_eq!(
         reader
@@ -256,6 +269,10 @@ fn v2_round_trips_raw_data() {
     .unwrap();
 
     let mut reader = MldxReader::open(Cursor::new(writer.into_inner())).unwrap();
+    assert_eq!(
+        reader.load_single_journey(&header.id).unwrap(),
+        Some((header.clone(), data.clone()))
+    );
     let loaded = reader
         .load_single_journey_with_raw_data(&header.id)
         .unwrap()
@@ -264,61 +281,301 @@ fn v2_round_trips_raw_data() {
 }
 
 #[test]
-fn export_corrects_raw_data_flag_to_match_attachment() {
-    let temp_dir = TempDir::new("archive-export_corrects_raw_data_flag").unwrap();
-    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
-    let (header_with_raw_data, data) = sample_journey();
-    let raw_data = sample_raw_data();
+fn extension_fields_preserve_following_records_on_read_and_import() {
+    use integer_encoding::{VarIntReader, VarIntWriter};
+    use std::io::{Read, Write};
 
-    main_db
+    let source_dir = TempDir::new("archive-extension_source").unwrap();
+    let mut source = MainDb::open(source_dir.path().to_str().unwrap()).unwrap();
+    let (mut first, first_data) = sample_journey();
+    first.id = "first-journey".to_owned();
+    first.has_raw_data = true;
+    let mut second = first.clone();
+    second.id = "second-journey".to_owned();
+    second.has_raw_data = false;
+    let second_data = JourneyData::Vector(JourneyVector {
+        track_segments: vec![],
+    });
+    let mut third = first.clone();
+    third.id = "third-journey".to_owned();
+    let third_data = first_data.clone();
+    let expected = [
+        (first, first_data, Some(sample_raw_data())),
+        (second, second_data, None),
+        (third, third_data, Some(sample_raw_data_with_latitude(32.0))),
+    ];
+    let mut exported = Cursor::new(Vec::new());
+    source
         .with_txn(|txn| {
-            txn.insert_journey_with_raw_data(
-                header_with_raw_data.clone(),
-                data.clone(),
-                Some(raw_data),
-            )
+            for (header, data, attachment) in &expected {
+                txn.insert_journey_with_raw_data(header.clone(), data.clone(), attachment.clone())?;
+            }
+            archive::export_all_journeys_as_mldx(txn, &mut exported, true)
         })
         .unwrap();
-    let mut header_without_raw_data = header_with_raw_data.clone();
-    header_without_raw_data.id = "test-journey-without-raw-data".to_owned();
-    header_without_raw_data.revision = "test-revision-without-raw-data".to_owned();
-    header_without_raw_data.has_raw_data = true;
-    main_db
-        .with_txn(|txn| txn.insert_journey(header_without_raw_data.clone(), data))
-        .unwrap();
-    let mut archive = Cursor::new(Vec::new());
-    main_db
-        .with_txn(|txn| archive::export_all_journeys_as_mldx(txn, &mut archive, true))
-        .unwrap();
-    let reader = MldxReader::open(Cursor::new(archive.into_inner())).unwrap();
-    let exported_with_raw_data = reader
-        .iter_journey_headers()
-        .iter()
-        .find(|header| header.id == header_with_raw_data.id)
-        .unwrap();
-    assert!(exported_with_raw_data.has_raw_data);
-    assert_eq!(
-        exported_with_raw_data.revision,
-        header_with_raw_data.revision
-    );
-    let exported_without_raw_data = reader
-        .iter_journey_headers()
-        .iter()
-        .find(|header| header.id == header_without_raw_data.id)
-        .unwrap();
-    assert!(!exported_without_raw_data.has_raw_data);
-    assert_eq!(
-        exported_without_raw_data.revision,
-        "test-revision-without-raw-data*"
-    );
 
-    for header in [header_with_raw_data, header_without_raw_data] {
-        let stored_header = main_db
-            .with_txn(|txn| txn.get_journey_header(&header.id))
-            .unwrap()
-            .unwrap();
-        assert_eq!(stored_header, header);
+    // Add an unknown field to the first record in a section with mixed attachments.
+    // Rebuild the ZIP so entry sizes and checksums remain valid.
+    let mut input = zip::ZipArchive::new(Cursor::new(exported.into_inner())).unwrap();
+    assert_eq!(input.len(), 2, "All journeys must share one section");
+    let mut output = zip::ZipWriter::new(Cursor::new(Vec::new()));
+    let options =
+        zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
+    for index in 0..input.len() {
+        let mut entry = input.by_index(index).unwrap();
+        output.start_file(entry.name(), options).unwrap();
+        let mut bytes = Vec::new();
+        entry.read_to_end(&mut bytes).unwrap();
+        if bytes.starts_with(b"MLS") {
+            assert_eq!(bytes[3], 2);
+            let mut section = Cursor::new(bytes.as_slice());
+            section.set_position(4);
+            let header_len: u64 = section.read_varint().unwrap();
+            section.set_position(section.position() + header_len);
+            let record_start = section.position() as usize;
+            let field_count: u64 = section.read_varint().unwrap();
+            assert_eq!(field_count, 2);
+            let fields_start = section.position() as usize;
+            for _ in 0..field_count {
+                let len: u64 = section.read_varint().unwrap();
+                section.set_position(section.position() + len);
+            }
+            let fields_end = section.position() as usize;
+            assert!(fields_end < bytes.len(), "A second record must follow");
+            output.write_all(&bytes[..record_start]).unwrap();
+            output.write_varint(field_count + 1).unwrap();
+            output.write_all(&bytes[fields_start..fields_end]).unwrap();
+            let extension = b"future extension";
+            output.write_varint(extension.len() as u64).unwrap();
+            output.write_all(extension).unwrap();
+            output.write_all(&bytes[fields_end..]).unwrap();
+        } else {
+            output.write_all(&bytes).unwrap();
+        }
     }
+
+    let bytes = output.finish().unwrap().into_inner();
+    let mut reader = MldxReader::open(Cursor::new(bytes)).unwrap();
+    for (header, data, attachment) in &expected {
+        assert_eq!(
+            reader
+                .iter_journey_headers()
+                .iter()
+                .find(|exported| exported.id == header.id),
+            Some(header)
+        );
+        assert_eq!(
+            reader.load_single_journey(&header.id).unwrap(),
+            Some((header.clone(), data.clone()))
+        );
+        assert_eq!(
+            reader
+                .load_single_journey_with_raw_data(&header.id)
+                .unwrap(),
+            Some((header.clone(), data.clone(), attachment.clone()))
+        );
+    }
+
+    let destination_dir = TempDir::new("archive-extension_destination").unwrap();
+    let mut destination = MainDb::open(destination_dir.path().to_str().unwrap()).unwrap();
+    let result = destination
+        .with_txn(|txn| reader.import(txn, None))
+        .unwrap();
+    assert_eq!(result.imported_count as usize, expected.len());
+    for (header, data, attachment) in expected {
+        destination
+            .with_txn(|txn| {
+                assert_eq!(txn.get_journey_header(&header.id)?, Some(header.clone()));
+                assert_eq!(txn.get_journey_data(&header.id)?, data);
+                assert_eq!(txn.get_journey_raw_data(&header.id)?, attachment);
+                Ok(())
+            })
+            .unwrap();
+    }
+}
+
+#[test]
+fn preview_does_not_read_raw_payload_but_full_reads_and_imports_validate_it() {
+    use std::cell::Cell;
+    use std::io::{Read, Seek, SeekFrom};
+    use std::rc::Rc;
+
+    struct CountingReader {
+        inner: Cursor<Vec<u8>>,
+        bytes_read: Rc<Cell<usize>>,
+    }
+
+    impl Read for CountingReader {
+        fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+            let count = self.inner.read(buf)?;
+            self.bytes_read.set(self.bytes_read.get() + count);
+            std::result::Result::Ok(count)
+        }
+    }
+
+    impl Seek for CountingReader {
+        fn seek(&mut self, position: SeekFrom) -> std::io::Result<u64> {
+            self.inner.seek(position)
+        }
+    }
+
+    let (mut header, data) = sample_journey();
+    header.has_raw_data = true;
+    let payload_size = 1024 * 1024;
+    // A large malformed attachment makes both accidental loading and decoding
+    // observable. Preview only promises attachment presence, not validity.
+    let attachment = raw_data::SerializedJourneyRawData::from_bytes(vec![0; payload_size]);
+    let archive = write_single_journey_archive_with_raw_data(
+        header.clone(),
+        data.clone(),
+        Some(attachment),
+        true,
+    );
+    let bytes_read = Rc::new(Cell::new(0));
+    let mut reader = MldxReader::open(CountingReader {
+        inner: Cursor::new(archive),
+        bytes_read: bytes_read.clone(),
+    })
+    .unwrap();
+    bytes_read.set(0);
+    assert_eq!(
+        reader.load_single_journey(&header.id).unwrap(),
+        Some((header.clone(), data))
+    );
+    assert!(bytes_read.get() < payload_size);
+    assert!(reader
+        .load_single_journey_with_raw_data(&header.id)
+        .is_err());
+
+    let temp_dir = TempDir::new("archive-invalid_raw_data_import").unwrap();
+    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
+    assert!(main_db.with_txn(|txn| reader.import(txn, None)).is_err());
+    assert!(!main_db.with_txn(|txn| txn.has_journeys()).unwrap());
+}
+
+#[test]
+fn export_preserves_mismatched_headers_and_import_repairs_them() {
+    // Exercise both database and single-journey export with both mismatch kinds.
+    for present in [false, true] {
+        let (mut header, data) = sample_journey();
+        header.has_raw_data = !present;
+        let attachment = present.then(sample_raw_data);
+        let mut corrected = header.clone();
+        corrected.has_raw_data = present;
+        if !present {
+            corrected.revision.push('*');
+        }
+
+        let source_dir = TempDir::new("archive-mismatched_source").unwrap();
+        let mut source = MainDb::open(source_dir.path().to_str().unwrap()).unwrap();
+        source
+            .with_txn(|txn| {
+                txn.insert_journey_with_raw_data(header.clone(), data.clone(), attachment.clone())
+            })
+            .unwrap();
+        // Normal writes reconcile attachment presence; inject a historical
+        // inconsistency directly to test that export preserves actual content.
+        let connection = Connection::open(source_dir.path().join("main.db")).unwrap();
+        connection
+            .execute(
+                "UPDATE journey SET header = ?2 WHERE id = ?1;",
+                (
+                    &header.id,
+                    header.clone().to_proto().write_to_bytes().unwrap(),
+                ),
+            )
+            .unwrap();
+        let mut bulk = Cursor::new(Vec::new());
+        source
+            .with_txn(|txn| archive::export_all_journeys_as_mldx(txn, &mut bulk, true))
+            .unwrap();
+        let single = write_single_journey_archive_with_raw_data(
+            header.clone(),
+            data.clone(),
+            attachment.clone(),
+            true,
+        );
+
+        for bytes in [bulk.into_inner(), single] {
+            let mut reader = MldxReader::open(Cursor::new(bytes)).unwrap();
+            assert_eq!(reader.iter_journey_headers(), &[header.clone()]);
+            assert_eq!(
+                reader.load_single_journey(&header.id).unwrap(),
+                Some((corrected.clone(), data.clone()))
+            );
+            assert_eq!(
+                reader
+                    .load_single_journey_with_raw_data(&header.id)
+                    .unwrap(),
+                Some((corrected.clone(), data.clone(), attachment.clone()))
+            );
+
+            let destination_dir = TempDir::new("archive-repaired_destination").unwrap();
+            let mut destination = MainDb::open(destination_dir.path().to_str().unwrap()).unwrap();
+            let result = destination
+                .with_txn(|txn| reader.import(txn, None))
+                .unwrap();
+            assert_eq!(result.imported_count, 1);
+            assert_eq!(
+                all_journeys(&mut destination),
+                vec![(corrected.clone(), data.clone())]
+            );
+            assert_raw_data(&mut destination, &header.id, attachment.as_ref());
+
+            let repeated = destination
+                .with_txn(|txn| reader.import(txn, None))
+                .unwrap();
+            assert_eq!(repeated.skipped_count, 1);
+            assert_eq!(repeated.imported_count, 0);
+            assert_eq!(repeated.overwritten_count, 0);
+            assert_raw_data(&mut destination, &header.id, attachment.as_ref());
+        }
+        // Export must not repair or otherwise modify the source database.
+        assert_eq!(
+            source
+                .with_txn(|txn| txn.get_journey_header(&header.id))
+                .unwrap(),
+            Some(header.clone())
+        );
+        assert_eq!(
+            source
+                .with_txn(|txn| txn.get_journey_raw_data(&header.id))
+                .unwrap(),
+            attachment
+        );
+    }
+}
+
+#[test]
+fn import_compares_revisions_after_repairing_a_missing_attachment() {
+    let (mut header, data) = sample_journey();
+    header.has_raw_data = true;
+    let bytes =
+        write_single_journey_archive_with_raw_data(header.clone(), data.clone(), None, true);
+    let directory = TempDir::new("archive-repaired_revision").unwrap();
+    let mut destination = MainDb::open(directory.path().to_str().unwrap()).unwrap();
+    destination
+        .with_txn(|txn| {
+            txn.insert_journey_with_raw_data(header.clone(), data, Some(sample_raw_data()))
+        })
+        .unwrap();
+
+    let mut reader = MldxReader::open(Cursor::new(bytes)).unwrap();
+    let result = destination
+        .with_txn(|txn| reader.import(txn, None))
+        .unwrap();
+    assert_eq!(result.imported_count, 1);
+    assert_eq!(result.overwritten_count, 1);
+    assert_eq!(result.skipped_count, 0);
+    header.has_raw_data = false;
+    header.revision.push('*');
+    assert_eq!(
+        destination
+            .with_txn(|txn| txn.get_journey_header(&header.id))
+            .unwrap(),
+        Some(header.clone())
+    );
+    assert_raw_data(&mut destination, &header.id, None);
 }
 
 fn assert_raw_data(
@@ -484,72 +741,6 @@ fn excluding_raw_data_from_export_appends_revision_marker() {
     let already_removed_bytes =
         write_single_journey_archive_with_raw_data(already_removed_header, data, None, false);
     assert_eq!(section_entry_name(&already_removed_bytes), section_name);
-}
-
-#[test]
-fn raw_data_flags_are_stored_per_journey_in_the_same_section() {
-    let temp_dir = TempDir::new("archive-per_journey_raw_data_flag").unwrap();
-    let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
-    let (with_raw_data, data) = sample_journey();
-    let mut without_raw_data = with_raw_data.clone();
-    without_raw_data.id = "test-journey-without-raw-data".to_owned();
-    without_raw_data.revision = "test-revision-without-raw-data".to_owned();
-
-    main_db
-        .with_txn(|txn| {
-            txn.insert_journey_with_raw_data(
-                with_raw_data.clone(),
-                data.clone(),
-                Some(sample_raw_data()),
-            )?;
-            txn.insert_journey(without_raw_data.clone(), data)
-        })
-        .unwrap();
-
-    let mut archive = Cursor::new(Vec::new());
-    main_db
-        .with_txn(|txn| archive::export_all_journeys_as_mldx(txn, &mut archive, true))
-        .unwrap();
-
-    let reader = MldxReader::open(Cursor::new(archive.into_inner())).unwrap();
-    let exported_with_raw_data = reader
-        .iter_journey_headers()
-        .iter()
-        .find(|header| header.id == with_raw_data.id)
-        .unwrap();
-    let exported_without_raw_data = reader
-        .iter_journey_headers()
-        .iter()
-        .find(|header| header.id == without_raw_data.id)
-        .unwrap();
-    assert!(exported_with_raw_data.has_raw_data);
-    assert!(!exported_without_raw_data.has_raw_data);
-}
-
-#[test]
-fn section_id_is_independent_of_export_option_without_raw_data() {
-    let (header, data) = sample_journey();
-    let first =
-        write_single_journey_archive_with_raw_data(header.clone(), data.clone(), None, true);
-    let second = write_single_journey_archive_with_raw_data(header, data, None, false);
-
-    assert_eq!(section_entry_name(&first), section_entry_name(&second));
-}
-
-#[test]
-fn updated_revision_changes_section_id() {
-    let (mut header, data) = sample_journey();
-    let raw_data = sample_raw_data();
-    let first = write_single_journey_archive_with_raw_data(
-        header.clone(),
-        data.clone(),
-        Some(raw_data.clone()),
-        true,
-    );
-    header.revision = "updated-revision".to_owned();
-    let second = write_single_journey_archive_with_raw_data(header, data, Some(raw_data), true);
-
-    assert_ne!(section_entry_name(&first), section_entry_name(&second));
 }
 
 #[test]

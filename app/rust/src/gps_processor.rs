@@ -1,109 +1,12 @@
 use crate::{
+    gps::{Point, RawGPSPoint},
     journey_date_picker::JourneyDatePicker,
     journey_header::{JourneyHeader, JourneyType},
     journey_vector::{JourneyVector, TrackPoint, TrackSegment},
-    raw_data::RawGPSPoint,
 };
 use anyhow::{Context, Result};
 use auto_context::auto_context;
 use chrono::DateTime;
-
-// TODO: This is the same as `TrackPoint`, we should unify them.
-#[derive(Clone, Debug, PartialEq)]
-pub struct Point {
-    pub latitude: f64,
-    pub longitude: f64,
-}
-
-impl Point {
-    pub fn haversine_distance(&self, other: &Point) -> f64 {
-        use std::f64::consts::PI;
-        let r = 6371e3; // Earth's radius in meters
-
-        let phi1 = self.latitude * PI / 180.0;
-        let phi2 = other.latitude * PI / 180.0;
-        let delta_phi = (other.latitude - self.latitude) * PI / 180.0;
-        let delta_lambda = (other.longitude - self.longitude) * PI / 180.0;
-
-        let a = (delta_phi / 2.0).sin().powi(2)
-            + phi1.cos() * phi2.cos() * (delta_lambda / 2.0).sin().powi(2);
-        let c = 2.0 * a.sqrt().atan2((1.0 - a).sqrt());
-
-        r * c // Distance in meters
-    }
-
-    pub fn to_cartesian(&self) -> (f64, f64, f64) {
-        let lon_rad = Point::to_radians(self.longitude);
-        let lat_rad = Point::to_radians(self.latitude);
-        let x = lat_rad.cos() * lon_rad.cos();
-        let y = lat_rad.cos() * lon_rad.sin();
-        let z = lat_rad.sin();
-        (x, y, z)
-    }
-
-    pub fn to_geographic(x: f64, y: f64, z: f64) -> Point {
-        let lon = Point::to_degrees(y.atan2(x));
-        let lat = Point::to_degrees(z.atan2((x * x + y * y).sqrt()));
-        Point {
-            latitude: lat,
-            longitude: Point::normalize_longitude(lon),
-        }
-    }
-
-    fn to_radians(deg: f64) -> f64 {
-        use std::f64::consts::PI;
-        deg * PI / 180.0
-    }
-    fn to_degrees(rad: f64) -> f64 {
-        use std::f64::consts::PI;
-        rad * 180.0 / PI
-    }
-
-    fn normalize_longitude(mut lon: f64) -> f64 {
-        while lon >= 180.0 {
-            lon -= 360.0;
-        }
-        while lon < -180.0 {
-            lon += 360.0;
-        }
-        lon
-    }
-}
-
-#[cfg(test)]
-mod point_tests {
-    fn point(latitude: f64, longitude: f64) -> super::Point {
-        super::Point {
-            latitude,
-            longitude,
-        }
-    }
-
-    #[test]
-    fn haversine_distance() {
-        let point1 = point(22.291608437, 114.202901212);
-        let point2 = point(22.2914913837, 114.2018426615);
-
-        assert_eq!(point1.haversine_distance(&point1) as i32, 0);
-        assert_eq!(point1.haversine_distance(&point2) as i32, 109);
-        assert_eq!(point2.haversine_distance(&point1) as i32, 109);
-
-        assert_eq!(
-            point(0.0, 0.1).haversine_distance(&point(0.0, -0.1)) as i32,
-            22238
-        );
-
-        // antimeridian
-        assert_eq!(
-            point(0.0, -179.9).haversine_distance(&point(0.0, 179.9)) as i32,
-            22238
-        );
-        assert_eq!(
-            point(0.0, 179.9).haversine_distance(&point(0.0, -179.9)) as i32,
-            22238
-        );
-    }
-}
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 #[repr(i8)]

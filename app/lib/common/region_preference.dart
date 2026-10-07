@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:memolanes/common/component/app_option_tile.dart';
 import 'package:memolanes/common/component/setup_bottom_sheet.dart';
+import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/mmkv_util.dart';
+import 'package:memolanes/common/service/device_region.dart';
 import 'package:memolanes/src/rust/api/achievement.dart' as achievement;
 import 'package:mutex/mutex.dart';
 
@@ -16,11 +18,30 @@ const _worldviewDisplayOrder = [
 ];
 
 class WorldviewManager {
-  WorldviewManager._();
+  WorldviewManager._()
+    : this.forTesting(
+        readSavedWorldview: _loadSavedWorldview,
+        readDeviceRegion: getDeviceRegion,
+        activateGeoData: _activateGeoData,
+        persistWorldview: _persistWorldview,
+      );
+
+  @visibleForTesting
+  WorldviewManager.forTesting({
+    required this._readSavedWorldview,
+    required this._readDeviceRegion,
+    required Future<void> Function(achievement.Worldview) activateGeoData,
+    required void Function(achievement.Worldview) persistWorldview,
+  }) : _activate = activateGeoData,
+       _persist = persistWorldview;
 
   static final WorldviewManager instance = WorldviewManager._();
 
   final Mutex _mutex = Mutex();
+  final achievement.Worldview? Function() _readSavedWorldview;
+  final Future<String?> Function() _readDeviceRegion;
+  final Future<void> Function(achievement.Worldview) _activate;
+  final void Function(achievement.Worldview) _persist;
   achievement.Worldview? _currentWorldview;
 
   achievement.Worldview get currentWorldview =>
@@ -30,12 +51,14 @@ class WorldviewManager {
   Future<void> initialize() {
     return _mutex.protect(() async {
       if (_currentWorldview != null) return;
-      final saved = _loadSavedWorldview();
-      final worldview = saved ?? _defaultWorldviewFromDeviceLocale();
+      final saved = _readSavedWorldview();
+      final worldview =
+          saved ?? _worldviewFromRegion(await _readDeviceRegion());
       // TODO: right now we make sure the geo data is fully loaded during
       // app initialization, which can be a bit expensive. We should consider
       // delaying this.
-      await _applyAndStore(worldview, persist: saved == null);
+      await _activate(worldview);
+      _currentWorldview = worldview;
     });
   }
 
@@ -44,24 +67,29 @@ class WorldviewManager {
       if (_currentWorldview == null) {
         throw StateError('WorldviewManager has not been initialized');
       }
-      if (_currentWorldview == worldview) return;
-
-      await _applyAndStore(worldview, persist: true);
+      if (_currentWorldview != worldview) {
+        await _activate(worldview);
+        _currentWorldview = worldview;
+      }
+      // Accepting the recommendation is still an explicit confirmation, even
+      // though the already-active geo data does not need to be loaded again.
+      try {
+        _persist(worldview);
+      } catch (error, stackTrace) {
+        // Keep the UI in sync with the active data even if saving fails.
+        // Allow a later confirmation to retry saving.
+        log.error('Failed to save worldview preference: $error', stackTrace);
+      }
     });
   }
 
-  Future<void> _applyAndStore(
-    achievement.Worldview worldview, {
-    required bool persist,
-  }) async {
-    await _activateGeoData(worldview);
-    if (persist) {
-      MMKVUtil.putString(MMKVKey.worldviewPreference, worldview.id);
+  static void _persistWorldview(achievement.Worldview worldview) {
+    if (!MMKVUtil.putString(MMKVKey.worldviewPreference, worldview.id)) {
+      throw StateError('Failed to save worldview preference');
     }
-    _currentWorldview = worldview;
   }
 
-  Future<void> _activateGeoData(achievement.Worldview worldview) async {
+  static Future<void> _activateGeoData(achievement.Worldview worldview) async {
     await achievement.activateGeoData(
       worldview: worldview,
       loadAsset: () async =>
@@ -69,23 +97,18 @@ class WorldviewManager {
     );
   }
 
-  achievement.Worldview? _loadSavedWorldview() {
+  static achievement.Worldview? _loadSavedWorldview() {
     final id = MMKVUtil.getStringOpt(MMKVKey.worldviewPreference);
     return id == null ? null : achievement.Worldview.fromId(id: id);
   }
+}
 
-  achievement.Worldview _defaultWorldviewFromDeviceLocale() {
-    final locales = WidgetsBinding.instance.platformDispatcher.locales;
-    final countryCode = locales.isNotEmpty
-        ? locales.first.countryCode?.toUpperCase()
-        : null;
-
-    return switch (countryCode) {
-      'CN' => achievement.Worldview.chn,
-      'US' => achievement.Worldview.usa,
-      _ => achievement.Worldview.iso,
-    };
-  }
+achievement.Worldview _worldviewFromRegion(String? region) {
+  return switch (region) {
+    'CN' => achievement.Worldview.chn,
+    'US' => achievement.Worldview.usa,
+    _ => achievement.Worldview.iso,
+  };
 }
 
 String regionPreferenceTitle(
@@ -93,7 +116,7 @@ String regionPreferenceTitle(
   achievement.Worldview worldview,
 ) {
   return switch (worldview) {
-    achievement.Worldview.chn => context.tr("privacy.region_mainland_china"),
+    achievement.Worldview.chn => context.tr("privacy.region_china"),
     achievement.Worldview.iso => context.tr("privacy.region_international"),
     achievement.Worldview.usa => context.tr("privacy.region_united_states"),
   };

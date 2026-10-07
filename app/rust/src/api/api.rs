@@ -11,6 +11,7 @@ use flutter_rust_bridge::frb;
 use super::import::JourneyInfo;
 use crate::cache_db::LayerKind;
 use crate::frb_generated::StreamSink;
+pub use crate::gps::ExtendedRawGPSPoint;
 use crate::gps_processor::{GpsPreprocessor, ProcessResult};
 use crate::journey_bitmap::JourneyBitmap;
 use crate::journey_data::JourneyData;
@@ -18,11 +19,10 @@ use crate::journey_header::{JourneyHeader, JourneyKind, JourneyType};
 use crate::journey_vector::JourneyVector;
 use crate::legacy_raw_data::LegacyRawDataFile;
 use crate::logs;
-pub use crate::raw_data::ExtendedRawGPSPoint;
 use crate::renderer::internal_server::{dispatch_request, WebviewResponse};
 use crate::renderer::MapRenderer;
 use crate::storage::Storage;
-use crate::{archive, build_info, export_data, main_db};
+use crate::{archive, build_info, export_data};
 
 use crate::utils::{db::DbError, get_bounds_from_journey_bitmap, MapBounds};
 
@@ -532,17 +532,14 @@ pub fn set_main_map_layer_filter(new_layer_filter: &LayerFilter) -> Result<()> {
 #[auto_context]
 fn reset_gps_preprocessor_if_finalized<F>(finalize_op: F) -> Result<bool>
 where
-    F: FnOnce(&mut main_db::Txn, bool) -> Result<bool>,
+    F: FnOnce(&Storage) -> Result<bool>,
 {
     let state = get();
     // TODO: I think we need to hold the gps_preprocessor lock first, otherwise
     // we might have a deadlock because the locking story in `on_location_update`
     // is quite complex. We should fix all the locking mess.
     let mut gps_preprocessor = state.gps_preprocessor.lock().unwrap();
-    // Sample the mode under the DB lock shared with setting changes.
-    let finalized = state
-        .storage
-        .with_db_txn(|txn| finalize_op(txn, state.storage.get_raw_data_mode()))?;
+    let finalized = finalize_op(&state.storage)?;
     // when journey is finalized, we should reset the gps_preprocessor to prevent old state affecting new journey
     if finalized {
         *gps_preprocessor = GpsPreprocessor::new();
@@ -551,15 +548,11 @@ where
 }
 
 pub fn finalize_ongoing_journey() -> Result<bool> {
-    reset_gps_preprocessor_if_finalized(|txn, retain_raw_data| {
-        txn.finalize_ongoing_journey(retain_raw_data)
-    })
+    reset_gps_preprocessor_if_finalized(Storage::finalize_ongoing_journey)
 }
 
 pub fn try_auto_finalize_journey() -> Result<bool> {
-    reset_gps_preprocessor_if_finalized(|txn, retain_raw_data| {
-        txn.try_auto_finalize_journey(retain_raw_data)
-    })
+    reset_gps_preprocessor_if_finalized(Storage::try_auto_finalize_journey)
 }
 
 pub fn has_ongoing_journey() -> Result<bool> {
@@ -780,11 +773,13 @@ pub fn export_journey_raw_data(
     journey_id: String,
     export_type: RawDataExportType,
 ) -> Result<ExportResult> {
-    let raw_data = get().storage.with_db_txn(|txn| {
-        txn.get_journey_raw_data(&journey_id)?
-            .map(|raw_data| raw_data.deserialize())
-            .transpose()
-    })?;
+    let serialized_raw_data = get()
+        .storage
+        .with_db_txn(|txn| txn.get_journey_raw_data(&journey_id))?;
+    // The database lock is released before decompressing and decoding points.
+    let raw_data = serialized_raw_data
+        .map(|raw_data| raw_data.deserialize())
+        .transpose()?;
     let Some(raw_data) = raw_data.filter(|raw_data| !raw_data.is_empty()) else {
         return Ok(ExportResult::DataIsEmpty);
     };

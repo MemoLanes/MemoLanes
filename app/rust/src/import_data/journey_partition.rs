@@ -2,9 +2,9 @@ use std::collections::BTreeMap;
 
 use chrono::{DateTime, Local, NaiveDate, TimeZone, Utc};
 
+use crate::gps::RawGPSPoint;
 use crate::journey_date_picker::{BoundaryTracker, JourneyDatePicker};
 use crate::journey_vector::TrackPoint;
-use crate::raw_data::RawGPSPoint;
 
 pub type RawDataByDate = BTreeMap<NaiveDate, Vec<Vec<RawGPSPoint>>>;
 pub type SummariesByDate = BTreeMap<NaiveDate, DateSummary>;

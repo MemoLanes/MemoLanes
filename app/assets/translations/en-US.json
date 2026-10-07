@@ -136,10 +136,11 @@
     "created_at": "Created At",
     "note": "Note",
     "finalize_saved": "New journey added",
-    "finalize_empty": "No journey detected"
+    "finalize_empty": "No journey detected",
+    "delete_all_title": "Delete All Journeys"
   },
   "db_optimization": {
-    "notification": "Your database requires optimization, please go to Settings tab and click [Optimize database] button.",
+    "notification": "Your database requires optimization. Go to [Settings] > [Data] > [Optimize database].",
     "button": "Optimize database",
     "already_optimized": "Database is already optimized. Nothing to do.",
     "confirm": "Your database requires optimization. It is recommended to backup your data before proceeding.",
@@ -313,6 +314,8 @@
       "title": "Advanced settings",
       "export_logs": "Export Logs",
       "raw_data_mode": "Raw Data Mode",
+      "raw_data_files": "Raw Data Files",
+      "no_raw_data_files": "No raw data files",
       "raw_data_export_csv": "Export as CSV",
       "raw_data_export_gpx": "Export as GPX",
       "rebuild_cache": "Rebuild Cache",
@@ -339,7 +342,16 @@
     },
     "import_data": {
       "title": "Import data",
-      "description": "Choose the data source and format you want to import."
+      "description": "Supported formats are detected automatically after you choose a file.",
+      "mldx_title": "MemoLanes archive",
+      "mldx_desc": ".mldx",
+      "vector_title": "Track files",
+      "vector_desc": ".gpx / .kml / .csv",
+      "fog_of_world_title": "Fog of World data",
+      "fog_of_world_desc": ".fwss / .zip",
+      "choose_file": "Choose File",
+      "unsupported_format": "Unsupported file format. Choose a .mldx, .gpx, .kml, .csv, .fwss, or .zip file.",
+      "unreadable_file": "Cannot read the selected file. Save it to your device and try again."
     },
     "export_data": {
       "export_all": "Export All Data",
@@ -370,18 +382,58 @@
   "settings": {
     "other": "Other",
     "about": "About",
-    "page_title": "Settings"
+    "page_title": "Settings",
+    "title": "Settings",
+    "categories": {
+      "journey_recording": {
+        "title": "Journey & Recording"
+      },
+      "map": {
+        "title": "Map Settings"
+      },
+      "appearance": {
+        "title": "Appearance"
+      },
+      "data": {
+        "title": "Data"
+      },
+      "advanced": {
+        "title": "Advanced"
+      },
+      "about": {
+        "title": "About MemoLanes"
+      }
+    },
+    "groups": {
+      "recording_protection": "Recording Protection",
+      "usage_settings": "Usage Settings",
+      "data_system": "Data & System",
+      "appearance": "Appearance",
+      "map_display": "Map Display",
+      "region": "Region",
+      "import_export": "Import & Export",
+      "data_maintenance": "Data Maintenance",
+      "delete_data": "Delete Data",
+      "diagnostics": "Diagnostics",
+      "recovery": "Recovery"
+    },
+    "language": {
+      "title": "Language",
+      "system": "Follow system",
+      "chinese": "Simplified Chinese",
+      "english": "English"
+    }
   },
   "beta_testing_notice": {
     "title": "Welcome to MemoLanes Public Beta",
-    "content_md": "Thank you for testing MemoLanes!\n\nPlease be aware of the following:\n* The app may occasionally lag, crash, or glitch.\n* Features are still being optimized and may change in the final release, so they may not reflect their final quality.\n* We recommend backing up your data regularly (go to the far-right [Settings] icon on the navigation bar > [Export All Data]).\n\nIf you run into any issues, please take a screenshot to share with our team—it helps a lot! Suggestions are also welcome. You can find us via [Settings] > [Contact Us].\n\nIf you enjoy using MemoLanes, feel free to share it with others. Your support motivates us to keep improving. 🫶🏻\n\nWish you great journeys ahead—let’s explore the world together! 🚀"
+    "content_md": "Thank you for testing MemoLanes!\n\nPlease be aware of the following:\n* The app may occasionally lag, crash, or glitch.\n* Features are still being optimized and may change in the final release, so they may not reflect their final quality.\n* We recommend backing up your data regularly (go to the far-right [Settings] icon on the navigation bar > [Data] > [Export All Data]).\n\nIf you run into any issues, please take a screenshot to share with our team—it helps a lot! Suggestions are also welcome. You can find us via [Settings] > [About MemoLanes] > [Contact Us].\n\nIf you enjoy using MemoLanes, feel free to share it with others. Your support motivates us to keep improving. 🫶🏻\n\nWish you great journeys ahead—let’s explore the world together! 🚀"
   },
   "privacy": {
     "url": "https://app.memolanes.com/en/privacy/",
     "setup_title": "First-time setup",
     "setup_desc": "Before using MemoLanes, choose your region preference and confirm the privacy policy.",
     "region_title": "Region preference",
-    "region_mainland_china": "Mainland China",
+    "region_china": "China",
     "region_international": "International",
     "region_united_states": "United States",
     "agreement_title": "Read and agree to the Privacy Policy",
