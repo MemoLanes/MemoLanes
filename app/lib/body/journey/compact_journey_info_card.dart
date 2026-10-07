@@ -2,10 +2,16 @@ import 'package:memolanes/theme/app_colors.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/common/component/app_dialog.dart';
+import 'package:memolanes/common/journey_kind_visuals.dart';
 import 'package:memolanes/common/simple_date_utils.dart';
 import 'package:memolanes/constants/app_typography.dart';
 import 'package:memolanes/constants/style_constants.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
+
+String formatJourneyInfoTime(DateTime? time) {
+  if (time == null) return '—';
+  return DateFormat('yyyy-MM-dd HH:mm').format(time.toLocal());
+}
 
 class JourneyInfoPanelSurface extends StatelessWidget {
   const JourneyInfoPanelSurface({
@@ -151,6 +157,25 @@ class CompactJourneyInfoField extends StatelessWidget {
   }
 }
 
+class JourneyRawDataInfoField extends StatelessWidget {
+  const JourneyRawDataInfoField({super.key, required this.hasRawData});
+
+  final bool hasRawData;
+
+  @override
+  Widget build(BuildContext context) {
+    return CompactJourneyInfoField(
+      icon: Icons.location_searching_rounded,
+      label: context.tr('journey.raw_data'),
+      value: context.tr(
+        hasRawData
+            ? 'journey.raw_data_included'
+            : 'journey.raw_data_not_included',
+      ),
+    );
+  }
+}
+
 /// Read-only journey information using the same floating card primitives as
 /// the editable journey card on the map.
 class ReadOnlyJourneyInfoCard extends StatelessWidget {
@@ -160,13 +185,6 @@ class ReadOnlyJourneyInfoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final kind = switch (journey.journeyKind) {
-      JourneyKind.defaultKind => context.tr('journey_kind.default'),
-      JourneyKind.flight => context.tr('journey_kind.flight'),
-    };
-    final timeFormat = DateFormat('yyyy-MM-dd HH:mm');
-    final start = journey.start?.toLocal();
-    final end = journey.end?.toLocal();
     final note = journey.note?.trim();
 
     return JourneyInfoPanelSurface(
@@ -185,18 +203,19 @@ class ReadOnlyJourneyInfoCard extends StatelessWidget {
             CompactJourneyInfoField(
               icon: Icons.sell_outlined,
               label: context.tr('journey.journey_kind'),
-              value: kind,
+              value: journeyKindLabel(context, journey.journeyKind),
             ),
             CompactJourneyInfoField(
               icon: Icons.schedule_rounded,
               label: context.tr('journey.start_time'),
-              value: start == null ? '—' : timeFormat.format(start),
+              value: formatJourneyInfoTime(journey.start),
             ),
             CompactJourneyInfoField(
               icon: Icons.schedule_rounded,
               label: context.tr('journey.end_time'),
-              value: end == null ? '—' : timeFormat.format(end),
+              value: formatJourneyInfoTime(journey.end),
             ),
+            JourneyRawDataInfoField(hasRawData: journey.hasRawData),
             if (note != null && note.isNotEmpty)
               CompactJourneyInfoField(
                 icon: Icons.notes_rounded,

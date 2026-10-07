@@ -7,6 +7,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/body/journey/journey_export.dart';
 import 'package:memolanes/body/journey/journey_track_edit_page.dart';
+import 'package:memolanes/common/component/app_button.dart';
 import 'package:memolanes/common/component/app_dialog.dart';
 import 'package:memolanes/common/component/app_option_tile.dart';
 import 'package:memolanes/common/component/map_glass_back_button.dart';
@@ -116,6 +117,28 @@ class _JourneyDetailOverlayState extends State<JourneyDetailOverlay> {
     await showJourneyExportPicker(context, _journey);
   }
 
+  Future<void> _deleteRawData() async {
+    final confirmed = await showCommonDialog(
+      context,
+      context.tr('journey.delete_raw_data_message'),
+      hasCancel: true,
+      title: context.tr('journey.delete_raw_data_title'),
+      confirmButtonText: context.tr('common.delete'),
+      confirmVariant: AppButtonVariant.danger,
+    );
+    if (!confirmed || !mounted) return;
+    try {
+      await _controller.deleteRawData();
+    } catch (error, stackTrace) {
+      log.error('Deleting journey raw data failed: $error', stackTrace);
+      if (!mounted) return;
+      await showCommonDialog(
+        context,
+        context.tr('journey.editor.operation_failed'),
+      );
+    }
+  }
+
   Future<void> _showMore() async {
     if (_moreActionInProgress || _controller.phase != JourneyPhase.viewing) {
       return;
@@ -171,6 +194,7 @@ class _JourneyDetailOverlayState extends State<JourneyDetailOverlay> {
         alpha: context.appColors.pickerBarrierAlpha,
       ),
       builder: (dialogContext) => _JourneyEditChoiceCard(
+        hasRawData: _journey.hasRawData,
         onSelected: (choice) => Navigator.of(dialogContext).pop(choice),
       ),
     );
@@ -190,6 +214,9 @@ class _JourneyDetailOverlayState extends State<JourneyDetailOverlay> {
             context.tr('journey.editor.operation_failed'),
           );
         }
+        break;
+      case _JourneyEditChoice.deleteRawData:
+        await _deleteRawData();
         break;
     }
   }
@@ -277,10 +304,15 @@ class _JourneyDetailOverlayState extends State<JourneyDetailOverlay> {
   }
 }
 
-enum _JourneyEditChoice { information, track }
+enum _JourneyEditChoice { information, track, deleteRawData }
 
 class _JourneyEditChoiceCard extends StatelessWidget {
-  const _JourneyEditChoiceCard({required this.onSelected});
+  const _JourneyEditChoiceCard({
+    required this.onSelected,
+    required this.hasRawData,
+  });
+
+  final bool hasRawData;
 
   final ValueChanged<_JourneyEditChoice> onSelected;
 
@@ -307,6 +339,19 @@ class _JourneyEditChoiceCard extends StatelessWidget {
             title: context.tr('journey.editor.page_title'),
             onTap: () => onSelected(_JourneyEditChoice.track),
           ),
+          if (hasRawData) ...[
+            const SizedBox(height: 8),
+            AppOptionTile(
+              backgroundAlpha: 0.5,
+              iconWidget: Icon(
+                Icons.delete_outline_rounded,
+                color: context.appColors.dangerInkColor,
+                size: 20,
+              ),
+              title: context.tr('journey.delete_raw_data'),
+              onTap: () => onSelected(_JourneyEditChoice.deleteRawData),
+            ),
+          ],
         ],
       ),
     );

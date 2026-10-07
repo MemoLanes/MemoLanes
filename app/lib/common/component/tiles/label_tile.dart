@@ -10,6 +10,7 @@ class LabelTile extends StatelessWidget {
     this.position = LabelTilePosition.single,
     required this.label,
     this.labelStyle,
+    this.labelTrailing,
     this.desc = '',
     this.descStyle,
     this.descMaxLines = 1,
@@ -35,6 +36,8 @@ class LabelTile extends StatelessWidget {
   final String label;
 
   final TextStyle? labelStyle;
+
+  final Widget? labelTrailing;
 
   final String desc;
 
@@ -129,6 +132,7 @@ class LabelTile extends StatelessWidget {
                   color: context.appColors.mutedInkColor,
                 ),
               ],
+              ?labelTrailing,
             ],
           ),
         ),

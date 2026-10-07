@@ -308,7 +308,7 @@ class _JourneyDetailCardState extends State<JourneyDetailCard> {
                 color: dialogContext.appColors.deepGreen,
                 size: 20,
               ),
-              title: context.tr('journey_kind.default'),
+              title: journeyKindLabel(context, JourneyKind.defaultKind),
               selected: _journeyKind == JourneyKind.defaultKind,
               trailing: AppOptionTileTrailing.selection,
               onTap: () =>
@@ -322,7 +322,7 @@ class _JourneyDetailCardState extends State<JourneyDetailCard> {
                 color: dialogContext.appColors.deepGreen,
                 size: 20,
               ),
-              title: context.tr('journey_kind.flight'),
+              title: journeyKindLabel(context, JourneyKind.flight),
               selected: _journeyKind == JourneyKind.flight,
               trailing: AppOptionTileTrailing.selection,
               onTap: () => Navigator.of(dialogContext).pop(JourneyKind.flight),
@@ -349,14 +349,6 @@ class _JourneyDetailCardState extends State<JourneyDetailCard> {
   Widget build(BuildContext context) {
     final isEditing = widget.isEditing;
     final canEdit = isEditing && !widget.isSaving;
-    final displayedKind = isEditing ? _journeyKind : journey.journeyKind;
-    final kind = switch (displayedKind) {
-      JourneyKind.defaultKind => context.tr('journey_kind.default'),
-      JourneyKind.flight => context.tr('journey_kind.flight'),
-    };
-    final timeFormat = DateFormat('yyyy-MM-dd HH:mm');
-    final start = (isEditing ? _startTime : journey.start)?.toLocal();
-    final end = (isEditing ? _endTime : journey.end)?.toLocal();
     final note = journey.note?.trim();
 
     return Padding(
@@ -377,13 +369,18 @@ class _JourneyDetailCardState extends State<JourneyDetailCard> {
           CompactJourneyInfoField(
             icon: Icons.sell_outlined,
             label: context.tr('journey.journey_kind'),
-            value: kind,
+            value: journeyKindLabel(
+              context,
+              isEditing ? _journeyKind : journey.journeyKind,
+            ),
             onTap: canEdit ? _selectJourneyKind : null,
           ),
           CompactJourneyInfoField(
             icon: Icons.schedule_rounded,
             label: context.tr('journey.start_time'),
-            value: start == null ? '—' : timeFormat.format(start),
+            value: formatJourneyInfoTime(
+              isEditing ? _startTime : journey.start,
+            ),
             onTap: canEdit
                 ? () async {
                     final selected = await _selectDateAndTime(_startTime);
@@ -396,7 +393,7 @@ class _JourneyDetailCardState extends State<JourneyDetailCard> {
           CompactJourneyInfoField(
             icon: Icons.schedule_rounded,
             label: context.tr('journey.end_time'),
-            value: end == null ? '—' : timeFormat.format(end),
+            value: formatJourneyInfoTime(isEditing ? _endTime : journey.end),
             onTap: canEdit
                 ? () async {
                     final selected = await _selectDateAndTime(_endTime);
@@ -406,6 +403,7 @@ class _JourneyDetailCardState extends State<JourneyDetailCard> {
                   }
                 : null,
           ),
+          JourneyRawDataInfoField(hasRawData: journey.hasRawData),
           if (isEditing)
             CompactJourneyInfoField(
               icon: Icons.notes_rounded,

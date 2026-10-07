@@ -69,6 +69,37 @@ class _JourneyRecordingSettingsPageState
         children: [
           SettingsSection(
             titleColor: context.appColors.deepGreen,
+            title: context.tr('settings.groups.recording_data'),
+            children: [
+              SettingsTile(
+                label: context.tr('general.advanced_settings.raw_data_mode'),
+                position: LabelTilePosition.single,
+                bottom: false,
+                labelTrailing: IconButton(
+                  tooltip: context.tr(
+                    'general.advanced_settings.raw_data_mode',
+                  ),
+                  icon: Icon(
+                    Icons.help_outline_rounded,
+                    color: context.appColors.mutedInkColor,
+                    size: 20,
+                  ),
+                  onPressed: () => showCommonDialog(
+                    context,
+                    context.tr(
+                      'general.advanced_settings.raw_data_mode_description',
+                    ),
+                    title: context.tr(
+                      'general.advanced_settings.raw_data_mode',
+                    ),
+                  ),
+                ),
+                trailing: const RawDataSwitch(),
+              ),
+            ],
+          ),
+          SettingsSection(
+            titleColor: context.appColors.deepGreen,
             title: context.tr('settings.groups.recording_protection'),
             children: [
               SettingsTile(
@@ -334,15 +365,10 @@ class _DataManagementSettingsPageState
             titleColor: context.appColors.deepGreen,
             title: context.tr('settings.groups.data_maintenance'),
             children: [
-              SettingsTile(
-                label: context.tr('general.advanced_settings.raw_data_mode'),
-                position: LabelTilePosition.top,
-                trailing: const RawDataSwitch(),
-              ),
               if (_hasRawDataFiles)
                 SettingsTile(
                   label: context.tr('general.advanced_settings.raw_data_files'),
-                  position: LabelTilePosition.middle,
+                  position: LabelTilePosition.top,
                   trailing: const LabelTileContent(showArrow: true),
                   onTap: () async {
                     await navigatorPush(context, page: const RawDataPage());
@@ -351,7 +377,9 @@ class _DataManagementSettingsPageState
                 ),
               SettingsTile(
                 label: context.tr('db_optimization.button'),
-                position: LabelTilePosition.middle,
+                position: _hasRawDataFiles
+                    ? LabelTilePosition.middle
+                    : LabelTilePosition.top,
                 onTap: _optimizeDatabase,
               ),
               SettingsTile(
@@ -411,8 +439,14 @@ class _DataManagementSettingsPageState
     await showCommonExportWithFormatPicker(
       context: context,
       title: context.tr('data.export_data.export_all_title'),
-      formats: const [CommonExportFormat.mldx, CommonExportFormat.fwss],
-      exportFile: (format) async {
+      formatGroups: [
+        CommonExportFormatGroup(
+          label: context.tr('data.export_data.journey_data_group'),
+          formats: const [CommonExportFormat.mldx, CommonExportFormat.fwss],
+        ),
+      ],
+      exportFile: (selection) async {
+        final format = selection.format;
         final tmpDir = await getTemporaryDirectory();
         final timestamp = DateFormat('yyyy-MM-dd-HH-mm-ss')
             .format(DateTime.now());
@@ -421,7 +455,7 @@ class _DataManagementSettingsPageState
         final result = switch (format) {
           CommonExportFormat.mldx => await api.generateFullArchive(
             targetFilepath: filepath,
-            includeRawData: false,
+            includeRawData: selection.includeRawData,
           ),
           CommonExportFormat.fwss => await api.exportAllJourneysAsFwss(
             targetFilepath: filepath,

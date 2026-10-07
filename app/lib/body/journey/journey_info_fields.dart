@@ -26,12 +26,6 @@ String importPreprocessorLabel(
   ),
 };
 
-String journeyKindLabel(BuildContext context, JourneyKind value) =>
-    switch (value) {
-      JourneyKind.defaultKind => context.tr('journey_kind.default'),
-      JourneyKind.flight => context.tr('journey_kind.flight'),
-    };
-
 class ImportPreprocessorTile extends StatelessWidget {
   const ImportPreprocessorTile({
     super.key,

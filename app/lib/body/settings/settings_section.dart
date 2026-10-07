@@ -10,6 +10,7 @@ class SettingsTile extends StatelessWidget {
     super.key,
     required this.label,
     this.labelStyle,
+    this.labelTrailing,
     this.position = LabelTilePosition.single,
     this.bottom = true,
     this.prefix,
@@ -19,6 +20,7 @@ class SettingsTile extends StatelessWidget {
 
   final String label;
   final TextStyle? labelStyle;
+  final Widget? labelTrailing;
   final LabelTilePosition position;
   final bool bottom;
   final Widget? prefix;
@@ -30,6 +32,7 @@ class SettingsTile extends StatelessWidget {
     return LabelTile(
       label: label,
       labelStyle: labelStyle,
+      labelTrailing: labelTrailing,
       position: position,
       bottom: bottom,
       prefix: prefix,
