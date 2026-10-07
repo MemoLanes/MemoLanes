@@ -314,7 +314,8 @@
       "title": "Advanced settings",
       "export_logs": "Export Logs",
       "raw_data_mode": "Raw Data Mode",
-      "raw_data_files": "Raw Data Files",
+      "raw_data_mode_description": "When enabled, all raw GPS data received during recording is preserved, including location, time, accuracy, altitude, and speed, for export and analysis. When disabled, only the processed journey track is kept.",
+      "raw_data_files": "Raw Data Files (Deprecated)",
       "no_raw_data_files": "No raw data files",
       "raw_data_export_csv": "Export as CSV",
       "raw_data_export_gpx": "Export as GPX",
@@ -405,6 +406,7 @@
       }
     },
     "groups": {
+      "recording_data": "Recording Data",
       "recording_protection": "Recording Protection",
       "usage_settings": "Usage Settings",
       "data_system": "Data & System",
