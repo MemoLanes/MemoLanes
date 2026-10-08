@@ -1,9 +1,11 @@
 use chrono::NaiveDate;
 use memolanes_core::cache_db::{self, CacheDb};
+use memolanes_core::geo::GeoIndex;
 use memolanes_core::journey_bitmap::JourneyBitmap;
 use memolanes_core::journey_data::JourneyData;
 use memolanes_core::journey_header::JourneyKind;
 use memolanes_core::main_db::MainDb;
+use memolanes_core::main_db::NewJourney;
 use memolanes_core::renderer::map_renderer::*;
 use memolanes_core::utils;
 mod render_utils;
@@ -44,6 +46,13 @@ pub struct RenderResult {
     pub right: f64,
     pub bottom: f64,
     pub data: Vec<u8>,
+}
+
+/// Open a synthetic geo asset from its bytes; `dir` must outlive the index.
+pub fn geo_index_from_bytes(dir: &TempDir, bytes: &[u8]) -> GeoIndex {
+    let path = dir.path().join("geo_data.bin");
+    fs::write(&path, bytes).unwrap();
+    GeoIndex::open(&path).unwrap()
 }
 
 pub fn verify_image(name: &str, image: &Vec<u8>) {
@@ -222,15 +231,16 @@ pub fn insert_bitmap_journey(
     kind: JourneyKind,
     bitmap: JourneyBitmap,
 ) -> String {
-    txn.create_and_insert_journey(
-        date,
-        None,
-        None,
-        None,
-        kind,
-        None,
-        JourneyData::Bitmap(bitmap),
-    )
+    txn.create_and_insert_journey(NewJourney {
+        journey_date: date,
+        start: None,
+        end: None,
+        created_at: None,
+        journey_kind: kind,
+        note: None,
+        journey_data: JourneyData::Bitmap(bitmap),
+        raw_data: None,
+    })
     .unwrap()
 }
 

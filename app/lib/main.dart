@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
 
+import 'package:memolanes/theme/app_theme.dart';
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -9,12 +11,12 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:memolanes/app_bootstrap.dart';
 import 'package:memolanes/body/achievement/achievement_body.dart'
     deferred as achievement;
-import 'package:memolanes/body/journey/journey_body.dart' deferred as journey;
 import 'package:memolanes/body/map/map_body.dart';
-import 'package:memolanes/body/first_launch_setup.dart';
+import 'package:memolanes/body/map/journey_flow_controller.dart';
 import 'package:memolanes/body/settings/settings_body.dart'
     deferred as settings;
 import 'package:memolanes/common/achievement_stats_store.dart';
+import 'package:memolanes/common/app_theme_controller.dart';
 import 'package:memolanes/common/app_translation_loader.dart';
 import 'package:memolanes/common/component/bottom_nav_bar.dart';
 import 'package:memolanes/common/component/database_version_too_new_gate.dart';
@@ -26,9 +28,9 @@ import 'package:memolanes/common/map_style.dart';
 import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/utils/nav_helper.dart';
 import 'package:memolanes/common/update_notifier.dart';
-import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/common/loading_manager.dart';
 import 'package:memolanes/constants/index.dart';
+import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:provider/provider.dart';
 
 void main() async {
@@ -36,7 +38,14 @@ void main() async {
     () async {
       final startupStatus = await AppBootstrap.initAppRuntime();
       if (startupStatus == AppStartupStatus.databaseVersionTooNew) {
-        runApp(_appRoot(const MyApp(home: DatabaseVersionTooNewGate())));
+        runApp(
+          _appRoot(
+            ChangeNotifierProvider(
+              create: (_) => AppThemeController(),
+              child: const MyApp(home: DatabaseVersionTooNewGate()),
+            ),
+          ),
+        );
         return;
       }
 
@@ -52,6 +61,7 @@ void main() async {
               ChangeNotifierProvider.value(value: gpsManager),
               ChangeNotifierProvider.value(value: updateNotifier),
               ChangeNotifierProvider.value(value: achievementStatsStore),
+              ChangeNotifierProvider(create: (_) => AppThemeController()),
             ],
             child: const MyApp(),
           ),
@@ -70,23 +80,61 @@ void main() async {
 }
 
 Widget _appRoot(Widget child) {
+  final savedLocale = MMKVUtil.getStringOpt(MMKVKey.localePreference);
   return EasyLocalization(
     supportedLocales: const [Locale('en', 'US'), Locale('zh', 'CN')],
     path: 'assets/translations',
     assetLoader: const AppTranslationLoader(),
     fallbackLocale: const Locale('en', 'US'),
+    startLocale: savedLocale == 'zh-CN'
+        ? const Locale('zh', 'CN')
+        : savedLocale == 'en-US'
+        ? const Locale('en', 'US')
+        : null,
     saveLocale: false,
     child: child,
   );
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key, this.home});
 
   final Widget? home;
 
   @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeLocales(List<Locale>? locales) {
+    super.didChangeLocales(locales);
+    if (MMKVUtil.getStringOpt(MMKVKey.localePreference) != null) return;
+
+    final deviceLocale = locales != null && locales.isNotEmpty
+        ? locales.first
+        : WidgetsBinding.instance.platformDispatcher.locale;
+    unawaited(
+      context.setLocale(AppBootstrap.selectInitialLocale(deviceLocale)),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final appThemeController = context.watch<AppThemeController>();
+
     return MaterialApp(
       title: "MemoLanes",
       onGenerateTitle: (context) => context.tr('common.memolanes'),
@@ -95,27 +143,15 @@ class MyApp extends StatelessWidget {
       locale: context.locale,
       navigatorKey: navigatorKey,
       builder: (context, child) {
-        return GlobalLoadingOverlay(child: child ?? const SizedBox.shrink());
+        return AnnotatedRegion<SystemUiOverlayStyle>(
+          value: Theme.of(context).appBarTheme.systemOverlayStyle!,
+          child: GlobalLoadingOverlay(child: child ?? const SizedBox.shrink()),
+        );
       },
-      theme: ThemeData(
-        useMaterial3: true,
-        fontFamilyFallback: Platform.isIOS
-            ? ['.AppleSystemUIFont', 'PingFang SC']
-            : null,
-        scaffoldBackgroundColor: const Color(0xFF141414),
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFFB6E13D),
-          brightness: Brightness.dark,
-        ),
-        iconTheme: const IconThemeData(color: Colors.black87),
-        bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-          elevation: 8,
-          backgroundColor: Colors.white,
-          selectedItemColor: Colors.black,
-          unselectedItemColor: Colors.black54,
-        ),
-      ),
-      home: home ?? const MyHomePage(title: 'MemoLanes [OSS]'),
+      theme: AppTheme.light,
+      darkTheme: AppTheme.dark,
+      themeMode: appThemeController.themeMode,
+      home: widget.home ?? const MyHomePage(title: 'MemoLanes [OSS]'),
     );
   }
 }
@@ -131,13 +167,13 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   int _selectedIndex = 0;
+  final _journeys = JourneyFlowController();
   DateTime? _lastExitPopAt;
 
-  Future<void>? _journeyLib;
   Future<void>? _achievementLib;
   Future<void>? _settingsLib;
 
-  /// Keeps MapBody's State stable so that switching between tab 0 and 1 does
+  /// Keeps MapBody's State stable so that switching among tabs 0, 1 and 2 does
   /// not trigger parent rebuild and thus avoids MapBody/WebView being
   /// recreated and the web page reloading.
   final GlobalKey<MapBodyState> _mapBodyKey = GlobalKey<MapBodyState>();
@@ -145,17 +181,28 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   void initState() {
     super.initState();
+    _journeys.addListener(_onJourneysChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await showFirstLaunchSetupIfNeeded(context);
-      if (!context.mounted) return;
-
-      final mainMapReady = AppBootstrap.mainMapReady;
-      if (!mainMapReady.isCompleted) {
-        await showLoadingDialog(asyncTask: mainMapReady.future);
-      }
-      if (!context.mounted) return;
-      await tryShowPermissionSheetIfFirstTime();
+      await AppBootstrap.completeUiStartup(context);
     });
+  }
+
+  void _onJourneysChanged() => setState(() {});
+
+  void _selectTab(int index) {
+    if (index == _selectedIndex ||
+        GlobalLoadingManager.instance.isNavigationBlocked) {
+      return;
+    }
+    if (_selectedIndex == 2 && !_journeys.leave()) return;
+    setState(() => _selectedIndex = index);
+  }
+
+  @override
+  void dispose() {
+    _journeys.removeListener(_onJourneysChanged);
+    _journeys.dispose();
+    super.dispose();
   }
 
   Widget _buildDeferredBody(Future<void> loadFuture, Widget Function() body) {
@@ -180,10 +227,12 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   Future<void> _handleOnPop() async {
-    if (GlobalLoadingManager.instance.isLoading) return;
+    final loading = GlobalLoadingManager.instance;
+    if (loading.isLoading || loading.isNavigationBlocked) return;
+    if (_journeys.requestBack() != JourneyBackResult.unhandled) return;
 
     if (_selectedIndex != 0) {
-      setState(() => _selectedIndex = 0);
+      _selectTab(0);
       return;
     }
 
@@ -198,30 +247,63 @@ class _MyHomePageState extends State<MyHomePage> {
     SystemNavigator.pop();
   }
 
-  /// Tabs 0 and 1: map (shared MapBody, overlay switched by mode); tabs 2, 3, 4: separate pages.
-  Widget _buildPageContent() {
-    if (_selectedIndex <= 1) {
-      return MapBody(
-        key: _mapBodyKey,
-        mode: _selectedIndex == 0 ? MapMode.normal : MapMode.timeMachine,
+  /// Tabs 0, 1 and 2 share one MapBody and only switch its overlay. This keeps
+  /// the current map position while moving between Record, Timeline and
+  /// Journeys. Tabs 3 and 4 are separate pages.
+  Widget _buildPageContent({
+    required double topSafeArea,
+    required double bottomSafeArea,
+  }) {
+    Widget child;
+    if (_selectedIndex <= 2) {
+      child = AnnotatedRegion<SystemUiOverlayStyle>(
+        value: AppTheme.mapSystemOverlayStyle(Theme.of(context)),
+        child: MapBody(
+          key: _mapBodyKey,
+          journeys: _journeys,
+          mode: switch (_selectedIndex) {
+            0 => MapMode.normal,
+            1 => MapMode.timeMachine,
+            _ => MapMode.journeys,
+          },
+        ),
+      );
+    } else {
+      child = KeyedSubtree(
+        key: ValueKey(_selectedIndex),
+        child: _buildDeferredTabBody(
+          _selectedIndex,
+          topSafeArea: topSafeArea,
+          bottomSafeArea: bottomSafeArea,
+        ),
       );
     }
-    return _buildDeferredTabBody(_selectedIndex);
+
+    // Do not retain an outgoing MapBody for a page-transition animation.
+    // Re-entering a map tab before that animation ends would temporarily put
+    // the same GlobalKey in two subtrees and can crash in debug builds.
+    return child;
   }
 
-  Widget _buildDeferredTabBody(int index) {
+  Widget _buildDeferredTabBody(
+    int index, {
+    required double topSafeArea,
+    required double bottomSafeArea,
+  }) {
     return switch (index) {
-      2 => _buildDeferredBody(
-        _journeyLib ??= journey.loadLibrary(),
-        () => journey.JourneyBody(),
-      ),
       3 => _buildDeferredBody(
         _achievementLib ??= achievement.loadLibrary(),
-        () => achievement.AchievementBody(),
+        () => achievement.AchievementBody(
+          topSafeArea: topSafeArea,
+          bottomSafeArea: bottomSafeArea,
+        ),
       ),
       4 => _buildDeferredBody(
         _settingsLib ??= settings.loadLibrary(),
-        () => settings.SettingsBody(),
+        () => settings.SettingsBody(
+          topSafeArea: topSafeArea,
+          bottomSafeArea: bottomSafeArea,
+        ),
       ),
       _ => throw RangeError('Invalid tab index: $index'),
     };
@@ -230,6 +312,7 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   Widget build(BuildContext context) {
     final mediaQuery = MediaQuery.of(context);
+    final edgeToEdgeScroll = _selectedIndex > 2;
     final navBarBottomInset = StyleConstants.navBarBottomInset(context);
     final horizontalSafeArea = math.max(
       mediaQuery.viewPadding.left,
@@ -250,40 +333,57 @@ class _MyHomePageState extends State<MyHomePage> {
       child: Scaffold(
         body: Stack(
           children: [
-            SafeAreaWrapper(
-              useSafeArea: _selectedIndex > 1,
-              child: _buildPageContent(),
-            ),
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: Padding(
-                padding: EdgeInsets.only(
-                  left: horizontalSafeArea,
-                  right: horizontalSafeArea,
-                  bottom: navBarBottomInset,
+            // Menu pages keep their vertical insets inside the scroll content
+            // so the viewport extends beneath system chrome and the nav bar.
+            MediaQuery.removePadding(
+              context: context,
+              removeTop: edgeToEdgeScroll,
+              removeBottom: edgeToEdgeScroll,
+              child: SafeAreaWrapper(
+                useSafeArea: _selectedIndex > 2,
+                child: _buildPageContent(
+                  topSafeArea: edgeToEdgeScroll ? mediaQuery.padding.top : 0,
+                  bottomSafeArea:
+                      StyleConstants.navBarHeight + navBarBottomInset,
                 ),
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: SizedBox(
-                    width:
-                        mediaQuery.size.width -
-                        BottomNavBar.designHorizontalMargin * 2,
-                    height: BottomNavBar.height,
-                    child: BottomNavBar(
-                      selectedIndex: _selectedIndex,
-                      onIndexChanged: (index) =>
-                          setState(() => _selectedIndex = index),
-                      hasUpdateNotification: context
-                          .watch<UpdateNotifier>()
-                          .hasUpdateNotification,
+              ),
+            ),
+            if (_journeys.appChromeVisible)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: Padding(
+                  padding: EdgeInsets.only(
+                    left: horizontalSafeArea,
+                    right: horizontalSafeArea,
+                    bottom: navBarBottomInset,
+                  ),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: SizedBox(
+                      width:
+                          mediaQuery.size.width -
+                          BottomNavBar.designHorizontalMargin * 2,
+                      height: BottomNavBar.height,
+                      // TODO: Remove this iOS PlatformView composition workaround
+                      // once Flutter #190003 is included in the stable SDK:
+                      // https://github.com/flutter/flutter/pull/190003
+                      child: PointerInterceptor(
+                        intercepting: Platform.isIOS,
+                        child: BottomNavBar(
+                          selectedIndex: _selectedIndex,
+                          onIndexChanged: _selectTab,
+                          hasUpdateNotification: context
+                              .watch<UpdateNotifier>()
+                              .hasUpdateNotification,
+                        ),
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-            if (_selectedIndex <= 1)
+            if (_selectedIndex <= 2 && _journeys.appChromeVisible)
               Positioned(
                 right: mediaQuery.viewPadding.right + mapCopyrightTrailingGap,
                 bottom:

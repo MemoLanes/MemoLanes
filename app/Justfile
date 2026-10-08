@@ -126,7 +126,9 @@ rust-test:
 [working-directory: 'journey_kernel']
 journey-kernel-test:
     @echo "🧪 Running Journey Kernel tests"
-    @cargo test -- --nocapture
+    @yarn wasm:dev
+    @cargo test --features wasm -- --nocapture
+    @yarn test
     @echo "✅ Journey Kernel tests completed"
 
 [group: 'utils']

@@ -15,7 +15,7 @@ use crate::journey_data::JourneyData;
 use crate::journey_date_picker::JourneyDatePicker;
 use crate::journey_header::{JourneyHeader, JourneyKind, JourneyType};
 use crate::journey_vector::{JourneyVector, TrackPoint};
-use crate::{protos, utils};
+use crate::{gps, protos, raw_data, utils};
 
 /* The main database, we are likely to store a lot of protobuf bytes in it,
 less relational stuff. Basically we will use it as a file system with better
@@ -39,12 +39,17 @@ pub struct Txn<'a> {
     pub action: Option<Action>,
 }
 
-pub struct PreparedOngoingJourney {
+/// Inputs for a new journey. Identity, revision, processed data metadata and
+/// attachment presence are derived when the journey is created.
+pub struct NewJourney {
     pub journey_date: NaiveDate,
     pub start: Option<DateTime<Utc>>,
     pub end: Option<DateTime<Utc>>,
+    pub created_at: Option<DateTime<Utc>>,
+    pub journey_kind: JourneyKind,
+    pub note: Option<String>,
     pub journey_data: JourneyData,
-    pub postprocessor_algo: Option<String>,
+    pub raw_data: Option<raw_data::SerializedJourneyRawData>,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -137,6 +142,21 @@ impl Txn<'_> {
         )
     }
 
+    #[auto_context]
+    pub fn get_ongoing_journey_raw_data(&self) -> Result<raw_data::JourneyRawData> {
+        let mut query = self
+            .db_txn
+            .prepare("SELECT data FROM ongoing_journey_raw_data ORDER BY id;")?;
+        let rows = query.query_map((), |row| row.get::<_, Vec<u8>>(0))?;
+        let points = rows
+            .map(|row| gps::ExtendedRawGPSPoint::deserialize(&row?))
+            .collect::<Result<Vec<_>>>()?;
+        Ok(raw_data::JourneyRawData::new(
+            points,
+            Utc::now().timestamp_millis(),
+        ))
+    }
+
     // the fist timestamp is the start time, the second is the end time
     pub fn get_ongoing_journey_timestamp_range(
         &self,
@@ -191,13 +211,50 @@ impl Txn<'_> {
         Ok(())
     }
 
+    /// Removes only the raw GPS attachment. Journey metadata and processed track
+    /// data are kept unchanged.
+    #[auto_context]
+    pub fn delete_journey_raw_data(&mut self, id: &str) -> Result<bool> {
+        let mut header = self
+            .get_journey_header(id)?
+            .ok_or_else(|| anyhow!("Failed to find journey with id = {id}"))?;
+        header.updated_at = Some(Utc::now());
+        header.remove_raw_data();
+        let header_bytes = header.to_proto().write_to_bytes()?;
+        let changes = self.db_txn.execute(
+            "UPDATE journey SET header = ?2, raw_data = NULL WHERE id = ?1 AND raw_data IS NOT NULL;",
+            (id, header_bytes),
+        )?;
+        match changes {
+            0 => Ok(false),
+            1 => Ok(true),
+            _ => bail!("Deleted raw data from multiple journeys with id = {id}"),
+        }
+    }
+
     // TODO: consider return structured result so the caller know if it is skipped or other cases
     #[auto_context]
-    pub fn insert_journey(&mut self, header: JourneyHeader, mut data: JourneyData) -> Result<()> {
+    pub fn insert_journey(&mut self, header: JourneyHeader, data: JourneyData) -> Result<()> {
+        self.insert_journey_with_raw_data(header, data, None)
+    }
+
+    /// Insert an existing journey, normalizing its header to the supplied
+    /// attachment before comparing revisions. A missing declared attachment
+    /// produces the deterministic raw-data-free revision; an undeclared but
+    /// present attachment only corrects the flag. See `correct_has_raw_data`.
+    // TODO: consider return structured result so the caller know if it is skipped or other cases
+    #[auto_context]
+    pub fn insert_journey_with_raw_data(
+        &mut self,
+        mut header: JourneyHeader,
+        mut data: JourneyData,
+        raw_data: Option<raw_data::SerializedJourneyRawData>,
+    ) -> Result<()> {
         let journey_type = header.journey_type;
         if journey_type != data.type_() {
             bail!("[insert_journey] Mismatch journey type")
         }
+        header.correct_has_raw_data(raw_data.is_some(), "insert_journey");
         let id = header.id.clone();
 
         match self.get_journey_header(&id)? {
@@ -230,7 +287,7 @@ impl Txn<'_> {
         let mut data_bytes = Vec::new();
         data.serialize(&mut data_bytes)?;
 
-        let sql = "INSERT INTO journey (id, journey_date, timestamp_for_ordering, type, journey_kind, header, data) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7);";
+        let sql = "INSERT INTO journey (id, journey_date, timestamp_for_ordering, type, journey_kind, header, data, raw_data) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8);";
         self.db_txn.execute(
             sql,
             (
@@ -241,6 +298,7 @@ impl Txn<'_> {
                 insert_kind.to_int(),
                 header_bytes,
                 data_bytes,
+                raw_data.as_ref().map(|data| data.as_bytes()),
             ),
         )?;
 
@@ -262,27 +320,31 @@ impl Txn<'_> {
         Ok(())
     }
 
-    #[allow(clippy::too_many_arguments)]
     #[auto_context]
-    pub fn create_and_insert_journey(
-        &mut self,
-        journey_date: NaiveDate,
-        start: Option<DateTime<Utc>>,
-        end: Option<DateTime<Utc>>,
-        created_at: Option<DateTime<Utc>>,
-        journey_kind: JourneyKind,
-        note: Option<String>,
-        journey_data: JourneyData,
-    ) -> Result<String> {
-        let (journey_data, postprocessor_algo) = match journey_data {
-            JourneyData::Vector(journey_vector) => (
-                JourneyData::Vector(GpsPostprocessor::process(journey_vector)),
+    pub fn create_and_insert_journey(&mut self, journey: NewJourney) -> Result<String> {
+        let (journey_data, postprocessor_algo) = match journey.journey_data {
+            JourneyData::Vector(vector) => (
+                JourneyData::Vector(GpsPostprocessor::process(vector)),
                 Some(GpsPostprocessor::current_algo()),
             ),
             JourneyData::Bitmap(bitmap) => (JourneyData::Bitmap(bitmap), None),
         };
-
         self.create_and_insert_prepared_journey(
+            NewJourney {
+                journey_data,
+                ..journey
+            },
+            postprocessor_algo,
+        )
+    }
+
+    #[auto_context]
+    fn create_and_insert_prepared_journey(
+        &mut self,
+        journey: NewJourney,
+        postprocessor_algo: Option<String>,
+    ) -> Result<String> {
+        let NewJourney {
             journey_date,
             start,
             end,
@@ -290,22 +352,8 @@ impl Txn<'_> {
             journey_kind,
             note,
             journey_data,
-            postprocessor_algo,
-        )
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    fn create_and_insert_prepared_journey(
-        &mut self,
-        journey_date: NaiveDate,
-        start: Option<DateTime<Utc>>,
-        end: Option<DateTime<Utc>>,
-        created_at: Option<DateTime<Utc>>,
-        journey_kind: JourneyKind,
-        note: Option<String>,
-        journey_data: JourneyData,
-        postprocessor_algo: Option<String>,
-    ) -> Result<String> {
+            raw_data,
+        } = journey;
         let id = Uuid::new_v4().as_hyphenated().to_string();
         let journey_type = journey_data.type_();
         // create new journey
@@ -323,8 +371,9 @@ impl Txn<'_> {
             journey_kind,
             note,
             postprocessor_algo,
+            has_raw_data: raw_data.is_some(),
         };
-        self.insert_journey(header, journey_data)?;
+        self.insert_journey_with_raw_data(header, journey_data, raw_data)?;
         Ok(id)
     }
 
@@ -433,64 +482,66 @@ impl Txn<'_> {
         Ok(())
     }
 
+    /// Finalize processed and raw points together, optionally rejecting the
+    /// processed coverage before serializing its raw attachment.
     #[auto_context]
-    fn prepare_ongoing_journey_for_finalize(&self) -> Result<Option<PreparedOngoingJourney>> {
-        let mut journey_date_picker = JourneyDatePicker::new();
-        let Some(journey_vector) = self.get_ongoing_journey(Some(&mut journey_date_picker))? else {
-            return Ok(None);
-        };
-
-        Ok(Some(PreparedOngoingJourney {
-            journey_date: journey_date_picker
-                .pick_journey_date()
-                .unwrap_or_else(|| Local::now().date_naive()),
-            start: journey_date_picker.min_time(),
-            end: journey_date_picker.max_time(),
-            journey_data: JourneyData::Vector(GpsPostprocessor::process(journey_vector)),
-            postprocessor_algo: Some(GpsPostprocessor::current_algo()),
-        }))
-    }
-
-    #[auto_context]
-    fn finish_ongoing_journey_finalize(
+    pub(crate) fn finalize_ongoing_journey_with<F>(
         &mut self,
-        prepared: Option<PreparedOngoingJourney>,
-        discard: bool,
-    ) -> Result<FinalizeJourneyResult> {
-        debug_assert!(!discard || prepared.is_some());
-        let had_prepared_journey = prepared.is_some();
-
-        let journey_saved = match prepared {
-            Some(prepared) if !discard => {
+        retain_raw_data: bool,
+        should_discard: F,
+    ) -> Result<FinalizeJourneyResult>
+    where
+        F: FnOnce(&Txn, &JourneyData) -> Result<bool>,
+    {
+        let mut journey_date_picker = JourneyDatePicker::new();
+        let mut journey_saved = false;
+        if let Some(vector) = self.get_ongoing_journey(Some(&mut journey_date_picker))? {
+            let journey_data = JourneyData::Vector(GpsPostprocessor::process(vector));
+            if !should_discard(self, &journey_data)? {
+                let serialized_raw_data = if retain_raw_data {
+                    let raw_data = self.get_ongoing_journey_raw_data()?;
+                    if raw_data.is_empty() {
+                        None
+                    } else {
+                        Some(raw_data.serialize()?)
+                    }
+                } else {
+                    None
+                };
                 self.create_and_insert_prepared_journey(
-                    prepared.journey_date,
-                    prepared.start,
-                    prepared.end,
-                    None,
-                    JourneyKind::DefaultKind,
-                    None,
-                    prepared.journey_data,
-                    prepared.postprocessor_algo,
+                    NewJourney {
+                        journey_date: journey_date_picker
+                            .pick_journey_date()
+                            .unwrap_or_else(|| Local::now().date_naive()),
+                        start: journey_date_picker.min_time(),
+                        end: journey_date_picker.max_time(),
+                        created_at: None,
+                        journey_kind: JourneyKind::DefaultKind,
+                        note: None,
+                        journey_data,
+                        raw_data: serialized_raw_data,
+                    },
+                    Some(GpsPostprocessor::current_algo()),
                 )?;
-                true
+                journey_saved = true;
             }
-            _ => false,
-        };
+        }
 
-        let ongoing_cleared = self.db_txn.execute("DELETE FROM ongoing_journey;", ())? > 0;
+        let processed_cleared = self.db_txn.execute("DELETE FROM ongoing_journey;", ())? > 0;
         self.db_txn.execute(
             "DELETE FROM sqlite_sequence WHERE name='ongoing_journey';",
             (),
         )?;
-
-        ensure!(
-            !had_prepared_journey || ongoing_cleared,
-            "prepared an ongoing journey but cleared no ongoing rows"
-        );
-
-        info!(
-            "Ongoing journey finalized: journey_saved={journey_saved}, ongoing_cleared={ongoing_cleared}, discarded={discard}"
-        );
+        let raw_cleared = self
+            .db_txn
+            .execute("DELETE FROM ongoing_journey_raw_data;", ())?
+            > 0;
+        self.db_txn.execute(
+            "DELETE FROM sqlite_sequence WHERE name='ongoing_journey_raw_data';",
+            (),
+        )?;
+        let ongoing_cleared = processed_cleared || raw_cleared;
+        info!("Ongoing journey finalized: journey_saved={journey_saved}, ongoing_cleared={ongoing_cleared}");
         Ok(if journey_saved {
             FinalizeJourneyResult::Saved
         } else if ongoing_cleared {
@@ -501,25 +552,9 @@ impl Txn<'_> {
     }
 
     #[auto_context]
-    pub(crate) fn finalize_ongoing_journey_with<F>(
-        &mut self,
-        should_discard: F,
-    ) -> Result<FinalizeJourneyResult>
-    where
-        F: FnOnce(&Txn, &PreparedOngoingJourney) -> Result<bool>,
-    {
-        let prepared = self.prepare_ongoing_journey_for_finalize()?;
-        let discard = match prepared.as_ref() {
-            Some(prepared) => should_discard(self, prepared)?,
-            None => false,
-        };
-        self.finish_ongoing_journey_finalize(prepared, discard)
-    }
-
-    #[auto_context]
-    pub fn finalize_ongoing_journey(&mut self) -> Result<bool> {
+    pub fn finalize_ongoing_journey(&mut self, retain_raw_data: bool) -> Result<bool> {
         Ok(self
-            .finalize_ongoing_journey_with(|_, _| Ok(false))?
+            .finalize_ongoing_journey_with(retain_raw_data, |_, _| Ok(false))?
             .journey_saved())
     }
 
@@ -639,17 +674,16 @@ impl Txn<'_> {
             .db_txn
             .prepare("SELECT header FROM journey WHERE id = ?1;")?;
 
-        let header_proto_result = query
-            .query_row([id], |row| {
-                let header_bytes = row.get_ref(0)?.as_blob()?;
-                Ok(protos::journey::Header::parse_from_bytes(header_bytes))
-            })
+        let result = query
+            .query_row([id], |row| row.get::<_, Vec<u8>>(0))
             .optional()
             .context("get_journey_header")?;
 
-        match header_proto_result {
-            Some(header_proto_result) => {
-                let header = JourneyHeader::of_proto(header_proto_result?)?;
+        match result {
+            Some(header_bytes) => {
+                let header = JourneyHeader::of_proto(protos::journey::Header::parse_from_bytes(
+                    &header_bytes,
+                )?)?;
                 Ok(Some(header))
             }
             None => Ok(None),
@@ -672,6 +706,33 @@ impl Txn<'_> {
                 Ok(f())
             })
             .context("get_journey_data")?
+    }
+
+    pub fn get_journey_raw_data(
+        &self,
+        id: &str,
+    ) -> Result<Option<raw_data::SerializedJourneyRawData>> {
+        let mut query = self
+            .db_txn
+            .prepare("SELECT raw_data FROM journey WHERE id = ?1;")?;
+        let bytes: Option<Option<Vec<u8>>> = query
+            .query_row([id], |row| row.get(0))
+            .optional()
+            .context("get_journey_raw_data")?;
+        Ok(bytes
+            .flatten()
+            .map(raw_data::SerializedJourneyRawData::from_bytes))
+    }
+
+    pub fn has_journey_raw_data(&self, id: &str) -> Result<bool> {
+        let mut query = self
+            .db_txn
+            .prepare("SELECT raw_data IS NOT NULL FROM journey WHERE id = ?1;")?;
+        Ok(query
+            .query_row([id], |row| row.get(0))
+            .optional()
+            .context("has_journey_raw_data")?
+            .unwrap_or(false))
     }
 
     #[auto_context]
@@ -746,9 +807,9 @@ impl Txn<'_> {
     }
 
     #[auto_context]
-    pub fn try_auto_finalize_journey(&mut self) -> Result<bool> {
+    pub fn try_auto_finalize_journey(&mut self, retain_raw_data: bool) -> Result<bool> {
         if self.should_auto_finalize_journey()? {
-            self.finalize_ongoing_journey()
+            self.finalize_ongoing_journey(retain_raw_data)
         } else {
             Ok(false)
         }
@@ -891,10 +952,26 @@ fn migrate_to_2_0(tx: &Transaction) -> Result<()> {
     Ok(())
 }
 
-fn migrations() -> [utils::db::Migration<'static>; 2] {
+fn migrate_to_2_1(tx: &Transaction) -> Result<()> {
+    tx.execute_batch(
+        "
+        CREATE TABLE ongoing_journey_raw_data (
+            id   INTEGER PRIMARY KEY AUTOINCREMENT
+                         UNIQUE
+                         NOT NULL,
+            data BLOB    NOT NULL
+        );
+        ALTER TABLE journey ADD COLUMN raw_data BLOB;
+        ",
+    )?;
+    Ok(())
+}
+
+fn migrations() -> [utils::db::Migration<'static>; 3] {
     [
         utils::db::Migration::new(1, 0, &migrate_to_1_0),
         utils::db::Migration::new(2, 0, &migrate_to_2_0),
+        utils::db::Migration::new(2, 1, &migrate_to_2_1),
     ]
 }
 
@@ -931,6 +1008,7 @@ mod migration_tests {
             journey_kind: JourneyKind::Flight,
             note: None,
             postprocessor_algo: None,
+            has_raw_data: false,
         };
         let header_bytes = header.clone().to_proto().write_to_bytes()?;
         tx.execute(
@@ -946,7 +1024,7 @@ mod migration_tests {
 
         assert_eq!(
             utils::db::run_migrations(&tx, "main.db", &migrations())?,
-            utils::db::SchemaVersion::new(2, 0)
+            utils::db::SchemaVersion::new(2, 1)
         );
 
         let journey_kind: i8 = tx.query_row(
@@ -1004,37 +1082,56 @@ impl MainDb {
     */
 
     #[auto_context]
-    fn append_ongoing_journey(
-        &mut self,
-        raw_data: &gps_processor::RawData,
-        process_result: ProcessResult,
-    ) -> Result<()> {
-        let process_result = process_result.to_int();
-        assert!(process_result >= 0);
-        let tx = self.conn.transaction()?;
-        let sql = "INSERT INTO ongoing_journey (timestamp_sec, lat, lng, process_result) VALUES (?1, ?2, ?3, ?4);";
-        tx.prepare_cached(sql)?.execute((
-            raw_data.timestamp_ms.map(|x| x / 1000),
-            raw_data.point.latitude,
-            raw_data.point.longitude,
-            process_result,
-        ))?;
-        tx.commit()?;
-        Ok(())
-    }
-
-    #[auto_context]
     pub fn record(
         &mut self,
-        raw_data: &gps_processor::RawData,
+        raw_gps_point: &gps::RawGPSPoint,
         process_result: ProcessResult,
     ) -> Result<()> {
-        match process_result {
-            ProcessResult::Ignore => (),
-            ProcessResult::Append | ProcessResult::NewSegment => {
-                self.append_ongoing_journey(raw_data, process_result)?;
-            }
+        self.record_impl(raw_gps_point, process_result, None)
+    }
+
+    /// Records the processed point and, when supplied, the raw protobuf row in
+    /// one transaction. Raw points are kept even when preprocessing ignores
+    /// them.
+    #[auto_context]
+    pub fn record_with_raw_data(
+        &mut self,
+        data: &gps::ExtendedRawGPSPoint,
+        process_result: ProcessResult,
+        record_raw_data: bool,
+    ) -> Result<()> {
+        let raw_data = record_raw_data.then_some(data);
+        self.record_impl(&data.raw_gps_point, process_result, raw_data)
+    }
+
+    fn record_impl(
+        &mut self,
+        raw_gps_point: &gps::RawGPSPoint,
+        process_result: ProcessResult,
+        raw_data: Option<&gps::ExtendedRawGPSPoint>,
+    ) -> Result<()> {
+        if process_result == ProcessResult::Ignore && raw_data.is_none() {
+            return Ok(());
         }
+
+        let tx = self.conn.transaction()?;
+        if process_result != ProcessResult::Ignore {
+            let process_result = process_result.to_int();
+            assert!(process_result >= 0);
+            let sql = "INSERT INTO ongoing_journey (timestamp_sec, lat, lng, process_result) VALUES (?1, ?2, ?3, ?4);";
+            tx.prepare_cached(sql)?.execute((
+                raw_gps_point.timestamp_ms.map(|x| x / 1000),
+                raw_gps_point.point.latitude,
+                raw_gps_point.point.longitude,
+                process_result,
+            ))?;
+        }
+        if let Some(raw_data) = raw_data {
+            let bytes = raw_data.serialize()?;
+            tx.prepare_cached("INSERT INTO ongoing_journey_raw_data (data) VALUES (?1);")?
+                .execute([bytes])?;
+        }
+        tx.commit()?;
         Ok(())
     }
 

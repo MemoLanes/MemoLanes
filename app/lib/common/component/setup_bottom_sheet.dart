@@ -1,11 +1,11 @@
+import 'package:memolanes/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/common/component/app_dialog.dart';
 import 'package:memolanes/constants/app_typography.dart';
-import 'package:memolanes/constants/style_constants.dart';
 
 Future<T?> showSetupCard<T>(
   BuildContext context, {
-  required Widget child,
+  required WidgetBuilder builder,
   bool barrierDismissible = true,
   Color? barrierColor,
 }) {
@@ -14,12 +14,12 @@ Future<T?> showSetupCard<T>(
     barrierDismissible: barrierDismissible,
     barrierColor: barrierColor,
     maxWidth: 440,
-    child: child,
+    builder: builder,
   );
 }
 
-class SetupBottomSheet extends StatelessWidget {
-  const SetupBottomSheet({
+class SetupDialogCard extends StatelessWidget {
+  const SetupDialogCard({
     super.key,
     required this.title,
     required this.child,
@@ -49,12 +49,24 @@ class SetupBottomSheet extends StatelessWidget {
       showHeader: showTitle,
       maxHeightFactor: maxHeightFactor,
       contentPadding: contentPadding,
-      actions: actions.isEmpty
-          ? null
-          : AppDialogActions(spacing: 10, children: actions),
+      actions: actions.isEmpty ? null : AppDialogActions(children: actions),
       child: child,
     );
   }
+}
+
+@Deprecated('Use SetupDialogCard; UI v2 presents a centered dialog card.')
+class SetupBottomSheet extends SetupDialogCard {
+  const SetupBottomSheet({
+    super.key,
+    required super.title,
+    required super.child,
+    super.actions,
+    super.leading,
+    super.showTitle,
+    super.maxHeightFactor,
+    super.contentPadding,
+  });
 }
 
 class SetupTile extends StatelessWidget {
@@ -95,13 +107,13 @@ class SetupTile extends StatelessWidget {
       padding: contentPadding,
       decoration: BoxDecoration(
         color: selected
-            ? StyleConstants.softGreen.withValues(alpha: 0.82)
-            : StyleConstants.surfaceColor,
+            ? context.appColors.softGreen.withValues(alpha: 0.82)
+            : context.appColors.surfaceColor,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: selected
-              ? StyleConstants.primaryGreen
-              : StyleConstants.lineColor,
+              ? context.appColors.primaryGreen
+              : context.appColors.lineColor,
           width: selected ? 1.4 : 1,
         ),
       ),
@@ -113,12 +125,12 @@ class SetupTile extends StatelessWidget {
             height: 34,
             decoration: BoxDecoration(
               color: selected
-                  ? StyleConstants.primaryGreen.withValues(alpha: 0.32)
-                  : StyleConstants.softGreen,
+                  ? context.appColors.primaryGreen.withValues(alpha: 0.32)
+                  : context.appColors.softGreen,
               borderRadius: BorderRadius.circular(10),
             ),
             alignment: Alignment.center,
-            child: Icon(icon, color: StyleConstants.deepGreen, size: 20),
+            child: Icon(icon, color: context.appColors.deepGreen, size: 20),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -133,7 +145,7 @@ class SetupTile extends StatelessWidget {
                       child: Text(
                         title,
                         style: AppTypography.cardTitle.copyWith(
-                          color: StyleConstants.inkColor,
+                          color: context.appColors.inkColor,
                         ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
@@ -151,7 +163,7 @@ class SetupTile extends StatelessWidget {
                     child: Text(
                       subtitle!,
                       style: AppTypography.caption.copyWith(
-                        color: StyleConstants.mutedInkColor,
+                        color: context.appColors.mutedInkColor,
                       ),
                     ),
                   ),

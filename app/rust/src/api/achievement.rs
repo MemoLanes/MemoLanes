@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use anyhow::Result;
 
-use flutter_rust_bridge::frb;
+use flutter_rust_bridge::{frb, DartFnFuture};
 use geo_data_format::Worldview as GeoWorldview;
 
 pub use crate::achievement::layer::AchievementLayer;
@@ -74,10 +74,18 @@ impl From<Worldview> for GeoWorldview {
     }
 }
 
-pub fn init_or_change_geo_data(worldview: Worldview, geo_data: &[u8]) -> Result<()> {
-    crate::api::api::get()
-        .storage
-        .init_or_change_geo_data(worldview.into(), geo_data)
+pub async fn activate_geo_data(
+    worldview: Worldview,
+    load_asset: impl Fn() -> DartFnFuture<Vec<u8>>,
+) -> Result<()> {
+    let expected = crate::geo_provenance::bundled_provenance_hash(worldview.into())
+        .ok_or_else(|| anyhow::anyhow!("this build has no bundled geo data"))?;
+    let storage = &crate::api::api::get().storage;
+    if storage.open_installed_geo_data(worldview.into(), expected)? {
+        return Ok(());
+    }
+    let bytes = load_asset().await;
+    storage.init_or_change_geo_data(worldview.into(), expected, &bytes)
 }
 
 /// Explored area for a single layer.
@@ -117,7 +125,7 @@ pub fn region_level_view(
         .with_achievement_read(|store| {
             let ids = region::level_scope(store.geo()?, level, parent);
             let areas = store.region_areas(layer, &ids)?;
-            Ok(region::level_view(store.geo()?, level, &ids, &areas))
+            region::level_view(store.geo()?, level, &ids, &areas)
         })
 }
 
@@ -130,6 +138,6 @@ pub fn region_detail(
         .with_achievement_read(|store| {
             let ids = region::detail_scope(store.geo()?, entity_id);
             let areas = store.region_areas(layer, &ids)?;
-            Ok(region::detail_view(store.geo()?, entity_id, &areas))
+            region::detail_view(store.geo()?, entity_id, &areas)
         })
 }

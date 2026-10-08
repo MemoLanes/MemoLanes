@@ -1,13 +1,18 @@
 import 'dart:async';
 
+import 'package:memolanes/theme/app_colors.dart';
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:memolanes/common/app_haptics.dart';
 import 'package:memolanes/common/component/custom_popup.dart';
-import 'package:memolanes/constants/style_constants.dart';
+import 'package:memolanes/common/component/liquid_glass_surface.dart';
+import 'package:memolanes/common/journey_kind_visuals.dart';
+import 'package:memolanes/constants/app_typography.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
+import 'package:memolanes/src/rust/journey_header.dart';
 
 class LayerButton extends StatelessWidget {
   const LayerButton({super.key});
@@ -19,20 +24,39 @@ class LayerButton extends StatelessWidget {
       horizontalOffset: -16,
       contentRadius: 24,
       barrierColor: Colors.transparent,
+      contentDecorationBuilder: (context) => BoxDecoration(
+        color: context.appColors.glassColor.withValues(
+          alpha: context.appColors.mapPopupBackgroundAlpha,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: context.appColors.glassBorderColor.withValues(
+            alpha: context.appColors.mapPopupBorderAlpha,
+          ),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: context.appColors.shadowColor.withValues(
+              alpha: context.appColors.mapPopupShadowAlpha,
+            ),
+            blurRadius: 22,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
       content: PointerInterceptor(child: const LayerPopupContent()),
       child: PointerInterceptor(
-        child: Container(
-          width: 48,
-          height: 48,
-          decoration: const BoxDecoration(
-            color: Colors.black,
-            shape: BoxShape.circle,
-          ),
-          child: Center(
-            child: Icon(
-              Icons.layers,
-              color: StyleConstants.defaultColor,
-              size: 20,
+        child: LiquidGlassSurface(
+          circular: true,
+          child: SizedBox(
+            width: 44,
+            height: 44,
+            child: Center(
+              child: Icon(
+                Icons.layers,
+                color: context.appColors.deepGreen,
+                size: 20,
+              ),
             ),
           ),
         ),
@@ -73,12 +97,12 @@ class _LayerPopupContentState extends State<LayerPopupContent> {
         _buildItem(
           LayerOption.default_,
           context.tr("journey_kind.default"),
-          FontAwesomeIcons.shoePrints,
+          journeyKindIconData(JourneyKind.defaultKind),
         ),
         _buildItem(
           LayerOption.flight,
           context.tr("journey_kind.flight"),
-          FontAwesomeIcons.planeUp,
+          journeyKindIconData(JourneyKind.flight),
         ),
       ],
     );
@@ -122,8 +146,8 @@ class _LayerPopupContentState extends State<LayerPopupContent> {
                 child: FaIcon(
                   icon,
                   color: isActive
-                      ? StyleConstants.defaultColor
-                      : Colors.white70,
+                      ? context.appColors.deepGreen
+                      : context.appColors.mutedInkColor,
                   size: 16,
                 ),
               ),
@@ -131,9 +155,11 @@ class _LayerPopupContentState extends State<LayerPopupContent> {
             const SizedBox(width: 8),
             Text(
               text,
-              style: TextStyle(
-                color: isActive ? StyleConstants.defaultColor : Colors.white70,
-                fontSize: 14,
+              style: AppTypography.itemTitle.copyWith(
+                color: isActive
+                    ? context.appColors.deepGreen
+                    : context.appColors.mutedInkColor,
+                fontWeight: isActive ? FontWeight.w700 : FontWeight.w600,
               ),
             ),
           ],

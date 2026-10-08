@@ -1,6 +1,9 @@
+import 'dart:ui' show lerpDouble;
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/common/utils.dart';
+import 'package:memolanes/theme/app_colors.dart';
 
 class MapCopyrightButton extends StatelessWidget {
   final String textMarkdown;
@@ -29,13 +32,19 @@ class MapCopyrightButton extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(contentPadding),
           decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.45),
+            color: context.appColors.shadowColor.withValues(
+              alpha: lerpDouble(0.45, 0.58, context.appColors.darkProgress)!,
+            ),
             shape: BoxShape.circle,
           ),
-          child: const Icon(
+          child: Icon(
             Icons.info_outline,
             size: iconSize,
-            color: Colors.white,
+            color: Color.lerp(
+              Colors.white,
+              context.appColors.onStrongColor,
+              context.appColors.darkProgress,
+            )!,
           ),
         ),
       ),

@@ -57,22 +57,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.2.0"
-  battery_plus:
-    dependency: "direct main"
-    description:
-      name: battery_plus
-      sha256: "3853aa1e18ea1d15493dd1d3edac05770b4b95c1e691fb85934c5fd3b1ac0fcc"
-      url: "https://pub.dev"
-    source: hosted
-    version: "7.1.1"
-  battery_plus_platform_interface:
-    dependency: transitive
-    description:
-      name: battery_plus_platform_interface
-      sha256: e8342c0f32de4b1dfd0223114b6785e48e579bfc398da9471c9179b907fa4910
-      url: "https://pub.dev"
-    source: hosted
-    version: "2.0.1"
   boolean_selector:
     dependency: transitive
     description:
@@ -459,7 +443,7 @@ packages:
     description:
       path: flutter_inappwebview
       ref: master
-      resolved-ref: f6e5583370d77f0f756753aa30879f16833a9e26
+      resolved-ref: b7ab16dd29ce82eae31d95bba8dc72f324141d46
       url: "https://github.com/MemoLanes/flutter_inappwebview"
     source: git
     version: "6.2.0-beta.3"
@@ -468,7 +452,7 @@ packages:
     description:
       path: flutter_inappwebview_android
       ref: master
-      resolved-ref: f6e5583370d77f0f756753aa30879f16833a9e26
+      resolved-ref: b7ab16dd29ce82eae31d95bba8dc72f324141d46
       url: "https://github.com/MemoLanes/flutter_inappwebview"
     source: git
     version: "1.2.0-beta.3"
@@ -485,7 +469,7 @@ packages:
     description:
       path: flutter_inappwebview_ios
       ref: master
-      resolved-ref: f6e5583370d77f0f756753aa30879f16833a9e26
+      resolved-ref: b7ab16dd29ce82eae31d95bba8dc72f324141d46
       url: "https://github.com/MemoLanes/flutter_inappwebview"
     source: git
     version: "1.2.0-beta.3"
@@ -510,7 +494,7 @@ packages:
     description:
       path: flutter_inappwebview_platform_interface
       ref: master
-      resolved-ref: f6e5583370d77f0f756753aa30879f16833a9e26
+      resolved-ref: b7ab16dd29ce82eae31d95bba8dc72f324141d46
       url: "https://github.com/MemoLanes/flutter_inappwebview"
     source: git
     version: "1.4.0-beta.3"
@@ -1030,10 +1014,10 @@ packages:
     dependency: "direct main"
     description:
       name: notification_when_app_is_killed
-      sha256: "281c9ff61ef1b426ffef4169bb6193bf518d5e516ad57e340c1b151c52f87687"
+      sha256: "0ebc900d18e5eb1bdfc0eaa11f1b65b5ab3fa6ccbe2f3eeef5d12e5ddf1acffa"
       url: "https://pub.dev"
     source: hosted
-    version: "0.0.9"
+    version: "0.1.0"
   objective_c:
     dependency: transitive
     description:
@@ -1126,18 +1110,18 @@ packages:
     dependency: "direct main"
     description:
       name: permission_handler
-      sha256: fe54465bcc62a4564c6e4db337bbaded6c0c0fa6e10487414436d163114784f6
+      sha256: e6bcecadfe40df6b888141f23cbaf6ba6c3da49fb33f6ff887d060dd48544fbd
       url: "https://pub.dev"
     source: hosted
-    version: "12.0.3"
+    version: "13.0.2"
   permission_handler_android:
     dependency: transitive
     description:
       name: permission_handler_android
-      sha256: "1e3bc410ca1bf84662104b100eb126e066cb55791b7451307f9708d4007350e6"
+      sha256: b1ce660f4d0dcaffdf2605a19544c129fb5adda4e6fd039992ae356c4e437039
       url: "https://pub.dev"
     source: hosted
-    version: "13.0.1"
+    version: "14.1.0"
   permission_handler_apple:
     dependency: transitive
     description:
@@ -1274,38 +1258,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.1.1"
-  share_handler:
-    dependency: "direct main"
-    description:
-      name: share_handler
-      sha256: "0a6d007f0e44fbee27164adcd159ecbc88238864313f4e5c58161cae2180328d"
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.0.25"
-  share_handler_android:
-    dependency: transitive
-    description:
-      name: share_handler_android
-      sha256: caf555b933dc72783aa37fef75688c7b86bd6f7bc17d80fbf585bc42f123cc8d
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.0.11"
-  share_handler_ios:
-    dependency: transitive
-    description:
-      name: share_handler_ios
-      sha256: cdc21f88f336a944157a8e9ceb191525cee3b082d6eb6c2082488e4f09dc3ece
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.0.15"
-  share_handler_platform_interface:
-    dependency: transitive
-    description:
-      name: share_handler_platform_interface
-      sha256: "7a4df95a87b326b2f07458d937f2281874567c364b7b7ebe4e7d50efaae5f106"
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.0.6"
   share_plus:
     dependency: "direct main"
     description:
@@ -1512,14 +1464,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.4.0"
-  upower:
-    dependency: transitive
-    description:
-      name: upower
-      sha256: cf042403154751180affa1d15614db7fa50234bc2373cd21c3db666c38543ebf
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.7.0"
   url_launcher:
     dependency: "direct main"
     description:
@@ -1712,6 +1656,70 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.2.4"
+  zikzak_share_handler:
+    dependency: "direct main"
+    description:
+      name: zikzak_share_handler
+      sha256: "92018fdeddd78793725081d04aa03c591ec4510509b71447f09eb4a9bf0f27d0"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.1"
+  zikzak_share_handler_android:
+    dependency: transitive
+    description:
+      name: zikzak_share_handler_android
+      sha256: "67c76dc12024d5a4ded810680055480ef266262b3338ba4db5ee4b02a9fb61e8"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.1"
+  zikzak_share_handler_ios:
+    dependency: transitive
+    description:
+      name: zikzak_share_handler_ios
+      sha256: "049e1b7163f31112e2816fc6f4b498d142ec634a0c5f7a14802002de1c642f49"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.1"
+  zikzak_share_handler_linux:
+    dependency: transitive
+    description:
+      name: zikzak_share_handler_linux
+      sha256: fa06cca4dd60d9ec61681f46480b63789284a744b338fbe3d745aa65995583e6
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.1"
+  zikzak_share_handler_macos:
+    dependency: transitive
+    description:
+      name: zikzak_share_handler_macos
+      sha256: "358cd8b6010ca8d81405df38104755d3a33f461ab27a93cfcd6d291686303090"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.1"
+  zikzak_share_handler_platform_interface:
+    dependency: transitive
+    description:
+      name: zikzak_share_handler_platform_interface
+      sha256: "761f2903129b9a2cfebf7a8366d69133bf35d04ecc9a8a4249b56934d9c6642f"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.1"
+  zikzak_share_handler_web:
+    dependency: transitive
+    description:
+      name: zikzak_share_handler_web
+      sha256: "298da7da4d41d2d3defb3d9596a885ab587b59fcf010879a4e5db3fcc8c37f3a"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.1"
+  zikzak_share_handler_windows:
+    dependency: transitive
+    description:
+      name: zikzak_share_handler_windows
+      sha256: "0187315bd48625898d6c53d3e63dfd545a675921e54f1c593ff955bb05442a11"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.1"
 sdks:
   dart: ">=3.13.0 <4.0.0"
   flutter: ">=3.47.0"

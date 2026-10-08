@@ -6,7 +6,9 @@ plugins {
 
 android {
     namespace = "com.memolanes.oss.dev"
-    compileSdk = flutter.compileSdkVersion
+    // TODO: permission_handler 13.x requires compileSdk >= 37. Restore
+    // flutter.compileSdkVersion once Flutter's default reaches 37 or higher.
+    compileSdk = 37
     ndkVersion = flutter.ndkVersion
 
     compileOptions {

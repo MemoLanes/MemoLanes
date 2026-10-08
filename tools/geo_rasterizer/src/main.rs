@@ -4,13 +4,15 @@ use std::time::Instant;
 
 use anyhow::{Context, Result};
 use clap::Parser;
-use geo_data_format::{write_geo_data, GeoEntityId, GeoEntityKind, Locale, Worldview};
+use geo_data_format::{
+    read_provenance_hash, write_geo_data, GeoEntityId, GeoEntityKind, Locale, Worldview,
+};
 use geo_rasterizer::{
     admin0::{parse_admin0, parse_admin0_with_attributions, validate_no_antimeridian_span},
     admin1::parse_admin1,
     area::populate_total_areas,
     atomic_write::write_atomically,
-    cache::{compute_provenance_hash, read_existing_hash},
+    cache::compute_provenance_hash,
     cldr::{load_subdivisions, load_territories},
     download::{ensure_admin1, ensure_cldr, ensure_cldr_subdivisions, ensure_geojson},
     entities::{
@@ -250,7 +252,7 @@ fn rasterize_one(
         &geo_rasterizer::policy::default_path(),
         worldview_id,
     )?;
-    if let Some(existing) = read_existing_hash(&output)? {
+    if let Some(existing) = read_provenance_hash(&output)? {
         if existing == provenance_hash {
             eprintln!(
                 "[geo_rasterizer] inputs unchanged (hash match) — output up to date in {:.0?}",

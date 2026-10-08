@@ -1,6 +1,6 @@
 use std::process::Command;
 
-use geo_data_format::read_geo_data;
+use geo_data_format::GeoData;
 
 /// A shipped asset must declare its own worldview id; the runtime
 /// (`Storage::set_geo_data`) rejects a bin whose declared id differs from the
@@ -27,7 +27,7 @@ fn emitted_asset_declares_its_worldview_id() {
         .expect("run rasterizer");
     assert!(status.success());
 
-    let data = read_geo_data(&std::fs::read(&out).unwrap()).unwrap();
+    let data = GeoData::open(&out).unwrap();
     assert_eq!(data.worldview_id, "iso");
 }
 

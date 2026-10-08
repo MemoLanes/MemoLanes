@@ -3,6 +3,7 @@
 //! and country→continent rollup. The `AchievementReader` adapter over them
 //! (including its no-worldview branch) is covered by `cache_db_v1.rs`.
 
+use memolanes_core::main_db::NewJourney;
 use std::collections::{BTreeMap, HashMap};
 use std::fs;
 
@@ -66,15 +67,16 @@ fn one_block(tile: TileKey, block: BlockKey, bits: u32) -> JourneyBitmap {
 fn insert(storage: &Storage, date: (i32, u32, u32), kind: JourneyKind, bm: JourneyBitmap) {
     storage
         .with_db_txn(|txn| {
-            txn.create_and_insert_journey(
-                NaiveDate::from_ymd_opt(date.0, date.1, date.2).unwrap(),
-                None,
-                None,
-                None,
-                kind,
-                None,
-                JourneyData::Bitmap(bm),
-            )
+            txn.create_and_insert_journey(NewJourney {
+                journey_date: NaiveDate::from_ymd_opt(date.0, date.1, date.2).unwrap(),
+                start: None,
+                end: None,
+                created_at: None,
+                journey_kind: kind,
+                note: None,
+                journey_data: JourneyData::Bitmap(bm),
+                raw_data: None,
+            })
         })
         .unwrap();
 }
@@ -127,7 +129,7 @@ fn on_demand_areas_and_region_areas() {
     )
     .unwrap();
     storage
-        .init_or_change_geo_data(Worldview::Iso, &geo_bytes)
+        .init_or_change_geo_data(Worldview::Iso, [0u8; 32], &geo_bytes)
         .unwrap();
 
     // A Default journey and a Flight journey, in different blocks of France, so
@@ -146,7 +148,7 @@ fn on_demand_areas_and_region_areas() {
     );
 
     // On-demand reads against the same worldview geo.
-    let geo = GeoIndex::from_bytes(&geo_bytes).unwrap();
+    let geo = GeoIndex::open(&storage.installed_geo_data_file(Worldview::Iso)).unwrap();
 
     let (oss_areas, all_layer_regions) = read_on_demand(&storage, &geo);
 

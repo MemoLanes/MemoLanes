@@ -94,8 +94,6 @@ class TopPersistentToast {
     TextStyle? style,
     bool allowExplicitNewlines = false,
   }) {
-    // Do not wrap each line in its own FittedBox: lines would scale independently
-    // and look like different font sizes when widths differ.
     if (allowExplicitNewlines && message.contains('\n')) {
       return Text(
         message,
@@ -105,16 +103,12 @@ class TopPersistentToast {
       );
     }
 
-    return FittedBox(
-      fit: BoxFit.scaleDown,
-      alignment: Alignment.centerLeft,
-      child: Text(
-        message,
-        style: style,
-        maxLines: 1,
-        softWrap: false,
-        overflow: TextOverflow.ellipsis,
-      ),
+    return Text(
+      message,
+      style: style,
+      maxLines: 2,
+      softWrap: true,
+      overflow: TextOverflow.ellipsis,
     );
   }
 }

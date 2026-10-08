@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:haptic_feedback/haptic_feedback.dart';
 import 'package:memolanes/common/mmkv_util.dart';
 
@@ -10,7 +11,13 @@ abstract final class AppHaptics {
 
   static bool? _userHapticsEnabled;
 
+  /// Bypasses native preference storage when haptics are disabled in tests.
+  @visibleForTesting
+  static bool? debugHapticsEnabledOverride;
+
   static bool get isUserHapticsEnabled {
+    final override = debugHapticsEnabledOverride;
+    if (override != null) return override;
     _userHapticsEnabled ??= MMKVUtil.getBool(
       MMKVKey.hapticsFeedbackEnabled,
       defaultValue: true,

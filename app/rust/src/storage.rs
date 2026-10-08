@@ -1,133 +1,31 @@
 extern crate simplelog;
 use crate::achievement::AchievementReader;
 use crate::cache_db::{self, CacheDb, LayerKind};
-use crate::geo::{GeoIndex, GeoLookup};
-use crate::gps_processor::{self, ProcessResult};
+use crate::geo::{GeoAssetError, GeoIndex, GeoLookup};
+use crate::gps::ExtendedRawGPSPoint;
+use crate::gps_processor::ProcessResult;
 use crate::journey_area_utils::journey_bitmap_area_cm2;
 use crate::journey_bitmap::JourneyBitmap;
 use crate::journey_data::JourneyData;
 use crate::journey_header::JourneyKind;
 use crate::journey_snapshot::JourneySnapshot;
-use crate::main_db::{self, Action, FinalizeJourneyResult, MainDb, PreparedOngoingJourney};
+use crate::legacy_raw_data::{self, LegacyRawDataFile};
+use crate::main_db::{self, Action, FinalizeJourneyResult, MainDb};
 use anyhow::{Context, Ok, Result};
 use auto_context::auto_context;
-use chrono::{Local, NaiveDate};
-use serde::{Deserialize, Serialize};
+use chrono::NaiveDate;
 use std::fs::{remove_file, File};
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Mutex,
+};
 
-// A single stationary point occupies roughly 45-90 m² at the bitmap's current
-// resolution, so this captures no-op recordings without affecting real trips.
+// Only suppress small recordings; larger repeated trips remain useful history.
 const DROP_COVERED_JOURNEY_MAX_AREA_CM2: i64 = 100 * 10_000;
 
 // TODO: error handling in this file is horrifying, we should think about what
 // is the right thing to do here.
-
-pub struct RawDataFile {
-    pub name: String,
-    pub path: String,
-}
-
-struct CurrentRawDataFile {
-    writer: csv::Writer<File>,
-    filename: String,
-    date: chrono::NaiveDate,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct RawCsvRow {
-    pub timestamp_ms: Option<i64>,
-    pub received_timestamp_ms: i64,
-    pub latitude: f64,
-    pub longitude: f64,
-    pub accuracy: Option<f32>,
-    pub altitude: Option<f32>,
-    pub speed: Option<f32>,
-}
-
-impl RawCsvRow {
-    pub fn create_from_raw_data(
-        raw_data: &gps_processor::RawData,
-        received_timestamp_ms: i64,
-    ) -> Self {
-        Self {
-            timestamp_ms: raw_data.timestamp_ms,
-            received_timestamp_ms,
-            latitude: raw_data.point.latitude,
-            longitude: raw_data.point.longitude,
-            accuracy: raw_data.accuracy,
-            altitude: raw_data.altitude,
-            speed: raw_data.speed,
-        }
-    }
-}
-
-/* This is an optional feature that should be off by default: storing raw GPS
-   data with detailed timestamp. It is designed for advanced user or debugging.
-   It stores data in a simple csv format and will be using a new file every time
-   the app starts.
-
-   TODO: we should zstd all old data to reduce disk usage.
-*/
-struct RawDataRecorder {
-    dir: PathBuf,
-    current_raw_data_file: Option<CurrentRawDataFile>,
-}
-
-impl RawDataRecorder {
-    fn init(support_dir: &str) -> RawDataRecorder {
-        // TODO: better error handling
-        let dir = Path::new(support_dir).join("raw_data/");
-        std::fs::create_dir_all(&dir).unwrap();
-        RawDataRecorder {
-            dir,
-            current_raw_data_file: None,
-        }
-    }
-
-    fn flush(&mut self) {
-        if let Some(ref mut current_raw_data_file) = self.current_raw_data_file {
-            current_raw_data_file.writer.flush().unwrap();
-        }
-    }
-
-    // TODO: better error handling
-    fn record(&mut self, raw_data: &gps_processor::RawData, received_timestamp_ms: i64) {
-        let current_date = Local::now().date_naive();
-        if let Some(current_raw_data_file) = &self.current_raw_data_file {
-            if current_raw_data_file.date != current_date {
-                // date changed, start a new file
-                self.current_raw_data_file = None;
-            }
-        }
-
-        let current_raw_data_file = self.current_raw_data_file.get_or_insert_with(|| {
-            let mut i = 0;
-            let (path, filename) = loop {
-                let filename = format!("gps-{current_date}-{i}.csv");
-                let path = Path::new(&self.dir).join(&filename);
-                if std::fs::metadata(&path).is_err() {
-                    break (path, filename);
-                }
-                i += 1;
-            };
-            let file = File::create(path).unwrap();
-            let writer = csv::WriterBuilder::new()
-                .has_headers(true)
-                .from_writer(file);
-
-            CurrentRawDataFile {
-                writer,
-                filename,
-                date: current_date,
-            }
-        });
-        let row = RawCsvRow::create_from_raw_data(raw_data, received_timestamp_ms);
-        current_raw_data_file.writer.serialize(row).unwrap();
-        current_raw_data_file.writer.flush().unwrap();
-    }
-}
 
 type FinalizedJourneyChangedCallback = Box<dyn Fn(&Storage) + Send + Sync + 'static>;
 
@@ -135,6 +33,7 @@ struct Inner {
     main_db: MainDb,
     cache_db: Box<dyn CacheDb + Send>,
     geo: Option<Box<dyn GeoLookup + Send>>,
+    worldview: Option<geo_data_format::Worldview>,
 }
 
 fn geo_ref(geo: &Option<Box<dyn GeoLookup + Send>>) -> Option<&dyn GeoLookup> {
@@ -143,7 +42,7 @@ fn geo_ref(geo: &Option<Box<dyn GeoLookup + Send>>) -> Option<&dyn GeoLookup> {
 
 pub struct Storage {
     support_dir: String,
-    raw_data_recorder: Mutex<Option<RawDataRecorder>>, // `None` means disabled
+    raw_data_mode: AtomicBool,
     pub cache_dir: String,
     // Hidden so every operation goes through `Storage` and stays in sync; reads
     dbs: Mutex<Inner>,
@@ -159,23 +58,26 @@ impl Storage {
     ) -> Result<Self> {
         let mut main_db = MainDb::open(&support_dir)?;
         let cache_db: Box<dyn CacheDb + Send> = Box::new(cache_db::new(&cache_dir));
-        let raw_data_recorder =
-            if main_db.get_setting_with_default(crate::main_db::Setting::RawDataMode, false) {
-                Some(RawDataRecorder::init(&support_dir))
-            } else {
-                None
-            };
+        let raw_data_mode =
+            main_db.get_setting_with_default(crate::main_db::Setting::RawDataMode, false);
         Ok(Storage {
             support_dir,
-            raw_data_recorder: Mutex::new(raw_data_recorder),
+            raw_data_mode: AtomicBool::new(raw_data_mode),
             cache_dir,
             dbs: Mutex::new(Inner {
                 main_db,
                 cache_db,
                 geo: None,
+                worldview: None,
             }),
             finalized_journey_changed_callback: Box::new(|_| {}),
         })
+    }
+
+    pub fn installed_geo_data_file(&self, worldview: geo_data_format::Worldview) -> PathBuf {
+        Path::new(&self.support_dir)
+            .join("geo")
+            .join(format!("geo_data_{}.bin", worldview.spec().id))
     }
 
     #[auto_context]
@@ -196,10 +98,12 @@ impl Storage {
             main_db,
             cache_db,
             geo,
+            ..
         } = &mut *dbs;
         let geo = geo_ref(geo);
 
         let mut finalized_journey_changed = false;
+        let mut geo_broken = false;
 
         let output = main_db.with_txn(|txn| {
             let output = f(txn, cache_db.as_mut())?;
@@ -209,7 +113,13 @@ impl Storage {
                     Action::CompleteRebuilt => cache_db.clear_all()?,
                     Action::Invalidate { entries } => cache_db.invalidate(entries)?,
                     Action::MergeOne { entry, data, .. } => {
-                        cache_db.merge_journey(entry, data, geo)?
+                        match cache_db.merge_journey(entry, data, geo) {
+                            Err(e) if GeoAssetError::is_in(&e) => {
+                                geo_broken = true;
+                                cache_db.merge_journey(entry, data, None)?
+                            }
+                            merged => merged?,
+                        }
                     }
                 }
                 finalized_journey_changed = true;
@@ -217,6 +127,9 @@ impl Storage {
 
             Ok(output)
         })?;
+        if geo_broken {
+            self.discard_geo(&mut dbs);
+        }
 
         // Make sure we are not holding the lock when calling the callback
         // TODO: This is still error-prone, and easy to cause deadlock. Consider
@@ -229,14 +142,43 @@ impl Storage {
         Ok(output)
     }
 
+    pub fn toggle_raw_data_mode(&self, enable: bool) {
+        // Serialize setting changes with recording and finalization. Publish
+        // the in-memory value only after the setting has been persisted.
+        let main_db = &mut self.dbs.lock().unwrap().main_db;
+        if self.get_raw_data_mode() != enable {
+            main_db
+                .set_setting(crate::main_db::Setting::RawDataMode, enable)
+                .unwrap();
+            self.raw_data_mode.store(enable, Ordering::Relaxed);
+            info!("[storage] raw data mode enabled={enable}");
+        }
+    }
+
+    pub fn get_raw_data_mode(&self) -> bool {
+        self.raw_data_mode.load(Ordering::Relaxed)
+    }
+
+    #[auto_context]
+    pub fn delete_legacy_raw_data_file(&self, filename: String) -> Result<()> {
+        legacy_raw_data::delete_legacy_raw_data_file(&self.support_dir, &filename)
+    }
+
+    pub fn record_gps_data(&self, data: &ExtendedRawGPSPoint, process_result: ProcessResult) {
+        let main_db = &mut self.dbs.lock().unwrap().main_db;
+        main_db
+            .record_with_raw_data(data, process_result, self.get_raw_data_mode())
+            .unwrap();
+    }
+
     fn should_discard_prepared_ongoing_journey(
         txn: &main_db::Txn,
         cache_db: &mut dyn CacheDb,
-        prepared: &PreparedOngoingJourney,
+        journey_data: &JourneyData,
     ) -> Result<bool> {
         let mut candidate = JourneyBitmap::new();
         let mut area_cm2 = 0;
-        let exceeds_max_area = match &prepared.journey_data {
+        let exceeds_max_area = match journey_data {
             JourneyData::Vector(vector) => candidate.merge_vector_until(vector, |candidate| {
                 area_cm2 = journey_bitmap_area_cm2(candidate, None);
                 area_cm2 > DROP_COVERED_JOURNEY_MAX_AREA_CM2
@@ -282,9 +224,9 @@ impl Storage {
                 return Ok(FinalizeJourneyResult::default());
             }
 
-            txn.finalize_ongoing_journey_with(|txn, prepared| {
+            txn.finalize_ongoing_journey_with(self.get_raw_data_mode(), |txn, journey_data| {
                 if drop_covered_small_journey {
-                    Self::should_discard_prepared_ongoing_journey(txn, cache_db, prepared)
+                    Self::should_discard_prepared_ongoing_journey(txn, cache_db, journey_data)
                 } else {
                     Ok(false)
                 }
@@ -314,109 +256,12 @@ impl Storage {
         self.finalize_ongoing_journey_impl(true, drop_covered_small_journey)
     }
 
-    pub fn toggle_raw_data_mode(&self, enable: bool) {
-        let mut raw_data_recorder = self.raw_data_recorder.lock().unwrap();
-        if enable {
-            if raw_data_recorder.is_none() {
-                *raw_data_recorder = Some(RawDataRecorder::init(&self.support_dir));
-                info!("[storage] raw data mod enabled");
-                let main_db = &mut self.dbs.lock().unwrap().main_db;
-                main_db
-                    .set_setting(crate::main_db::Setting::RawDataMode, true)
-                    .unwrap();
-            }
-        } else if raw_data_recorder.is_some() {
-            info!("[storage] raw data mod disabled");
-            // `drop` should do the right thing and release all resources.
-            *raw_data_recorder = None;
-            let main_db = &mut self.dbs.lock().unwrap().main_db;
-            main_db
-                .set_setting(crate::main_db::Setting::RawDataMode, false)
-                .unwrap();
-        }
+    pub fn list_all_legacy_raw_data(&self) -> Result<Vec<LegacyRawDataFile>> {
+        legacy_raw_data::list_all_legacy_raw_data(&self.support_dir)
     }
 
-    pub fn get_raw_data_mode(&self) -> bool {
-        let raw_data_recorder = self.raw_data_recorder.lock().unwrap();
-        raw_data_recorder.is_some()
-    }
-
-    #[auto_context]
-    pub fn delete_raw_data_file(&self, filename: String) -> Result<()> {
-        let filename = if Path::new(&filename).extension().is_some() {
-            filename
-        } else {
-            format!("{filename}.csv")
-        };
-
-        let mut raw_data_recorder = self.raw_data_recorder.lock().unwrap();
-
-        if let Some(ref mut x) = *raw_data_recorder {
-            if let Some(current_raw_data_file) = &x.current_raw_data_file {
-                if current_raw_data_file.filename == filename {
-                    x.current_raw_data_file = None;
-                }
-            }
-        }
-
-        let path = Path::new(&self.support_dir)
-            .join("raw_data")
-            .join(&filename);
-
-        remove_file(&path)
-            .with_context(|| format!("failed to remove raw data file: {}", path.display()))?;
-
-        Ok(())
-    }
-
-    pub fn record_gps_data(
-        &self,
-        raw_data: &gps_processor::RawData,
-        process_result: ProcessResult,
-        received_timestamp_ms: i64,
-    ) {
-        let mut raw_data_recorder = self.raw_data_recorder.lock().unwrap();
-        if let Some(ref mut x) = *raw_data_recorder {
-            x.record(raw_data, received_timestamp_ms);
-        }
-        drop(raw_data_recorder);
-
-        let main_db = &mut self.dbs.lock().unwrap().main_db;
-        main_db.record(raw_data, process_result).unwrap();
-    }
-
-    pub fn list_all_raw_data(&self) -> Result<Vec<RawDataFile>> {
-        let dir = Path::new(&self.support_dir).join("raw_data");
-
-        if !dir.exists() {
-            return Ok(Vec::new());
-        }
-
-        if !dir.is_dir() {
-            anyhow::bail!("raw_data path exists but is not a directory: {dir:?}");
-        }
-
-        let mut result: Vec<RawDataFile> = std::fs::read_dir(&dir)?
-            .filter_map(|entry_res| {
-                let entry = entry_res.ok()?;
-                let path = entry.path();
-                if path.is_file() && path.extension()?.to_str()? == "csv" {
-                    let name = path
-                        .file_stem()
-                        .map(|s| s.to_string_lossy().to_string())
-                        .unwrap_or_default();
-                    Some(RawDataFile {
-                        name,
-                        path: path.to_string_lossy().to_string(),
-                    })
-                } else {
-                    None
-                }
-            })
-            .collect();
-
-        result.sort_by(|a, b| b.name.cmp(&a.name));
-        Ok(result)
+    pub fn export_legacy_raw_data_gpx_file(&self, csv_filepath: &str) -> Result<String> {
+        legacy_raw_data::export_legacy_raw_data_gpx_file(csv_filepath, &self.cache_dir)
     }
 
     pub fn set_finalized_journey_changed_callback(
@@ -471,34 +316,113 @@ impl Storage {
             main_db,
             cache_db,
             geo,
+            ..
         } = &mut *dbs;
         let geo = geo_ref(geo);
         let cache_db = cache_db.as_mut();
-        main_db.with_txn(|txn| {
+        let output = main_db.with_txn(|txn| {
             let mut reader = cache_db.achievement_reader(txn, geo)?;
             let output = f(reader.as_mut())?;
             debug_assert_eq!(txn.action, None);
             Ok(output)
-        })
+        });
+        if output.as_ref().is_err_and(GeoAssetError::is_in) {
+            self.discard_geo(&mut dbs);
+        }
+        output
     }
 
-    /// Install a worldview's geo asset from raw bytes. The asset must declare
-    /// the same worldview id it is loaded as (the `.bin` is self-describing); a
-    /// mismatch means the wrong bin was supplied.
+    fn discard_geo(&self, dbs: &mut Inner) {
+        dbs.geo = None;
+        if let Some(worldview) = dbs.worldview.take() {
+            let path = self.installed_geo_data_file(worldview);
+            warn!(
+                "[storage] geo asset {} unreadable, discarding it for reinstall",
+                path.display()
+            );
+            let _ = remove_file(path);
+        }
+    }
+
     #[auto_context]
     pub fn init_or_change_geo_data(
         &self,
         worldview: geo_data_format::Worldview,
+        expected_provenance_hash: [u8; 32],
         bytes: &[u8],
     ) -> Result<()> {
-        let geo = GeoIndex::from_bytes(bytes)?;
+        let path = self.installed_geo_data_file(worldview);
+        let dir = path.parent().expect("installed geo path has a parent");
+        std::fs::create_dir_all(dir)?;
+        let tmp = path.with_extension("bin.tmp");
+        {
+            let mut file = File::create(&tmp)?;
+            std::io::Write::write_all(&mut file, bytes)?;
+            file.sync_all()?;
+        }
+        let staged = GeoIndex::open(&tmp).and_then(|geo| {
+            anyhow::ensure!(
+                geo.provenance_hash() == expected_provenance_hash,
+                "geo asset provenance {:?} does not match the expected {:?}",
+                geo.provenance_hash(),
+                expected_provenance_hash
+            );
+            Self::check_worldview(&geo, worldview)
+        });
+        if let Err(e) = staged {
+            let _ = remove_file(&tmp);
+            return Err(e);
+        }
+        #[cfg(windows)]
+        if path.exists() {
+            remove_file(&path)?;
+        }
+        std::fs::rename(&tmp, &path)?;
+        let geo = GeoIndex::open(&path)?;
+        let mut dbs = self.dbs.lock().unwrap();
+        dbs.geo = Some(Box::new(geo));
+        dbs.worldview = Some(worldview);
+        Ok(())
+    }
+
+    #[auto_context]
+    pub fn open_installed_geo_data(
+        &self,
+        worldview: geo_data_format::Worldview,
+        expected_provenance_hash: [u8; 32],
+    ) -> Result<bool> {
+        let path = self.installed_geo_data_file(worldview);
+        if !path.exists() {
+            return Ok(false);
+        }
+        let geo = match GeoIndex::open(&path) {
+            std::result::Result::Ok(geo) => geo,
+            Err(e) => {
+                warn!(
+                    "[storage] installed geo asset {} unusable, will reinstall: {e:#}",
+                    path.display()
+                );
+                return Ok(false);
+            }
+        };
+        if geo.provenance_hash() != expected_provenance_hash
+            || Self::check_worldview(&geo, worldview).is_err()
+        {
+            return Ok(false);
+        }
+        let mut dbs = self.dbs.lock().unwrap();
+        dbs.geo = Some(Box::new(geo));
+        dbs.worldview = Some(worldview);
+        Ok(true)
+    }
+
+    fn check_worldview(geo: &GeoIndex, worldview: geo_data_format::Worldview) -> Result<()> {
         anyhow::ensure!(
             geo.worldview_id() == worldview.spec().id,
             "geo asset declares worldview {:?} but was loaded as {:?}",
             geo.worldview_id(),
             worldview.spec().id
         );
-        self.dbs.lock().unwrap().geo = Some(Box::new(geo));
         Ok(())
     }
 
@@ -558,12 +482,6 @@ impl Storage {
         dbs.main_db.flush()?;
         dbs.cache_db.flush()?;
         drop(dbs);
-
-        let mut raw_data_recorder = self.raw_data_recorder.lock().unwrap();
-        if let Some(ref mut x) = *raw_data_recorder {
-            x.flush();
-        }
-        drop(raw_data_recorder);
 
         Ok(())
     }

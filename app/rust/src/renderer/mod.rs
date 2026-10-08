@@ -3,4 +3,8 @@ pub use map_renderer::MapRenderer;
 
 pub mod internal_server;
 
-mod tile_shader2;
+mod render_tile_cache;
+mod tile_rasterizer;
+
+// JourneyBitmap stores 512 × 512 source tiles.
+const SOURCE_TILE_ZOOM: i16 = 9;

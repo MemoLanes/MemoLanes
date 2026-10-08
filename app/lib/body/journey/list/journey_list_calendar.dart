@@ -1,18 +1,22 @@
 import 'dart:async';
 
+import 'package:memolanes/theme/app_colors.dart';
+
 import 'package:calendar_date_picker2/calendar_date_picker2.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/body/journey/list/journey_layer_filter_menu.dart';
 import 'package:memolanes/body/journey/list/journey_list_controller.dart';
 import 'package:memolanes/common/app_haptics.dart';
+import 'package:memolanes/common/component/app_calendar_mode_picker.dart';
 import 'package:memolanes/common/component/custom_popup.dart';
 import 'package:memolanes/common/loading_manager.dart';
 import 'package:memolanes/common/simple_date_utils.dart';
+import 'package:memolanes/constants/app_typography.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 
-class JourneyListCalendar extends StatelessWidget {
+class JourneyListCalendar extends StatefulWidget {
   final JourneyListController controller;
   final SimpleDate firstDate;
 
@@ -23,40 +27,96 @@ class JourneyListCalendar extends StatelessWidget {
   });
 
   @override
+  State<JourneyListCalendar> createState() => _JourneyListCalendarState();
+}
+
+class _JourneyListCalendarState extends State<JourneyListCalendar> {
+  static const _compactWidthBreakpoint = 360.0;
+
+  late final DateTime _initialSelectedDate;
+  CalendarDatePicker2Mode _calendarViewMode = CalendarDatePicker2Mode.day;
+  int _calendarPickerRevision = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _initialSelectedDate = DateUtils.dateOnly(
+      widget.controller.selectedDate.toLocalDateTime(),
+    );
+  }
+
+  void _setCalendarViewMode(CalendarDatePicker2Mode mode) {
+    setState(() {
+      // Selecting a month returns the package to day mode internally, while
+      // the externally held mode may still be month. Recreate on every header
+      // tap so the requested mode always takes effect on the first tap.
+      _calendarPickerRevision += 1;
+      _calendarViewMode = mode;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) => _buildCalendar(
+        context,
+        compact: constraints.maxWidth < _compactWidthBreakpoint,
+      ),
+    );
+  }
+
+  Widget _buildCalendar(BuildContext context, {required bool compact}) {
+    final controller = widget.controller;
+    final controlsTextStyle =
+        (compact ? AppTypography.sectionLabel : AppTypography.cardTitle)
+            .copyWith(color: context.appColors.deepGreen);
     final config = CalendarDatePicker2Config(
-      firstDate: firstDate.toLocalDateTime(),
+      firstDate: widget.firstDate.toLocalDateTime(),
       lastDate: controller.lastDate.toLocalDateTime(),
+      calendarViewMode: _calendarViewMode,
       centerAlignModePicker: true,
+      disableMonthPicker: false,
+      // AppCalendarModePicker handles the reordered slots and their taps.
+      disableModePicker: true,
+      semanticsDictionary: yearFirstCalendarModePickerSemantics(context),
       calendarType: CalendarDatePicker2Type.single,
-      selectedDayHighlightColor: const Color(0xFFB6E13D).withAlpha(230),
-      dayTextStyle: const TextStyle(color: Colors.white),
-      weekdayLabelTextStyle: const TextStyle(
-        color: Colors.white,
-        fontWeight: FontWeight.bold,
-      ),
-      controlsTextStyle: const TextStyle(
-        color: Colors.white,
-        fontSize: 15,
-        fontWeight: FontWeight.bold,
-      ),
-      modePickersGap: 8,
+      selectedDayHighlightColor: context.appColors.primaryGreen,
+      controlsHeight: compact ? 38 : null,
+      dayMaxWidth: compact ? 30 : null,
+      dayTextStyle: (compact ? AppTypography.caption : AppTypography.body)
+          .copyWith(color: context.appColors.inkColor),
+      selectedDayTextStyle:
+          (compact ? AppTypography.caption : AppTypography.body).copyWith(
+            color: context.appColors.selectedCalendarInk,
+          ),
+      todayTextStyle: (compact ? AppTypography.caption : AppTypography.body)
+          .copyWith(
+            color: context.appColors.deepGreen,
+            fontWeight: FontWeight.w700,
+          ),
+      weekdayLabelTextStyle:
+          (compact ? AppTypography.micro : AppTypography.label).copyWith(
+            color: context.appColors.mutedInkColor,
+          ),
+      controlsTextStyle: controlsTextStyle,
+      modePickersGap: compact ? 4 : 8,
       modePickerBuilder:
           ({required viewMode, required monthDate, isMonthPicker}) {
-            if (isMonthPicker == true) {
-              return _buildHeaderSelector(
-                DateFormat.MMMM(context.locale.toString()).format(monthDate),
-              );
-            }
-            return Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildHeaderSelector(
-                  MaterialLocalizations.of(context).formatYear(monthDate),
-                ),
-                const SizedBox(width: 8),
-                _buildFilterButton(context),
-              ],
+            final occupiesPackageMonthSlot = isMonthPicker == true;
+            return AppCalendarModePicker(
+              viewMode: viewMode,
+              monthDate: monthDate,
+              occupiesPackageMonthSlot: occupiesPackageMonthSlot,
+              textStyle: controlsTextStyle,
+              abbreviateMonth: compact,
+              onModeChanged: (mode) {
+                AppHaptics.selection();
+                _setCalendarViewMode(mode);
+              },
+              trailing: occupiesPackageMonthSlot
+                  ? null
+                  : _buildFilterButton(context, compact: compact),
+              trailingGap: compact ? 4 : 8,
             );
           },
       selectableYearPredicate: (year) =>
@@ -80,7 +140,12 @@ class JourneyListCalendar extends StatelessWidget {
               return null;
             }
             return Container(
-              decoration: decoration,
+              decoration: isSelected == true
+                  ? BoxDecoration(
+                      color: context.appColors.primaryGreen,
+                      shape: BoxShape.circle,
+                    )
+                  : null,
               child: Center(
                 child: Stack(
                   alignment: AlignmentDirectional.center,
@@ -90,13 +155,13 @@ class JourneyListCalendar extends StatelessWidget {
                       style: textStyle,
                     ),
                     Padding(
-                      padding: const EdgeInsets.only(top: 27.5),
+                      padding: EdgeInsets.only(top: compact ? 20 : 27.5),
                       child: Container(
-                        height: 4,
-                        width: 4,
+                        height: compact ? 3 : 4,
+                        width: compact ? 3 : 4,
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(5),
-                          color: const Color(0xFFB6E13D),
+                          color: context.appColors.journeyYellow,
                         ),
                       ),
                     ),
@@ -105,23 +170,67 @@ class JourneyListCalendar extends StatelessWidget {
               ),
             );
           },
-      dynamicCalendarRows: false,
-      disabledDayTextStyle: const TextStyle(
-        color: Colors.grey,
+      dynamicCalendarRows: true,
+      disabledDayTextStyle:
+          (compact ? AppTypography.caption : AppTypography.body).copyWith(
+            color: context.appColors.mutedInkColor.withValues(alpha: 0.5),
+          ),
+      disabledMonthTextStyle: AppTypography.body.copyWith(
+        color: context.appColors.mutedInkColor.withValues(alpha: 0.5),
         fontWeight: FontWeight.w400,
       ),
-      disabledMonthTextStyle: const TextStyle(
-        color: Colors.grey,
+      disabledYearTextStyle: AppTypography.body.copyWith(
+        color: context.appColors.mutedInkColor.withValues(alpha: 0.5),
         fontWeight: FontWeight.w400,
       ),
-      disabledYearTextStyle: const TextStyle(
-        color: Colors.grey,
-        fontWeight: FontWeight.w400,
-      ),
+      monthBuilder:
+          ({
+            required month,
+            textStyle,
+            decoration,
+            isSelected,
+            isDisabled,
+            isCurrentMonth,
+          }) {
+            final selectedDate = controller.selectedDate;
+            return AppCalendarGridOption(
+              label: DateFormat.MMM(Localizations.localeOf(context).toString())
+                  .format(DateTime(selectedDate.year, month)),
+              isSelected: month == selectedDate.month,
+              isOriginal:
+                  selectedDate.year == _initialSelectedDate.year &&
+                  month == _initialSelectedDate.month,
+              isCurrent: isCurrentMonth == true,
+              isDisabled: isDisabled == true,
+              textStyle: textStyle,
+            );
+          },
+      yearBuilder:
+          ({
+            required year,
+            textStyle,
+            decoration,
+            isSelected,
+            isDisabled,
+            isCurrentYear,
+          }) {
+            return AppCalendarGridOption(
+              label: MaterialLocalizations.of(context)
+                  .formatYear(DateTime(year)),
+              isSelected: year == controller.selectedDate.year,
+              isOriginal: year == _initialSelectedDate.year,
+              isCurrent: isCurrentYear == true,
+              isDisabled: isDisabled == true,
+              textStyle: textStyle,
+            );
+          },
       disableVibration: true,
     );
 
     return CalendarDatePicker2(
+      // Page indices are relative to firstDate. Recreate the picker when that
+      // origin changes so the visible grid still matches the selected month.
+      key: ValueKey((widget.firstDate, _calendarPickerRevision)),
       config: config,
       displayedMonthDate: controller.selectedDate.toLocalDateTime(),
       value: controller.hasJourneyOnSelectedDate
@@ -134,35 +243,19 @@ class JourneyListCalendar extends StatelessWidget {
         );
       },
       onDisplayedMonthChanged: (value) {
+        // CalendarDatePicker2 already returned its internal view to day mode.
+        // Avoid an early rebuild here: the controller updates the externally
+        // displayed month asynchronously.
+        _calendarViewMode = CalendarDatePicker2Mode.day;
         AppHaptics.selection();
         _runWithLoading(() => controller.displayMonth(value.toSimpleDate()));
       },
     );
   }
 
-  Widget _buildHeaderSelector(String label) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 15,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const Icon(Icons.arrow_drop_down, color: Colors.white),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFilterButton(BuildContext context) {
+  Widget _buildFilterButton(BuildContext context, {required bool compact}) {
+    final controller = widget.controller;
     final label = _filterLabel(context);
-    final tooltip = '${context.tr('journey.list.filter_layers')}: $label';
     return CustomPopup(
       position: PopupPosition.bottom,
       horizontalOffset: -8,
@@ -180,35 +273,42 @@ class JourneyListCalendar extends StatelessWidget {
         ),
       ),
       child: PointerInterceptor(
-        child: Tooltip(
-          message: tooltip,
-          child: Semantics(
-            label: tooltip,
-            button: true,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    label,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const Icon(Icons.arrow_drop_down, color: Colors.white),
-                ],
-              ),
-            ),
+        child: Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: compact ? 2 : 4,
+            vertical: compact ? 6 : 8,
           ),
+          child: compact
+              ? Tooltip(
+                  message: label,
+                  child: Icon(
+                    Icons.layers_outlined,
+                    color: context.appColors.deepGreen,
+                    size: 20,
+                  ),
+                )
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      label,
+                      style: AppTypography.cardTitle.copyWith(
+                        color: context.appColors.deepGreen,
+                      ),
+                    ),
+                    Icon(
+                      Icons.arrow_drop_down,
+                      color: context.appColors.deepGreen,
+                    ),
+                  ],
+                ),
         ),
       ),
     );
   }
 
   String _filterLabel(BuildContext context) {
+    final controller = widget.controller;
     if (controller.selectedJourneyKinds.length == 2) {
       return context.tr('journey.list.filter_all_layers');
     }

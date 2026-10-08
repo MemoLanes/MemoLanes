@@ -8,6 +8,9 @@ use memolanes_core::{
     geo::{GeoIndex, GeoLookup},
     journey_bitmap::{BlockKey, TileKey},
 };
+use tempdir::TempDir;
+
+pub mod test_utils;
 
 fn entity(id: u32, kind: GeoEntityKind, iso: &str, parent: Option<u32>) -> GeoEntity {
     GeoEntity {
@@ -21,7 +24,7 @@ fn entity(id: u32, kind: GeoEntityKind, iso: &str, parent: Option<u32>) -> GeoEn
     }
 }
 
-fn synthetic_geo() -> GeoIndex {
+fn synthetic_geo() -> (TempDir, GeoIndex) {
     synthetic_geo_with_singles_at(&[])
 }
 
@@ -30,7 +33,7 @@ fn synthetic_geo() -> GeoIndex {
 /// (`bx*128 + by`, the BlockKey convention) so block coords pass straight
 /// through `GeoLookup` with no transpose. `extra_singles` puts `Single(FR)` at
 /// further raw tile-grid indices.
-fn synthetic_geo_with_singles_at(extra_singles: &[usize]) -> GeoIndex {
+fn synthetic_geo_with_singles_at(extra_singles: &[usize]) -> (TempDir, GeoIndex) {
     let entities = [
         entity(1, GeoEntityKind::Continent, "EU", None),
         entity(2, GeoEntityKind::Admin0, "FR", Some(1)),
@@ -58,46 +61,57 @@ fn synthetic_geo_with_singles_at(extra_singles: &[usize]) -> GeoIndex {
         [0u8; 32],
     )
     .unwrap();
-    GeoIndex::from_bytes(&bytes).unwrap()
+    let dir = TempDir::new("geo_lookup").unwrap();
+    let geo = test_utils::geo_index_from_bytes(&dir, &bytes);
+    (dir, geo)
 }
 
 #[test]
 fn entity_of_block_resolves_single_border_and_none() {
-    let geo = synthetic_geo();
+    let (_dir, geo) = synthetic_geo();
 
     // Single tile: every block resolves to the tile's one owner.
     let single = TileKey::new(0, 0);
     assert_eq!(
-        geo.entity_of_block(single, BlockKey::from_x_y(0, 0)),
+        geo.entity_of_block(single, BlockKey::from_x_y(0, 0))
+            .unwrap(),
         Some(GeoEntityId(2))
     );
     assert_eq!(
-        geo.entity_of_block(single, BlockKey::from_x_y(99, 7)),
+        geo.entity_of_block(single, BlockKey::from_x_y(99, 7))
+            .unwrap(),
         Some(GeoEntityId(2))
     );
 
     // Border tile: per-block owners, x-major; unfilled cells are ocean.
     let border = TileKey::new(1, 0);
     assert_eq!(
-        geo.entity_of_block(border, BlockKey::from_x_y(2, 3)),
+        geo.entity_of_block(border, BlockKey::from_x_y(2, 3))
+            .unwrap(),
         Some(GeoEntityId(3))
     );
     assert_eq!(
-        geo.entity_of_block(border, BlockKey::from_x_y(5, 5)),
+        geo.entity_of_block(border, BlockKey::from_x_y(5, 5))
+            .unwrap(),
         Some(GeoEntityId(2))
     );
-    assert_eq!(geo.entity_of_block(border, BlockKey::from_x_y(0, 0)), None);
+    assert_eq!(
+        geo.entity_of_block(border, BlockKey::from_x_y(0, 0))
+            .unwrap(),
+        None
+    );
 
     // None tile: nothing.
     assert_eq!(
-        geo.entity_of_block(TileKey::new(2, 0), BlockKey::from_x_y(1, 1)),
+        geo.entity_of_block(TileKey::new(2, 0), BlockKey::from_x_y(1, 1))
+            .unwrap(),
         None
     );
 }
 
 #[test]
 fn tile_membership_does_not_decode() {
-    let geo = synthetic_geo();
+    let (_dir, geo) = synthetic_geo();
     assert_eq!(
         geo.tile_membership(TileKey::new(0, 0)),
         TileMembership::Single(GeoEntityId(2))
@@ -129,11 +143,11 @@ const OUT_OF_GRID_ALIASING: [(u16, u16); 2] = [
 
 #[test]
 fn out_of_grid_tile_key_does_not_index_past_the_tile_grid() {
-    let geo = synthetic_geo();
+    let (_dir, geo) = synthetic_geo();
     for (x, y) in OUT_OF_GRID_PAST_END {
         let key = TileKey::new(x, y);
         assert_eq!(
-            geo.entity_of_block(key, BlockKey::from_x_y(0, 0)),
+            geo.entity_of_block(key, BlockKey::from_x_y(0, 0)).unwrap(),
             None,
             "tile ({x},{y})"
         );
@@ -153,12 +167,12 @@ fn out_of_grid_tile_key_is_not_aliased_onto_an_in_grid_tile() {
         .iter()
         .map(|(x, y)| *x as usize * TILE_GRID_WIDTH + *y as usize)
         .collect();
-    let geo = synthetic_geo_with_singles_at(&aliased);
+    let (_dir, geo) = synthetic_geo_with_singles_at(&aliased);
 
     for (x, y) in OUT_OF_GRID_ALIASING {
         let key = TileKey::new(x, y);
         assert_eq!(
-            geo.entity_of_block(key, BlockKey::from_x_y(0, 0)),
+            geo.entity_of_block(key, BlockKey::from_x_y(0, 0)).unwrap(),
             None,
             "tile ({x},{y})"
         );
@@ -174,11 +188,11 @@ fn out_of_grid_tile_key_is_not_aliased_onto_an_in_grid_tile() {
 fn out_of_grid_tile_x_resolves_to_none() {
     // `of_tile_bytes_without_validation` takes tile keys verbatim from a FoW
     // import file, so x can be out of the grid too — no projection involved.
-    let geo = synthetic_geo();
+    let (_dir, geo) = synthetic_geo();
     for (x, y) in [(TILE_GRID_WIDTH as u16, 0), (u16::MAX, u16::MAX)] {
         let key = TileKey::new(x, y);
         assert_eq!(
-            geo.entity_of_block(key, BlockKey::from_x_y(0, 0)),
+            geo.entity_of_block(key, BlockKey::from_x_y(0, 0)).unwrap(),
             None,
             "tile ({x},{y})"
         );
@@ -192,10 +206,12 @@ fn out_of_grid_tile_x_resolves_to_none() {
 
 #[test]
 fn entity_metadata_kinds_and_ancestors() {
-    let geo = synthetic_geo();
+    let (_dir, geo) = synthetic_geo();
 
-    assert_eq!(geo.entity(GeoEntityId(2)).unwrap().canonical_code, "FR");
-    assert!(geo.entity(GeoEntityId(404)).is_none());
+    let fr = geo.node(GeoEntityId(2)).unwrap();
+    assert_eq!(fr.kind, GeoEntityKind::Admin0);
+    assert_eq!(fr.parent_id, Some(GeoEntityId(1)));
+    assert!(geo.node(GeoEntityId(404)).is_none());
 
     let mut countries = geo.entities_of_kind(GeoEntityKind::Admin0).to_vec();
     countries.sort();
@@ -223,7 +239,8 @@ fn asset_declares_its_worldview_id() {
         [0u8; 32],
     )
     .unwrap();
-    let geo = GeoIndex::from_bytes(&bytes).unwrap();
+    let dir = TempDir::new("geo_lookup").unwrap();
+    let geo = test_utils::geo_index_from_bytes(&dir, &bytes);
     assert_eq!(geo.worldview_id(), "chn");
 }
 
@@ -259,14 +276,15 @@ fn interleaved_tile_lookups_do_not_leak_across_tiles() {
         [0u8; 32],
     )
     .unwrap();
-    let geo = GeoIndex::from_bytes(&bytes).unwrap();
+    let dir = TempDir::new("geo_lookup").unwrap();
+    let geo = test_utils::geo_index_from_bytes(&dir, &bytes);
 
     let border_tile_a = TileKey::new(1, 0);
     let border_tile_b = TileKey::new(2, 0);
     let block = BlockKey::from_x_y(3, 5);
 
-    let from_a = geo.entity_of_block(border_tile_a, block);
-    let from_b = geo.entity_of_block(border_tile_b, block);
+    let from_a = geo.entity_of_block(border_tile_a, block).unwrap();
+    let from_b = geo.entity_of_block(border_tile_b, block).unwrap();
     assert_ne!(
         from_a, from_b,
         "fixture must distinguish the two tiles for this test to mean anything"
@@ -275,8 +293,22 @@ fn interleaved_tile_lookups_do_not_leak_across_tiles() {
     // Alternate repeatedly: a one-entry memo is evicted on every switch, so a
     // stale hit would show up immediately.
     for _ in 0..8 {
-        assert_eq!(geo.entity_of_block(border_tile_a, block), from_a);
-        assert_eq!(geo.entity_of_block(border_tile_b, block), from_b);
-        assert_eq!(geo.entity_of_block(border_tile_a, block), from_a);
+        assert_eq!(geo.entity_of_block(border_tile_a, block).unwrap(), from_a);
+        assert_eq!(geo.entity_of_block(border_tile_b, block).unwrap(), from_b);
+        assert_eq!(geo.entity_of_block(border_tile_a, block).unwrap(), from_a);
     }
+}
+
+#[test]
+fn describe_returns_only_the_requested_entities() {
+    let (_dir, geo) = synthetic_geo();
+
+    let described = geo.describe(&[GeoEntityId(2), GeoEntityId(404)]).unwrap();
+    assert_eq!(described.len(), 1);
+    let fr = &described[&GeoEntityId(2)];
+    assert_eq!(fr.canonical_code, "FR");
+    assert_eq!(fr.name_key, "k.FR");
+    assert_eq!(fr.parent_id, Some(GeoEntityId(1)));
+
+    assert!(geo.describe(&[]).unwrap().is_empty());
 }

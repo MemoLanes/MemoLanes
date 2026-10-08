@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:memolanes/theme/app_colors.dart';
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/common/component/app_button.dart';
@@ -9,7 +11,6 @@ import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/common/region_preference.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/constants/app_typography.dart';
-import 'package:memolanes/constants/style_constants.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 const int _latestPrivacyAgreementVersion = 1;
@@ -42,9 +43,8 @@ Future<void> _showPrivacyAndRegionSheet(
   final accepted = await showSetupCard<_FirstLaunchAccepted>(
     context,
     barrierDismissible: false,
-    child: FirstLaunchSetupSheet(
-      initialPrivacyAccepted: privacyAlreadyAccepted,
-    ),
+    builder: (_) =>
+        FirstLaunchSetupSheet(initialPrivacyAccepted: privacyAlreadyAccepted),
   );
 
   if (accepted == null) {
@@ -130,23 +130,24 @@ class _FirstLaunchSetupSheetState extends State<FirstLaunchSetupSheet> {
     Navigator.of(context).pop(_FirstLaunchAccepted(_selectedWorldview));
   }
 
-  void _onDisagree() {
+  void _onExit() {
     Navigator.of(context).pop();
   }
 
   @override
   Widget build(BuildContext context) {
-    return SetupBottomSheet(
+    return SetupDialogCard(
       title: context.tr("privacy.setup_title"),
       maxHeightFactor: 0.75,
       actions: [
         AppButton(
-          label: context.tr("privacy.disagree_and_exit"),
-          onPressed: _onDisagree,
+          label: context.tr("privacy.exit"),
+          onPressed: _onExit,
           variant: AppButtonVariant.secondary,
         ),
         AppButton(
           label: context.tr("common.continue"),
+          labelMaxLines: 2,
           onPressed: _privacyAccepted ? _onContinue : null,
         ),
       ],
@@ -158,7 +159,7 @@ class _FirstLaunchSetupSheetState extends State<FirstLaunchSetupSheet> {
             child: Text(
               context.tr("privacy.setup_desc"),
               style: AppTypography.supporting.copyWith(
-                color: StyleConstants.mutedInkColor,
+                color: context.appColors.mutedInkColor,
               ),
             ),
           ),
@@ -170,7 +171,7 @@ class _FirstLaunchSetupSheetState extends State<FirstLaunchSetupSheet> {
             minHeight: _setupTileMinHeight,
             trailing: Icon(
               Icons.keyboard_arrow_right,
-              color: StyleConstants.mutedInkColor,
+              color: context.appColors.mutedInkColor,
             ),
           ),
           const SizedBox(height: 2),
@@ -200,7 +201,7 @@ class _SectionTitle extends StatelessWidget {
       child: Text(
         text,
         style: AppTypography.cardTitle.copyWith(
-          color: StyleConstants.deepGreen,
+          color: context.appColors.deepGreen,
         ),
       ),
     );
@@ -232,14 +233,14 @@ class _PrivacyAgreementTile extends StatelessWidget {
             padding: EdgeInsets.zero,
             minimumSize: Size.zero,
             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            foregroundColor: StyleConstants.deepGreen,
+            foregroundColor: context.appColors.deepGreen,
           ),
           child: Text(
             context.tr("privacy.view_policy"),
             style: AppTypography.supporting.copyWith(
               fontWeight: FontWeight.w600,
               decoration: TextDecoration.underline,
-              decorationColor: StyleConstants.deepGreen,
+              decorationColor: context.appColors.deepGreen,
             ),
           ),
         ),

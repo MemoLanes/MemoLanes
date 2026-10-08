@@ -100,7 +100,7 @@ fn adm1_code_is_unique() {
 /// territories it demotes (Hong Kong, Macau) and its synthesized Taiwan entity.
 #[test]
 fn shipped_bins_carry_the_expected_province_counts() {
-    use geo_data_format::{read_geo_data, GeoEntityKind};
+    use geo_data_format::{GeoData, GeoEntityKind};
 
     for (worldview, expected) in [
         (Worldview::Iso, 3475usize),
@@ -115,9 +115,10 @@ fn shipped_bins_carry_the_expected_province_counts() {
             "{} is absent — run `just rasterize-geo`",
             path.display()
         );
-        let data = read_geo_data(&std::fs::read(&path).unwrap()).unwrap();
+        let data = GeoData::open(&path).unwrap();
         let provinces = data
-            .entities
+            .entities()
+            .unwrap()
             .iter()
             .filter(|e| matches!(e.kind, GeoEntityKind::Admin1))
             .count();
@@ -125,13 +126,15 @@ fn shipped_bins_carry_the_expected_province_counts() {
 
         // Every province must be parented to a country that exists in this bin.
         let countries: std::collections::BTreeSet<_> = data
-            .entities
+            .entities()
+            .unwrap()
             .iter()
             .filter(|e| matches!(e.kind, GeoEntityKind::Admin0))
             .map(|e| e.id)
             .collect();
         for province in data
-            .entities
+            .entities()
+            .unwrap()
             .iter()
             .filter(|e| matches!(e.kind, GeoEntityKind::Admin1))
         {
@@ -190,7 +193,7 @@ fn every_curated_table_entry_names_a_code_that_ships() {
 
 /// Every province `canonical_code` in the worldview's shipped bin.
 fn shipped_provinces(worldview: Worldview) -> Vec<String> {
-    use geo_data_format::{read_geo_data, GeoEntityKind};
+    use geo_data_format::{GeoData, GeoEntityKind};
     let path = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../app/assets/geo")
         .join(format!("geo_data_{}.bin", worldview.spec().id));
@@ -199,9 +202,10 @@ fn shipped_provinces(worldview: Worldview) -> Vec<String> {
         "{} is absent — run `just rasterize-geo`",
         path.display()
     );
-    read_geo_data(&std::fs::read(&path).unwrap())
+    GeoData::open(&path)
         .unwrap()
-        .entities
+        .entities()
+        .unwrap()
         .into_iter()
         .filter(|e| matches!(e.kind, GeoEntityKind::Admin1))
         .map(|e| e.canonical_code)
@@ -334,7 +338,7 @@ fn the_province_tier_is_never_partial_for_a_country() {
 /// `adm1_code → the ADM0_A3 that province ships under`, or `None` when the bin
 /// carries no such province.
 fn shipped_parent(worldview: Worldview, code: &str) -> Option<String> {
-    use geo_data_format::{read_geo_data, GeoEntityKind};
+    use geo_data_format::{GeoData, GeoEntityKind};
 
     let path = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../app/assets/geo")
@@ -344,13 +348,12 @@ fn shipped_parent(worldview: Worldview, code: &str) -> Option<String> {
         "{} is absent — run `just rasterize-geo`",
         path.display()
     );
-    let data = read_geo_data(&std::fs::read(&path).unwrap()).unwrap();
-    let province = data
-        .entities
+    let entities = GeoData::open(&path).unwrap().entities().unwrap();
+    let province = entities
         .iter()
         .find(|e| matches!(e.kind, GeoEntityKind::Admin1) && e.canonical_code == code)?;
     Some(
-        data.entities
+        entities
             .iter()
             .find(|e| Some(e.id) == province.parent_id)
             .expect("a shipped province's parent must be in the same bin")

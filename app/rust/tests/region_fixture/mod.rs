@@ -7,6 +7,7 @@
 // Each test binary that includes this module uses a subset of it.
 #![allow(dead_code)]
 
+use memolanes_core::main_db::NewJourney;
 use std::collections::BTreeMap;
 use std::fs;
 
@@ -159,15 +160,16 @@ pub fn insert_one(
     let bm = one_block(tile, BlockKey::from_x_y(1, 1), bits);
     storage
         .with_db_txn(|txn| {
-            txn.create_and_insert_journey(
-                NaiveDate::from_ymd_opt(2025, 1, day).unwrap(),
-                None,
-                None,
-                None,
-                kind,
-                None,
-                JourneyData::Bitmap(bm),
-            )
+            txn.create_and_insert_journey(NewJourney {
+                journey_date: NaiveDate::from_ymd_opt(2025, 1, day).unwrap(),
+                start: None,
+                end: None,
+                created_at: None,
+                journey_kind: kind,
+                note: None,
+                journey_data: JourneyData::Bitmap(bm),
+                raw_data: None,
+            })
         })
         .unwrap()
 }
@@ -188,7 +190,7 @@ pub fn new_storage(temp_dir: &TempDir, geo_bytes: &[u8]) -> Storage {
     )
     .unwrap();
     storage
-        .init_or_change_geo_data(Worldview::Iso, geo_bytes)
+        .init_or_change_geo_data(Worldview::Iso, [0u8; 32], geo_bytes)
         .unwrap();
     storage
 }

@@ -1,5 +1,7 @@
 import type { Map } from "maplibre-gl";
 import type { JourneyTileProvider } from "../journey-tile-provider";
+import type { RGBAColor } from "../fog-style";
+export type { RGBAColor } from "../fog-style";
 
 /**
  * Default layer ID used by all journey layers.
@@ -8,16 +10,16 @@ import type { JourneyTileProvider } from "../journey-tile-provider";
 export const JOURNEY_LAYER_ID = "memolanes-journey-layer";
 
 /**
- * RGBA color tuple: [red, green, blue, alpha]
- * Values are in range [0, 1]
- */
-export type RGBAColor = [number, number, number, number];
-
-/**
  * Common interface for all journey rendering layers.
  * Both Canvas-based and WebGL-based layers should implement this interface.
  */
 export interface JourneyLayer {
+  /**
+   * Whether the current content can be safely revealed after a map render.
+   * Each renderer owns its readiness criteria; this need not wait for all data.
+   */
+  isReadyForDisplay(): boolean;
+
   /**
    * Initialize the layer and add it to the map.
    * This method should be called after the layer is constructed.
@@ -28,9 +30,6 @@ export interface JourneyLayer {
    * Remove the layer from the map and clean up resources.
    */
   remove(): void;
-
-  /** Update the rendering quality policy without recreating the layer. */
-  setLowPowerMode?(enabled: boolean): void;
 }
 
 /**

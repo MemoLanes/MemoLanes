@@ -17,11 +17,12 @@
     "benchmark:install": "playwright install chromium",
     "format": "prettier --write \"**/*.{js,jsx,ts,tsx,html}\"",
     "check-format": "prettier --check \"**/*.{js,jsx,ts,tsx,html}\"",
-    "check-types": "tsc --noEmit"
+    "check-types": "tsc --noEmit",
+    "test": "node --test --experimental-strip-types 'static/**/*.test.mjs'"
   },
   "dependencies": {
     "@types/ua-parser-js": "^0.7.39",
-    "maplibre-gl": "^6.6.0",
+    "maplibre-gl": "^6.11.2",
     "maplibregl-mapbox-request-transformer": "^0.0.3",
     "mathjs": "^15.0.0",
     "ua-parser-js": "^2.0.7",

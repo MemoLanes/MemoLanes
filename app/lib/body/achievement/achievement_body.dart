@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:memolanes/theme/app_colors.dart';
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/body/achievement/cards/achievement_coming_soon_card.dart';
@@ -11,11 +13,19 @@ import 'package:memolanes/common/component/cards/option_card.dart';
 import 'package:memolanes/common/component/safe_area_wrapper.dart';
 import 'package:memolanes/common/component/scroll_views/single_child_scroll_view.dart';
 import 'package:memolanes/common/gps_manager.dart';
+import 'package:memolanes/constants/app_typography.dart';
 import 'package:memolanes/constants/style_constants.dart';
 import 'package:provider/provider.dart';
 
 class AchievementBody extends StatefulWidget {
-  const AchievementBody({super.key});
+  const AchievementBody({
+    super.key,
+    required this.topSafeArea,
+    required this.bottomSafeArea,
+  });
+
+  final double topSafeArea;
+  final double bottomSafeArea;
 
   @override
   State<AchievementBody> createState() => _AchievementBodyState();
@@ -64,13 +74,13 @@ class _AchievementBodyState extends State<AchievementBody> {
         context.watch<GpsManager>().recordingStatus != GpsRecordingStatus.none;
 
     return MlSingleChildScrollView(
-      padding: const EdgeInsets.only(
-        top: 16,
-        bottom: StyleConstants.navBarSafeArea + 16,
+      padding: EdgeInsets.only(
+        top: widget.topSafeArea + 16,
+        bottom: widget.bottomSafeArea + 16,
       ),
       children: [
         const _AchievementPageTitle(),
-        const SizedBox(height: 20),
+        const SizedBox(height: StyleConstants.pageTitleCardSpacing),
         if (hasOngoingJourney) ...[
           const _OngoingJourneyBanner(),
           const SizedBox(height: 14),
@@ -129,9 +139,8 @@ class _AchievementStatsErrorCard extends StatelessWidget {
               const SizedBox(height: 12),
               Text(
                 context.tr('achievement.source.error'),
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.58),
-                  fontSize: 14,
+                style: AppTypography.body.copyWith(
+                  color: context.appColors.mutedInkColor,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -205,9 +214,9 @@ class _TotalAreaSkeleton extends StatelessWidget {
           ? const EdgeInsets.fromLTRB(12, 12, 12, 14)
           : const EdgeInsets.fromLTRB(16, 14, 16, 16),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.035),
+        color: context.appColors.canvasColor,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        border: Border.all(color: context.appColors.lineColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -240,9 +249,9 @@ class _SourceMetricSkeleton extends StatelessWidget {
           ? const EdgeInsets.fromLTRB(10, 12, 10, 12)
           : const EdgeInsets.fromLTRB(16, 16, 16, 14),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.035),
+        color: context.appColors.canvasColor,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        border: Border.all(color: context.appColors.lineColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -292,7 +301,7 @@ class _SkeletonBlock extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.075),
+        color: context.appColors.lineColor,
         borderRadius: BorderRadius.circular(radius),
       ),
       child: SizedBox(width: width, height: height),
@@ -310,14 +319,11 @@ class _AchievementPageTitle extends StatelessWidget {
         width: double.infinity,
         child: Text(
           context.tr('achievement.title'),
-          maxLines: 1,
+          maxLines: 2,
           overflow: TextOverflow.ellipsis,
           textAlign: TextAlign.left,
-          style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.92),
-            fontSize: 28,
-            fontWeight: FontWeight.w700,
-            height: 1,
+          style: AppTypography.pageTitle.copyWith(
+            color: context.appColors.inkColor,
           ),
         ),
       ),
@@ -330,20 +336,26 @@ class _OngoingJourneyBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const accent = Color(0xFFFFC857);
-
     return SafeAreaWrapper(
       child: Container(
         padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
         decoration: BoxDecoration(
-          color: accent.withValues(alpha: 0.07),
+          color: context.appColors.warningSurfaceColor,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: accent.withValues(alpha: 0.14)),
+          border: Border.all(
+            color: context.appColors.achievementGoldColor.withValues(
+              alpha: 0.14,
+            ),
+          ),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(Icons.info_outline_rounded, color: accent, size: 19),
+            Icon(
+              Icons.info_outline_rounded,
+              color: context.appColors.achievementGoldColor,
+              size: 19,
+            ),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
@@ -351,21 +363,16 @@ class _OngoingJourneyBanner extends StatelessWidget {
                 children: [
                   Text(
                     context.tr('achievement.ongoing.title'),
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
-                      height: 1.2,
+                    style: AppTypography.itemTitle.copyWith(
+                      color: context.appColors.inkColor,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     context.tr('achievement.ongoing.description'),
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.58),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      height: 1.3,
+                    style: AppTypography.caption.copyWith(
+                      color: context.appColors.mutedInkColor,
                     ),
                   ),
                 ],

@@ -1,4 +1,5 @@
 use crate::geo::GeoLookup;
+use anyhow::Result;
 use geo_data_format::{GeoEntityId, GeoEntityKind};
 use std::collections::HashMap;
 
@@ -72,7 +73,7 @@ pub fn level_scope(
         Some(parent) => ids
             .iter()
             .copied()
-            .filter(|&id| geo.entity(id).map(|e| e.parent_id) == Some(Some(parent)))
+            .filter(|&id| geo.node(id).map(|n| n.parent_id) == Some(Some(parent)))
             .collect(),
     }
 }
@@ -83,21 +84,27 @@ pub fn detail_scope(geo: &dyn GeoLookup, entity_id: GeoEntityId) -> Vec<GeoEntit
     ids
 }
 
-fn region_entity(
+fn region_entities(
     geo: &dyn GeoLookup,
-    id: GeoEntityId,
+    ids: &[GeoEntityId],
     areas: &HashMap<GeoEntityId, u64>,
-) -> Option<RegionEntity> {
-    let entity = geo.entity(id)?;
-    Some(RegionEntity {
-        kind: entity.kind.into(),
-        name_key: RegionNameKey {
-            value: entity.name_key.clone(),
-        },
-        iso_a3_eh: entity.iso_a3_eh.clone(),
-        visited_area_m2: areas.get(&id).copied().unwrap_or(0),
-        total_area_m2: entity.total_area_m2,
-    })
+) -> Result<HashMap<GeoEntityId, RegionEntity>> {
+    Ok(geo
+        .describe(ids)?
+        .into_iter()
+        .map(|(id, entity)| {
+            let region = RegionEntity {
+                kind: entity.kind.into(),
+                name_key: RegionNameKey {
+                    value: entity.name_key,
+                },
+                iso_a3_eh: entity.iso_a3_eh,
+                visited_area_m2: areas.get(&id).copied().unwrap_or(0),
+                total_area_m2: entity.total_area_m2,
+            };
+            (id, region)
+        })
+        .collect())
 }
 
 pub fn region_levels(geo: &dyn GeoLookup) -> HashMap<RegionKind, LevelSummary> {
@@ -120,41 +127,29 @@ pub fn level_view(
     level: RegionKind,
     ids: &[GeoEntityId],
     areas: &HashMap<GeoEntityId, u64>,
-) -> RegionLevelView {
-    let mut entries = HashMap::new();
-    let mut visited_count = 0u32;
-    for &id in ids {
-        let Some(entity) = region_entity(geo, id, areas) else {
-            continue;
-        };
-        if areas.contains_key(&id) {
-            visited_count += 1;
-        }
-        entries.insert(id, entity);
-    }
-    let region_count = entries.len() as u32;
-    RegionLevelView {
+) -> Result<RegionLevelView> {
+    let entries = region_entities(geo, ids, areas)?;
+    let visited_count = entries.keys().filter(|id| areas.contains_key(id)).count() as u32;
+    Ok(RegionLevelView {
         level,
         visited_count,
-        region_count,
+        region_count: entries.len() as u32,
         entries,
-    }
+    })
 }
 
 pub fn detail_view(
     geo: &dyn GeoLookup,
     entity_id: GeoEntityId,
     areas: &HashMap<GeoEntityId, u64>,
-) -> Option<RegionDetail> {
-    let node = region_entity(geo, entity_id, areas)?;
-    let children = geo
-        .children(entity_id)
-        .iter()
-        .filter_map(|&child| region_entity(geo, child, areas).map(|e| (child, e)))
-        .collect();
-    Some(RegionDetail {
+) -> Result<Option<RegionDetail>> {
+    let mut entities = region_entities(geo, &detail_scope(geo, entity_id), areas)?;
+    let Some(node) = entities.remove(&entity_id) else {
+        return Ok(None);
+    };
+    Ok(Some(RegionDetail {
         entity_id,
         node,
-        children,
-    })
+        children: entities,
+    }))
 }

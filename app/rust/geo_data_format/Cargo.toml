@@ -13,3 +13,4 @@ zstd = "0.13"
 
 [dev-dependencies]
 proptest = "1"
+tempfile = "3"

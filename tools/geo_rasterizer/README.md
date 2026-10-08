@@ -4,11 +4,14 @@ Offline build tool. Converts Natural Earth GeoJSON into the geo-reference data
 shipped in `app/assets/geo/`:
 
 - `geo_data_<worldview>.bin` — the packed entity/tile data (one per worldview).
+  Its header carries a provenance hash of the inputs; `app/rust/build.rs` reads
+  that hash and compiles it in, so the app can recognize a stale installed copy
+  without loading the asset.
 - `region_names.<locale>.json` — the localized region-name maps (one per
   locale), resolved from Unicode CLDR (see "Region names" below).
 
 Run via the `app/` Justfile (`just rasterize-geo`); it is not part of the app at
-runtime. Both outputs are git-ignored and reproducible from the pinned source.
+runtime. All outputs are git-ignored and reproducible from the pinned source.
 
 Three things in this crate are **hand-curated state**, committed as source of
 truth: `geo_entity_registry/` (frozen ids), `geo_policy.toml` (editorial

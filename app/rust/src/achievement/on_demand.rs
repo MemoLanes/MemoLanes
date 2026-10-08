@@ -29,7 +29,7 @@ pub fn region_areas_from_snapshot(
     ids: &[GeoEntityId],
 ) -> Result<HashMap<GeoEntityId, u64>> {
     let bitmap = snapshot.finalized_bitmap(&layer.to_layer_kind(), None)?;
-    let by_entity = attribution::attribute(&bitmap, geo);
+    let by_entity = attribution::attribute(&bitmap, geo)?;
     Ok(ids
         .iter()
         .filter_map(|id| by_entity.get(id).map(|&cm2| (*id, cm2_to_m2_rounded(cm2))))

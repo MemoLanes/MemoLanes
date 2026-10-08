@@ -13,7 +13,6 @@ use geo_data_format::{
 use memolanes_core::{
     achievement::layer::AchievementLayer,
     cache_db::{CacheDb, CacheDbV1},
-    geo::GeoIndex,
     journey_bitmap::{Block, BlockKey, JourneyBitmap, TileKey},
     journey_header::JourneyKind,
     main_db::MainDb,
@@ -125,8 +124,8 @@ fn setup(prefix: &str) -> (MainDb, CacheDbV1, TempDir, TempDir) {
 
 #[test]
 fn achievement_reader_serves_areas_and_regions() {
-    let (mut main_db, mut cache_db, _main_dir, _cache_dir) = setup("cache_db_v1-reader");
-    let geo = GeoIndex::from_bytes(&synthetic_geo_bytes()).unwrap();
+    let (mut main_db, mut cache_db, _main_dir, cache_dir) = setup("cache_db_v1-reader");
+    let geo = test_utils::geo_index_from_bytes(&cache_dir, &synthetic_geo_bytes());
 
     main_db
         .with_txn(|txn| {

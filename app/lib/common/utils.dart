@@ -6,7 +6,6 @@ import 'package:memolanes/common/component/app_button.dart';
 import 'package:memolanes/common/component/import_loading_page.dart';
 import 'package:memolanes/body/settings/mldx_import_page.dart';
 import 'package:memolanes/common/loading_manager.dart';
-import 'package:memolanes/constants/style_constants.dart';
 import 'package:memolanes/src/rust/api/import.dart';
 import 'package:memolanes/common/log.dart';
 
@@ -31,9 +30,6 @@ Future<bool> showCommonDialog(
   String? confirmButtonText,
   String? cancelButtonText,
   AppButtonVariant confirmVariant = AppButtonVariant.primary,
-  // Temporary compatibility for pages migrated in later UI v2 PRs.
-  Color? confirmGroundColor,
-  Color? confirmTextColor,
   bool markdown = false,
 }) async {
   final resolvedConfirmButtonText =
@@ -41,36 +37,25 @@ Future<bool> showCommonDialog(
   final resolvedCancelButtonText =
       cancelButtonText ?? context.tr("common.cancel");
   final dialogTitle = title ?? context.tr("common.info");
-  final effectiveConfirmVariant =
-      confirmGroundColor == null ||
-          confirmGroundColor == StyleConstants.defaultColor
-      ? confirmVariant
-      : AppButtonVariant.danger;
-  final List<DialogButton> allButtons = [
-    if (hasCancel)
-      DialogButton(
-        text: resolvedCancelButtonText,
-        variant: AppButtonVariant.secondary,
-        onPressed: () {
-          Navigator.of(context).pop(false);
-        },
-      ),
-    DialogButton(
-      text: resolvedConfirmButtonText,
-      variant: effectiveConfirmVariant,
-      onPressed: () {
-        Navigator.of(context).pop(true);
-      },
-    ),
-  ];
-
   final result = await showAppDialog<bool>(
     context,
     barrierDismissible: false,
-    child: CommonDialog(
+    builder: (dialogContext) => CommonDialog(
       title: dialogTitle,
       content: message,
-      buttons: allButtons,
+      buttons: [
+        if (hasCancel)
+          DialogButton(
+            text: resolvedCancelButtonText,
+            variant: AppButtonVariant.secondary,
+            onPressed: () => popCurrentRoute(dialogContext, false),
+          ),
+        DialogButton(
+          text: resolvedConfirmButtonText,
+          variant: confirmVariant,
+          onPressed: () => popCurrentRoute(dialogContext, true),
+        ),
+      ],
       markdown: markdown,
     ),
   );
@@ -84,8 +69,23 @@ Future<T> showLoadingDialog<T>({required Future<T> asyncTask}) async {
   return result;
 }
 
+/// Keeps an import active when its entry route is replaced by a final page.
+class ImportFlow {
+  Future<dynamic>? _continuation;
+
+  void continueWith(Future<dynamic> continuation) {
+    _continuation = continuation;
+  }
+
+  Future<void> waitFor(Future<dynamic> entry) async {
+    await entry;
+    await _continuation;
+  }
+}
+
 Future<void> importMldx(BuildContext context, String path) async {
-  await Navigator.of(context).push<void>(
+  final flow = ImportFlow();
+  final entryClosed = Navigator.of(context).push<void>(
     MaterialPageRoute(
       builder: (context) => ImportLoadingPage(
         filePath: path,
@@ -115,12 +115,15 @@ Future<void> importMldx(BuildContext context, String path) async {
               popCurrentRoute(loadingContext);
             }
           } else if (loadingContext.mounted) {
-            await Navigator.of(loadingContext).pushReplacement<bool, void>(
-              MaterialPageRoute(
-                builder: (context) =>
-                    MldxImportPage(journeys: preview, mldxReader: mldxFile),
-              ),
-            );
+            final previewClosed = Navigator.of(loadingContext)
+                .pushReplacement<bool, void>(
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        MldxImportPage(journeys: preview, mldxReader: mldxFile),
+                  ),
+                );
+            flow.continueWith(previewClosed);
+            await previewClosed;
           }
         },
         onError: (loadingContext, error, stackTrace) async {
@@ -136,4 +139,5 @@ Future<void> importMldx(BuildContext context, String path) async {
       ),
     ),
   );
+  await flow.waitFor(entryClosed);
 }

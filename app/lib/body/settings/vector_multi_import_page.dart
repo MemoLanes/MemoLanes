@@ -1,8 +1,11 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/body/journey/journey_info_fields.dart';
-import 'package:memolanes/body/journey/journey_info_page.dart';
+import 'package:memolanes/body/journey/journey_import_preview_page.dart';
+import 'package:memolanes/common/component/cards/option_card.dart';
 import 'package:memolanes/common/component/multi_journey_import_page.dart';
+import 'package:memolanes/common/component/tiles/label_tile.dart';
+import 'package:memolanes/common/journey_kind_visuals.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/simple_date_utils.dart';
 import 'package:memolanes/common/utils.dart';
@@ -83,7 +86,7 @@ class _VectorMultiImportPageState extends State<VectorMultiImportPage> {
       if (!mounted) return;
       await Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (context) => JourneyInfoPage(
+          builder: (context) => JourneyImportPreviewPage(
             journeyHeader: JourneyHeader(
               id: key,
               revision: '',
@@ -94,6 +97,7 @@ class _VectorMultiImportPageState extends State<VectorMultiImportPage> {
               journeyType: JourneyType.vector,
               journeyKind: _journeyKind,
               note: _noteController.text,
+              hasRawData: false,
             ),
             previewJourneyData: journeyData,
           ),
@@ -200,14 +204,18 @@ class _VectorMultiImportPageState extends State<VectorMultiImportPage> {
       onConfirm: _confirmImport,
       confirmEnabled: !_isImporting,
       collapsibleHeader: MultiJourneyCollapsibleHeader.standard(
-        expandedContent: Column(
+        expandedContent: OptionCard(
+          useSafeArea: false,
+          separators: false,
           children: [
             ImportPreprocessorTile(
               value: _preprocessor,
+              position: LabelTilePosition.top,
               onSelected: (value) => setState(() => _preprocessor = value),
             ),
             JourneyKindTile(
               value: _journeyKind,
+              position: LabelTilePosition.middle,
               onSelected: (value) => setState(() => _journeyKind = value),
             ),
             JourneyNoteTile(
@@ -215,6 +223,8 @@ class _VectorMultiImportPageState extends State<VectorMultiImportPage> {
               maxHeight: 100,
               maxLines: 2,
               widthFactor: 0.55,
+              position: LabelTilePosition.bottom,
+              bottom: false,
             ),
           ],
         ),

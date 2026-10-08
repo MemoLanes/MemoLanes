@@ -1,14 +1,17 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/common/component/capsule_style_app_bar.dart';
-import 'package:memolanes/common/component/basic_bottom_sheet.dart';
-import 'package:memolanes/common/component/cards/card_label_tile.dart';
-import 'package:memolanes/common/component/cards/option_card.dart';
-import 'package:memolanes/common/component/scroll_views/single_child_scroll_view.dart';
+import 'package:memolanes/common/component/basic_dialog_card.dart';
+import 'package:memolanes/common/component/app_option_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
+import 'package:memolanes/common/map_fog_style.dart';
 import 'package:memolanes/common/map_style.dart';
 import 'package:memolanes/common/mmkv_util.dart';
+import 'package:memolanes/common/region_preference.dart';
+import 'package:memolanes/common/utils.dart';
+import 'package:memolanes/body/settings/settings_section.dart';
+import 'package:memolanes/theme/app_colors.dart';
 
 class MapSettingsPage extends StatefulWidget {
   const MapSettingsPage({super.key});
@@ -19,16 +22,25 @@ class MapSettingsPage extends StatefulWidget {
 
 class _MapSettingsPageState extends State<MapSettingsPage> {
   late MapStyle _current;
+  late MapFogStyle _currentFogStyle;
+  late Worldview _worldview;
 
   @override
   void initState() {
     super.initState();
     final id = MMKVUtil.getStringOpt(MMKVKey.mapStyle);
     _current = MapStyle.findById(id);
+    final fogModeId = MMKVUtil.getStringOpt(MMKVKey.mapFogMode);
+    _currentFogStyle = MapFogStyle.findById(fogModeId);
+    _worldview = WorldviewManager.instance.currentWorldview;
   }
 
   String _labelFor(MapStyle style) {
     return context.tr("general.map_settings.style_name.${style.id}");
+  }
+
+  String _fogStyleLabelFor(MapFogStyle style) {
+    return context.tr("general.map_settings.fog_mode_name.${style.id}");
   }
 
   void _updateStyle(MapStyle style) {
@@ -37,25 +49,74 @@ class _MapSettingsPageState extends State<MapSettingsPage> {
     MMKVUtil.putString(MMKVKey.mapStyle, style.id);
   }
 
+  void _updateFogStyle(MapFogStyle style) {
+    if (_currentFogStyle.id == style.id) return;
+    setState(() => _currentFogStyle = style);
+    MMKVUtil.putString(MMKVKey.mapFogMode, style.id);
+  }
+
   void _showMapStylePicker() {
     showBasicCard(
       context,
-      child: OptionCard(
+      title: context.tr("general.map_settings.style"),
+      builder: (dialogContext) => Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          for (int i = 0; i < MapStyle.all.length; i++) ...[
-            CardLabelTile(
-              label: _labelFor(MapStyle.all[i]),
-              position: i == 0
-                  ? CardLabelTilePosition.top
-                  : i == MapStyle.all.length - 1
-                  ? CardLabelTilePosition.bottom
-                  : CardLabelTilePosition.middle,
-              onTap: () => _updateStyle(MapStyle.all[i]),
+          for (final mapStyle in MapStyle.all) ...[
+            AppOptionTile(
+              icon: Icons.map_outlined,
+              title: _labelFor(mapStyle),
+              selected: _current.id == mapStyle.id,
+              trailing: AppOptionTileTrailing.selection,
+              onTap: () {
+                Navigator.of(dialogContext).pop();
+                _updateStyle(mapStyle);
+              },
             ),
+            if (mapStyle != MapStyle.all.last) const SizedBox(height: 8),
           ],
         ],
       ),
     );
+  }
+
+  void _showFogStylePicker() {
+    showBasicCard(
+      context,
+      title: context.tr("general.map_settings.fog_mode"),
+      builder: (dialogContext) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final fogStyle in MapFogStyle.all) ...[
+            AppOptionTile(
+              icon: fogStyle == MapFogStyle.dark
+                  ? Icons.dark_mode_outlined
+                  : Icons.light_mode_outlined,
+              title: _fogStyleLabelFor(fogStyle),
+              selected: _currentFogStyle == fogStyle,
+              trailing: AppOptionTileTrailing.selection,
+              onTap: () {
+                Navigator.of(dialogContext).pop();
+                _updateFogStyle(fogStyle);
+              },
+            ),
+            if (fogStyle != MapFogStyle.all.last) const SizedBox(height: 8),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Future<void> _selectWorldview() async {
+    final result = await showWorldviewPicker(
+      context,
+      selectedWorldview: _worldview,
+    );
+    if (result == null || result == _worldview || !mounted) return;
+    await showLoadingDialog(
+      asyncTask: WorldviewManager.instance.update(result),
+    );
+    if (mounted) setState(() => _worldview = result);
   }
 
   @override
@@ -64,17 +125,48 @@ class _MapSettingsPageState extends State<MapSettingsPage> {
       appBar: CapsuleStyleAppBar(
         title: context.tr("general.map_settings.title"),
       ),
-      body: MlSingleChildScrollView(
-        padding: const EdgeInsets.all(8.0),
+      body: SettingsPageLayout(
         children: [
-          LabelTile(
-            label: context.tr("general.map_settings.style"),
-            position: LabelTilePosition.single,
-            trailing: LabelTileContent(
-              content: _labelFor(_current),
-              showArrow: true,
-            ),
-            onTap: _showMapStylePicker,
+          SettingsSection(
+            titleColor: context.appColors.deepGreen,
+            title: context.tr('settings.groups.map_display'),
+            children: [
+              SettingsTile(
+                label: context.tr("general.map_settings.style"),
+                position: LabelTilePosition.top,
+                trailing: LabelTileContent(
+                  content: _labelFor(_current),
+                  showArrow: true,
+                ),
+                onTap: _showMapStylePicker,
+              ),
+              SettingsTile(
+                label: context.tr("general.map_settings.fog_mode"),
+                position: LabelTilePosition.bottom,
+                bottom: false,
+                trailing: LabelTileContent(
+                  content: _fogStyleLabelFor(_currentFogStyle),
+                  showArrow: true,
+                ),
+                onTap: _showFogStylePicker,
+              ),
+            ],
+          ),
+          SettingsSection(
+            titleColor: context.appColors.deepGreen,
+            title: context.tr('settings.groups.region'),
+            children: [
+              SettingsTile(
+                label: context.tr("privacy.region_title"),
+                position: LabelTilePosition.single,
+                bottom: false,
+                trailing: LabelTileContent(
+                  content: regionPreferenceTitle(context, _worldview),
+                  showArrow: true,
+                ),
+                onTap: _selectWorldview,
+              ),
+            ],
           ),
         ],
       ),

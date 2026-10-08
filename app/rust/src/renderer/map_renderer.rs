@@ -1,11 +1,11 @@
 use flutter_rust_bridge::frb;
-use journey_kernel::encode_tile_range_response_from_tiles;
-use journey_kernel::TilePixelData;
+use journey_kernel::TileRangeEncoder;
 use journey_kernel::FTA_COMPRESSION_ZSTD;
 
+use super::render_tile_cache::{CachedRenderTile, RenderTileCache, RenderTileCacheKey};
+use super::tile_rasterizer;
 use crate::journey_area_utils;
 use crate::journey_bitmap::{JourneyBitmap, TileKey};
-use crate::renderer::tile_shader2::TileShader2;
 use crate::utils;
 use crate::utils::MapBounds;
 use std::collections::HashMap;
@@ -13,8 +13,9 @@ use std::collections::HashMap;
 #[frb(ignore)]
 pub struct MapRenderer {
     journey_bitmap: JourneyBitmap,
-    /* for each tile of 512*512 tiles in a JourneyBitmap, use buffered area to record any update */
+    // Cached area per source tile, invalidated when that tile changes.
     tile_area_cache: HashMap<TileKey, i64>,
+    render_tile_cache: RenderTileCache,
     version: u64,
     current_area: Option<u64>,
 }
@@ -24,43 +25,42 @@ impl MapRenderer {
         Self {
             journey_bitmap,
             tile_area_cache: HashMap::new(),
+            render_tile_cache: RenderTileCache::default(),
             version: 0,
             current_area: None,
         }
     }
 
-    pub fn update<F>(&mut self, mut f: F)
+    pub fn update<F>(&mut self, f: F)
     where
-        F: FnMut(&mut JourneyBitmap, &mut dyn FnMut(TileKey)),
+        F: FnOnce(&mut JourneyBitmap, &mut dyn FnMut(TileKey)),
     {
-        // Collect changed tile positions first
         let mut changed_tiles = Vec::new();
-        let mut tile_changed = |tile_pos: TileKey| {
-            changed_tiles.push(tile_pos);
-        };
-
-        // Apply the update function
-        f(&mut self.journey_bitmap, &mut tile_changed);
-
-        if !changed_tiles.is_empty() {
-            changed_tiles.sort_unstable();
-            changed_tiles.dedup();
-            for tile_pos in changed_tiles {
-                self.tile_area_cache.remove(&tile_pos);
-            }
-
-            // TODO: we should improve the cache invalidation rule
-            self.reset();
+        f(&mut self.journey_bitmap, &mut |tile| {
+            changed_tiles.push(tile)
+        });
+        if changed_tiles.is_empty() {
+            return;
         }
+
+        changed_tiles.sort_unstable();
+        changed_tiles.dedup();
+        for tile in &changed_tiles {
+            self.tile_area_cache.remove(tile);
+        }
+        self.render_tile_cache
+            .invalidate_changed_sources(&changed_tiles);
+        self.mark_changed();
     }
 
     pub fn replace(&mut self, journey_bitmap: JourneyBitmap) {
         self.journey_bitmap = journey_bitmap;
         self.tile_area_cache.clear();
-        self.reset();
+        self.render_tile_cache.clear();
+        self.mark_changed();
     }
 
-    fn reset(&mut self) {
+    fn mark_changed(&mut self) {
         self.version = self.version.wrapping_add(1);
         self.current_area = None;
     }
@@ -79,15 +79,8 @@ impl MapRenderer {
         u64::from_str_radix(cleaned, 16).ok()
     }
 
-    // TODO: deprecate this method and merge it with `get_tile_buffer`.
-    pub fn get_latest_bitmap_if_changed(
-        &self,
-        client_version: Option<&str>,
-    ) -> Option<(&JourneyBitmap, String)> {
-        match client_version {
-            Some(v_str) if (Self::parse_version_string(v_str) == Some(self.version)) => None,
-            _ => Some((&self.journey_bitmap, self.get_version_string())),
-        }
+    pub fn matches_version(&self, client_version: Option<&str>) -> bool {
+        client_version.and_then(Self::parse_version_string) == Some(self.version)
     }
 
     pub fn peek_latest_bitmap(&self) -> &JourneyBitmap {
@@ -120,27 +113,57 @@ impl MapRenderer {
         height: i64,
         buffer_size_power: i16,
     ) -> Result<Vec<u8>, String> {
-        tile_range_response_from_journey_bitmap(
-            &mut self.journey_bitmap,
-            x,
-            y,
-            z,
-            width,
-            height,
-            buffer_size_power,
-        )
+        validate_tile_range_request(y, z, width, height, buffer_size_power)?;
+
+        let zoom_coefficient = 1i64 << z;
+        let mut encoder = TileRangeEncoder::new(
+            z as u8,
+            x as i32,
+            y as i32,
+            width as u32,
+            height as u32,
+            buffer_size_power as u8,
+            FTA_COMPRESSION_ZSTD,
+        )?;
+
+        for tile_y in y..(y + height) {
+            for tile_x in x..(x + width) {
+                let tile_x_rounded = tile_x.rem_euclid(zoom_coefficient);
+                let cache_key = RenderTileCacheKey {
+                    x: tile_x_rounded,
+                    y: tile_y,
+                    z,
+                    buffer_size_power,
+                };
+
+                if let Some(tile) = self.render_tile_cache.get(&cache_key) {
+                    encoder.push(tile.as_bitmap())?;
+                } else {
+                    let bitmap = tile_rasterizer::render_tile_bitmap(
+                        &mut self.journey_bitmap,
+                        tile_x_rounded,
+                        tile_y,
+                        z,
+                        buffer_size_power,
+                    );
+                    let tile = CachedRenderTile::from_bitmap(bitmap);
+                    encoder.push(tile.as_bitmap())?;
+                    self.render_tile_cache.insert(cache_key, tile);
+                }
+            }
+        }
+
+        encoder.finish()
     }
 }
 
-fn tile_range_response_from_journey_bitmap(
-    journey_bitmap: &mut JourneyBitmap,
-    x: i64,
+fn validate_tile_range_request(
     y: i64,
     z: i16,
     width: i64,
     height: i64,
     buffer_size_power: i16,
-) -> Result<Vec<u8>, String> {
+) -> Result<(), String> {
     // Validate parameters to prevent overflow and invalid operations
     if width <= 0 || height <= 0 {
         return Err(format!(
@@ -176,41 +199,5 @@ fn tile_range_response_from_journey_bitmap(
         ));
     }
 
-    let mut tiles = Vec::new();
-
-    // For each tile in the range
-    for tile_y in y..(y + height) {
-        for tile_x in x..(x + width) {
-            // Round off tile_x to ensure it's within mercator coordinate range (0 to 2^z-1)
-            let tile_x_rounded =
-                ((tile_x % zoom_coefficient) + zoom_coefficient) % zoom_coefficient;
-
-            let bitmap = TileShader2::render_tile_bitmap(
-                journey_bitmap,
-                tile_x_rounded,
-                tile_y,
-                z,
-                buffer_size_power,
-            );
-
-            let tile_pixel_data = TilePixelData {
-                x: tile_x as i32,
-                y: tile_y as i32,
-                bitmap,
-            };
-
-            tiles.push(tile_pixel_data);
-        }
-    }
-
-    encode_tile_range_response_from_tiles(
-        z as u8,
-        x as i32,
-        y as i32,
-        width as u32,
-        height as u32,
-        buffer_size_power as u8,
-        FTA_COMPRESSION_ZSTD,
-        tiles,
-    )
+    Ok(())
 }

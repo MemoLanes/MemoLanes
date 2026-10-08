@@ -11,7 +11,6 @@
  * Map-centric logic has been moved to MapController for better separation of concerns.
  */
 
-import { DebugPanel } from "./debug-panel";
 import init from "../pkg/journey_kernel.js";
 import { parseUrlHash, createReactiveParams, ReactiveParams } from "./params";
 import { FlutterBridge, notifyFlutterReady } from "./flutter-bridge";
@@ -19,10 +18,9 @@ import { FlutterBridgeEditor } from "./flutter-bridge-editor";
 import { ensurePlatformCompatibility } from "./platform";
 import { displayPageMessage } from "./utils";
 import { MapController } from "./map-controller";
+import { GPUInitializationError } from "maplibre-gl";
 
 import "./debug-panel.css";
-
-import VConsole from "vconsole";
 
 // ============================================================================
 // Window Interface Extensions
@@ -102,17 +100,32 @@ async function trySetup(): Promise<void> {
 
   // Create and initialize MapController
   // MapController handles: map instance, tile provider, layers, style management
-  const mapController = new MapController({
-    containerId: "map",
-    params,
-    DisableAutoRefresh: isEditor,
-  });
+  let mapController: MapController;
+  try {
+    mapController = new MapController({
+      containerId: "map",
+      params,
+      DisableAutoRefresh: isEditor,
+    });
+  } catch (error) {
+    if (!(error instanceof GPUInitializationError)) throw error;
+
+    console.error("Map GPU initialization failed", error);
+    displayPageMessage("Map Initialization Error", error.message);
+    // Release Flutter's loading cover so the error is visible in the WebView.
+    notifyFlutterReady();
+    return;
+  }
 
   await mapController.initialize();
   console.log("MapController initialized");
 
   // Initialize debug tooling (only when debug mode is enabled)
   if (params.debug) {
+    const [{ DebugPanel }, { default: VConsole }] = await Promise.all([
+      import("./debug-panel"),
+      import("vconsole"),
+    ]);
     const vConsole = new VConsole();
     vConsole.setOption("log.maxLogNumber", 5000);
     vConsole.setSwitchPosition(20, 500);
@@ -135,10 +148,10 @@ async function trySetup(): Promise<void> {
 
   _setupDone = true;
 
-  // Notify Flutter that the map is ready (with small delay for rendering)
-  setTimeout(() => {
-    notifyFlutterReady();
-  }, 200);
+  // Initialization can finish before the renderer has displayable content.
+  // Keep Flutter's cover until that content reaches a completed map frame.
+  await mapController.waitForDisplay();
+  notifyFlutterReady();
 }
 
 // Export trySetup to window for Flutter to call

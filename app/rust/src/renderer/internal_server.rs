@@ -4,60 +4,6 @@ use super::MapRenderer;
 
 use rand::Rng;
 
-struct TileRangeQuery {
-    x: i64,
-    y: i64,
-    z: i16,
-    width: i64,
-    height: i64,
-    buffer_size_power: i16,
-    cached_version: Option<String>,
-}
-
-struct TileRangeResponse {
-    status: u16,
-    headers: HashMap<String, String>,
-    body: Vec<u8>,
-}
-
-fn handle_tile_range_query(
-    query: &TileRangeQuery,
-    map_renderer: &mut MapRenderer,
-) -> Result<TileRangeResponse, String> {
-    let (_, version) =
-        match map_renderer.get_latest_bitmap_if_changed(query.cached_version.as_deref()) {
-            None => {
-                return Ok(TileRangeResponse {
-                    status: 304,
-                    headers: HashMap::new(),
-                    body: Vec::new(),
-                });
-            }
-            Some((journey_bitmap, version)) => (journey_bitmap, version),
-        };
-
-    let tile_range_response = match map_renderer.get_tile_range_response(
-        query.x,
-        query.y,
-        query.z,
-        query.width,
-        query.height,
-        query.buffer_size_power,
-    ) {
-        Ok(buffer) => buffer,
-        Err(e) => return Err(format!("Failed to generate tile buffer: {e}")),
-    };
-    Ok(TileRangeResponse {
-        status: 200,
-        headers: {
-            let mut h = HashMap::new();
-            h.insert("version".to_string(), version);
-            h
-        },
-        body: tile_range_response,
-    })
-}
-
 fn generate_random_data(size: u64) -> Result<Vec<u8>, String> {
     let max_size = 10_485_760; // 10MB limit
 
@@ -113,47 +59,36 @@ fn dispatch_tile_range(
     params: &HashMap<String, String>,
     map_renderer: &mut MapRenderer,
 ) -> WebviewResponse {
-    let query = TileRangeQuery {
-        x: parse_or(params, "x", 0),
-        y: parse_or(params, "y", 0),
-        z: parse_or(params, "z", 0),
-        width: parse_or(params, "width", 1),
-        height: parse_or(params, "height", 1),
-        buffer_size_power: parse_or(params, "buffer_size_power", 8),
-        cached_version: params.get("cached_version").cloned(),
-    };
+    if map_renderer.matches_version(params.get("cached_version").map(String::as_str)) {
+        return WebviewResponse {
+            status: 200,
+            content_type: "application/octet-stream".to_string(),
+            body: Vec::new(),
+            headers: HashMap::from([("X-Not-Modified".to_string(), "true".to_string())]),
+        };
+    }
 
-    match handle_tile_range_query(&query, map_renderer) {
-        Ok(resp) => match resp.status {
-            304 => WebviewResponse {
-                status: 200,
-                content_type: "application/octet-stream".to_string(),
-                body: Vec::new(),
-                headers: HashMap::from([("X-Not-Modified".to_string(), "true".to_string())]),
-            },
-            200 => {
-                let mut headers = HashMap::new();
-                if let Some(version) = resp.headers.get("version") {
-                    headers.insert("X-Tile-Version".to_string(), version.clone());
-                }
-                WebviewResponse {
-                    status: 200,
-                    content_type: "application/octet-stream".to_string(),
-                    body: resp.body,
-                    headers,
-                }
-            }
-            _ => WebviewResponse {
-                status: 500,
-                content_type: "text/plain".to_string(),
-                body: format!("Unexpected status: {}", resp.status).into_bytes(),
-                headers: HashMap::new(),
-            },
+    match map_renderer.get_tile_range_response(
+        parse_or(params, "x", 0),
+        parse_or(params, "y", 0),
+        parse_or(params, "z", 0),
+        parse_or(params, "width", 1),
+        parse_or(params, "height", 1),
+        parse_or(params, "buffer_size_power", 8),
+    ) {
+        Ok(body) => WebviewResponse {
+            status: 200,
+            content_type: "application/octet-stream".to_string(),
+            body,
+            headers: HashMap::from([(
+                "X-Tile-Version".to_string(),
+                map_renderer.get_version_string(),
+            )]),
         },
         Err(e) => WebviewResponse {
             status: 500,
             content_type: "text/plain".to_string(),
-            body: e.into_bytes(),
+            body: format!("Failed to generate tile buffer: {e}").into_bytes(),
             headers: HashMap::new(),
         },
     }
@@ -229,6 +164,44 @@ mod tests {
         assert_eq!(
             resp.headers.get("X-Not-Modified"),
             Some(&"true".to_string())
+        );
+    }
+
+    #[test]
+    fn tile_range_version_negotiation_preserves_quoted_and_stale_versions() {
+        let mut renderer = MapRenderer::new(JourneyBitmap::new());
+        let mut params = HashMap::from([
+            ("z".to_string(), "9".to_string()),
+            ("buffer_size_power".to_string(), "6".to_string()),
+            ("cached_version".to_string(), "\"0\"".to_string()),
+        ]);
+        let unchanged = dispatch_request("tile_range", &params, &mut renderer);
+        assert_eq!(unchanged.status, 200);
+        assert!(unchanged.body.is_empty());
+        assert_eq!(unchanged.headers.len(), 1);
+        assert_eq!(unchanged.headers["X-Not-Modified"], "true");
+
+        renderer.replace(JourneyBitmap::new());
+        for version in ["\"0\"", "invalid"] {
+            params.insert("cached_version".to_string(), version.to_string());
+            let changed = dispatch_request("tile_range", &params, &mut renderer);
+            assert_eq!(changed.status, 200);
+            assert!(!changed.body.is_empty());
+            assert_eq!(changed.headers.len(), 1);
+            assert_eq!(
+                changed.headers["X-Tile-Version"],
+                renderer.get_version_string()
+            );
+        }
+
+        params.insert("width".to_string(), "0".to_string());
+        let invalid = dispatch_request("tile_range", &params, &mut renderer);
+        assert_eq!(invalid.status, 500);
+        assert_eq!(invalid.content_type, "text/plain");
+        assert!(invalid.headers.is_empty());
+        assert_eq!(
+            String::from_utf8(invalid.body).unwrap(),
+            "Failed to generate tile buffer: Invalid dimensions: width=0, height=1"
         );
     }
 

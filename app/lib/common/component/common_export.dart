@@ -1,17 +1,18 @@
 import 'dart:io';
 
+import 'package:memolanes/theme/app_colors.dart';
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_file_saver/flutter_file_saver.dart';
 import 'package:memolanes/common/component/app_button.dart';
 import 'package:memolanes/common/component/app_dialog.dart';
 import 'package:memolanes/common/component/app_option_tile.dart';
-import 'package:memolanes/common/component/basic_bottom_sheet.dart';
+import 'package:memolanes/common/component/basic_dialog_card.dart';
 import 'package:memolanes/common/loading_manager.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/constants/app_typography.dart';
-import 'package:memolanes/constants/style_constants.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:path/path.dart' as p;
 import 'package:share_plus/share_plus.dart';
@@ -36,7 +37,10 @@ enum CommonExportFormat {
   mldx,
   fwss,
   kml,
-  gpx;
+  gpx,
+  rawDataCsv,
+  rawDataGpx,
+  rawDataKml;
 
   CommonExportOption get option {
     return switch (this) {
@@ -65,10 +69,51 @@ enum CommonExportFormat {
         title: tr('data.export_data.format_gpx'),
         description: tr('data.export_data.format_gpx_desc'),
       ),
+      CommonExportFormat.rawDataCsv => CommonExportOption(
+        extension: 'csv',
+        icon: Icons.table_chart_outlined,
+        title: tr('journey.export_raw_data_csv'),
+        description: tr('journey.export_raw_data_csv_desc'),
+        keepsCompleteData: true,
+      ),
+      CommonExportFormat.rawDataGpx => CommonExportOption(
+        extension: 'gpx',
+        icon: Icons.route_outlined,
+        title: tr('journey.export_raw_data_gpx'),
+        description: tr('journey.export_raw_data_gpx_desc'),
+      ),
+      CommonExportFormat.rawDataKml => CommonExportOption(
+        extension: 'kml',
+        icon: Icons.map_outlined,
+        title: tr('journey.export_raw_data_kml'),
+        description: tr('journey.export_raw_data_kml_desc'),
+      ),
     };
   }
 
   String get extension => option.extension;
+
+  bool get isRawData => switch (this) {
+    CommonExportFormat.rawDataCsv ||
+    CommonExportFormat.rawDataGpx ||
+    CommonExportFormat.rawDataKml => true,
+    CommonExportFormat.mldx ||
+    CommonExportFormat.fwss ||
+    CommonExportFormat.kml ||
+    CommonExportFormat.gpx => false,
+  };
+}
+
+class CommonExportFormatGroup {
+  const CommonExportFormatGroup({
+    required this.label,
+    required this.formats,
+    this.lossyFormatWarning,
+  }) : assert(formats.length > 0);
+
+  final String label;
+  final List<CommonExportFormat> formats;
+  final String? lossyFormatWarning;
 }
 
 class CommonExportResult {
@@ -78,42 +123,55 @@ class CommonExportResult {
   final String filePath;
 }
 
+class CommonExportSelection {
+  const CommonExportSelection({
+    required this.format,
+    this.includeRawData = false,
+  });
+
+  final CommonExportFormat format;
+  final bool includeRawData;
+}
+
 typedef CommonExportFileBuilder = Future<CommonExportResult> Function(
-  CommonExportFormat format,
+  CommonExportSelection selection,
 );
 
 Future<void> showCommonExportWithFormatPicker({
   required BuildContext context,
   required String title,
-  required List<CommonExportFormat> formats,
+  required List<CommonExportFormatGroup> formatGroups,
   required CommonExportFileBuilder exportFile,
   CommonExportFormat? defaultFormat,
+  bool canIncludeRawData = true,
   bool deleteFile = true,
 }) async {
-  assert(formats.isNotEmpty);
+  assert(formatGroups.isNotEmpty);
 
+  final allFormats = formatGroups.expand((group) => group.formats);
   final initialFormat = defaultFormat == null
-      ? formats.first
-      : formats.firstWhere(
+      ? allFormats.first
+      : allFormats.firstWhere(
           (format) => format == defaultFormat,
-          orElse: () => formats.first,
+          orElse: () => allFormats.first,
         );
-  final selectedFormat = await showAppDialog<CommonExportFormat>(
+  final selection = await showAppDialog<CommonExportSelection>(
     context,
     barrierDismissible: false,
-    child: _ExportFormatDialog(
+    builder: (_) => _ExportFormatDialog(
       title: title,
-      formats: formats,
+      formatGroups: formatGroups,
       initialFormat: initialFormat,
+      canIncludeRawData: canIncludeRawData,
     ),
   );
 
-  if (selectedFormat == null || !context.mounted) return;
+  if (selection == null || !context.mounted) return;
 
   final CommonExportResult exportResult;
   try {
     exportResult = await GlobalLoadingManager.instance.runWithLoading(
-      () => exportFile(selectedFormat),
+      () => exportFile(selection),
     );
   } catch (error, stack) {
     log.error('[export] Export failed: $error', stack);
@@ -167,7 +225,7 @@ Future<bool> showCommonExport(
     final action = await showBasicCard<_PreparedExportAction>(
       context,
       title: context.tr('common.export'),
-      child: const _ExportActionSheetContent(),
+      builder: (_) => const _ExportActionSheetContent(),
     );
 
     if (action == null || !context.mounted) return false;
@@ -228,24 +286,35 @@ Future<void> _deleteExportFile(String filePath) async {
 class _ExportFormatDialog extends StatefulWidget {
   const _ExportFormatDialog({
     required this.title,
-    required this.formats,
+    required this.formatGroups,
     required this.initialFormat,
+    required this.canIncludeRawData,
   });
 
   final String title;
-  final List<CommonExportFormat> formats;
+  final List<CommonExportFormatGroup> formatGroups;
   final CommonExportFormat initialFormat;
+  final bool canIncludeRawData;
 
   @override
   State<_ExportFormatDialog> createState() => _ExportFormatDialogState();
 }
 
 class _ExportFormatDialogState extends State<_ExportFormatDialog> {
+  late int _selectedGroupIndex;
   late CommonExportFormat _selectedFormat;
+  bool _includeRawData = true;
+
+  CommonExportFormatGroup get _selectedGroup =>
+      widget.formatGroups[_selectedGroupIndex];
 
   @override
   void initState() {
     super.initState();
+    _selectedGroupIndex = widget.formatGroups.indexWhere(
+      (group) => group.formats.contains(widget.initialFormat),
+    );
+    if (_selectedGroupIndex < 0) _selectedGroupIndex = 0;
     _selectedFormat = widget.initialFormat;
   }
 
@@ -255,8 +324,23 @@ class _ExportFormatDialogState extends State<_ExportFormatDialog> {
     });
   }
 
+  void _selectGroup(Set<int> selection) {
+    setState(() {
+      _selectedGroupIndex = selection.first;
+      _selectedFormat = _selectedGroup.formats.first;
+    });
+  }
+
   void _submit() {
-    Navigator.of(context).pop(_selectedFormat);
+    Navigator.of(context).pop(
+      CommonExportSelection(
+        format: _selectedFormat,
+        includeRawData:
+            widget.canIncludeRawData &&
+            _selectedFormat == CommonExportFormat.mldx &&
+            _includeRawData,
+      ),
+    );
   }
 
   Widget _buildFormatOption(CommonExportFormat format) {
@@ -284,7 +368,7 @@ class _ExportFormatDialogState extends State<_ExportFormatDialog> {
       margin: const EdgeInsets.only(top: 6.0),
       padding: const EdgeInsets.all(10.0),
       decoration: BoxDecoration(
-        color: StyleConstants.warningSurfaceColor.withValues(alpha: 0.72),
+        color: context.appColors.warningSurfaceColor.withValues(alpha: 0.72),
         borderRadius: BorderRadius.circular(10.0),
       ),
       child: Row(
@@ -292,15 +376,68 @@ class _ExportFormatDialogState extends State<_ExportFormatDialog> {
         children: [
           Icon(
             Icons.info_outline,
-            color: StyleConstants.warningInkColor,
+            color: context.appColors.warningInkColor,
             size: 18.0,
           ),
           const SizedBox(width: 8.0),
           Expanded(
             child: Text(
-              context.tr('data.export_data.lossy_format_warning'),
+              _selectedGroup.lossyFormatWarning ??
+                  context.tr('data.export_data.lossy_format_warning'),
               style: AppTypography.supporting,
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRawDataToggle() {
+    if (!widget.canIncludeRawData ||
+        _selectedFormat != CommonExportFormat.mldx) {
+      return const SizedBox.shrink();
+    }
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOut,
+      margin: const EdgeInsets.only(top: 6.0),
+      padding: const EdgeInsets.all(10.0),
+      decoration: BoxDecoration(
+        color: context.appColors.warningSurfaceColor.withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(10.0),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  context.tr('data.export_data.include_raw_data'),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.itemTitle.copyWith(
+                    color: context.appColors.inkColor,
+                  ),
+                ),
+                const SizedBox(height: 3.0),
+                Text(
+                  context.tr('data.export_data.include_raw_data_desc'),
+                  style: AppTypography.caption.copyWith(
+                    color: context.appColors.mutedInkColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8.0),
+          Switch(
+            value: _includeRawData,
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            onChanged: (value) => setState(() => _includeRawData = value),
           ),
         ],
       ),
@@ -332,20 +469,84 @@ class _ExportFormatDialogState extends State<_ExportFormatDialog> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              if (widget.formatGroups.length > 1) ...[
+                Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: Text(
+                    context.tr('data.export_data.content_section_title'),
+                    style: AppTypography.sectionLabel.copyWith(
+                      color: context.appColors.mutedInkColor,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 6.0),
+                SizedBox(
+                  width: double.infinity,
+                  child: SegmentedButton<int>(
+                    showSelectedIcon: false,
+                    expandedInsets: EdgeInsets.zero,
+                    segments: [
+                      for (var i = 0; i < widget.formatGroups.length; i++)
+                        ButtonSegment<int>(
+                          value: i,
+                          label: Text(widget.formatGroups[i].label),
+                        ),
+                    ],
+                    selected: {_selectedGroupIndex},
+                    onSelectionChanged: _selectGroup,
+                    style: ButtonStyle(
+                      backgroundColor: WidgetStateProperty.resolveWith((
+                        states,
+                      ) {
+                        if (states.contains(WidgetState.selected)) {
+                          return context.appColors.primaryGreen.withValues(
+                            alpha: 0.18,
+                          );
+                        }
+                        return context.appColors.surfaceColor.withValues(
+                          alpha: 0.76,
+                        );
+                      }),
+                      foregroundColor: WidgetStateProperty.resolveWith((
+                        states,
+                      ) {
+                        if (states.contains(WidgetState.selected)) {
+                          return context.appColors.primaryGreen;
+                        }
+                        return context.appColors.mutedInkColor;
+                      }),
+                      side: WidgetStatePropertyAll(
+                        BorderSide(color: context.appColors.lineColor),
+                      ),
+                      textStyle: const WidgetStatePropertyAll(
+                        AppTypography.itemTitle,
+                      ),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14.0),
+              ],
               Align(
                 alignment: AlignmentDirectional.centerStart,
                 child: Text(
                   context.tr('data.export_data.format_section_title'),
                   style: AppTypography.sectionLabel.copyWith(
-                    color: StyleConstants.mutedInkColor,
+                    color: context.appColors.mutedInkColor,
                   ),
                 ),
               ),
               const SizedBox(height: 6.0),
-              for (var i = 0; i < widget.formats.length; i++) ...[
-                _buildFormatOption(widget.formats[i]),
-                if (i < widget.formats.length - 1) const SizedBox(height: 8),
-              ],
+              Column(
+                children: [
+                  for (var i = 0; i < _selectedGroup.formats.length; i++) ...[
+                    _buildFormatOption(_selectedGroup.formats[i]),
+                    if (i < _selectedGroup.formats.length - 1)
+                      const SizedBox(height: 8),
+                  ],
+                ],
+              ),
+              _buildRawDataToggle(),
               _buildLossyWarning(),
             ],
           ),

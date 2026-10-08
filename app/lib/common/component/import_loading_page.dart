@@ -1,7 +1,9 @@
+import 'package:memolanes/theme/app_colors.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/common/component/capsule_style_app_bar.dart';
 import 'package:memolanes/common/loading_manager.dart';
+import 'package:memolanes/constants/app_typography.dart';
 
 class ImportLoadingPage<T> extends StatefulWidget {
   const ImportLoadingPage({
@@ -66,6 +68,7 @@ class ImportLoadingScaffold extends StatelessWidget {
     return PopScope(
       canPop: false,
       child: Scaffold(
+        backgroundColor: context.appColors.canvasColor,
         appBar: CapsuleStyleAppBar(title: context.tr('data.import_data.title')),
         body: SafeArea(
           top: false,
@@ -78,14 +81,17 @@ class ImportLoadingScaffold extends StatelessWidget {
                   children: [
                     Text(
                       context.tr('import.loading.title'),
-                      style: Theme.of(context).textTheme.titleLarge,
+                      style: AppTypography.surfaceTitle.copyWith(
+                        color: context.appColors.inkColor,
+                      ),
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 8),
                     Text(
                       context.tr('import.loading.description'),
-                      style: Theme.of(context).textTheme.bodyMedium
-                          ?.copyWith(color: const Color(0x99FFFFFF)),
+                      style: AppTypography.body.copyWith(
+                        color: context.appColors.mutedInkColor,
+                      ),
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 24),
@@ -93,8 +99,9 @@ class ImportLoadingScaffold extends StatelessWidget {
                       width: double.infinity,
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: const Color(0x0DFFFFFF),
+                        color: context.appColors.surfaceColor,
                         borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: context.appColors.lineColor),
                       ),
                       child: Row(
                         children: [
@@ -102,12 +109,12 @@ class ImportLoadingScaffold extends StatelessWidget {
                             width: 44,
                             height: 44,
                             decoration: BoxDecoration(
-                              color: const Color(0x1AB6E13D),
+                              color: context.appColors.softGreen,
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            child: const Icon(
+                            child: Icon(
                               Icons.description_outlined,
-                              color: Color(0xFFB6E13D),
+                              color: context.appColors.deepGreen,
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -119,15 +126,16 @@ class ImportLoadingScaffold extends StatelessWidget {
                                   fileName,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(context).textTheme.bodyMedium,
+                                  style: AppTypography.body.copyWith(
+                                    color: context.appColors.inkColor,
+                                  ),
                                 ),
                                 const SizedBox(height: 3),
                                 Text(
                                   fileExtension,
-                                  style: Theme.of(context).textTheme.bodySmall
-                                      ?.copyWith(
-                                        color: const Color(0x99FFFFFF),
-                                      ),
+                                  style: AppTypography.caption.copyWith(
+                                    color: context.appColors.mutedInkColor,
+                                  ),
                                 ),
                               ],
                             ),
@@ -140,15 +148,16 @@ class ImportLoadingScaffold extends StatelessWidget {
                       width: double.infinity,
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: const Color(0x0DFFFFFF),
+                        color: context.appColors.surfaceColor,
                         borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: context.appColors.lineColor),
                       ),
-                      child: const ClipRRect(
+                      child: ClipRRect(
                         borderRadius: BorderRadius.all(Radius.circular(2)),
                         child: LinearProgressIndicator(
                           minHeight: 3,
-                          backgroundColor: Color(0x1AFFFFFF),
-                          color: Color(0xFFB6E13D),
+                          backgroundColor: context.appColors.lineColor,
+                          color: context.appColors.primaryGreen,
                         ),
                       ),
                     ),
@@ -156,17 +165,18 @@ class ImportLoadingScaffold extends StatelessWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.info_outline,
                           size: 16,
-                          color: Color(0x66FFFFFF),
+                          color: context.appColors.mutedInkColor,
                         ),
                         const SizedBox(width: 6),
                         Flexible(
                           child: Text(
                             context.tr('import.loading.keep_open_hint'),
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(color: const Color(0x66FFFFFF)),
+                            style: AppTypography.caption.copyWith(
+                              color: context.appColors.mutedInkColor,
+                            ),
                             textAlign: TextAlign.center,
                           ),
                         ),

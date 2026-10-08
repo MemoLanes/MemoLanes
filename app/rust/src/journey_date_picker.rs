@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use chrono::{DateTime, Local, NaiveDate, TimeZone, Timelike, Utc};
 
-use crate::{gps_processor::Point, journey_vector::TrackPoint};
+use crate::{gps::Point, journey_vector::TrackPoint};
 
 /// Returns the idle gap required to end a journey at `now`.
 pub(crate) fn min_gap<Tz: TimeZone>(

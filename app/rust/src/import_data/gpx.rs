@@ -1,5 +1,5 @@
 use crate::api::import::ImportPreprocessor;
-use crate::gps_processor::{Point, RawData};
+use crate::gps::{Point, RawGPSPoint};
 use crate::gpx_file_utils::analyze_and_prepare_gpx;
 use anyhow::{Context, Result};
 use auto_context::auto_context;
@@ -8,7 +8,7 @@ use gpx::{read, Waypoint};
 use std::fs;
 
 #[auto_context]
-pub fn load_gpx(file_path: &str) -> Result<(Vec<Vec<RawData>>, ImportPreprocessor)> {
+pub fn load_gpx(file_path: &str) -> Result<(Vec<Vec<RawGPSPoint>>, ImportPreprocessor)> {
     // TODO: it is pretty inefficient to read the whole file into memory first.
     // Some of the GPX files can be very large. Probably we want streaming.
     let xml = fs::read_to_string(file_path)?;
@@ -18,7 +18,7 @@ pub fn load_gpx(file_path: &str) -> Result<(Vec<Vec<RawData>>, ImportPreprocesso
     Ok((raw_data, preprocessor))
 }
 
-pub fn load_gpx_raw_data(gpx_data: &gpx::Gpx) -> Result<Vec<Vec<RawData>>> {
+pub fn load_gpx_raw_data(gpx_data: &gpx::Gpx) -> Result<Vec<Vec<RawGPSPoint>>> {
     let convert_to_timestamp = |time: &Option<gpx::Time>| -> Result<Option<i64>> {
         match time {
             Some(t) => {
@@ -30,8 +30,8 @@ pub fn load_gpx_raw_data(gpx_data: &gpx::Gpx) -> Result<Vec<Vec<RawData>>> {
         }
     };
 
-    let waypoint_to_rawdata = |point: &Waypoint| -> Result<RawData> {
-        Ok(RawData {
+    let waypoint_to_rawdata = |point: &Waypoint| -> Result<RawGPSPoint> {
+        Ok(RawGPSPoint {
             point: Point {
                 latitude: point.point().y(),
                 longitude: point.point().x(),

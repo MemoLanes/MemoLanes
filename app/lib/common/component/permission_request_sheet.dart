@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io' show Platform;
 
+import 'package:memolanes/theme/app_colors.dart';
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/common/component/app_button.dart';
@@ -10,7 +12,6 @@ import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/service/permission_service.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/constants/app_typography.dart';
-import 'package:memolanes/constants/style_constants.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 /// Shows the unified permission request card (layout + copy only).
@@ -19,7 +20,10 @@ import 'package:permission_handler/permission_handler.dart';
 Future<void> showPermissionRequestSheet(BuildContext context) async {
   final permissions = PermissionService();
   unawaited(permissions.logPermissionState('sheet_open'));
-  await showSetupCard<void>(context, child: _PermissionRequestSheetContent());
+  await showSetupCard<void>(
+    context,
+    builder: (_) => _PermissionRequestSheetContent(),
+  );
   await permissions.logPermissionState('sheet_close');
 }
 
@@ -184,13 +188,13 @@ class _PermissionRequestSheetContentState
 
   @override
   Widget build(BuildContext context) {
-    return SetupBottomSheet(
+    return SetupDialogCard(
       title: context.tr("permission_sheet.title"),
       maxHeightFactor: 0.6,
       leading: IconButton(
         icon: Icon(
           Icons.arrow_back_ios,
-          color: StyleConstants.deepGreen,
+          color: context.appColors.deepGreen,
           size: 20,
         ),
         onPressed: _closeSheet,
@@ -202,11 +206,13 @@ class _PermissionRequestSheetContentState
       actions: [
         AppButton(
           label: context.tr("permission_sheet.skip"),
+          labelMaxLines: 2,
           onPressed: _onSkip,
           variant: AppButtonVariant.secondary,
         ),
         AppButton(
           label: context.tr("permission_sheet.enable_all"),
+          labelMaxLines: 2,
           onPressed: _onEnableAll,
         ),
       ],
@@ -219,9 +225,6 @@ class _PermissionRequestSheetContentState
             status: _location,
             onTap: _requestLocation,
             onRationaleTap: _showLocationRationaleDialog,
-            rationaleTooltip: context.tr(
-              "permission_sheet.location_help_tooltip",
-            ),
           ),
           if (Platform.isAndroid)
             _PermissionTile(
@@ -231,9 +234,6 @@ class _PermissionRequestSheetContentState
               status: _battery,
               onTap: _requestBattery,
               onRationaleTap: _showBatteryRationaleDialog,
-              rationaleTooltip: context.tr(
-                "permission_sheet.battery_help_tooltip",
-              ),
             ),
           _PermissionTile(
             icon: Icons.notifications_outlined,
@@ -242,9 +242,6 @@ class _PermissionRequestSheetContentState
             status: _notification,
             onTap: _requestNotification,
             onRationaleTap: _showNotificationRationaleDialog,
-            rationaleTooltip: context.tr(
-              "permission_sheet.notification_help_tooltip",
-            ),
           ),
         ],
       ),
@@ -259,7 +256,6 @@ class _PermissionTile extends StatelessWidget {
   final PermissionTileStatus status;
   final VoidCallback onTap;
   final VoidCallback? onRationaleTap;
-  final String? rationaleTooltip;
 
   const _PermissionTile({
     required this.icon,
@@ -268,7 +264,6 @@ class _PermissionTile extends StatelessWidget {
     required this.status,
     required this.onTap,
     this.onRationaleTap,
-    this.rationaleTooltip,
   });
 
   @override
@@ -280,10 +275,7 @@ class _PermissionTile extends StatelessWidget {
       onTap: onTap,
       titleTrailing: onRationaleTap == null
           ? null
-          : _PermissionInfoIcon(
-              onTap: onRationaleTap!,
-              tooltip: rationaleTooltip,
-            ),
+          : _PermissionInfoIcon(onTap: onRationaleTap!),
       extraContent: status.permanentlyDenied
           ? Padding(
               padding: const EdgeInsets.only(top: 6),
@@ -295,14 +287,14 @@ class _PermissionTile extends StatelessWidget {
                     padding: EdgeInsets.zero,
                     minimumSize: Size.zero,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    foregroundColor: StyleConstants.deepGreen,
+                    foregroundColor: context.appColors.deepGreen,
                   ),
                   child: Text(
                     context.tr('permission_sheet.open_system_settings'),
                     style: AppTypography.supporting.copyWith(
                       fontWeight: FontWeight.w600,
                       decoration: TextDecoration.underline,
-                      decorationColor: StyleConstants.deepGreen,
+                      decorationColor: context.appColors.deepGreen,
                     ),
                   ),
                 ),
@@ -338,7 +330,7 @@ class _PermissionStatusIndicator extends StatelessWidget {
         child: Center(
           child: Icon(
             Icons.check_circle,
-            color: StyleConstants.deepGreen,
+            color: context.appColors.deepGreen,
             size: 24,
           ),
         ),
@@ -346,7 +338,6 @@ class _PermissionStatusIndicator extends StatelessWidget {
     }
 
     if (isDenied) {
-      final color = StyleConstants.dangerColor;
       return SizedBox(
         width: 52,
         height: 40,
@@ -358,12 +349,18 @@ class _PermissionStatusIndicator extends StatelessWidget {
               width: 30,
               height: 30,
               decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.12),
+                color: context.appColors.dangerColor.withValues(alpha: 0.12),
                 shape: BoxShape.circle,
-                border: Border.all(color: color.withValues(alpha: 0.75)),
+                border: Border.all(
+                  color: context.appColors.dangerColor.withValues(alpha: 0.75),
+                ),
               ),
               alignment: Alignment.center,
-              child: Icon(Icons.close, color: color, size: 18),
+              child: Icon(
+                Icons.close,
+                color: context.appColors.dangerColor,
+                size: 18,
+              ),
             ),
           ),
         ),
@@ -382,17 +379,17 @@ class _PermissionStatusIndicator extends StatelessWidget {
             height: 30,
             padding: const EdgeInsets.symmetric(horizontal: 10),
             decoration: BoxDecoration(
-              color: StyleConstants.deepGreen.withValues(alpha: 0.12),
+              color: context.appColors.deepGreen.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(999),
               border: Border.all(
-                color: StyleConstants.deepGreen.withValues(alpha: 0.75),
+                color: context.appColors.deepGreen.withValues(alpha: 0.75),
               ),
             ),
             alignment: Alignment.center,
             child: Text(
               label,
               style: AppTypography.label.copyWith(
-                color: StyleConstants.deepGreen,
+                color: context.appColors.deepGreen,
               ),
             ),
           ),
@@ -403,25 +400,20 @@ class _PermissionStatusIndicator extends StatelessWidget {
 }
 
 class _PermissionInfoIcon extends StatelessWidget {
-  const _PermissionInfoIcon({required this.onTap, this.tooltip});
+  const _PermissionInfoIcon({required this.onTap});
 
   final VoidCallback onTap;
-  final String? tooltip;
 
   @override
   Widget build(BuildContext context) {
-    Widget icon = GestureDetector(
+    return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Icon(
         Icons.info_outline,
         size: 18.0,
-        color: StyleConstants.mutedInkColor,
+        color: context.appColors.mutedInkColor,
       ),
     );
-    if (tooltip != null && tooltip!.isNotEmpty) {
-      icon = Tooltip(message: tooltip!, child: icon);
-    }
-    return icon;
   }
 }

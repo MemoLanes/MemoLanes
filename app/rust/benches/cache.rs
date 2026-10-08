@@ -1,5 +1,6 @@
 use chrono::{Datelike, NaiveDate};
 use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
+use memolanes_core::main_db::NewJourney;
 use memolanes_core::{
     cache_db::LayerKind, import_data, journey_bitmap::JourneyBitmap, journey_data::JourneyData,
     journey_header::JourneyKind, storage::Storage,
@@ -74,17 +75,18 @@ fn populate_storage(storage: &Storage, src: &DataSource) {
                     for j in 0..src.journeys_per_month {
                         let day = (j % 28) + 1;
                         let date = NaiveDate::from_ymd_opt(base_year + yr, month, day).unwrap();
-                        txn.create_and_insert_journey(
-                            date,
-                            None,
-                            None,
-                            None,
-                            JourneyKind::DefaultKind,
-                            None,
-                            JourneyData::Bitmap(make_synthetic_bitmap(
+                        txn.create_and_insert_journey(NewJourney {
+                            journey_date: date,
+                            start: None,
+                            end: None,
+                            created_at: None,
+                            journey_kind: JourneyKind::DefaultKind,
+                            note: None,
+                            journey_data: JourneyData::Bitmap(make_synthetic_bitmap(
                                 month * src.journeys_per_month + j,
                             )),
-                        )?;
+                            raw_data: None,
+                        })?;
                     }
                 }
             }
@@ -274,15 +276,16 @@ fn bench_add_trip(c: &mut Criterion) {
             b.iter(|| {
                 storage
                     .with_db_txn(|txn| {
-                        txn.create_and_insert_journey(
-                            ranges.sample_date,
-                            None,
-                            None,
-                            None,
-                            JourneyKind::DefaultKind,
-                            None,
-                            JourneyData::Bitmap(sample_bitmap.clone()),
-                        )
+                        txn.create_and_insert_journey(NewJourney {
+                            journey_date: ranges.sample_date,
+                            start: None,
+                            end: None,
+                            created_at: None,
+                            journey_kind: JourneyKind::DefaultKind,
+                            note: None,
+                            journey_data: JourneyData::Bitmap(sample_bitmap.clone()),
+                            raw_data: None,
+                        })
                     })
                     .unwrap()
             });
@@ -369,15 +372,16 @@ fn bench_delete_update(c: &mut Criterion) {
                     // Setup (not measured): insert a journey, return its id
                     storage
                         .with_db_txn(|txn| {
-                            txn.create_and_insert_journey(
-                                ranges.sample_date,
-                                None,
-                                None,
-                                None,
-                                JourneyKind::DefaultKind,
-                                None,
-                                JourneyData::Bitmap(sample_bitmap.clone()),
-                            )
+                            txn.create_and_insert_journey(NewJourney {
+                                journey_date: ranges.sample_date,
+                                start: None,
+                                end: None,
+                                created_at: None,
+                                journey_kind: JourneyKind::DefaultKind,
+                                note: None,
+                                journey_data: JourneyData::Bitmap(sample_bitmap.clone()),
+                                raw_data: None,
+                            })
                         })
                         .unwrap()
                 },
@@ -401,15 +405,16 @@ fn bench_delete_update(c: &mut Criterion) {
                         // Setup (not measured): insert a journey with sample_date
                         storage
                             .with_db_txn(|txn| {
-                                txn.create_and_insert_journey(
-                                    ranges.sample_date,
-                                    None,
-                                    None,
-                                    None,
-                                    JourneyKind::DefaultKind,
-                                    None,
-                                    JourneyData::Bitmap(sample_bitmap.clone()),
-                                )
+                                txn.create_and_insert_journey(NewJourney {
+                                    journey_date: ranges.sample_date,
+                                    start: None,
+                                    end: None,
+                                    created_at: None,
+                                    journey_kind: JourneyKind::DefaultKind,
+                                    note: None,
+                                    journey_data: JourneyData::Bitmap(sample_bitmap.clone()),
+                                    raw_data: None,
+                                })
                             })
                             .unwrap()
                     },

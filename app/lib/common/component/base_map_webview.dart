@@ -3,11 +3,11 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:battery_plus/battery_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/log.dart';
+import 'package:memolanes/common/map_fog_style.dart';
 import 'package:memolanes/common/map_style.dart';
 import 'package:memolanes/common/map_webview_assets.dart';
 import 'package:memolanes/common/mmkv_util.dart';
@@ -39,6 +39,9 @@ class BaseMapWebview extends StatefulWidget {
   final MapView? initialMapView;
   final MapBounds? initialMapBounds;
   final EdgeInsets? initialMapBoundsPadding;
+  final MapBounds? flyToBounds;
+  final EdgeInsets? flyToBoundsPadding;
+  final MapView? flyToView;
   final TrackingMode trackingMode;
   final bool isEditor;
   final void Function()? onMapMoved;
@@ -52,6 +55,9 @@ class BaseMapWebview extends StatefulWidget {
     this.initialMapView,
     this.initialMapBounds,
     this.initialMapBoundsPadding,
+    this.flyToBounds,
+    this.flyToBoundsPadding,
+    this.flyToView,
     this.trackingMode = TrackingMode.off,
     this.isEditor = false,
     this.onMapMoved,
@@ -65,11 +71,20 @@ class BaseMapWebview extends StatefulWidget {
 }
 
 class BaseMapWebviewState extends State<BaseMapWebview> {
+  static const _webGlRecoveryWindow = Duration(minutes: 1);
+  static const _maxWebGlRecoveryReloads = 2;
+  static const _androidApiEndpoint = 'https://memolanes.local/api';
+  static const _androidApiRequestPrefix = '$_androidApiEndpoint/';
+
   InAppWebViewController? _webViewController;
   late GpsManager _gpsManager;
   bool _readyForDisplay = false;
+  bool _webGlRecoveryReloadInProgress = false;
+  bool _pendingMapDataSync = false;
+  final List<DateTime> _webGlRecoveryReloads = [];
 
   late MapStyle _selectedMapStyle;
+  late MapFogStyle _selectedMapFogStyle;
 
   // Dev server URL for loading map webview from a local dev server.
   // Usage: flutter run --dart-define=DEV_SERVER=http://ip:port
@@ -78,13 +93,32 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   // It is rough because we don't update it frequently.
   MapView? _currentRoughMapView;
 
-  // Low Power Mode tracking
-  final Battery _battery = Battery();
-  bool _isLowPowerMode = false;
-  StreamSubscription<BatteryState>? _batteryStateSubscription;
-
   Future<void> runJavaScript(String javaScript) async {
     await _webViewController?.evaluateJavascript(source: javaScript);
+  }
+
+  /// Read the live camera before opening a journey, including recent gestures
+  /// that have not reached the throttled map-view callback yet.
+  Future<MapView?> getCurrentMapView() async {
+    final controller = _webViewController;
+    if (controller == null || !_readyForDisplay) return _currentRoughMapView;
+    try {
+      final result = await controller.evaluateJavascript(
+        source: 'getCurrentMapView()',
+      );
+      final view = jsonDecode(result as String);
+      return (
+        lng: (view['lng'] as num).toDouble(),
+        lat: (view['lat'] as num).toDouble(),
+        zoom: (view['zoom'] as num).toDouble(),
+      );
+    } catch (error, stackTrace) {
+      log.error(
+        '[base_map_webview] Reading map view failed: $error',
+        stackTrace,
+      );
+      return _currentRoughMapView;
+    }
   }
 
   void _setStateIfMounted(VoidCallback fn) {
@@ -95,11 +129,75 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   @override
   void didUpdateWidget(BaseMapWebview oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.trackingMode != widget.trackingMode) _updateLocationMarker();
+    if (oldWidget.trackingMode != widget.trackingMode) {
+      if (widget.trackingMode == TrackingMode.off) {
+        _hideLocationMarker();
+      } else {
+        _updateLocationMarker();
+      }
+    }
 
-    // Refresh map data when the renderer proxy changes
-    if (oldWidget.mapRendererProxy != widget.mapRendererProxy) {
-      _refreshMapData();
+    final paddingChanged =
+        widget.flyToBounds != null &&
+        oldWidget.flyToBoundsPadding != widget.flyToBoundsPadding;
+    if (oldWidget.mapRendererProxy != widget.mapRendererProxy ||
+        oldWidget.flyToBounds != widget.flyToBounds ||
+        oldWidget.flyToView != widget.flyToView ||
+        paddingChanged) {
+      if (paddingChanged) {
+        // fitBounds must see the WebView's new size after a rotation.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) unawaited(_syncMapDataAndCamera());
+        });
+      } else {
+        unawaited(_syncMapDataAndCamera());
+      }
+    }
+  }
+
+  /// Switch the renderer data and move the existing MapLibre map to a journey.
+  /// The WebView and its WebGL context stay mounted throughout the transition.
+  Future<void> _syncMapDataAndCamera() async {
+    final controller = _webViewController;
+    if (!mounted || controller == null || !_readyForDisplay) {
+      _pendingMapDataSync = true;
+      return;
+    }
+    _pendingMapDataSync = false;
+    final bounds = widget.flyToBounds;
+    final view = widget.flyToView;
+    final padding = widget.flyToBoundsPadding ?? const EdgeInsets.all(24);
+    final boundsJson = bounds == null
+        ? 'null'
+        : jsonEncode({
+            'west': bounds.west,
+            'south': bounds.south,
+            'east': bounds.east,
+            'north': bounds.north,
+          });
+    final paddingJson = jsonEncode({
+      'top': padding.top,
+      'right': padding.right,
+      'bottom': padding.bottom,
+      'left': padding.left,
+    });
+    final viewJson = view == null
+        ? 'null'
+        : jsonEncode({'lng': view.lng, 'lat': view.lat, 'zoom': view.zoom});
+    try {
+      await controller.evaluateJavascript(
+        source:
+            '''
+        if (typeof refreshMapData === 'function') refreshMapData();
+        if ($boundsJson !== null && typeof flyToBounds === 'function') {
+          flyToBounds($boundsJson, $paddingJson);
+        } else if ($viewJson !== null && typeof flyToView === 'function') {
+          flyToView($viewJson);
+        }
+      ''',
+      );
+    } catch (error, stackTrace) {
+      log.error('[base_map_webview] Map data sync failed: $error', stackTrace);
     }
   }
 
@@ -130,81 +228,28 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     _gpsManager.addListener(_updateLocationMarker);
     _currentRoughMapView = widget.initialMapView;
     _selectedMapStyle = _loadMapStyleFromStorage();
-
-    _initLowPowerMode();
-  }
-
-  Future<void> _initLowPowerMode() async {
-    try {
-      _isLowPowerMode = await _battery.isInBatterySaveMode;
-    } catch (e) {
-      log.error('[base_map_webview] Failed to query battery save mode: $e');
-    }
-
-    if (!mounted) return;
-    _batteryStateSubscription = _battery.onBatteryStateChanged.listen(
-      (_) async {
-        try {
-          final newLPM = await _battery.isInBatterySaveMode;
-          if (!mounted) return;
-          if (newLPM != _isLowPowerMode) {
-            _isLowPowerMode = newLPM;
-            _pushLowPowerModeToWebView();
-          }
-        } catch (e) {
-          log.error('[base_map_webview] Failed to query battery save mode: $e');
-        }
-      },
-      onError: (Object error) {
-        // Charging status is only used as a signal to refresh low-power mode.
-        // Some devices cannot provide it temporarily, so keep the stream alive
-        // and retain the last known low-power-mode value.
-        log.warning(
-          '[base_map_webview] Battery state unavailable; '
-          'keeping the last known low-power mode: $error',
-        );
-      },
-    );
-  }
-
-  void _pushLowPowerModeToWebView() {
-    if (!mounted) return;
-    _webViewController?.evaluateJavascript(
-      source:
-          '''
-      if (typeof window.setLowPowerMode === 'function') {
-        window.setLowPowerMode($_isLowPowerMode);
-      }
-    ''',
-    );
+    _selectedMapFogStyle = _loadMapFogStyleFromStorage();
   }
 
   @override
   void dispose() {
-    _batteryStateSubscription?.cancel();
     _gpsManager.removeListener(_updateLocationMarker);
     _webViewController = null;
     super.dispose();
   }
 
   void _updateLocationMarker() {
-    if (!mounted) return;
-    if (widget.trackingMode == TrackingMode.off) {
-      _webViewController?.evaluateJavascript(
-        source: '''
-        if (typeof updateLocationMarker === 'function') {
-          updateLocationMarker(0, 0, false);
-        }
-      ''',
-      );
-    } else {
-      // Prefer the live position; fall back to the OS-cached last known
-      // location so the marker shows up immediately on cold start while the
-      // GPS stream is still acquiring its first fix.
-      final position =
-          _gpsManager.latestPosition ?? _gpsManager.lastKnownPosition;
-      if (position != null) {
-        _webViewController?.evaluateJavascript(
+    if (!mounted || widget.trackingMode == TrackingMode.off) return;
+
+    // Prefer the live position; fall back to the OS-cached last known
+    // location so the marker shows up immediately on cold start while the
+    // GPS stream is still acquiring its first fix.
+    final position =
+        _gpsManager.latestPosition ?? _gpsManager.lastKnownPosition;
+    final controller = _webViewController;
+    if (position != null && controller != null) {
+      unawaited(
+        controller.evaluateJavascript(
           source:
               '''
         if (typeof updateLocationMarker === 'function') {
@@ -216,9 +261,25 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
           );
         }
       ''',
-        );
-      }
+        ),
+      );
+    } else if (position == null) {
+      _hideLocationMarker();
     }
+  }
+
+  void _hideLocationMarker() {
+    final controller = _webViewController;
+    if (controller == null) return;
+    unawaited(
+      controller.evaluateJavascript(
+        source: '''
+        if (typeof updateLocationMarker === 'function') {
+          updateLocationMarker(0, 0, false);
+        }
+      ''',
+      ),
+    );
   }
 
   Future<void> _onWebViewCreated(InAppWebViewController controller) async {
@@ -244,9 +305,29 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
           jsObjectName: 'readyForDisplay',
           allowedOriginRules: {'*'},
           onPostMessage: (message, sourceOrigin, isMainFrame, replyProxy) {
+            final recoveredAfterReload = _webGlRecoveryReloadInProgress;
+            _webGlRecoveryReloadInProgress = false;
+            _updateLocationMarker();
             _setStateIfMounted(() {
               _readyForDisplay = true;
             });
+            if (_pendingMapDataSync) unawaited(_syncMapDataAndCamera());
+            if (recoveredAfterReload) {
+              log.info(
+                '[base_map_webview] WebGL context recovered after WebView reload',
+              );
+            }
+          },
+        ),
+      ),
+      controller.addWebMessageListener(
+        WebMessageListener(
+          jsObjectName: 'onWebGLContextEvent',
+          allowedOriginRules: {'*'},
+          onPostMessage: (message, sourceOrigin, isMainFrame, replyProxy) {
+            if (!mounted) return;
+            final data = message?.data;
+            _handleWebGlContextEvent(data is String ? data : data.toString());
           },
         ),
       ),
@@ -319,9 +400,11 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     final lngParam = mapView?.lng.toString() ?? 'null';
     final latParam = mapView?.lat.toString() ?? 'null';
     final zoomParam = mapView?.zoom.toString() ?? 'null';
-    final bounds = widget.initialMapBounds;
+    final bounds = widget.flyToBounds ?? widget.initialMapBounds;
     final boundsPadding =
-        widget.initialMapBoundsPadding ?? const EdgeInsets.all(24);
+        widget.flyToBoundsPadding ??
+        widget.initialMapBoundsPadding ??
+        const EdgeInsets.all(24);
 
     debugPrint('Injecting lng: $lngParam');
     debugPrint('Injecting lat: $latParam');
@@ -329,9 +412,10 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
 
     final cgiEndpoint = Platform.isIOS
         ? 'memolanes://api'
-        : 'https://memolanes.local/api';
+        : _androidApiEndpoint;
 
     final style = _selectedMapStyle;
+    final fogStyle = _selectedMapFogStyle;
     await controller.evaluateJavascript(
       source:
           '''
@@ -340,7 +424,8 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
         cgi_endpoint: "$cgiEndpoint",
         render: "canvas",
         map_style: "${style.url}",
-        fog_density: ${style.fogOpacity},
+        fog_style: "${fogStyle.id}",
+        fog_density: ${style.fogOpacityByStyle[fogStyle] ?? 0.50},
         access_key: ${accessKey != null ? "\"$accessKey\"" : "null"},
         lng: $lngParam,
         lat: $latParam,
@@ -354,7 +439,6 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
         fit_padding_bottom: ${boundsPadding.bottom},
         fit_padding_left: ${boundsPadding.left},
         editor: ${widget.isEditor ? "true" : "false"},
-        low_power_mode: "$_isLowPowerMode",
       };
       
       // Check if JS is ready and trigger initialization if so
@@ -375,6 +459,11 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   MapStyle _loadMapStyleFromStorage() {
     final id = MMKVUtil.getString(MMKVKey.mapStyle);
     return MapStyle.findById(id);
+  }
+
+  MapFogStyle _loadMapFogStyleFromStorage() {
+    final id = MMKVUtil.getStringOpt(MMKVKey.mapFogMode);
+    return MapFogStyle.findById(id);
   }
 
   void _handleMapViewPush(String message) {
@@ -416,6 +505,84 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     }
   }
 
+  void _handleWebGlContextEvent(String message) {
+    try {
+      final decoded = jsonDecode(message);
+      if (decoded is! Map<String, dynamic>) {
+        throw const FormatException('expected a JSON object');
+      }
+
+      final state = decoded['state'];
+      if (state == 'lost') {
+        log.warning('[base_map_webview] WebGL context lost: $message');
+
+        final view = decoded['view'];
+        if (view is Map<String, dynamic>) {
+          // Preserve the camera at the point of failure so a fallback reload
+          // comes back at the same location.
+          _handleMapViewPush(jsonEncode(view));
+        }
+
+        unawaited(_reloadAfterWebGlContextLoss());
+        return;
+      }
+
+      if (state == 'restored') {
+        log.info('[base_map_webview] WebGL context restored: $message');
+        return;
+      }
+
+      log.warning('[base_map_webview] Unknown WebGL context event: $message');
+    } catch (e) {
+      log.error(
+        '[base_map_webview] Invalid WebGL context event: $message, error=$e',
+      );
+    }
+  }
+
+  Future<void> _reloadAfterWebGlContextLoss() async {
+    if (!mounted || _webGlRecoveryReloadInProgress) return;
+
+    final now = DateTime.now();
+    _webGlRecoveryReloads.removeWhere(
+      (attempt) => now.difference(attempt) >= _webGlRecoveryWindow,
+    );
+
+    if (_webGlRecoveryReloads.length >= _maxWebGlRecoveryReloads) {
+      log.error(
+        '[base_map_webview] WebGL context recovery reload suppressed: '
+        'already attempted $_maxWebGlRecoveryReloads times within '
+        '${_webGlRecoveryWindow.inSeconds}s',
+      );
+      return;
+    }
+
+    final controller = _webViewController;
+    if (controller == null) {
+      log.error(
+        '[base_map_webview] Cannot recover WebGL context: WebView unavailable',
+      );
+      return;
+    }
+
+    _webGlRecoveryReloads.add(now);
+    _webGlRecoveryReloadInProgress = true;
+    _setStateIfMounted(() {
+      _readyForDisplay = false;
+    });
+    log.warning(
+      '[base_map_webview] Reloading WebView after WebGL context loss '
+      '(attempt ${_webGlRecoveryReloads.length}/$_maxWebGlRecoveryReloads)',
+    );
+
+    try {
+      await controller.reload();
+    } catch (e) {
+      _webGlRecoveryReloadInProgress = false;
+      log.error('[base_map_webview] WebGL recovery reload failed: $e');
+    }
+  }
+
   /// Handle an intercepted request by forwarding path + query to the unified Rust dispatcher.
   Future<
     ({
@@ -441,10 +608,6 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
 
   @override
   Widget build(BuildContext context) {
-    // TODO: The `IgnorePointer` is a workaround for a bug in the webview on iOS.
-    // https://github.com/flutter/flutter/issues/165305
-    // But unfortunately, it only works for iOS 18, so we still have this weird
-    // double tap behavior on older iOS versions.
     return Stack(
       children: [
         InAppWebView(
@@ -455,6 +618,8 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
             allowFileAccessFromFileURLs: true,
             allowUniversalAccessFromFileURLs: true,
             resourceCustomSchemes: ['memolanes'],
+            // Skip the Android → Dart round trip for ordinary map resources.
+            shouldInterceptRequestUrlPrefixes: [_androidApiRequestPrefix],
             webViewAssetLoader: MapWebViewAssets.createAssetLoader(),
           ),
           onWebViewCreated: (controller) {
@@ -482,7 +647,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
           shouldInterceptRequest: (controller, request) async {
             if (!mounted) return null;
             final url = request.url.toString();
-            if (!url.startsWith('https://memolanes.local/api/')) {
+            if (!url.startsWith(_androidApiRequestPrefix)) {
               return null;
             }
             final result = await _handleInterceptedRequest(request.url);
@@ -535,7 +700,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
             if (!mounted) return;
             final failedUrl = request.url.toString();
             if (!failedUrl.contains('events.mapbox.com')) {
-              log.error('''Map WebView Error: 
+              log.error('''Map WebView Error:
                       Description: ${error.description}
                       Error Type: ${error.type} 
                       Failed URL: $failedUrl''');
@@ -543,6 +708,13 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
           },
           onWebContentProcessDidTerminate: (controller) async {
             if (!mounted) return;
+            _webGlRecoveryReloadInProgress = true;
+            _setStateIfMounted(() {
+              _readyForDisplay = false;
+            });
+            log.warning(
+              '[base_map_webview] Web content process terminated; reloading WebView',
+            );
             await controller.reload();
           },
         ),

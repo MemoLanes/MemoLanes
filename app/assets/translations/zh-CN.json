@@ -6,13 +6,17 @@
     "end_journey_title": "结束旅程？",
     "end_journey_message": "确定要结束当前的旅程吗？",
     "double_back_exit": "再按一次退出应用",
-    "map_data_source_copyright_title": "数据来源"
+    "map_data_source_copyright_title": "数据来源",
+    "gps_accuracy": "定位精度",
+    "gps_signal": {
+      "excellent": "信号强",
+      "good": "信号良好",
+      "fair": "信号一般",
+      "poor": "信号弱"
+    }
   },
   "permission_sheet": {
     "title": "授权以体验完整功能",
-    "location_help_tooltip": "位置权限说明",
-    "battery_help_tooltip": "电池优化说明",
-    "notification_help_tooltip": "通知权限说明",
     "enable_all": "全部开启",
     "allow": "允许",
     "skip": "跳过",
@@ -46,6 +50,7 @@
     "save": "保存",
     "share": "分享",
     "export": "导出",
+    "more": "更多",
     "edit": "编辑",
     "delete": "删除",
     "reset": "重置",
@@ -53,15 +58,22 @@
     "copy_success": "复制成功",
     "save_success": "保存成功",
     "continue": "继续",
+    "select_year": "选择年份",
+    "select_month": "选择月份",
     "save_confirm": "是否保存？"
   },
   "startup_error": {
+    "map_initialization_failed": "地图初始化失败，请重启应用后重试。",
     "title": "数据版本不兼容",
     "database_version_too_new": "此设备上的数据由更高版本的迹忆创建，当前版本无法打开。请将迹忆升级到最新版本后重试。",
     "update": "前往更新",
     "exit": "退出应用"
   },
   "journey": {
+    "picker_title": "选择旅途",
+    "picker_subtitle": "选择日期，再选择要查看或编辑的旅途",
+    "editor_overview_title": "编辑旅途",
+    "records_title": "当日记录",
     "editor": {
       "move": "移动",
       "draw": "绘制",
@@ -77,8 +89,9 @@
       "linked_draw_needs_multiple_tracks": "至少需要两条轨迹。\n请先用自由绘制添加。",
       "linked_draw_invalid_link_targets": "无法找到合适的连接目标，请确保周围有至少两条轨迹的端点。",
       "erase_mode_enabled": "删除模式已开启。\n框选区域删除轨迹。",
-      "bitmap_not_supported": "暂不支持编辑编辑当前记录（通常为从世界迷雾导入的数据）。",
+      "bitmap_not_supported": "暂不支持编辑当前记录（通常为从世界迷雾导入的数据）。",
       "discard_changes_confirm": "未保存的操作都会丢失，是否继续？",
+      "operation_failed": "操作出现问题，请重试。",
       "zoom_too_low": "请放大地图再绘制。"
     },
     "list": {
@@ -95,17 +108,26 @@
     },
     "journey_date_is_empty": "旅程日期是空的",
     "delete_journey_title": "删除旅程",
-    "delete_journey_message": "确认删除该旅程记录?",
+    "delete_journey_message": "确认删除该旅程记录？",
     "stop_ongoing_journey": "在此操作之前，请先停止当前正在进行的旅程。",
-    "delete_all_journey_message": "这将删除此应用中的所有行程，您确定吗？",
+    "delete_all_journey_message": "这将删除此应用中的所有旅程，您确定吗？",
     "journey_info_page_title": "旅程信息",
     "journey_info_edit_page_title": "编辑旅程信息",
     "import_mldx_data": "导入 MLDX 数据",
     "import_fog_of_world_data": "导入 世界迷雾 数据",
-    "export_journey_as_kml": "导出为 KML",
-    "export_journey_as_gpx": "导出为 GPX",
-    "export_journey_as_mldx": "导出为 MLDX",
-    "export_journey_as_fwss": "导出为 FWSS",
+    "export_raw_data_csv": "CSV 原始数据（*.csv）",
+    "export_raw_data_csv_desc": "保留记录的全部原始 GPS 字段。",
+    "export_raw_data_gpx": "GPX 原始数据（*.gpx）",
+    "export_raw_data_gpx_desc": "原始定位点，适合运动、导航和轨迹工具。",
+    "export_raw_data_kml": "KML 原始数据（*.kml）",
+    "export_raw_data_kml_desc": "原始定位点，适合地图软件和轨迹工具。",
+    "raw_data_lossy_format_warning": "此格式可能省略部分原始 GPS 字段。完整导出请使用 CSV。",
+    "delete_raw_data": "删除原始数据",
+    "delete_raw_data_title": "删除原始数据",
+    "delete_raw_data_message": "确认删除该旅程的原始数据？",
+    "raw_data": "原始数据",
+    "raw_data_included": "已包含",
+    "raw_data_not_included": "未包含",
     "delete_all": "删除所有旅程",
     "delete_all_success": "所有旅程已清除!",
     "journey_date": "旅程日期",
@@ -116,12 +138,13 @@
     "note": "备注",
     "drop_covered_small_journey": "避免生成重复旅途",
     "drop_covered_small_journey_description": "开启后，结束旅途时，如果本次轨迹范围较小，并且已完全包含在已有足迹中，将不会生成新的旅途记录。已有足迹不会受到影响。",
-    "finalize_saved": "新增旅程",
     "finalize_discarded": "未检测到新的轨迹，已忽略该旅途",
-    "finalize_empty": "未检测到新旅程"
+    "finalize_saved": "新增旅程",
+    "finalize_empty": "未检测到新旅程",
+    "delete_all_title": "删除所有旅程"
   },
   "db_optimization": {
-    "notification": "你的数据库需要优化，请前往设置选项卡并点击[优化数据库]按钮。",
+    "notification": "你的数据库需要优化，请前往「设置」>「数据管理」>「优化数据库」。",
     "button": "优化数据库",
     "already_optimized": "数据库已经是最优状态。无需再次优化。",
     "confirm": "您的数据库需要优化。建议在继续之前备份你的数据。",
@@ -154,6 +177,8 @@
     "shared_file": {
       "confirm_title": "导入数据",
       "confirm_message": "是否导入文件: {}?",
+      "busy_title": "正在导入",
+      "busy_message": "当前文件的导入尚未结束，请完成或取消本次导入后，再次分享文件。",
       "multi_message": "当前选择了多个文件，仅支持一次导入一个文件。\n请重新选择单个文件后再尝试。"
     },
     "unsupported_file_failed": "不支持的文件",
@@ -279,6 +304,11 @@
     "map_settings": {
       "title": "地图设置",
       "style": "地图样式",
+      "fog_mode": "遮罩模式",
+      "fog_mode_name": {
+        "dark": "深色",
+        "light": "浅色"
+      },
       "style_name": {
         "maplibre": "MapLibre 演示瓦片",
         "openfreemap": "OpenFreeMap"
@@ -288,12 +318,23 @@
       "title": "高级设置",
       "export_logs": "导出日志",
       "raw_data_mode": "原始数据模式",
+      "raw_data_mode_description": "开启时，会完整保留录制时收到的 GPS 原始数据，包括位置、时间、精度、海拔和速度，便于导出和分析。关闭时，仅保留处理后的旅程轨迹。",
+      "raw_data_files": "原始数据列表（弃用）",
+      "no_raw_data_files": "暂无原始数据文件",
       "raw_data_export_csv": "导出为 CSV",
       "raw_data_export_gpx": "导出为 GPX",
       "rebuild_cache": "重建缓存",
       "reset_local_prefs": "重置偏好设置",
       "reset_local_prefs_message": "该操作会重置所有偏好设置并立即关闭应用。不会删除旅程数据。",
       "render_diagnostics": "渲染诊断"
+    },
+    "appearance": {
+      "title": "外观",
+      "mode_name": {
+        "system": "跟随系统",
+        "light": "浅色模式",
+        "dark": "深色模式"
+      }
     }
   },
   "data": {
@@ -305,7 +346,17 @@
       "delete_backup_data": "删除备份数据"
     },
     "import_data": {
-      "title": "导入数据"
+      "title": "导入数据",
+      "description": "选择文件后将自动识别格式。支持以下文件：",
+      "mldx_title": "迹忆归档",
+      "mldx_desc": ".mldx",
+      "vector_title": "轨迹文件",
+      "vector_desc": ".gpx / .kml / .csv",
+      "fog_of_world_title": "世界迷雾数据",
+      "fog_of_world_desc": ".fwss / .zip",
+      "choose_file": "选择文件",
+      "unsupported_format": "不支持此文件格式。请选择 .mldx、.gpx、.kml、.csv、.fwss 或 .zip 文件。",
+      "unreadable_file": "无法读取所选文件，请保存到设备后重试。"
     },
     "export_data": {
       "export_all": "导出所有数据",
@@ -316,7 +367,12 @@
         "no_track_data_for_selected_format": "暂无可导出为所选格式的轨迹数据",
         "unexpected": "导出时遇到意外错误"
       },
+      "content_section_title": "导出内容",
       "format_section_title": "导出格式",
+      "journey_data_group": "旅途数据",
+      "raw_data_group": "原始定位数据",
+      "include_raw_data": "保留原始定位数据",
+      "include_raw_data_desc": "关闭后仅导出旅途数据，原始数据将被丢弃",
       "format_mldx": "迹忆标准格式（*.mldx）",
       "format_mldx_desc": "推荐用于备份、迁移和再次导入迹忆。",
       "format_fwss": "世界迷雾快照 (*.fwss)",
@@ -330,24 +386,66 @@
   },
   "settings": {
     "other": "其他",
-    "about": "关于"
+    "about": "关于",
+    "page_title": "设置",
+    "title": "设置",
+    "categories": {
+      "journey_recording": {
+        "title": "旅途与录制"
+      },
+      "map": {
+        "title": "地图设置"
+      },
+      "appearance": {
+        "title": "界面外观"
+      },
+      "data": {
+        "title": "数据管理"
+      },
+      "advanced": {
+        "title": "高级设置"
+      },
+      "about": {
+        "title": "关于迹忆"
+      }
+    },
+    "groups": {
+      "recording_data": "录制数据",
+      "recording_protection": "录制保护",
+      "usage_settings": "使用设置",
+      "data_system": "数据与系统",
+      "appearance": "界面外观",
+      "map_display": "地图显示",
+      "region": "地区",
+      "import_export": "导入与导出",
+      "data_maintenance": "数据维护",
+      "delete_data": "删除数据",
+      "diagnostics": "诊断",
+      "recovery": "恢复"
+    },
+    "language": {
+      "title": "语言",
+      "system": "跟随系统",
+      "chinese": "简体中文",
+      "english": "English"
+    }
   },
   "beta_testing_notice": {
     "title": "欢迎体验「迹忆」公测版",
-    "content_md": "感谢您成为我们的体验官！当前版本是用于测试的非正式版本。\n\n请您知悉：\n* App 可能存在卡顿、闪退或显示异常等问题。\n* 部分功能尚在开发优化中，不代表最终品质。\n* 建议定期进行数据备份（导航栏最右侧「设置」按钮 >「导出所有数据」）。\n\n为帮助我们改进，如果您遇到任何问题，请保留问题截图以便向开发人员反馈，您的每一个反馈都至关重要！如您有任何宝贵建议，也可联系开发团队（「设置」按钮 >「联系我们」）。\n\n如果喜欢这款 App，可以推荐给身边的人，这将鼓励我们继续开发更多更完善的功能。🫶🏻\n\n祝大家旅途愉快，一起探索世界吧～🚀"
+    "content_md": "感谢您成为我们的体验官！当前版本是用于测试的非正式版本。\n\n请您知悉：\n* App 可能存在卡顿、闪退或显示异常等问题。\n* 部分功能尚在开发优化中，不代表最终品质。\n* 建议定期进行数据备份（导航栏最右侧「设置」按钮 >「数据管理」>「导出所有数据」）。\n\n为帮助我们改进，如果您遇到任何问题，请保留问题截图以便向开发人员反馈，您的每一个反馈都至关重要！如您有任何宝贵建议，也可联系开发团队（「设置」按钮 >「关于迹忆」>「联系我们」）。\n\n如果喜欢这款 App，可以推荐给身边的人，这将鼓励我们继续开发更多更完善的功能。🫶🏻\n\n祝大家旅途愉快，一起探索世界吧～🚀"
   },
   "privacy": {
     "url": "https://app.memolanes.com/zh/privacy/",
     "setup_title": "首次使用设置",
     "setup_desc": "开始使用前，请先选择地区偏好并确认隐私协议。",
     "region_title": "地区偏好",
-    "region_mainland_china": "中国大陆",
+    "region_china": "中国",
     "region_international": "国际",
     "region_united_states": "美国",
     "agreement_title": "阅读并同意隐私协议",
     "view_policy": "查看隐私协议",
     "name": "隐私协议",
-    "disagree_and_exit": "不同意并退出"
+    "exit": "退出"
   },
   "contact_us": {
     "title": "联系我们",
