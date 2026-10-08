@@ -79,6 +79,7 @@ void main() {
     journeyType: JourneyType.vector,
     journeyKind: JourneyKind.defaultKind,
     note: 'Original note',
+    hasRawData: false,
   );
   final mockApi = _JourneyListApi(journey);
 
@@ -811,6 +812,7 @@ class _JourneyListApi extends Fake implements RustLibApi {
       journeyType: journey.journeyType,
       journeyKind: latest?.journeyKind ?? journey.journeyKind,
       note: latest?.note ?? journey.note,
+      hasRawData: journey.hasRawData,
     );
   }
 

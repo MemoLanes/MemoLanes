@@ -1,27 +1,27 @@
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
-use std::io::{BufReader, BufWriter};
 use std::path::Path;
 use std::sync::{Arc, Mutex, OnceLock};
 
 use anyhow::{Context, Result};
 use auto_context::auto_context;
 use chrono::NaiveDate;
-use csv::Reader;
 use flutter_rust_bridge::frb;
 
 use super::import::JourneyInfo;
 use crate::cache_db::LayerKind;
 use crate::frb_generated::StreamSink;
+pub use crate::gps::ExtendedRawGPSPoint;
 use crate::gps_processor::{GpsPreprocessor, ProcessResult};
 use crate::journey_bitmap::JourneyBitmap;
 use crate::journey_data::JourneyData;
 use crate::journey_header::{JourneyHeader, JourneyKind, JourneyType};
+use crate::legacy_raw_data::LegacyRawDataFile;
 use crate::logs;
 use crate::renderer::internal_server::{dispatch_request, WebviewResponse};
 use crate::renderer::MapRenderer;
-use crate::storage::{RawDataFile, Storage};
-use crate::{archive, build_info, export_data, gps_processor, main_db};
+use crate::storage::Storage;
+use crate::{archive, build_info, export_data};
 
 use crate::utils::{db::DbError, get_bounds_from_journey_bitmap, MapBounds};
 
@@ -422,7 +422,7 @@ pub fn get_map_renderer_proxy_for_journey_data(
 
 // Return `true` if this update contains meaningful data.
 // Meaningful data means it is not ignored by the gps preprocessor.
-pub fn on_location_update(raw_data: gps_processor::RawData, received_timestamp_ms: i64) -> bool {
+pub fn on_location_update(data: ExtendedRawGPSPoint) -> bool {
     let state = get();
     // NOTE: On Android, we might received a batch of location updates that are out of order.
     // Not very sure why yet.
@@ -431,15 +431,16 @@ pub fn on_location_update(raw_data: gps_processor::RawData, received_timestamp_m
     let mut gps_preprocessor = state.gps_preprocessor.lock().unwrap();
     let mut main_map_state = state.main_map_state.lock().unwrap();
 
+    let raw_gps_point = &data.raw_gps_point;
     let last_point = gps_preprocessor.last_kept_point();
-    let process_result = gps_preprocessor.preprocess(&raw_data);
+    let process_result = gps_preprocessor.preprocess(raw_gps_point);
     if !main_map_state.dropped_for_power_saving && main_map_state.layer_filter.current_journey {
         let line_to_add = match process_result {
             ProcessResult::Ignore => None,
-            ProcessResult::NewSegment => Some((&raw_data.point, &raw_data.point)),
+            ProcessResult::NewSegment => Some((&raw_gps_point.point, &raw_gps_point.point)),
             ProcessResult::Append => {
-                let start = last_point.as_ref().unwrap_or(&raw_data.point);
-                Some((start, &raw_data.point))
+                let start = last_point.as_ref().unwrap_or(&raw_gps_point.point);
+                Some((start, &raw_gps_point.point))
             }
         };
         match line_to_add {
@@ -464,9 +465,7 @@ pub fn on_location_update(raw_data: gps_processor::RawData, received_timestamp_m
     // write so persistence does not extend renderer lock hold time.
     drop(main_map_state);
 
-    state
-        .storage
-        .record_gps_data(&raw_data, process_result, received_timestamp_ms);
+    state.storage.record_gps_data(&data, process_result);
 
     match process_result {
         ProcessResult::Ignore => false,
@@ -474,16 +473,16 @@ pub fn on_location_update(raw_data: gps_processor::RawData, received_timestamp_m
     }
 }
 
-pub fn list_all_raw_data() -> Result<Vec<RawDataFile>> {
-    get().storage.list_all_raw_data()
+pub fn list_all_legacy_raw_data() -> Result<Vec<LegacyRawDataFile>> {
+    get().storage.list_all_legacy_raw_data()
 }
 
 pub fn get_raw_data_mode() -> bool {
     get().storage.get_raw_data_mode()
 }
 
-pub fn delete_raw_data_file(filename: String) -> Result<()> {
-    get().storage.delete_raw_data_file(filename)
+pub fn delete_legacy_raw_data_file(filename: String) -> Result<()> {
+    get().storage.delete_legacy_raw_data_file(filename)
 }
 
 pub fn delete_journey(journey_id: &str) -> Result<()> {
@@ -532,14 +531,14 @@ pub fn set_main_map_layer_filter(new_layer_filter: &LayerFilter) -> Result<()> {
 #[auto_context]
 fn reset_gps_preprocessor_if_finalized<F>(finalize_op: F) -> Result<bool>
 where
-    F: FnOnce(&mut main_db::Txn) -> Result<bool>,
+    F: FnOnce(&Storage) -> Result<bool>,
 {
     let state = get();
     // TODO: I think we need to hold the gps_preprocessor lock first, otherwise
     // we might have a deadlock because the locking story in `on_location_update`
     // is quite complex. We should fix all the locking mess.
     let mut gps_preprocessor = state.gps_preprocessor.lock().unwrap();
-    let finalized = state.storage.with_db_txn(finalize_op)?;
+    let finalized = finalize_op(&state.storage)?;
     // when journey is finalized, we should reset the gps_preprocessor to prevent old state affecting new journey
     if finalized {
         *gps_preprocessor = GpsPreprocessor::new();
@@ -548,11 +547,11 @@ where
 }
 
 pub fn finalize_ongoing_journey() -> Result<bool> {
-    reset_gps_preprocessor_if_finalized(|txn| txn.finalize_ongoing_journey())
+    reset_gps_preprocessor_if_finalized(Storage::finalize_ongoing_journey)
 }
 
 pub fn try_auto_finalize_journey() -> Result<bool> {
-    reset_gps_preprocessor_if_finalized(|txn| txn.try_auto_finalize_journey())
+    reset_gps_preprocessor_if_finalized(Storage::try_auto_finalize_journey)
 }
 
 pub fn has_ongoing_journey() -> Result<bool> {
@@ -602,14 +601,19 @@ pub fn get_journey_header(journey_id: String) -> Result<Option<JourneyHeader>> {
         .with_db_txn(|txn| txn.get_journey_header(&journey_id))
 }
 
-pub fn generate_full_archive(target_filepath: String) -> Result<ExportResult> {
+/// Generates a section-v2 archive and optionally includes each journey's raw
+/// GPS attachment.
+pub fn generate_full_archive(
+    target_filepath: String,
+    include_raw_data: bool,
+) -> Result<ExportResult> {
     info!("generating full archive");
     if !has_journeys()? {
         Ok(ExportResult::DataIsEmpty)
     } else {
         let mut file = File::create(target_filepath)?;
         get().storage.with_db_txn(|txn| {
-            archive::export_all_journeys_as_mldx(txn, &mut file, archive::SectionVersion::V1)
+            archive::export_all_journeys_as_mldx(txn, &mut file, include_raw_data)
         })?;
         Ok(ExportResult::Succeed)
     }
@@ -675,16 +679,23 @@ pub enum ExportResult {
 }
 
 enum InternalDataForExport {
-    Mldx(JourneyHeader, JourneyData),
+    Mldx(
+        JourneyHeader,
+        JourneyData,
+        Option<crate::raw_data::SerializedJourneyRawData>,
+    ),
     Fwss(JourneyData),
     Gpx(export_data::JourneyExport),
     Kml(export_data::JourneyExport),
 }
 
+/// Uses MLDX section v2 and controls whether the journey's raw GPS attachment
+/// is included. For non-MLDX formats, `include_raw_data` has no effect.
 pub fn export_journey(
     target_filepath: String,
     journey_id: String,
     export_type: ExportType,
+    include_raw_data: bool,
 ) -> Result<ExportResult> {
     let data_for_export = get().storage.with_db_txn(|txn| {
         let journey_data = txn.get_journey_data(&journey_id)?;
@@ -706,6 +717,11 @@ pub fn export_journey(
                 Ok(Some(InternalDataForExport::Mldx(
                     journey_header,
                     journey_data,
+                    if include_raw_data {
+                        txn.get_journey_raw_data(&journey_id)?
+                    } else {
+                        None
+                    },
                 )))
             }
             ExportType::FWSS => Ok(Some(InternalDataForExport::Fwss(journey_data))),
@@ -742,12 +758,13 @@ pub fn export_journey(
         Some(data_for_export) => {
             let mut file = File::create(&target_filepath)?;
             match data_for_export {
-                InternalDataForExport::Mldx(header, data) => {
+                InternalDataForExport::Mldx(header, data, raw_data) => {
                     archive::export_single_journey_as_mldx(
                         header,
                         data,
+                        raw_data,
                         &mut file,
-                        archive::SectionVersion::V1,
+                        include_raw_data,
                     )?
                 }
                 InternalDataForExport::Fwss(data) => {
@@ -773,40 +790,59 @@ pub fn export_journey(
     }
 }
 
+pub fn journey_has_raw_data(journey_id: String) -> Result<bool> {
+    get()
+        .storage
+        .with_db_txn(|txn| txn.has_journey_raw_data(&journey_id))
+}
+
+pub fn delete_journey_raw_data(journey_id: String) -> Result<bool> {
+    get()
+        .storage
+        .with_db_txn(|txn| txn.delete_journey_raw_data(&journey_id))
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RawDataExportType {
+    CSV = 0,
+    GPX = 1,
+    KML = 2,
+}
+
+pub fn export_journey_raw_data(
+    target_filepath: String,
+    journey_id: String,
+    export_type: RawDataExportType,
+) -> Result<ExportResult> {
+    let serialized_raw_data = get()
+        .storage
+        .with_db_txn(|txn| txn.get_journey_raw_data(&journey_id))?;
+    // The database lock is released before decompressing and decoding points.
+    let raw_data = serialized_raw_data
+        .map(|raw_data| raw_data.deserialize())
+        .transpose()?;
+    let Some(raw_data) = raw_data.filter(|raw_data| !raw_data.is_empty()) else {
+        return Ok(ExportResult::DataIsEmpty);
+    };
+
+    let mut file = File::create(target_filepath)?;
+    match export_type {
+        RawDataExportType::CSV => {
+            export_data::raw_csv::journey_raw_data_to_csv_file(&raw_data, &mut file)?
+        }
+        RawDataExportType::GPX => {
+            export_data::gpx::journey_raw_data_to_gpx_file(&raw_data, &mut file)?
+        }
+        RawDataExportType::KML => {
+            export_data::kml::journey_raw_data_to_kml_file(&raw_data, &mut file)?
+        }
+    }
+    Ok(ExportResult::Succeed)
+}
+
 #[auto_context]
-pub fn export_raw_data_gpx_file(csv_filepath: String) -> Result<String> {
-    let csv_path = Path::new(&csv_filepath);
-    let file_name = csv_path
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .ok_or_else(|| anyhow::anyhow!("Failed to parse filename: {csv_filepath}"))?;
-
-    let target_dir = Path::new(&get().storage.cache_dir).join("raw_data");
-
-    if !target_dir.exists() {
-        std::fs::create_dir_all(&target_dir)?;
-    }
-
-    let gpx_path = target_dir.join(file_name).with_extension("gpx");
-    let gpx_path_str = gpx_path.to_string_lossy().to_string();
-
-    if gpx_path.exists() {
-        return Ok(gpx_path_str);
-    }
-
-    let csv_file = File::open(csv_path)
-        .with_context(|| format!("Failed to open source CSV file: {csv_filepath}"))?;
-    let mut reader = Reader::from_reader(BufReader::new(csv_file));
-
-    let gpx_file = File::create(&gpx_path)
-        .with_context(|| format!("Failed to create target GPX file: {gpx_path_str}"))?;
-
-    let mut writer = BufWriter::new(gpx_file);
-
-    export_data::gpx::raw_data_csv_to_gpx_file(&mut reader, &mut writer)
-        .with_context(|| format!("Failed to convert CSV to GPX: {csv_filepath}"))?;
-
-    Ok(gpx_path_str)
+pub fn export_legacy_raw_data_gpx_file(csv_filepath: String) -> Result<String> {
+    get().storage.export_legacy_raw_data_gpx_file(&csv_filepath)
 }
 
 pub fn delete_all_journeys() -> Result<()> {

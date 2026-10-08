@@ -8,17 +8,15 @@ use memolanes_core::api::api::{
     ExportType,
 };
 use memolanes_core::api::import::{self as import_api, ImportPreprocessor, JourneyInfo};
-use memolanes_core::export_data::gpx::raw_data_csv_to_gpx_file;
 use memolanes_core::gpx_file_utils::{normalize_generic_time, normalize_step_of_my_world_time};
 use memolanes_core::journey_bitmap::JourneyBitmap;
 use memolanes_core::journey_data::JourneyData;
 use memolanes_core::journey_header::JourneyKind;
 use memolanes_core::journey_vector::{JourneyVector, TrackPoint, TrackSegment};
-use memolanes_core::main_db::MainDb;
+use memolanes_core::main_db::{MainDb, NewJourney};
 use memolanes_core::{export_data, import_data};
 use std::collections::HashSet;
 use std::fs::{self, File};
-use std::io::BufReader;
 
 fn run_gpx_integrity_check(
     import_path: &str,
@@ -279,36 +277,6 @@ pub fn kml_line_string() {
     assert_f64_near!(points[0].longitude, 117.1179554744);
 }
 
-#[test]
-fn test_raw_data_csv_to_gpx_file() {
-    const CSV_PATH: &str = "./tests/data/raw_data.csv";
-    const GPX_EXPORT_PATH: &str = "./tests/for_inspection/raw_data.gpx";
-
-    let csv_file = File::open(CSV_PATH).unwrap();
-    let mut reader = csv::Reader::from_reader(BufReader::new(csv_file));
-
-    raw_data_csv_to_gpx_file(&mut reader, &mut File::create(GPX_EXPORT_PATH).unwrap()).unwrap();
-
-    let gpx_file = File::open(GPX_EXPORT_PATH).unwrap();
-    let gpx = gpx::read(&mut BufReader::new(gpx_file)).unwrap();
-
-    assert_eq!(gpx.tracks.len(), 1);
-
-    let track_points: Vec<_> = gpx.tracks[0]
-        .segments
-        .iter()
-        .flat_map(|seg| seg.points.iter())
-        .collect_vec();
-
-    assert_eq!(track_points.len(), 929);
-
-    assert_f64_near!(track_points[0].point().x(), -0.104277);
-    assert_f64_near!(track_points[0].point().y(), 51.520302);
-
-    let metadata = gpx.metadata.expect("GPX metadata should exist");
-    assert_eq!(metadata.name.as_deref(), Some("MemoLanes RawData"));
-}
-
 fn export_test_vector(offset: f64) -> JourneyData {
     JourneyData::Vector(JourneyVector {
         track_segments: vec![
@@ -370,26 +338,28 @@ fn bulk_api_preserves_journeys_without_overwriting_local_edits() {
         .unwrap()
         .with_timezone(&Utc);
     db.with_txn(|txn| {
-        txn.create_and_insert_journey(
-            first_date,
-            None,
-            None,
-            None,
-            JourneyKind::DefaultKind,
-            None,
-            JourneyData::Bitmap(JourneyBitmap::new()),
-        )?;
-        txn.create_and_insert_journey(
-            first_date,
-            None,
-            None,
-            None,
-            JourneyKind::DefaultKind,
-            None,
-            JourneyData::Vector(JourneyVector {
+        txn.create_and_insert_journey(NewJourney {
+            journey_date: first_date,
+            start: None,
+            end: None,
+            created_at: None,
+            journey_kind: JourneyKind::DefaultKind,
+            note: None,
+            journey_data: JourneyData::Bitmap(JourneyBitmap::new()),
+            raw_data: None,
+        })?;
+        txn.create_and_insert_journey(NewJourney {
+            journey_date: first_date,
+            start: None,
+            end: None,
+            created_at: None,
+            journey_kind: JourneyKind::DefaultKind,
+            note: None,
+            journey_data: JourneyData::Vector(JourneyVector {
                 track_segments: Vec::new(),
             }),
-        )?;
+            raw_data: None,
+        })?;
         Ok(())
     })
     .unwrap();
@@ -400,15 +370,16 @@ fn bulk_api_preserves_journeys_without_overwriting_local_edits() {
         .with_txn(|txn| {
             let mut ids = Vec::new();
             for (date, offset) in [(first_date, 1.0), (first_date, 10.0), (second_date, 20.0)] {
-                ids.push(txn.create_and_insert_journey(
-                    date,
-                    Some(start),
-                    Some(end),
-                    None,
-                    JourneyKind::DefaultKind,
-                    None,
-                    export_test_vector(offset),
-                )?);
+                ids.push(txn.create_and_insert_journey(NewJourney {
+                    journey_date: date,
+                    start: Some(start),
+                    end: Some(end),
+                    created_at: None,
+                    journey_kind: JourneyKind::DefaultKind,
+                    note: None,
+                    journey_data: export_test_vector(offset),
+                    raw_data: None,
+                })?);
             }
             Ok(ids)
         })
@@ -513,7 +484,13 @@ fn bulk_api_preserves_journeys_without_overwriting_local_edits() {
     ] {
         let path = temp.path().join(format!("single.{extension}"));
         assert!(matches!(
-            export_journey(path.to_string_lossy().into_owned(), ids[0].clone(), format).unwrap(),
+            export_journey(
+                path.to_string_lossy().into_owned(),
+                ids[0].clone(),
+                format,
+                false
+            )
+            .unwrap(),
             ExportResult::Succeed
         ));
         let xml = fs::read_to_string(&path).unwrap();

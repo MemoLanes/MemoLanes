@@ -10,9 +10,9 @@ import 'package:memolanes/common/service/location/geolocator_service.dart';
 import 'package:memolanes/common/service/location/last_known_location.dart';
 import 'package:memolanes/common/service/location/location_service.dart';
 import 'package:memolanes/common/service/permission_service.dart';
+import 'package:memolanes/src/rust/gps.dart';
 import 'package:memolanes/utils/nav_helper.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
-import 'package:memolanes/src/rust/gps_processor.dart';
 import 'package:mutex/mutex.dart';
 import 'package:notification_when_app_is_killed/model/args_for_ios.dart';
 import 'package:notification_when_app_is_killed/model/args_for_kill_notification.dart';
@@ -300,17 +300,19 @@ class GpsManager extends ChangeNotifier {
         }
 
         var meaningful = await api.onLocationUpdate(
-          rawData: RawData(
-            point: Point(
-              latitude: update.data.latitude,
-              longitude: update.data.longitude,
+          data: ExtendedRawGPSPoint(
+            rawGpsPoint: RawGPSPoint(
+              point: Point(
+                latitude: update.data.latitude,
+                longitude: update.data.longitude,
+              ),
+              timestampMs: update.data.timestampMs,
+              accuracy: update.data.accuracy,
+              altitude: update.data.altitude,
+              speed: update.data.speed,
             ),
-            timestampMs: update.data.timestampMs,
-            accuracy: update.data.accuracy,
-            altitude: update.data.altitude,
-            speed: update.data.speed,
+            receivedTimestampMs: update.receivedAt.millisecondsSinceEpoch,
           ),
-          receivedTimestampMs: update.receivedAt.millisecondsSinceEpoch,
         );
 
         if (meaningful) {

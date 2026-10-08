@@ -26,9 +26,11 @@ import notification_when_app_is_killed
   private func registerPlugins(with registry: FlutterPluginRegistry) {
     // The storyboard may reuse the launch engine or create a new one. Check
     // its registry rather than keeping a process-wide registration flag.
-    guard !registry.hasPlugin("ShareHandlerIosPlatform") else { return }
+    if !registry.hasPlugin("ShareHandlerIosPlatform") {
+      GeneratedPluginRegistrant.register(with: registry)
+    }
 
-    GeneratedPluginRegistrant.register(with: registry)
+    DeviceRegionPlugin.register(with: registry)
   }
 
   override func applicationWillTerminate(_ application: UIApplication) {

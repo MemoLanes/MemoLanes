@@ -1,5 +1,5 @@
 use crate::api::import::ImportPreprocessor;
-use crate::gps_processor::{self, Point, RawData};
+use crate::gps::{Point, RawGPSPoint};
 use crate::import_data::{ImportedJourney, ParsedVectorData};
 use anyhow::{Context, Result};
 use auto_context::auto_context;
@@ -241,7 +241,7 @@ fn parse_optional_time(value: &str, field: &str) -> Option<DateTime<Utc>> {
     }
 }
 
-fn parse_coordinates(value: &str) -> Result<Vec<RawData>> {
+fn parse_coordinates(value: &str) -> Result<Vec<RawGPSPoint>> {
     value
         .split_whitespace()
         .map(|coordinate| {
@@ -260,7 +260,7 @@ fn parse_coordinates(value: &str) -> Result<Vec<RawData>> {
                 longitude.is_finite() && latitude.is_finite(),
                 "Non-finite KML coordinate in {coordinate:?}"
             );
-            Ok(RawData {
+            Ok(RawGPSPoint {
                 point: Point {
                     latitude,
                     longitude,
@@ -307,33 +307,34 @@ fn read_kml_description_and_remove(xml: &str) -> Result<(String, Vec<String>)> {
 }
 
 #[auto_context]
-fn read_track(flatten_data: &[Kml]) -> Result<Vec<Vec<RawData>>> {
-    let parse_line = |coord: &Option<String>, when: &Option<String>| -> Result<Option<RawData>> {
-        let coord: Vec<&str> = match coord {
-            Some(coord) => coord.split_whitespace().collect(),
-            None => return Ok(None),
-        };
+fn read_track(flatten_data: &[Kml]) -> Result<Vec<Vec<RawGPSPoint>>> {
+    let parse_line =
+        |coord: &Option<String>, when: &Option<String>| -> Result<Option<RawGPSPoint>> {
+            let coord: Vec<&str> = match coord {
+                Some(coord) => coord.split_whitespace().collect(),
+                None => return Ok(None),
+            };
 
-        let timestamp = match when {
-            None => None,
-            Some(when) => Some(DateTime::<Utc>::from(DateTime::parse_from_rfc3339(when)?)),
-        };
+            let timestamp = match when {
+                None => None,
+                Some(when) => Some(DateTime::<Utc>::from(DateTime::parse_from_rfc3339(when)?)),
+            };
 
-        Ok(Some(gps_processor::RawData {
-            point: Point {
-                latitude: coord[1].parse::<f64>()?,
-                longitude: coord[0].parse::<f64>()?,
-            },
-            timestamp_ms: timestamp.map(|x| x.timestamp_millis()),
-            accuracy: None,
-            altitude: if coord.len() >= 3 {
-                Some(coord[2].parse::<f32>()?)
-            } else {
-                None
-            },
-            speed: None,
-        }))
-    };
+            Ok(Some(RawGPSPoint {
+                point: Point {
+                    latitude: coord[1].parse::<f64>()?,
+                    longitude: coord[0].parse::<f64>()?,
+                },
+                timestamp_ms: timestamp.map(|x| x.timestamp_millis()),
+                accuracy: None,
+                altitude: if coord.len() >= 3 {
+                    Some(coord[2].parse::<f32>()?)
+                } else {
+                    None
+                },
+                speed: None,
+            }))
+        };
 
     let segments = flatten_data
         .iter()
@@ -343,7 +344,7 @@ fn read_track(flatten_data: &[Kml]) -> Result<Vec<Vec<RawData>>> {
         })
         .flat_map(|arr| arr.iter().filter(|e| e.name == "Track"));
 
-    let mut raw_vector_data: Vec<Vec<RawData>> = Vec::new();
+    let mut raw_vector_data: Vec<Vec<RawGPSPoint>> = Vec::new();
 
     for segment in segments {
         let mut when_list = Vec::new();
@@ -365,7 +366,7 @@ fn read_track(flatten_data: &[Kml]) -> Result<Vec<Vec<RawData>>> {
             ));
         }
 
-        let mut raw_vector_data_segment: Vec<RawData> = Vec::new();
+        let mut raw_vector_data_segment: Vec<RawGPSPoint> = Vec::new();
         for i in 0..coord_list.len() {
             let parse_result = parse_line(
                 coord_list[i],
@@ -388,8 +389,8 @@ fn read_track(flatten_data: &[Kml]) -> Result<Vec<Vec<RawData>>> {
     Ok(raw_vector_data)
 }
 
-fn read_line_string(flatten_data: &[Kml]) -> Result<Vec<Vec<RawData>>> {
-    let mut raw_vector_data: Vec<Vec<RawData>> = Vec::new();
+fn read_line_string(flatten_data: &[Kml]) -> Result<Vec<Vec<RawGPSPoint>>> {
+    let mut raw_vector_data: Vec<Vec<RawGPSPoint>> = Vec::new();
 
     let convert_to_timestamp = |when: Option<String>| -> Option<i64> {
         match when {
@@ -409,7 +410,7 @@ fn read_line_string(flatten_data: &[Kml]) -> Result<Vec<Vec<RawData>>> {
             .and_then(|when_element| when_element.content.clone())
     };
 
-    let raw_vector_data_segment: RefCell<Vec<RawData>> = RefCell::new(Vec::new());
+    let raw_vector_data_segment: RefCell<Vec<RawGPSPoint>> = RefCell::new(Vec::new());
 
     flatten_data.iter().for_each(|k| {
         if let Placemark(p) = k {
@@ -422,7 +423,7 @@ fn read_line_string(flatten_data: &[Kml]) -> Result<Vec<Vec<RawData>>> {
                                 .find(|e| e.name == "TimeStamp")
                                 .and_then(extract_time_from_children),
                         );
-                        raw_vector_data_segment.borrow_mut().push(RawData {
+                        raw_vector_data_segment.borrow_mut().push(RawGPSPoint {
                             point: Point {
                                 latitude: point.coord.y,
                                 longitude: point.coord.x,
@@ -435,7 +436,7 @@ fn read_line_string(flatten_data: &[Kml]) -> Result<Vec<Vec<RawData>>> {
                     }
                     Geometry::LineString(line_string) => {
                         line_string.coords.iter().for_each(|coord| {
-                            raw_vector_data_segment.borrow_mut().push(RawData {
+                            raw_vector_data_segment.borrow_mut().push(RawGPSPoint {
                                 point: Point {
                                     latitude: coord.y,
                                     longitude: coord.x,

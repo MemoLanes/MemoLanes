@@ -1,7 +1,8 @@
 use crate::api::import::{ImportPreprocessor, JourneyInfo};
 use crate::flight_track_processor;
+use crate::gps::RawGPSPoint;
 use crate::gps_processor::{
-    self, GpsPreprocessor, PreprocessedData, ProcessResult, RawData, SegmentGapRule,
+    self, GpsPreprocessor, PreprocessedData, ProcessResult, SegmentGapRule,
 };
 use crate::import_data::ParsedVectorData;
 use crate::journey_data::JourneyData;
@@ -12,7 +13,7 @@ use chrono::{Local, TimeZone, Utc};
 
 /// `segment_gap_rule_for_preprocessor = None` meaning disable preprocessor
 pub fn journey_vector_from_raw_data_with_gps_preprocessor(
-    raw_data: &[Vec<RawData>],
+    raw_data: &[Vec<RawGPSPoint>],
     segment_gap_rule_for_preprocessor: Option<SegmentGapRule>,
 ) -> Option<JourneyVector> {
     let processed_data = raw_data.iter().flat_map(move |x| {
@@ -50,7 +51,7 @@ pub fn journey_vector_from_raw_data_with_gps_preprocessor(
 }
 
 /// MemoLanes exports have already been segmented; replay their geometry as-is.
-pub fn journey_vector_from_exported_segments(raw_data: &[Vec<RawData>]) -> JourneyVector {
+pub fn journey_vector_from_exported_segments(raw_data: &[Vec<RawGPSPoint>]) -> JourneyVector {
     JourneyVector {
         track_segments: raw_data
             .iter()
@@ -69,7 +70,7 @@ pub fn journey_vector_from_exported_segments(raw_data: &[Vec<RawData>]) -> Journ
 
 pub(crate) fn process_vector_data(
     parsed: &ParsedVectorData,
-    raw_data: &[Vec<RawData>],
+    raw_data: &[Vec<RawGPSPoint>],
     requested: ImportPreprocessor,
 ) -> JourneyData {
     if parsed.has_memolanes_metadata() {
@@ -100,13 +101,13 @@ pub(crate) fn process_vector_data(
 }
 
 pub fn journey_vector_from_raw_data_with_flight_track_processor(
-    raw_data: &[Vec<RawData>],
+    raw_data: &[Vec<RawGPSPoint>],
 ) -> Option<JourneyVector> {
     flight_track_processor::process(raw_data)
 }
 
-pub fn journey_info_from_raw_vector_data(raw_vector_data: &[Vec<RawData>]) -> JourneyInfo {
-    let time_from_raw_data = |raw_data: &RawData| {
+pub fn journey_info_from_raw_vector_data(raw_vector_data: &[Vec<RawGPSPoint>]) -> JourneyInfo {
+    let time_from_raw_data = |raw_data: &RawGPSPoint| {
         raw_data
             .timestamp_ms
             .and_then(|timestamp_ms| Utc.timestamp_millis_opt(timestamp_ms).single())

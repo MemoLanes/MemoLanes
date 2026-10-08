@@ -1,3 +1,4 @@
+use crate::main_db::NewJourney;
 use std::collections::HashSet;
 use std::fs::File;
 use std::path::Path;
@@ -115,15 +116,16 @@ pub fn import_journey_data(
     journey_data: OpaqueJourneyData,
 ) -> Result<()> {
     let _id = api::get().storage.with_db_txn(|txn| {
-        txn.create_and_insert_journey(
-            journey_info.journey_date,
-            journey_info.start_time,
-            journey_info.end_time,
-            None,
-            journey_info.journey_kind,
-            journey_info.note,
-            journey_data.into_inner(),
-        )
+        txn.create_and_insert_journey(NewJourney {
+            journey_date: journey_info.journey_date,
+            start: journey_info.start_time,
+            end: journey_info.end_time,
+            created_at: None,
+            journey_kind: journey_info.journey_kind,
+            note: journey_info.note,
+            journey_data: journey_data.into_inner(),
+            raw_data: None,
+        })
     })?;
     Ok(())
 }

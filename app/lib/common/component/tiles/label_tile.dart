@@ -9,7 +9,10 @@ class LabelTile extends StatelessWidget {
     super.key,
     this.position = LabelTilePosition.single,
     required this.label,
+    this.labelStyle,
+    this.labelTrailing,
     this.desc = '',
+    this.descStyle,
     this.descMaxLines = 1,
     this.prefix,
     this.suffix,
@@ -22,13 +25,23 @@ class LabelTile extends StatelessWidget {
     this.bottom = true,
     this.maxHeight,
     this.minHeight = 54.0,
+    this.contentPadding = const EdgeInsets.symmetric(
+      horizontal: 16,
+      vertical: 8,
+    ),
   });
 
   final LabelTilePosition position;
 
   final String label;
 
+  final TextStyle? labelStyle;
+
+  final Widget? labelTrailing;
+
   final String desc;
+
+  final TextStyle? descStyle;
 
   final int descMaxLines;
 
@@ -54,6 +67,8 @@ class LabelTile extends StatelessWidget {
 
   final double minHeight;
 
+  final EdgeInsetsGeometry contentPadding;
+
   @override
   Widget build(BuildContext context) {
     final radius = Radius.circular(16.0);
@@ -75,7 +90,7 @@ class LabelTile extends StatelessWidget {
     }
 
     List<Widget> children = [
-      Flexible(
+      Expanded(
         child: GestureDetector(
           onTap: infoLabelOnTap,
           child: Row(
@@ -89,18 +104,22 @@ class LabelTile extends StatelessWidget {
                       label,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: AppTypography.itemTitle.copyWith(
-                        color: context.appColors.inkColor,
-                      ),
+                      style:
+                          labelStyle ??
+                          AppTypography.itemTitle.copyWith(
+                            color: context.appColors.inkColor,
+                          ),
                     ),
                     if (desc.isNotEmpty)
                       Text(
                         desc,
                         maxLines: descMaxLines,
                         overflow: TextOverflow.ellipsis,
-                        style: AppTypography.caption.copyWith(
-                          color: context.appColors.mutedInkColor,
-                        ),
+                        style:
+                            descStyle ??
+                            AppTypography.caption.copyWith(
+                              color: context.appColors.mutedInkColor,
+                            ),
                       ),
                   ],
                 ),
@@ -113,6 +132,7 @@ class LabelTile extends StatelessWidget {
                   color: context.appColors.mutedInkColor,
                 ),
               ],
+              ?labelTrailing,
             ],
           ),
         ),
@@ -141,10 +161,7 @@ class LabelTile extends StatelessWidget {
                   minHeight: minHeight,
                 ),
                 child: Ink(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
+                  padding: contentPadding,
                   decoration: BoxDecoration(
                     color: context.appColors.surfaceColor,
                     borderRadius: borderRadius,

@@ -130,7 +130,7 @@ class _FirstLaunchSetupSheetState extends State<FirstLaunchSetupSheet> {
     Navigator.of(context).pop(_FirstLaunchAccepted(_selectedWorldview));
   }
 
-  void _onDisagree() {
+  void _onExit() {
     Navigator.of(context).pop();
   }
 
@@ -141,9 +141,8 @@ class _FirstLaunchSetupSheetState extends State<FirstLaunchSetupSheet> {
       maxHeightFactor: 0.75,
       actions: [
         AppButton(
-          label: context.tr("privacy.disagree_and_exit"),
-          labelMaxLines: 2,
-          onPressed: _onDisagree,
+          label: context.tr("privacy.exit"),
+          onPressed: _onExit,
           variant: AppButtonVariant.secondary,
         ),
         AppButton(

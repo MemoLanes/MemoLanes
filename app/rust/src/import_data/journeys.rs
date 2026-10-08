@@ -6,8 +6,8 @@ use anyhow::{bail, Context, Result};
 use chrono::{DateTime, NaiveDate, Utc};
 
 use crate::api::import::{ImportPreprocessor, JourneyInfo};
+use crate::gps::RawGPSPoint;
 use crate::gps_processor::GpsPostprocessor;
-use crate::gps_processor::RawData;
 use crate::import_data::{
     conversion, csv, gpx,
     journey_partition::{self, SegmentSlice},
@@ -15,6 +15,7 @@ use crate::import_data::{
 };
 use crate::journey_data::JourneyData;
 use crate::journey_header::{JourneyHeader, JourneyKind, JourneyType};
+use crate::main_db::NewJourney;
 use crate::storage::Storage;
 
 /// One explicitly marked MemoLanes journey in a GPX/KML interchange file.
@@ -23,11 +24,11 @@ pub struct ImportedJourney {
     pub journey_date: Option<NaiveDate>,
     pub start: Option<DateTime<Utc>>,
     pub end: Option<DateTime<Utc>>,
-    pub segments: Vec<Vec<RawData>>,
+    pub segments: Vec<Vec<RawGPSPoint>>,
 }
 
 impl ImportedJourney {
-    pub fn generic(segments: Vec<Vec<RawData>>) -> Self {
+    pub fn generic(segments: Vec<Vec<RawGPSPoint>>) -> Self {
         Self {
             journey_date: None,
             start: None,
@@ -49,7 +50,7 @@ pub struct ParsedVectorData {
 }
 
 impl ParsedVectorData {
-    pub fn flatten(&self) -> Vec<Vec<RawData>> {
+    pub fn flatten(&self) -> Vec<Vec<RawGPSPoint>> {
         self.groups
             .iter()
             .flat_map(|group| group.segments.iter().cloned())
@@ -106,7 +107,7 @@ impl ParsedVectorData {
         }
     }
 
-    pub(crate) fn materialize_part(&self, part: &ImportPart) -> Vec<Vec<RawData>> {
+    pub(crate) fn materialize_part(&self, part: &ImportPart) -> Vec<Vec<RawGPSPoint>> {
         match &part.source {
             ImportPartSource::Journey(index) => self.groups[*index].segments.clone(),
             ImportPartSource::Date(slices) => {
@@ -271,15 +272,16 @@ pub(crate) fn import_selected_parts(
 
             // GPX/KML are lossy interchange formats, so conflicts import as
             // copies rather than replacing an existing source journey.
-            txn.create_and_insert_journey(
-                part.date,
-                part.start,
-                part.end,
-                None,
+            txn.create_and_insert_journey(NewJourney {
+                journey_date: part.date,
+                start: part.start,
+                end: part.end,
+                created_at: None,
                 journey_kind,
-                note.clone(),
-                data,
-            )?;
+                note: note.clone(),
+                journey_data: data,
+                raw_data: None,
+            })?;
             imported_count += 1;
         }
         Ok(imported_count)

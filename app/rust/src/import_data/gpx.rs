@@ -1,5 +1,5 @@
 use crate::api::import::ImportPreprocessor;
-use crate::gps_processor::{Point, RawData};
+use crate::gps::{Point, RawGPSPoint};
 use crate::gpx_file_utils::{analyze_and_prepare_gpx, MEMOLANES_NAMESPACE};
 use crate::import_data::{ImportedJourney, ParsedVectorData};
 use anyhow::{Context, Result};
@@ -32,7 +32,7 @@ pub fn load_gpx(file_path: &str) -> Result<(ParsedVectorData, ImportPreprocessor
     Ok((ParsedVectorData { groups }, preprocessor))
 }
 
-fn waypoint_to_rawdata(point: &Waypoint) -> Result<RawData> {
+fn waypoint_to_rawdata(point: &Waypoint) -> Result<RawGPSPoint> {
     let timestamp_ms = match &point.time {
         Some(time) => {
             let value = time.format()?;
@@ -40,7 +40,7 @@ fn waypoint_to_rawdata(point: &Waypoint) -> Result<RawData> {
         }
         None => None,
     };
-    Ok(RawData {
+    Ok(RawGPSPoint {
         point: Point {
             latitude: point.point().y(),
             longitude: point.point().x(),
@@ -103,7 +103,7 @@ fn metadata(event: &BytesStart<'_>) -> Result<Option<ImportedJourney>> {
     }))
 }
 
-fn track_point(event: &BytesStart<'_>) -> Result<RawData> {
+fn track_point(event: &BytesStart<'_>) -> Result<RawGPSPoint> {
     let latitude: f64 = attribute(event, "lat")?
         .context("MemoLanes GPX track point has no latitude")?
         .parse()
@@ -115,7 +115,7 @@ fn track_point(event: &BytesStart<'_>) -> Result<RawData> {
     if !latitude.is_finite() || !longitude.is_finite() {
         anyhow::bail!("MemoLanes GPX track point has non-finite coordinates");
     }
-    Ok(RawData {
+    Ok(RawGPSPoint {
         point: Point {
             latitude,
             longitude,
@@ -134,7 +134,7 @@ fn parse_memolanes_gpx(xml: &str) -> Result<Option<ParsedVectorData>> {
     let mut prefixes = Vec::new();
     let mut groups = Vec::new();
     let mut current: Option<ImportedJourney> = None;
-    let mut segment: Option<Vec<RawData>> = None;
+    let mut segment: Option<Vec<RawGPSPoint>> = None;
     let mut marked = false;
     let mut invalid_marker = false;
 
@@ -236,7 +236,7 @@ fn parse_memolanes_gpx(xml: &str) -> Result<Option<ParsedVectorData>> {
     Ok(Some(ParsedVectorData { groups }))
 }
 
-pub fn load_gpx_raw_data(gpx_data: &gpx::Gpx) -> Result<Vec<Vec<RawData>>> {
+pub fn load_gpx_raw_data(gpx_data: &gpx::Gpx) -> Result<Vec<Vec<RawGPSPoint>>> {
     let track_data = gpx_data
         .tracks
         .iter()

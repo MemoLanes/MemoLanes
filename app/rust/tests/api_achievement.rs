@@ -22,7 +22,7 @@ use memolanes_core::{
     },
     api::api,
     api::import::JourneyInfo,
-    gps_processor::RawData,
+    gps::{ExtendedRawGPSPoint, RawGPSPoint},
     import_data,
     journey_header::JourneyKind,
 };
@@ -34,15 +34,19 @@ use tempdir::TempDir;
 /// Import one GPX track as a finalized journey via the public GPS ingest path.
 fn import_gpx_as_journey(path: &str) {
     let (parsed, _pre) = import_data::gpx::load_gpx(path).unwrap();
-    let points: Vec<RawData> = parsed
+    let points: Vec<RawGPSPoint> = parsed
         .flatten()
         .into_iter()
         .flatten()
         .filter(|p| p.timestamp_ms.is_some())
         .collect();
     assert!(!points.is_empty(), "no timestamped points in {path}");
-    for p in &points {
-        api::on_location_update(p.clone(), p.timestamp_ms.unwrap());
+    for p in points {
+        let received_timestamp_ms = p.timestamp_ms.unwrap();
+        api::on_location_update(ExtendedRawGPSPoint {
+            raw_gps_point: p,
+            received_timestamp_ms,
+        });
     }
     assert!(api::finalize_ongoing_journey().unwrap(), "finalize {path}");
 }

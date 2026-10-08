@@ -5,6 +5,7 @@ import 'package:memolanes/body/journey/journey_import_preview_page.dart';
 import 'package:memolanes/common/component/cards/option_card.dart';
 import 'package:memolanes/common/component/multi_journey_import_page.dart';
 import 'package:memolanes/common/component/tiles/label_tile.dart';
+import 'package:memolanes/common/journey_kind_visuals.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/simple_date_utils.dart';
 import 'package:memolanes/common/utils.dart';
@@ -93,6 +94,7 @@ class _VectorMultiImportPageState extends State<VectorMultiImportPage> {
               journeyType: JourneyType.vector,
               journeyKind: _journeyKind,
               note: _noteController.text,
+              hasRawData: false,
             ),
             previewJourneyData: journeyData,
           ),
