@@ -47,11 +47,12 @@ fn process_gpx_or_kml(file_path: &str) -> Result<JourneyBitmap> {
         .and_then(|s| s.to_str())
         .map(|s| s.to_ascii_lowercase());
 
-    let (raw_data, preprocessor) = match ext.as_deref() {
+    let (parsed, preprocessor) = match ext.as_deref() {
         Some("gpx") => import_data::gpx::load_gpx(file_path)?,
         Some("kml") => import_data::kml::load_kml(file_path)?,
         _ => bail!("Unsupported file extension: {ext:?}"),
     };
+    let raw_data = parsed.flatten();
 
     let gap_rule = match preprocessor {
         ImportPreprocessor::None => None,

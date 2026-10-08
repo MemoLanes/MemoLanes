@@ -1,9 +1,11 @@
 use crate::api::import::ImportPreprocessor;
-use crate::export_data::gpx::JOURNEY_TYPE_NAME;
 use anyhow::Result;
 use chrono::Datelike;
 use quick_xml::events::{BytesText, Event};
 use quick_xml::{Reader, Writer};
+
+pub const JOURNEY_TYPE_NAME: &str = "MemoLanes Journey";
+pub(crate) const MEMOLANES_NAMESPACE: &str = "https://app.memolanes.com/ns/journey/1";
 
 type TimeNormalizer = fn(&str) -> Option<String>;
 

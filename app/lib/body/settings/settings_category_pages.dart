@@ -442,7 +442,12 @@ class _DataManagementSettingsPageState
       formatGroups: [
         CommonExportFormatGroup(
           label: context.tr('data.export_data.journey_data_group'),
-          formats: const [CommonExportFormat.mldx, CommonExportFormat.fwss],
+          formats: const [
+            CommonExportFormat.mldx,
+            CommonExportFormat.fwss,
+            CommonExportFormat.kml,
+            CommonExportFormat.gpx,
+          ],
         ),
       ],
       exportFile: (selection) async {
@@ -458,6 +463,12 @@ class _DataManagementSettingsPageState
             includeRawData: selection.includeRawData,
           ),
           CommonExportFormat.fwss => await api.exportAllJourneysAsFwss(
+            targetFilepath: filepath,
+          ),
+          CommonExportFormat.kml => await api.exportAllJourneysAsKml(
+            targetFilepath: filepath,
+          ),
+          CommonExportFormat.gpx => await api.exportAllJourneysAsGpx(
             targetFilepath: filepath,
           ),
           _ => throw UnsupportedError('Unsupported export format: $format'),
