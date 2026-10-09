@@ -1,12 +1,12 @@
 pub mod test_utils;
 use crate::test_utils::{draw_line1, draw_line2, draw_line3};
 use chrono::NaiveDate;
-use memolanes_core::main_db::NewJourney;
+use memolanes_core::main_db::{FinalizeJourneyResult, NewJourney};
 use memolanes_core::{
     cache_db::LayerKind,
     gps::{ExtendedRawGPSPoint, Point, RawGPSPoint},
     gps_processor::ProcessResult,
-    import_data,
+    import_data, journey_area_utils,
     journey_bitmap::JourneyBitmap,
     journey_data::JourneyData,
     journey_header::JourneyKind,
@@ -52,7 +52,10 @@ fn storage_for_main_map_renderer() {
             // TODO: reimplement the assert under new api
             // assert!(!storage.main_map_renderer_need_to_reload());
         } else if i == 1010 {
-            let _: bool = storage.finalize_ongoing_journey().unwrap();
+            assert_eq!(
+                storage.finalize_ongoing_journey(true).unwrap(),
+                FinalizeJourneyResult::Saved
+            );
         } else if i == 1020 {
             // assert!(storage.main_map_renderer_need_to_reload());
             let _: JourneyBitmap = storage
@@ -145,14 +148,14 @@ fn raw_data_mode_controls_capture_and_finalization() {
                     .unwrap();
                 let finalize = || {
                     if auto_finalize {
-                        storage.try_auto_finalize_journey()
+                        storage.try_auto_finalize_journey(true)
                     } else {
-                        storage.finalize_ongoing_journey()
+                        storage.finalize_ongoing_journey(true)
                     }
                 };
-                assert!(finalize().unwrap());
+                assert_eq!(finalize().unwrap(), FinalizeJourneyResult::Saved);
                 assert_eq!(notifications.load(Ordering::Relaxed), 1);
-                assert!(!finalize().unwrap());
+                assert_eq!(finalize().unwrap(), FinalizeJourneyResult::Noop);
                 assert_eq!(notifications.load(Ordering::Relaxed), 1);
                 storage
                     .with_db_txn(|txn| {
@@ -198,6 +201,171 @@ fn raw_data_mode_persists_across_restarts() {
     drop(storage);
 
     assert!(!init().get_raw_data_mode());
+}
+
+fn bitmap_with_point(longitude: f64, latitude: f64) -> JourneyBitmap {
+    let mut bitmap = JourneyBitmap::new();
+    bitmap.add_line(longitude, latitude, longitude, latitude);
+    bitmap
+}
+
+fn record_point(storage: &Storage, longitude: f64, latitude: f64) {
+    let timestamp_ms = 1_697_349_115_000;
+    storage.record_gps_data(
+        &ExtendedRawGPSPoint {
+            received_timestamp_ms: timestamp_ms,
+            raw_gps_point: RawGPSPoint {
+                point: Point {
+                    latitude,
+                    longitude,
+                },
+                timestamp_ms: Some(timestamp_ms),
+                accuracy: None,
+                altitude: None,
+                speed: None,
+            },
+        },
+        ProcessResult::Append,
+    );
+}
+
+fn insert_bitmap_history(storage: &Storage, kind: JourneyKind, bitmap: JourneyBitmap) {
+    storage
+        .with_db_txn(|txn| {
+            txn.create_and_insert_journey(NewJourney {
+                journey_date: NaiveDate::from_ymd_opt(2023, 10, 15).unwrap(),
+                start: None,
+                end: None,
+                created_at: None,
+                journey_kind: kind,
+                note: None,
+                journey_data: JourneyData::Bitmap(bitmap),
+                raw_data: None,
+            })
+        })
+        .unwrap();
+}
+
+#[test]
+fn discarded_journey_clears_raw_points_and_notifies_after_commit() {
+    use std::sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc,
+    };
+    let (longitude, latitude) = (121.4737, 31.2304);
+    for auto_finalize in [false, true] {
+        setup_storage_for_test(|mut storage| {
+            let history = bitmap_with_point(longitude, latitude);
+            assert!(journey_area_utils::journey_bitmap_area_cm2(&history, None) <= 100 * 10_000);
+            insert_bitmap_history(&storage, JourneyKind::DefaultKind, history.clone());
+            storage.toggle_raw_data_mode(true);
+            record_point(&storage, longitude, latitude);
+            assert!(!storage
+                .with_db_txn(|txn| txn.get_ongoing_journey_raw_data())
+                .unwrap()
+                .is_empty());
+            let notifications = Arc::new(AtomicUsize::new(0));
+            let callback_notifications = notifications.clone();
+            storage.set_finalized_journey_changed_callback(Box::new(move |storage| {
+                // Re-entering Storage verifies the callback runs after the
+                // committed cleanup and outside the database lock.
+                storage
+                    .with_db_txn(|txn| {
+                        assert!(txn.get_ongoing_journey(None)?.is_none());
+                        assert!(txn.get_ongoing_journey_raw_data()?.is_empty());
+                        assert_eq!(txn.query_journeys(None, None, None)?.len(), 1);
+                        Ok(())
+                    })
+                    .unwrap();
+                callback_notifications.fetch_add(1, Ordering::Relaxed);
+            }));
+            let finalize = || {
+                if auto_finalize {
+                    storage.try_auto_finalize_journey(true)
+                } else {
+                    storage.finalize_ongoing_journey(true)
+                }
+            };
+            assert_eq!(finalize().unwrap(), FinalizeJourneyResult::Discarded);
+            assert_eq!(notifications.load(Ordering::Relaxed), 1);
+            assert_eq!(
+                storage
+                    .get_latest_bitmap_for_main_map_renderer(&Some(LayerKind::All), true)
+                    .unwrap(),
+                history
+            );
+            assert_eq!(finalize().unwrap(), FinalizeJourneyResult::Noop);
+            assert_eq!(notifications.load(Ordering::Relaxed), 1);
+        });
+    }
+}
+
+#[test]
+fn finalize_keeps_journeys_outside_the_duplicate_policy() {
+    let small_history = bitmap_with_point(0.0, 85.0);
+    let partial_candidate = bitmap_with_point(0.0002, 85.0);
+    assert!(journey_area_utils::journey_bitmap_area_cm2(&small_history, None) <= 100 * 10_000);
+    assert!(journey_area_utils::journey_bitmap_area_cm2(&partial_candidate, None) <= 100 * 10_000);
+    assert!(!partial_candidate.is_subset_of(&small_history));
+    let mut overlap = partial_candidate.clone();
+    overlap.intersection(&small_history);
+    assert!(!overlap.is_empty());
+    let mut large_history = JourneyBitmap::new();
+    large_history.add_line(0.0, 0.0, 0.01, 0.0);
+    assert!(journey_area_utils::journey_bitmap_area_cm2(&large_history, None) > 100 * 10_000);
+
+    for (name, points, history, drop_enabled) in [
+        ("new coverage", vec![(0.0002, 85.0)], None, true),
+        (
+            "partial coverage",
+            vec![(0.0002, 85.0)],
+            Some((JourneyKind::DefaultKind, small_history.clone())),
+            true,
+        ),
+        (
+            "feature disabled",
+            vec![(0.0, 85.0)],
+            Some((JourneyKind::DefaultKind, small_history.clone())),
+            false,
+        ),
+        (
+            "flight history only",
+            vec![(0.0, 85.0)],
+            Some((JourneyKind::Flight, small_history)),
+            true,
+        ),
+        (
+            "large covered trip",
+            vec![(0.0, 0.0), (0.01, 0.0)],
+            Some((JourneyKind::DefaultKind, large_history)),
+            true,
+        ),
+    ] {
+        setup_storage_for_test(|storage| {
+            let expected_count = if let Some((kind, bitmap)) = history {
+                insert_bitmap_history(&storage, kind, bitmap);
+                2
+            } else {
+                1
+            };
+            for (longitude, latitude) in points {
+                record_point(&storage, longitude, latitude);
+            }
+            assert_eq!(
+                storage.finalize_ongoing_journey(drop_enabled).unwrap(),
+                FinalizeJourneyResult::Saved,
+                "{name}"
+            );
+            assert_eq!(
+                storage
+                    .with_db_txn(|txn| txn.query_journeys(None, None, None))
+                    .unwrap()
+                    .len(),
+                expected_count,
+                "{name}"
+            );
+        });
+    }
 }
 
 fn assert_cache(storage: &Storage, default: &JourneyBitmap, flight: &JourneyBitmap) {

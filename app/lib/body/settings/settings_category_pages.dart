@@ -48,12 +48,17 @@ class JourneyRecordingSettingsPage extends StatefulWidget {
 class _JourneyRecordingSettingsPageState
     extends State<JourneyRecordingSettingsPage> {
   late bool _notificationEnabled;
+  late bool _dropCoveredSmallJourneyEnabled;
 
   @override
   void initState() {
     super.initState();
     _notificationEnabled = MMKVUtil.getBool(
       MMKVKey.isUnexpectedExitNotificationEnabled,
+      defaultValue: true,
+    );
+    _dropCoveredSmallJourneyEnabled = MMKVUtil.getBool(
+      MMKVKey.dropCoveredSmallJourneyEnabled,
       defaultValue: true,
     );
   }
@@ -73,7 +78,7 @@ class _JourneyRecordingSettingsPageState
             children: [
               SettingsTile(
                 label: context.tr('general.advanced_settings.raw_data_mode'),
-                position: LabelTilePosition.single,
+                position: LabelTilePosition.top,
                 bottom: false,
                 labelTrailing: IconButton(
                   tooltip: context.tr(
@@ -95,6 +100,41 @@ class _JourneyRecordingSettingsPageState
                   ),
                 ),
                 trailing: const RawDataSwitch(),
+              ),
+              SettingsTile(
+                label: context.tr('journey.drop_covered_small_journey'),
+                position: LabelTilePosition.bottom,
+                bottom: false,
+                labelTrailing: IconButton(
+                  tooltip: context.tr('journey.drop_covered_small_journey'),
+                  icon: Icon(
+                    Icons.help_outline_rounded,
+                    color: context.appColors.mutedInkColor,
+                    size: 20,
+                  ),
+                  onPressed: () => showCommonDialog(
+                    context,
+                    context.tr(
+                      'journey.drop_covered_small_journey_description',
+                    ),
+                    title: context.tr('journey.drop_covered_small_journey'),
+                  ),
+                ),
+                trailing: Switch(
+                  value: _dropCoveredSmallJourneyEnabled,
+                  onChanged:
+                      gpsManager.recordingStatus == GpsRecordingStatus.none
+                      ? (value) {
+                          MMKVUtil.putBool(
+                            MMKVKey.dropCoveredSmallJourneyEnabled,
+                            value,
+                          );
+                          setState(
+                            () => _dropCoveredSmallJourneyEnabled = value,
+                          );
+                        }
+                      : null,
+                ),
               ),
             ],
           ),

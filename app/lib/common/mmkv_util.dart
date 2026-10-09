@@ -5,6 +5,8 @@ class MMKVKey {
       'isUnexpectedExitNotificationEnabled';
   static const String isHeartbeatDetectionEnabled =
       'Settings.heartbeatDetectionEnabled';
+  static const String dropCoveredSmallJourneyEnabled =
+      'Settings.dropCoveredSmallJourneyEnabled';
   static const String hapticsFeedbackEnabled =
       'Settings.hapticsFeedbackEnabled';
   static const String dbOptimizationCheck = "dbOptimizationCheck";
