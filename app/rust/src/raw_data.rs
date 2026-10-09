@@ -157,6 +157,30 @@ impl JourneyRawData {
 
 impl SerializedJourneyRawData {
     pub fn deserialize(&self) -> Result<JourneyRawData> {
+        self.with_points_reader(|header, input| {
+            let mut points = Vec::new();
+            while !input.eof()? {
+                points.push(ExtendedRawGPSPoint::deserialize(&input.read_bytes()?)?);
+            }
+            Ok(JourneyRawData { header, points })
+        })
+    }
+
+    /// Checks export availability without decoding the entire attachment.
+    pub(crate) fn has_points(&self) -> Result<bool> {
+        self.with_points_reader(|_, input| {
+            if input.eof()? {
+                return Ok(false);
+            }
+            ExtendedRawGPSPoint::deserialize(&input.read_bytes()?)?;
+            Ok(true)
+        })
+    }
+
+    fn with_points_reader<T>(
+        &self,
+        read_points: impl FnOnce(JourneyRawDataHeader, &mut CodedInputStream<'_>) -> Result<T>,
+    ) -> Result<T> {
         let mut reader = Cursor::new(self.as_bytes());
         utils::validate_magic_header(&mut reader, &JOURNEY_RAW_DATA_MAGIC_HEADER)?;
 
@@ -165,11 +189,7 @@ impl SerializedJourneyRawData {
         let header = JourneyRawDataHeader::of_proto(
             protos::raw_data::JourneyRawDataHeaderProto::parse_from_bytes(&input.read_bytes()?)?,
         );
-        let mut points = Vec::new();
-        while !input.eof()? {
-            points.push(ExtendedRawGPSPoint::deserialize(&input.read_bytes()?)?);
-        }
-        Ok(JourneyRawData { header, points })
+        read_points(header, &mut input)
     }
 
     pub fn from_bytes(bytes: Vec<u8>) -> Self {

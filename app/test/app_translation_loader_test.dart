@@ -69,6 +69,7 @@ void main() {
     // The delegate loads assets via a real Future; runAsync lets it complete,
     // then pump/settle mounts the loaded translations into Localization.instance.
     await tester.runAsync(() async {
+      await loader.load('assets/translations', enUs);
       await tester.pumpWidget(app);
       await tester.pump(const Duration(seconds: 1));
     });

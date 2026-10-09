@@ -93,6 +93,13 @@ enum CommonExportFormat {
 
   String get extension => option.extension;
 
+  api.RawDataExportType get rawDataExportType => switch (this) {
+    CommonExportFormat.rawDataCsv => api.RawDataExportType.csv,
+    CommonExportFormat.rawDataGpx => api.RawDataExportType.gpx,
+    CommonExportFormat.rawDataKml => api.RawDataExportType.kml,
+    _ => throw UnsupportedError('Unsupported raw-data export format: $this'),
+  };
+
   bool get isRawData => switch (this) {
     CommonExportFormat.rawDataCsv ||
     CommonExportFormat.rawDataGpx ||
@@ -108,11 +115,29 @@ class CommonExportFormatGroup {
   const CommonExportFormatGroup({
     required this.label,
     required this.formats,
+    this.description,
     this.lossyFormatWarning,
   }) : assert(formats.length > 0);
 
+  factory CommonExportFormatGroup.rawData(
+    BuildContext context, {
+    String? description,
+  }) {
+    return CommonExportFormatGroup(
+      label: context.tr('data.export_data.raw_data_group'),
+      description: description,
+      formats: const [
+        CommonExportFormat.rawDataCsv,
+        CommonExportFormat.rawDataGpx,
+        CommonExportFormat.rawDataKml,
+      ],
+      lossyFormatWarning: context.tr('journey.raw_data_lossy_format_warning'),
+    );
+  }
+
   final String label;
   final List<CommonExportFormat> formats;
+  final String? description;
   final String? lossyFormatWarning;
 }
 
@@ -202,7 +227,9 @@ Future<void> showCommonExportWithFormatPicker({
           await showCommonDialog(
             context,
             context.tr(
-              'data.export_data.error.no_track_data_for_selected_format',
+              selection.format.isRawData
+                  ? 'data.export_data.error.no_raw_data_to_export'
+                  : 'data.export_data.error.no_track_data_for_selected_format',
             ),
           );
         }
@@ -367,10 +394,18 @@ class _ExportFormatDialogState extends State<_ExportFormatDialog> {
     );
   }
 
-  Widget _buildLossyWarning() {
-    if (_selectedFormat.option.keepsCompleteData) {
-      return const SizedBox.shrink();
-    }
+  Widget _buildExportNotice() {
+    final messages = [
+      if (_selectedGroup.description != null) _selectedGroup.description!,
+      if (!_selectedFormat.option.keepsCompleteData)
+        _selectedGroup.lossyFormatWarning ??
+            context.tr(switch (_selectedFormat) {
+              CommonExportFormat.kml || CommonExportFormat.gpx =>
+                'data.export_data.vector_format_warning',
+              _ => 'data.export_data.lossy_format_warning',
+            }),
+    ];
+    if (messages.isEmpty) return const SizedBox.shrink();
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 180),
@@ -391,14 +426,15 @@ class _ExportFormatDialogState extends State<_ExportFormatDialog> {
           ),
           const SizedBox(width: 8.0),
           Expanded(
-            child: Text(
-              _selectedGroup.lossyFormatWarning ??
-                  context.tr(switch (_selectedFormat) {
-                    CommonExportFormat.kml || CommonExportFormat.gpx =>
-                      'data.export_data.vector_format_warning',
-                    _ => 'data.export_data.lossy_format_warning',
-                  }),
-              style: AppTypography.supporting,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (var i = 0; i < messages.length; i++) ...[
+                  if (i > 0) const SizedBox(height: 8.0),
+                  Text(messages[i], style: AppTypography.supporting),
+                ],
+              ],
             ),
           ),
         ],
@@ -561,7 +597,7 @@ class _ExportFormatDialogState extends State<_ExportFormatDialog> {
                 ],
               ),
               _buildRawDataToggle(),
-              _buildLossyWarning(),
+              _buildExportNotice(),
             ],
           ),
         ),

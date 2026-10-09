@@ -363,6 +363,7 @@
       "export_journey_title": "导出旅途",
       "error": {
         "no_journeys_to_export": "暂无可导出的旅途",
+        "no_raw_data_to_export": "暂无可导出的原始定位数据",
         "no_track_data_for_selected_format": "暂无可导出为所选格式的轨迹数据",
         "unexpected": "导出时遇到意外错误"
       },
@@ -370,6 +371,7 @@
       "format_section_title": "导出格式",
       "journey_data_group": "旅途数据",
       "raw_data_group": "原始定位数据",
+      "raw_data_group_desc": "仅导出旅途中已保存的原始数据，不含原始数据的旅途会自动跳过。",
       "include_raw_data": "保留原始定位数据",
       "include_raw_data_desc": "关闭后仅导出旅途数据，原始数据将被丢弃",
       "format_mldx": "迹忆标准格式（*.mldx）",

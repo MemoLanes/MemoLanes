@@ -36,6 +36,7 @@ pub struct RawVectorData {
 pub struct VectorImportPartSummary {
     pub part_key: String,
     pub is_memolanes_journey: bool,
+    pub is_explicit_journey: bool,
     pub journey_date: String,
     pub start_time: Option<DateTime<Utc>>,
     pub end_time: Option<DateTime<Utc>>,
@@ -151,6 +152,7 @@ pub fn analyze_vector_data_parts(vector_data: &RawVectorData) -> Vec<VectorImpor
         .map(|part| VectorImportPartSummary {
             part_key: part.key.clone(),
             is_memolanes_journey: part.is_memolanes_journey(),
+            is_explicit_journey: part.is_explicit_journey(),
             journey_date: part.date.format("%Y-%m-%d").to_string(),
             start_time: part.start,
             end_time: part.end,

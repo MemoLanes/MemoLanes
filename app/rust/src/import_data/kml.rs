@@ -9,6 +9,7 @@ use kml::Kml::Placemark;
 use kml::{Kml, KmlReader};
 use log::warn;
 use quick_xml::events::Event;
+use quick_xml::name::QName;
 use quick_xml::{Reader, Writer};
 use std::cell::RefCell;
 use std::fs;
@@ -37,7 +38,13 @@ pub fn load_kml(file_path: &str) -> Result<(ParsedVectorData, ImportPreprocessor
     } else {
         vec![ImportedJourney::generic(segments)]
     };
-    Ok((ParsedVectorData { groups }, ImportPreprocessor::Generic))
+    Ok((
+        ParsedVectorData {
+            groups,
+            ..Default::default()
+        },
+        ImportPreprocessor::Generic,
+    ))
 }
 
 struct KmlFolder {
@@ -46,6 +53,24 @@ struct KmlFolder {
     marked: bool,
     placemarks: usize,
     coordinates: Vec<String>,
+}
+
+/// Decode logical text without treating CDATA or comments as literal markup.
+fn read_element_text(reader: &mut Reader<&[u8]>, name: QName<'_>) -> Result<String> {
+    let raw = reader.read_text(name)?;
+    let mut content = Reader::from_str(&raw);
+    let mut value = String::new();
+    loop {
+        match content.read_event()? {
+            Event::Text(text) => value.push_str(text.as_ref()),
+            Event::CData(text) => value.push_str(text.as_ref()),
+            Event::GeneralRef(reference) => value.push_str(&quick_xml::escape::unescape(
+                &format!("&{};", reference.as_ref()),
+            )?),
+            Event::Eof => return Ok(value.trim().to_owned()),
+            _ => {}
+        }
+    }
 }
 
 fn parse_memolanes_kml(xml: &str) -> Result<Option<ParsedVectorData>> {
@@ -158,8 +183,7 @@ fn parse_memolanes_kml(xml: &str) -> Result<Option<ParsedVectorData>> {
             Event::Start(event)
                 if local_name(event.name().as_ref()) == "value" && data_name.is_some() =>
             {
-                let raw = reader.read_text(event.name())?;
-                let value = quick_xml::escape::unescape(raw.as_ref())?.into_owned();
+                let value = read_element_text(&mut reader, event.name())?;
                 if let (Some(folder), Some(name)) = (folders.last_mut(), data_name.as_deref()) {
                     match name {
                         "memolanes:date" => {
@@ -179,8 +203,7 @@ fn parse_memolanes_kml(xml: &str) -> Result<Option<ParsedVectorData>> {
             Event::Start(event)
                 if local_name(event.name().as_ref()) == "when" && in_timestamp && !in_placemark =>
             {
-                let raw = reader.read_text(event.name())?;
-                let value = quick_xml::escape::unescape(raw.as_ref())?;
+                let value = read_element_text(&mut reader, event.name())?;
                 if let Some(folder) = folders.last_mut() {
                     if folder.journey.journey_date.is_none() {
                         folder.journey.journey_date =
@@ -193,10 +216,9 @@ fn parse_memolanes_kml(xml: &str) -> Result<Option<ParsedVectorData>> {
                     && in_placemark
                     && in_linestring =>
             {
-                let raw = reader.read_text(event.name())?;
-                let value = quick_xml::escape::unescape(raw.as_ref())?;
+                let value = read_element_text(&mut reader, event.name())?;
                 if let Some(folder) = folders.last_mut() {
-                    folder.coordinates.push(value.into_owned());
+                    folder.coordinates.push(value);
                     line_has_coordinates = true;
                 } else {
                     unmarked_geometry = true;
@@ -224,7 +246,10 @@ fn parse_memolanes_kml(xml: &str) -> Result<Option<ParsedVectorData>> {
             groups.push(folder.journey);
         }
     }
-    Ok(Some(ParsedVectorData { groups }))
+    Ok(Some(ParsedVectorData {
+        groups,
+        ..Default::default()
+    }))
 }
 
 fn local_name(name: &str) -> &str {

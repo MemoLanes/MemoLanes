@@ -4,13 +4,14 @@ use std::io::{BufWriter, Write};
 use anyhow::{anyhow, Result};
 use chrono::{DateTime, NaiveDate, Utc};
 
+use crate::api::api::RawDataExportType;
 use crate::journey_data::JourneyData;
 use crate::journey_header::{JourneyHeader, JourneyType};
 use crate::journey_vector::JourneyVector;
-use crate::main_db::Txn;
+use crate::raw_data::JourneyRawData;
 use crate::storage::Storage;
 
-use super::{gpx::GpxJourneyWriter, kml::KmlJourneyWriter};
+use super::{csv::write_raw_data_csv, gpx::GpxJourneyWriter, kml::KmlJourneyWriter};
 
 pub(crate) enum VectorExportFormat {
     Gpx,
@@ -22,6 +23,13 @@ enum VectorWriter<W: Write> {
     Kml(KmlJourneyWriter<W>),
 }
 
+trait JourneyFileWriter {
+    type Journey;
+
+    fn write_journey(&mut self, index: usize, journey: &Self::Journey) -> Result<()>;
+    fn finish(self) -> Result<()>;
+}
+
 impl<W: Write> VectorWriter<W> {
     fn new(writer: W, format: VectorExportFormat) -> Result<Self> {
         match format {
@@ -29,8 +37,12 @@ impl<W: Write> VectorWriter<W> {
             VectorExportFormat::Kml => Ok(Self::Kml(KmlJourneyWriter::new(writer)?)),
         }
     }
+}
 
-    fn write_journey(&mut self, journey: &JourneyExport) -> Result<()> {
+impl<W: Write> JourneyFileWriter for VectorWriter<W> {
+    type Journey = JourneyExport;
+
+    fn write_journey(&mut self, _index: usize, journey: &JourneyExport) -> Result<()> {
         match self {
             Self::Gpx(writer) => writer.write_journey(journey),
             Self::Kml(writer) => writer.write_journey(journey),
@@ -39,6 +51,46 @@ impl<W: Write> VectorWriter<W> {
 
     fn finish(self) -> Result<()> {
         match self {
+            Self::Gpx(writer) => writer.finish(),
+            Self::Kml(writer) => writer.finish(),
+        }
+    }
+}
+
+enum RawDataWriter<W: Write> {
+    Csv(Box<csv::Writer<W>>),
+    Gpx(GpxJourneyWriter<W>),
+    Kml(KmlJourneyWriter<W>),
+}
+
+impl<W: Write> RawDataWriter<W> {
+    fn new(writer: W, format: RawDataExportType) -> Result<Self> {
+        match format {
+            RawDataExportType::CSV => Ok(Self::Csv(Box::new(csv::Writer::from_writer(writer)))),
+            RawDataExportType::GPX => Ok(Self::Gpx(GpxJourneyWriter::new_raw_data(writer)?)),
+            RawDataExportType::KML => Ok(Self::Kml(KmlJourneyWriter::new_raw_data(writer)?)),
+        }
+    }
+}
+
+impl<W: Write> JourneyFileWriter for RawDataWriter<W> {
+    type Journey = (JourneyHeader, JourneyRawData);
+
+    fn write_journey(&mut self, index: usize, (header, data): &Self::Journey) -> Result<()> {
+        let name = format!("MemoLanes Raw Data {} #{index}", header.journey_date);
+        match self {
+            Self::Csv(writer) => write_raw_data_csv(writer, data, Some(&header.id)),
+            Self::Gpx(writer) => writer.write_raw_data(data, &name),
+            Self::Kml(writer) => writer.write_raw_data(data, &name),
+        }
+    }
+
+    fn finish(self) -> Result<()> {
+        match self {
+            Self::Csv(mut writer) => {
+                writer.flush()?;
+                Ok(())
+            }
             Self::Gpx(writer) => writer.finish(),
             Self::Kml(writer) => writer.finish(),
         }
@@ -73,54 +125,94 @@ impl JourneyExport {
     }
 }
 
-/// Collects vector journey headers without retaining any tracks in memory.
-fn collect_vector_journey_headers(txn: &mut Txn<'_>) -> Result<Vec<JourneyHeader>> {
-    let mut result = Vec::new();
-    for header in txn.query_journeys(None, None, None)? {
-        if header.journey_type != JourneyType::Vector {
-            continue;
-        }
-        result.push(header);
-    }
-    Ok(result)
-}
-
-fn load_vector_journey(txn: &mut Txn<'_>, header: JourneyHeader) -> Result<JourneyExport> {
-    let JourneyData::Vector(vector) = txn.get_journey_data(&header.id)? else {
-        return Err(anyhow!("Journey {} is not vector data", header.id));
-    };
-    Ok(JourneyExport::from_header(header, vector))
-}
-
 /// Exports one vector journey at a time. An empty export leaves no file behind.
 pub(crate) fn export_all_vector_journeys(
     storage: &Storage,
     target_filepath: &str,
     format: VectorExportFormat,
 ) -> Result<bool> {
+    export_journeys(
+        storage,
+        target_filepath,
+        |header| {
+            if header.journey_type != JourneyType::Vector {
+                return Ok(None);
+            }
+            let JourneyData::Vector(vector) =
+                storage.with_db_txn(|txn| txn.get_journey_data(&header.id))?
+            else {
+                return Err(anyhow!("Journey {} is not vector data", header.id));
+            };
+            let journey = JourneyExport::from_header(header, vector);
+            Ok((!journey.is_empty()).then_some(journey))
+        },
+        |writer| VectorWriter::new(writer, format),
+    )
+}
+
+pub(crate) fn load_journey_raw_data(
+    storage: &Storage,
+    journey_id: &str,
+) -> Result<Option<JourneyRawData>> {
+    let serialized = storage.with_db_txn(|txn| txn.get_journey_raw_data(journey_id))?;
+    // Release the database lock before decompressing and decoding points.
+    Ok(serialized
+        .map(|data| data.deserialize())
+        .transpose()?
+        .filter(|data| !data.is_empty()))
+}
+
+pub(crate) fn export_all_raw_journeys(
+    storage: &Storage,
+    target_filepath: &str,
+    format: RawDataExportType,
+) -> Result<bool> {
+    export_journeys(
+        storage,
+        target_filepath,
+        |header| Ok(load_journey_raw_data(storage, &header.id)?.map(|data| (header, data))),
+        |writer| RawDataWriter::new(writer, format),
+    )
+}
+
+/// Shares traversal, empty-export handling and buffering across export formats.
+/// Only one journey's decoded points are retained at a time.
+fn export_journeys<W: JourneyFileWriter>(
+    storage: &Storage,
+    target_filepath: &str,
+    mut load_journey: impl FnMut(JourneyHeader) -> Result<Option<W::Journey>>,
+    new_writer: impl FnOnce(BufWriter<File>) -> Result<W>,
+) -> Result<bool> {
     let mut headers = storage
-        .with_db_txn(collect_vector_journey_headers)?
+        .with_db_txn(|txn| txn.query_journeys(None, None, None))?
         .into_iter();
     let first = loop {
         let Some(header) = headers.next() else {
             return Ok(false);
         };
-        let journey = storage.with_db_txn(|txn| load_vector_journey(txn, header))?;
-        if !journey.is_empty() {
+        if let Some(journey) = load_journey(header)? {
             break journey;
         }
     };
 
-    let mut file = BufWriter::new(File::create(target_filepath)?);
-    let mut writer = VectorWriter::new(&mut file, format)?;
-    writer.write_journey(&first)?;
-    for header in headers {
-        let journey = storage.with_db_txn(|txn| load_vector_journey(txn, header))?;
-        if !journey.is_empty() {
-            writer.write_journey(&journey)?;
+    let file = BufWriter::new(File::create(target_filepath)?);
+    let result = (|| {
+        let mut writer = new_writer(file)?;
+        writer.write_journey(1, &first)?;
+        drop(first);
+        let mut index = 1;
+        for header in headers {
+            if let Some(journey) = load_journey(header)? {
+                index += 1;
+                writer.write_journey(index, &journey)?;
+            }
         }
+        writer.finish()
+    })();
+    if result.is_err() {
+        // A partial document must not be offered as a successful export.
+        let _ = std::fs::remove_file(target_filepath);
     }
-    writer.finish()?;
-    file.flush()?;
+    result?;
     Ok(true)
 }

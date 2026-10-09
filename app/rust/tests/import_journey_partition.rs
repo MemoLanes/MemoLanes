@@ -5,7 +5,10 @@ use memolanes_core::{
         load_vector_data, process_vector_data_for_part, ImportPreprocessor, RawVectorData,
     },
     gps::{Point, RawGPSPoint},
-    import_data::journey_partition::{group_by_date, summarize},
+    import_data::{
+        csv,
+        journey_partition::{group_by_date, summarize},
+    },
     journey_header::JourneyKind,
 };
 
@@ -30,19 +33,24 @@ fn local_timestamp(year: i32, month: u32, day: u32, hour: u32, minute: u32, seco
         .timestamp_millis()
 }
 
-fn load_csv_vector_data(name: &str, rows: &str) -> (RawVectorData, ImportPreprocessor) {
+fn load_csv_vector_data(
+    name: &str,
+    rows: &str,
+    journey_ids: bool,
+) -> (tempdir::TempDir, RawVectorData, ImportPreprocessor) {
     let temp_dir = tempdir::TempDir::new(name).unwrap();
     let csv_path = temp_dir.path().join("data.csv");
+    let id_column = if journey_ids { ",journey_id" } else { "" };
     std::fs::write(
         &csv_path,
         format!(
-            "timestamp_ms,received_timestamp_ms,latitude,longitude,accuracy,altitude,speed\n{rows}"
+            "timestamp_ms,received_timestamp_ms,latitude,longitude,accuracy,altitude,speed{id_column}\n{rows}"
         ),
     )
     .unwrap();
     let (_, vector_data, preprocessor) =
         load_vector_data(csv_path.to_string_lossy().into_owned()).unwrap();
-    (vector_data, preprocessor)
+    (temp_dir, vector_data, preprocessor)
 }
 
 #[test]
@@ -121,17 +129,19 @@ fn api_uses_partitioned_data() {
     let day_two = NaiveDate::from_ymd_opt(2026, 8, 12).unwrap();
     let timestamp_one = local_timestamp(2026, 8, 11, 23, 59, 59);
     let timestamp_two = local_timestamp(2026, 8, 12, 0, 30, 0);
-    let (vector_data, preprocessor) = load_csv_vector_data(
+    let (_temp, vector_data, preprocessor) = load_csv_vector_data(
         "vector-import-by-date",
         &format!(
             "{timestamp_one},{timestamp_one},0,1,,,\n\
              ,{timestamp_one},0,2,,,\n\
              {timestamp_two},{timestamp_two},0,3,,,\n"
         ),
+        false,
     );
     let parts = analyze_vector_data_parts(&vector_data);
 
     assert_eq!(parts.len(), 2);
+    assert!(parts.iter().all(|part| !part.is_explicit_journey));
     assert_eq!(parts[0].journey_date, day_one.to_string());
     assert_eq!(
         parts[0].start_time.unwrap().timestamp_millis(),
@@ -154,14 +164,58 @@ fn api_uses_partitioned_data() {
             process_vector_data_for_part(&vector_data, date.to_string(), preprocessor).unwrap();
         assert!(!is_journey_data_empty(&journey_data));
     }
+
+    // Explicit IDs survive same-date grouping, interleaving and missing GPS times.
+    let timestamp = local_timestamp(2026, 8, 11, 12, 0, 0);
+    let (temp, vector_data, preprocessor) = load_csv_vector_data(
+        "vector-import-by-id",
+        &format!(
+            "{timestamp},{timestamp},0,1,,,,A\n\
+             {timestamp},{timestamp},0,10,,,,B\n\
+             {next},{next},0,11,,,,B\n\
+             {last},{last},0,2,,,,A\n\
+             ,{timestamp},0,20,100,,,C\n\
+             ,{timestamp},0,21,100,,,C\n",
+            next = timestamp + 60_000,
+            last = timestamp + 120_000,
+        ),
+        true,
+    );
+    let (parsed, _) = csv::load_csv(temp.path().join("data.csv").to_str().unwrap()).unwrap();
+    assert_eq!(parsed.groups[0].segments.len(), 2);
+    assert_eq!(parsed.groups[1].segments.len(), 1);
+    let parts = analyze_vector_data_parts(&vector_data);
+    assert_eq!(parts.len(), 3);
+    assert!(parts.iter().all(|part| part.is_explicit_journey
+        && !part.is_memolanes_journey
+        && part.point_count == 2));
+    assert_eq!(parts[0].journey_date, parts[1].journey_date);
+    assert_ne!(parts[0].part_key, parts[1].part_key);
+    assert_eq!(parts[2].missing_timestamp_count, 2);
+    assert_eq!(parts[2].start_time, None);
+    assert_eq!(parts[2].end_time, None);
+    for part in &parts {
+        let data = process_vector_data_for_part(
+            &vector_data,
+            part.part_key.clone(),
+            ImportPreprocessor::None,
+        )
+        .unwrap();
+        assert!(!is_journey_data_empty(&data));
+    }
+    let filtered =
+        process_vector_data_for_part(&vector_data, parts[2].part_key.clone(), preprocessor)
+            .unwrap();
+    assert!(is_journey_data_empty(&filtered));
 }
 
 #[test]
 fn api_rejects_unknown_dates() {
     let timestamp = local_timestamp(2026, 8, 11, 12, 0, 0);
-    let (vector_data, preprocessor) = load_csv_vector_data(
+    let (_temp, vector_data, preprocessor) = load_csv_vector_data(
         "vector-import-invalid-date",
         &format!("{timestamp},{timestamp},0,1,,,\n"),
+        false,
     );
     let error = import_vector_data_by_parts(
         &vector_data,

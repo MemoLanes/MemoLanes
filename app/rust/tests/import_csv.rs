@@ -11,7 +11,8 @@ const MEMOLANES_CSV: &str = "./tests/data/raw_data.csv";
 
 #[test]
 fn loads_generated_laojunshan_dol_csv() {
-    let (segments, preprocessor) = import_data::csv::load_csv(LAOJUNSHAN_DOL_CSV).unwrap();
+    let (parsed, preprocessor) = import_data::csv::load_csv(LAOJUNSHAN_DOL_CSV).unwrap();
+    let segments = parsed.flatten();
 
     assert!(matches!(preprocessor, ImportPreprocessor::Spare));
     assert_eq!(segments.len(), 1);
@@ -40,7 +41,8 @@ fn vector_file_api_processes_generated_laojunshan_dol_csv() {
 
 #[test]
 fn loads_step_csv() {
-    let (segments, preprocessor) = import_data::csv::load_csv(STEP_CSV).unwrap();
+    let (parsed, preprocessor) = import_data::csv::load_csv(STEP_CSV).unwrap();
+    let segments = parsed.flatten();
 
     assert!(matches!(preprocessor, ImportPreprocessor::Spare));
     assert_eq!(segments.len(), 1);
@@ -70,7 +72,8 @@ fn vector_file_api_processes_step_csv() {
 
 #[test]
 fn loads_memolanes_csv() {
-    let (segments, preprocessor) = import_data::csv::load_csv(MEMOLANES_CSV).unwrap();
+    let (parsed, preprocessor) = import_data::csv::load_csv(MEMOLANES_CSV).unwrap();
+    let segments = parsed.flatten();
 
     assert!(matches!(preprocessor, ImportPreprocessor::Generic));
     assert_eq!(segments.len(), 1);

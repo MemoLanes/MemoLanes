@@ -178,7 +178,7 @@ fn journey_raw_data_csv_preserves_fields() {
     };
 
     let mut csv = Vec::new();
-    export_data::raw_csv::journey_raw_data_to_csv_file(&raw_data, &mut csv).unwrap();
+    export_data::csv::journey_raw_data_to_csv_file(&raw_data, &mut csv).unwrap();
     let mut csv = csv::Reader::from_reader(csv.as_slice());
     assert_eq!(
         csv.headers().unwrap().iter().collect::<Vec<_>>(),
@@ -328,7 +328,10 @@ fn journey_raw_data_kml_orders_track_fields_and_rejects_invalid_timestamps() {
     else {
         panic!("expected a KML document");
     };
-    let kml::Kml::Folder(folder) = &document.elements[0] else {
+    let kml::Kml::Document { elements, .. } = &document.elements[0] else {
+        panic!("expected a Document containing the journey folder");
+    };
+    let kml::Kml::Folder(folder) = &elements[0] else {
         panic!("expected a folder");
     };
     let kml::Kml::Placemark(placemark) = &folder.elements[0] else {

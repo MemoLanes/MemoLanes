@@ -435,10 +435,18 @@ class _DataManagementSettingsPageState
       }
       return;
     }
+    // Hide raw-data options only when the check confirms there are no points.
+    var hasRawData = true;
+    try {
+      hasRawData = await api.hasJourneysRawData();
+    } catch (error, stackTrace) {
+      log.error('Failed to check journey raw data: $error', stackTrace);
+    }
     if (!context.mounted) return;
     await showCommonExportWithFormatPicker(
       context: context,
       title: context.tr('data.export_data.export_all_title'),
+      canIncludeRawData: hasRawData,
       formatGroups: [
         CommonExportFormatGroup(
           label: context.tr('data.export_data.journey_data_group'),
@@ -449,14 +457,20 @@ class _DataManagementSettingsPageState
             CommonExportFormat.gpx,
           ],
         ),
+        if (hasRawData)
+          CommonExportFormatGroup.rawData(
+            context,
+            description: context.tr('data.export_data.raw_data_group_desc'),
+          ),
       ],
       exportFile: (selection) async {
         final format = selection.format;
         final tmpDir = await getTemporaryDirectory();
         final timestamp = DateFormat('yyyy-MM-dd-HH-mm-ss')
             .format(DateTime.now());
+        final prefix = format.isRawData ? 'all-raw-data' : 'all-journeys';
         final filepath =
-            '${tmpDir.path}/all-journeys-$timestamp.${format.extension}';
+            '${tmpDir.path}/$prefix-$timestamp.${format.extension}';
         final result = switch (format) {
           CommonExportFormat.mldx => await api.generateFullArchive(
             targetFilepath: filepath,
@@ -471,7 +485,12 @@ class _DataManagementSettingsPageState
           CommonExportFormat.gpx => await api.exportAllJourneysAsGpx(
             targetFilepath: filepath,
           ),
-          _ => throw UnsupportedError('Unsupported export format: $format'),
+          CommonExportFormat.rawDataCsv ||
+          CommonExportFormat.rawDataGpx ||
+          CommonExportFormat.rawDataKml => await api.exportAllJourneysRawData(
+            targetFilepath: filepath,
+            exportType: format.rawDataExportType,
+          ),
         };
         return CommonExportResult.create(result, filepath);
       },

@@ -363,6 +363,7 @@
       "export_journey_title": "Export Journey",
       "error": {
         "no_journeys_to_export": "There are no journeys to export yet.",
+        "no_raw_data_to_export": "There is no raw location data to export.",
         "no_track_data_for_selected_format": "There is no track data to export in the selected format.",
         "unexpected": "Unexpected error occurred during exporting"
       },
@@ -370,6 +371,7 @@
       "format_section_title": "Export format",
       "journey_data_group": "Journey data",
       "raw_data_group": "Raw location data",
+      "raw_data_group_desc": "Only raw data saved with journeys is exported. Journeys without raw data are skipped automatically.",
       "include_raw_data": "Preserve raw location data",
       "include_raw_data_desc": "When disabled, only journey data will be exported; raw data will be discarded.",
       "format_mldx": "MemoLanes standard format (*.mldx)",

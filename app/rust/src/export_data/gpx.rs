@@ -74,6 +74,13 @@ fn write_text_element<W: Write>(writer: &mut Writer<W>, name: &str, value: &str)
     Ok(())
 }
 
+fn track_point_element(latitude: f64, longitude: f64) -> BytesStart<'static> {
+    let mut point = BytesStart::new("trkpt");
+    point.push_attribute(("lat", latitude.to_string().as_str()));
+    point.push_attribute(("lon", longitude.to_string().as_str()));
+    point
+}
+
 /// The gpx crate ignores arbitrary extensions, so the MemoLanes format uses
 /// quick-xml and writes one journey and segment at a time.
 pub(crate) struct GpxJourneyWriter<W: Write> {
@@ -82,6 +89,14 @@ pub(crate) struct GpxJourneyWriter<W: Write> {
 
 impl<W: Write> GpxJourneyWriter<W> {
     pub(crate) fn new(writer: W) -> Result<Self> {
+        Self::new_document(writer, false)
+    }
+
+    pub(crate) fn new_raw_data(writer: W) -> Result<Self> {
+        Self::new_document(writer, true)
+    }
+
+    fn new_document(writer: W, raw_data: bool) -> Result<Self> {
         let mut xml = Writer::new(writer);
         xml.write_event(Event::Decl(BytesDecl::new("1.0", Some("UTF-8"), None)))?;
         let mut root = BytesStart::new("gpx");
@@ -89,8 +104,15 @@ impl<W: Write> GpxJourneyWriter<W> {
         root.push_attribute(("creator", "MemoLanes"));
         root.push_attribute(("xmlns", "http://www.topografix.com/GPX/1/1"));
         root.push_attribute(("xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance"));
-        root.push_attribute(("xmlns:memolanes", MEMOLANES_NAMESPACE));
+        if !raw_data {
+            root.push_attribute(("xmlns:memolanes", MEMOLANES_NAMESPACE));
+        }
         xml.write_event(Event::Start(root))?;
+        if raw_data {
+            xml.write_event(Event::Start(BytesStart::new("metadata")))?;
+            write_text_element(&mut xml, "name", RAW_DATA_TYPE_NAME)?;
+            xml.write_event(Event::End(BytesEnd::new("metadata")))?;
+        }
         Ok(Self { xml })
     }
 
@@ -121,12 +143,10 @@ impl<W: Write> GpxJourneyWriter<W> {
         for segment in &journey.vector.track_segments {
             xml.write_event(Event::Start(BytesStart::new("trkseg")))?;
             for point in &segment.track_points {
-                let latitude = point.latitude.to_string();
-                let longitude = point.longitude.to_string();
-                let mut track_point = BytesStart::new("trkpt");
-                track_point.push_attribute(("lat", latitude.as_str()));
-                track_point.push_attribute(("lon", longitude.as_str()));
-                xml.write_event(Event::Empty(track_point))?;
+                xml.write_event(Event::Empty(track_point_element(
+                    point.latitude,
+                    point.longitude,
+                )))?;
             }
             xml.write_event(Event::End(BytesEnd::new("trkseg")))?;
         }
@@ -134,8 +154,44 @@ impl<W: Write> GpxJourneyWriter<W> {
         Ok(())
     }
 
+    pub(crate) fn write_raw_data(&mut self, data: &JourneyRawData, name: &str) -> Result<()> {
+        let xml = &mut self.xml;
+        xml.write_event(Event::Start(BytesStart::new("trk")))?;
+        write_text_element(xml, "name", name)?;
+        write_text_element(xml, "type", RAW_DATA_TYPE_NAME)?;
+        xml.write_event(Event::Start(BytesStart::new("trkseg")))?;
+        for point in &data.points {
+            let raw = &point.raw_gps_point;
+            let waypoint = raw_data_waypoint(
+                raw.point.latitude,
+                raw.point.longitude,
+                raw.timestamp_ms.or(Some(point.received_timestamp_ms)),
+                raw.altitude,
+                raw.accuracy,
+            )?;
+            xml.write_event(Event::Start(track_point_element(
+                raw.point.latitude,
+                raw.point.longitude,
+            )))?;
+            if let Some(elevation) = waypoint.elevation {
+                write_text_element(xml, "ele", &elevation.to_string())?;
+            }
+            if let Some(time) = waypoint.time {
+                write_text_element(xml, "time", &time.format()?)?;
+            }
+            if let Some(accuracy) = waypoint.hdop {
+                write_text_element(xml, "hdop", &accuracy.to_string())?;
+            }
+            xml.write_event(Event::End(BytesEnd::new("trkpt")))?;
+        }
+        xml.write_event(Event::End(BytesEnd::new("trkseg")))?;
+        xml.write_event(Event::End(BytesEnd::new("trk")))?;
+        Ok(())
+    }
+
     pub(crate) fn finish(mut self) -> Result<()> {
         self.xml.write_event(Event::End(BytesEnd::new("gpx")))?;
+        self.xml.get_mut().flush()?;
         Ok(())
     }
 }
@@ -160,25 +216,9 @@ pub fn journey_raw_data_to_gpx_file<W: Write + Seek>(
     raw_data: &JourneyRawData,
     writer: &mut W,
 ) -> Result<()> {
-    let points = raw_data
-        .points
-        .iter()
-        .map(|point| {
-            let raw = &point.raw_gps_point;
-            raw_data_waypoint(
-                raw.point.latitude,
-                raw.point.longitude,
-                raw.timestamp_ms.or(Some(point.received_timestamp_ms)),
-                raw.altitude,
-                raw.accuracy,
-            )
-        })
-        .collect::<Result<Vec<_>>>()?;
-    write_gpx_with_segments(
-        vec![TrackSegment { points }],
-        Some(RAW_DATA_TYPE_NAME),
-        writer,
-    )
+    let mut writer = GpxJourneyWriter::new_raw_data(writer)?;
+    writer.write_raw_data(raw_data, "MemoLanes Raw Data")?;
+    writer.finish()
 }
 
 pub(crate) fn raw_data_waypoint(

@@ -8,7 +8,8 @@ use chrono::{DateTime, NaiveDate, Utc};
 use gpx::{read, Waypoint};
 use log::warn;
 use quick_xml::events::{BytesStart, Event};
-use quick_xml::Reader;
+use quick_xml::name::ResolveResult;
+use quick_xml::NsReader;
 use std::fs;
 
 /// Parses a GPX file while retaining MemoLanes Journey and segment boundaries.
@@ -29,7 +30,13 @@ pub fn load_gpx(file_path: &str) -> Result<(ParsedVectorData, ImportPreprocessor
         .into_iter()
         .map(|segment| ImportedJourney::generic(vec![segment]))
         .collect();
-    Ok((ParsedVectorData { groups }, preprocessor))
+    Ok((
+        ParsedVectorData {
+            groups,
+            ..Default::default()
+        },
+        preprocessor,
+    ))
 }
 
 fn waypoint_to_rawdata(point: &Waypoint) -> Result<RawGPSPoint> {
@@ -129,34 +136,25 @@ fn track_point(event: &BytesStart<'_>) -> Result<RawGPSPoint> {
 
 /// Parse geometry and metadata together, without joining parser results by track index.
 fn parse_memolanes_gpx(xml: &str) -> Result<Option<ParsedVectorData>> {
-    let mut reader = Reader::from_str(xml);
+    let mut reader = NsReader::from_str(xml);
     let mut path: Vec<String> = Vec::new();
-    let mut prefixes = Vec::new();
     let mut groups = Vec::new();
     let mut current: Option<ImportedJourney> = None;
     let mut segment: Option<Vec<RawGPSPoint>> = None;
     let mut marked = false;
     let mut invalid_marker = false;
+    let mut has_routes = false;
 
     loop {
-        let event = reader.read_event().context("Invalid MemoLanes GPX XML")?;
+        let (namespace, event) = reader
+            .read_resolved_event()
+            .context("Invalid MemoLanes GPX XML")?;
         let empty = matches!(&event, Event::Empty(_));
         match event {
             Event::Start(element) | Event::Empty(element) => {
                 let name = element.name().as_ref().to_owned();
-                if path.is_empty() && local_name(&name) == "gpx" {
-                    for attr in element.attributes() {
-                        let attr = attr.context("Invalid GPX namespace declaration")?;
-                        if attr.key.as_ref().starts_with("xmlns:")
-                            && attr.normalized_value(quick_xml::XmlVersion::Implicit1_0)?
-                                == MEMOLANES_NAMESPACE
-                        {
-                            prefixes.push(attr.key.as_ref()[6..].to_owned());
-                        }
-                    }
-                }
-
                 match local_name(&name) {
+                    "rte" if path.len() == 1 => has_routes = true,
                     "trk" if path.len() == 1 => {
                         current = Some(ImportedJourney::generic(Vec::new()));
                     }
@@ -164,9 +162,7 @@ fn parse_memolanes_gpx(xml: &str) -> Result<Option<ParsedVectorData>> {
                         if path.len() == 3
                             && local_name(&path[1]) == "trk"
                             && local_name(&path[2]) == "extensions"
-                            && name.split_once(':').is_some_and(|(prefix, _)| {
-                                prefixes.iter().any(|known| known == prefix)
-                            }) =>
+                            && matches!(namespace, ResolveResult::Bound(uri) if uri.as_ref() == MEMOLANES_NAMESPACE) =>
                     {
                         marked = true;
                         match metadata(&element) {
@@ -229,11 +225,14 @@ fn parse_memolanes_gpx(xml: &str) -> Result<Option<ParsedVectorData>> {
         }
         return Ok(None);
     }
-    if groups.iter().any(|group| !group.has_memolanes_metadata()) {
-        warn!("MemoLanes GPX contains unmarked tracks; using generic GPX import");
+    if has_routes || groups.iter().any(|group| !group.has_memolanes_metadata()) {
+        warn!("MemoLanes GPX contains unmarked tracks or routes; using generic GPX import");
         return Ok(None);
     }
-    Ok(Some(ParsedVectorData { groups }))
+    Ok(Some(ParsedVectorData {
+        groups,
+        ..Default::default()
+    }))
 }
 
 pub fn load_gpx_raw_data(gpx_data: &gpx::Gpx) -> Result<Vec<Vec<RawGPSPoint>>> {

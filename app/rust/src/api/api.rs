@@ -796,6 +796,25 @@ pub fn journey_has_raw_data(journey_id: String) -> Result<bool> {
         .with_db_txn(|txn| txn.has_journey_raw_data(&journey_id))
 }
 
+/// Whether a finalized journey has any raw GPS points available for export.
+pub fn has_journeys_raw_data() -> Result<bool> {
+    for header in list_all_journeys()? {
+        if !header.has_raw_data {
+            continue;
+        }
+        let serialized = get()
+            .storage
+            .with_db_txn(|txn| txn.get_journey_raw_data(&header.id))?;
+        // Release the database lock before inspecting the compressed attachment.
+        if let Some(data) = serialized {
+            if data.has_points()? {
+                return Ok(true);
+            }
+        }
+    }
+    Ok(false)
+}
+
 pub fn delete_journey_raw_data(journey_id: String) -> Result<bool> {
     get()
         .storage
@@ -814,21 +833,14 @@ pub fn export_journey_raw_data(
     journey_id: String,
     export_type: RawDataExportType,
 ) -> Result<ExportResult> {
-    let serialized_raw_data = get()
-        .storage
-        .with_db_txn(|txn| txn.get_journey_raw_data(&journey_id))?;
-    // The database lock is released before decompressing and decoding points.
-    let raw_data = serialized_raw_data
-        .map(|raw_data| raw_data.deserialize())
-        .transpose()?;
-    let Some(raw_data) = raw_data.filter(|raw_data| !raw_data.is_empty()) else {
+    let Some(raw_data) = export_data::load_journey_raw_data(&get().storage, &journey_id)? else {
         return Ok(ExportResult::DataIsEmpty);
     };
 
-    let mut file = File::create(target_filepath)?;
+    let mut file = std::io::BufWriter::new(File::create(target_filepath)?);
     match export_type {
         RawDataExportType::CSV => {
-            export_data::raw_csv::journey_raw_data_to_csv_file(&raw_data, &mut file)?
+            export_data::csv::journey_raw_data_to_csv_file(&raw_data, &mut file)?
         }
         RawDataExportType::GPX => {
             export_data::gpx::journey_raw_data_to_gpx_file(&raw_data, &mut file)?
@@ -838,6 +850,20 @@ pub fn export_journey_raw_data(
         }
     }
     Ok(ExportResult::Succeed)
+}
+
+/// Exports finalized journeys' non-empty raw data v2 attachments as CSV/GPX/KML.
+pub fn export_all_journeys_raw_data(
+    target_filepath: String,
+    export_type: RawDataExportType,
+) -> Result<ExportResult> {
+    Ok(
+        if export_data::export_all_raw_journeys(&get().storage, &target_filepath, export_type)? {
+            ExportResult::Succeed
+        } else {
+            ExportResult::DataIsEmpty
+        },
+    )
 }
 
 #[auto_context]

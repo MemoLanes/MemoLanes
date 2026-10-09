@@ -90,10 +90,21 @@ pub(crate) struct KmlJourneyWriter<W: Write> {
 
 impl<W: Write> KmlJourneyWriter<W> {
     pub(crate) fn new(writer: W) -> Result<Self> {
+        Self::new_document(writer, false)
+    }
+
+    pub(crate) fn new_raw_data(writer: W) -> Result<Self> {
+        Self::new_document(writer, true)
+    }
+
+    fn new_document(writer: W, raw_data: bool) -> Result<Self> {
         let mut xml = Writer::new(writer);
         xml.write_event(Event::Decl(BytesDecl::new("1.0", Some("UTF-8"), None)))?;
         let mut root = BytesStart::new("kml");
         root.push_attribute(("xmlns", "http://www.opengis.net/kml/2.2"));
+        if raw_data {
+            root.push_attribute(("xmlns:gx", "http://www.google.com/kml/ext/2.2"));
+        }
         xml.write_event(Event::Start(root))?;
         xml.write_event(Event::Start(BytesStart::new("Document")))?;
         Ok(Self { xml })
@@ -138,10 +149,75 @@ impl<W: Write> KmlJourneyWriter<W> {
         Ok(())
     }
 
+    pub(crate) fn write_raw_data(&mut self, data: &JourneyRawData, name: &str) -> Result<()> {
+        let xml = &mut self.xml;
+        xml.write_event(Event::Start(BytesStart::new("Folder")))?;
+        write_text(xml, "name", name)?;
+        write_text(xml, "description", "Raw GPS data exported by MemoLanes")?;
+        xml.write_event(Event::Start(BytesStart::new("Placemark")))?;
+        write_text(xml, "name", "MemoLanes Raw Data")?;
+        xml.write_event(Event::Start(BytesStart::new("gx:Track")))?;
+        // gx:Track requires every `when` before every `gx:coord`.
+        for point in &data.points {
+            let timestamp_ms = point
+                .raw_gps_point
+                .timestamp_ms
+                .unwrap_or(point.received_timestamp_ms);
+            let timestamp = DateTime::<Utc>::from_timestamp_millis(timestamp_ms)
+                .ok_or_else(|| anyhow!("Raw GPS timestamp is out of range: {timestamp_ms}"))?;
+            write_text(
+                xml,
+                "when",
+                &timestamp.to_rfc3339_opts(SecondsFormat::Millis, true),
+            )?;
+        }
+        for point in &data.points {
+            let raw = &point.raw_gps_point;
+            write_text(
+                xml,
+                "gx:coord",
+                &format!(
+                    "{} {} {}",
+                    raw.point.longitude,
+                    raw.point.latitude,
+                    raw.altitude.unwrap_or_default()
+                ),
+            )?;
+        }
+        xml.write_event(Event::End(BytesEnd::new("gx:Track")))?;
+        xml.write_event(Event::Start(BytesStart::new("LineString")))?;
+        write_text(xml, "tessellate", "1")?;
+        xml.write_event(Event::Start(BytesStart::new("coordinates")))?;
+        for point in &data.points {
+            let raw = &point.raw_gps_point;
+            match raw.altitude {
+                Some(altitude) => writeln!(
+                    xml.get_mut(),
+                    "{},{},{}",
+                    raw.point.longitude,
+                    raw.point.latitude,
+                    f64::from(altitude)
+                )?,
+                None => writeln!(
+                    xml.get_mut(),
+                    "{},{}",
+                    raw.point.longitude,
+                    raw.point.latitude
+                )?,
+            }
+        }
+        xml.write_event(Event::End(BytesEnd::new("coordinates")))?;
+        xml.write_event(Event::End(BytesEnd::new("LineString")))?;
+        xml.write_event(Event::End(BytesEnd::new("Placemark")))?;
+        xml.write_event(Event::End(BytesEnd::new("Folder")))?;
+        Ok(())
+    }
+
     pub(crate) fn finish(mut self) -> Result<()> {
         self.xml
             .write_event(Event::End(BytesEnd::new("Document")))?;
         self.xml.write_event(Event::End(BytesEnd::new("kml")))?;
+        self.xml.get_mut().flush()?;
         Ok(())
     }
 }
@@ -166,64 +242,9 @@ pub fn journey_raw_data_to_kml_file<T: Write + Seek>(
     raw_data: &JourneyRawData,
     writer: &mut T,
 ) -> Result<()> {
-    let coords = raw_data
-        .points
-        .iter()
-        .map(|point| kml::types::Coord {
-            x: point.raw_gps_point.point.longitude,
-            y: point.raw_gps_point.point.latitude,
-            z: point.raw_gps_point.altitude.map(f64::from),
-        })
-        .collect();
-    // gx:Track requires all `when` elements before all `gx:coord` elements,
-    // with the two lists containing the same number of entries.
-    let mut when_elements = Vec::with_capacity(raw_data.points.len());
-    let mut coord_elements = Vec::with_capacity(raw_data.points.len());
-    for point in &raw_data.points {
-        let timestamp_ms = point
-            .raw_gps_point
-            .timestamp_ms
-            .unwrap_or(point.received_timestamp_ms);
-        let timestamp = DateTime::<Utc>::from_timestamp_millis(timestamp_ms)
-            .ok_or_else(|| anyhow!("Raw GPS timestamp is out of range: {timestamp_ms}"))?;
-        when_elements.push(kml::types::Element {
-            name: "when".to_owned(),
-            content: Some(timestamp.to_rfc3339_opts(SecondsFormat::Millis, true)),
-            ..Default::default()
-        });
-        coord_elements.push(kml::types::Element {
-            name: "gx:coord".to_owned(),
-            content: Some(format!(
-                "{} {} {}",
-                point.raw_gps_point.point.longitude,
-                point.raw_gps_point.point.latitude,
-                point.raw_gps_point.altitude.unwrap_or_default()
-            )),
-            ..Default::default()
-        });
-    }
-    when_elements.extend(coord_elements);
-
-    let placemark = kml::types::Placemark {
-        name: Some("MemoLanes Raw Data".to_owned()),
-        children: vec![kml::types::Element {
-            name: "gx:Track".to_owned(),
-            children: when_elements,
-            ..Default::default()
-        }],
-        geometry: Some(kml::types::Geometry::LineString(kml::types::LineString {
-            coords,
-            tessellate: true,
-            ..Default::default()
-        })),
-        ..Default::default()
-    };
-    write_kml_document(
-        "MemoLanes Raw Data".to_owned(),
-        "Raw GPS data exported by MemoLanes".to_owned(),
-        vec![Kml::Placemark(placemark)],
-        writer,
-    )
+    let mut writer = KmlJourneyWriter::new_raw_data(writer)?;
+    writer.write_raw_data(raw_data, "MemoLanes Raw Data")?;
+    writer.finish()
 }
 
 #[auto_context]
