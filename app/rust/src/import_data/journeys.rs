@@ -5,20 +5,19 @@ use std::path::Path;
 use anyhow::{bail, Context, Result};
 use chrono::{DateTime, NaiveDate, Utc};
 
-use crate::api::import::{ImportPreprocessor, JourneyInfo};
 use crate::gps::RawGPSPoint;
 use crate::gps_processor::GpsPostprocessor;
 use crate::import_data::{
     conversion, csv, gpx,
     journey_partition::{self, SegmentSlice},
-    kml,
+    kml, ImportPreprocessor,
 };
 use crate::journey_data::JourneyData;
-use crate::journey_header::{JourneyHeader, JourneyKind, JourneyType};
+use crate::journey_header::{JourneyHeader, JourneyInfo, JourneyKind, JourneyType};
 use crate::main_db::NewJourney;
 use crate::storage::Storage;
 
-/// One explicitly marked MemoLanes journey in a GPX/KML interchange file.
+/// A parser group containing geometry and optional exported-journey metadata.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ImportedJourney {
     pub journey_date: Option<NaiveDate>,
@@ -42,16 +41,49 @@ impl ImportedJourney {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq)]
+/// File-level policy: explicit CSV groups are still raw samples, while exported
+/// GPX/KML journeys already contain processed geometry.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum ImportMode {
+    GenericByDate,
+    GenericByJourney,
+    ExportedJourney,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct ParsedVectorData {
-    /// Groups appear in the same order as the source file. A group without
-    /// MemoLanes metadata represents ordinary third-party track data.
-    pub groups: Vec<ImportedJourney>,
-    /// CSV journey IDs define separate journeys even when their dates match.
-    pub preserve_journey_groups: bool,
+    groups: Vec<ImportedJourney>,
+    mode: ImportMode,
 }
 
 impl ParsedVectorData {
+    pub(crate) fn new(mode: ImportMode, groups: Vec<ImportedJourney>) -> Result<Self> {
+        for group in &groups {
+            match mode {
+                ImportMode::ExportedJourney if group.journey_date.is_none() => {
+                    bail!("Exported journeys must all have a valid journey date");
+                }
+                ImportMode::GenericByDate | ImportMode::GenericByJourney
+                    if group.journey_date.is_some()
+                        || group.start.is_some()
+                        || group.end.is_some() =>
+                {
+                    bail!("Generic import groups must not contain exported journey metadata");
+                }
+                _ => {}
+            }
+        }
+        Ok(Self { groups, mode })
+    }
+
+    pub fn groups(&self) -> &[ImportedJourney] {
+        &self.groups
+    }
+
+    pub(crate) fn mode(&self) -> ImportMode {
+        self.mode
+    }
+
     pub fn flatten(&self) -> Vec<Vec<RawGPSPoint>> {
         self.groups
             .iter()
@@ -59,26 +91,27 @@ impl ParsedVectorData {
             .collect()
     }
 
-    pub fn has_memolanes_metadata(&self) -> bool {
-        self.groups
-            .iter()
-            .any(ImportedJourney::has_memolanes_metadata)
+    pub fn is_exported_journey(&self) -> bool {
+        self.mode == ImportMode::ExportedJourney
     }
 
     pub(crate) fn build_parts(&self) -> Vec<ImportPart> {
-        if self.has_memolanes_metadata() || self.preserve_journey_groups {
-            self.groups
+        match self.mode {
+            ImportMode::GenericByJourney | ImportMode::ExportedJourney => self
+                .groups
                 .iter()
                 .enumerate()
                 .map(|(index, group)| {
-                    let (date, start, end) = group
-                        .journey_date
-                        .map(|date| (date, group.start, group.end))
-                        .unwrap_or_else(|| {
-                            let info =
-                                conversion::journey_info_from_raw_vector_data(&group.segments);
-                            (info.journey_date, info.start_time, info.end_time)
-                        });
+                    let (date, start, end) = if self.mode == ImportMode::ExportedJourney {
+                        (
+                            group.journey_date.expect("validated export date"),
+                            group.start,
+                            group.end,
+                        )
+                    } else {
+                        let info = conversion::journey_info_from_raw_vector_data(&group.segments);
+                        (info.journey_date, info.start_time, info.end_time)
+                    };
                     ImportPart {
                         key: format!("journey:{index}"),
                         date,
@@ -91,37 +124,35 @@ impl ParsedVectorData {
                             .flatten()
                             .filter(|point| point.timestamp_ms.is_none())
                             .count() as u64,
-                        source: ImportPartSource::Journey {
-                            index,
-                            is_memolanes: group.has_memolanes_metadata(),
-                        },
+                        source: ImportPartSource::Journey(index),
                     }
                 })
-                .collect()
-        } else {
-            let partition = journey_partition::partition_generic_groups(&self.groups);
-            partition
-                .index
-                .into_iter()
-                .map(|(date, slices)| {
-                    let summary = partition.summaries.get(&date).expect("summary exists");
-                    ImportPart {
-                        key: date.to_string(),
-                        date,
-                        start: summary.start_time,
-                        end: summary.end_time,
-                        point_count: summary.point_count,
-                        missing_timestamp_count: summary.missing_timestamp_count,
-                        source: ImportPartSource::Date(slices),
-                    }
-                })
-                .collect()
+                .collect(),
+            ImportMode::GenericByDate => {
+                let partition = journey_partition::partition_generic_groups(&self.groups);
+                partition
+                    .index
+                    .into_iter()
+                    .map(|(date, slices)| {
+                        let summary = partition.summaries.get(&date).expect("summary exists");
+                        ImportPart {
+                            key: date.to_string(),
+                            date,
+                            start: summary.start_time,
+                            end: summary.end_time,
+                            point_count: summary.point_count,
+                            missing_timestamp_count: summary.missing_timestamp_count,
+                            source: ImportPartSource::Date(slices),
+                        }
+                    })
+                    .collect()
+            }
         }
     }
 
     pub(crate) fn materialize_part(&self, part: &ImportPart) -> Vec<Vec<RawGPSPoint>> {
         match &part.source {
-            ImportPartSource::Journey { index, .. } => self.groups[*index].segments.clone(),
+            ImportPartSource::Journey(index) => self.groups[*index].segments.clone(),
             ImportPartSource::Date(slices) => {
                 journey_partition::materialize_group_partition(&self.groups, slices)
             }
@@ -144,20 +175,16 @@ pub(crate) fn load_vector_file(
         extension => bail!("Unknown extension: {extension:?}"),
     };
 
-    let journey_info = parsed
-        .groups
-        .iter()
-        .find(|group| group.has_memolanes_metadata())
-        .and_then(|group| {
-            group.journey_date.map(|journey_date| JourneyInfo {
-                journey_date,
-                start_time: group.start,
-                end_time: group.end,
-                note: None,
-                journey_kind: JourneyKind::DefaultKind,
-            })
-        })
-        .unwrap_or_else(|| conversion::journey_info_from_raw_vector_data(&parsed.flatten()));
+    let journey_info = match (parsed.mode, parsed.groups.first()) {
+        (ImportMode::ExportedJourney, Some(group)) => JourneyInfo {
+            journey_date: group.journey_date.expect("validated export date"),
+            start_time: group.start,
+            end_time: group.end,
+            note: None,
+            journey_kind: JourneyKind::DefaultKind,
+        },
+        _ => conversion::journey_info_from_raw_vector_data(&parsed.flatten()),
+    };
     Ok((journey_info, parsed, preprocessor))
 }
 
@@ -172,24 +199,8 @@ pub(crate) struct ImportPart {
 }
 
 enum ImportPartSource {
-    Journey { index: usize, is_memolanes: bool },
+    Journey(usize),
     Date(Vec<SegmentSlice>),
-}
-
-impl ImportPart {
-    pub(crate) fn is_memolanes_journey(&self) -> bool {
-        matches!(
-            self.source,
-            ImportPartSource::Journey {
-                is_memolanes: true,
-                ..
-            }
-        )
-    }
-
-    pub(crate) fn is_explicit_journey(&self) -> bool {
-        matches!(self.source, ImportPartSource::Journey { .. })
-    }
 }
 
 pub(crate) fn part_for_key<'a>(parts: &'a [ImportPart], key: &str) -> Result<&'a ImportPart> {
@@ -249,7 +260,9 @@ pub(crate) fn import_selected_parts(
         // journeys within one export remain separate on their first import.
         let mut existing_by_date: HashMap<NaiveDate, Vec<JourneyHeader>> = HashMap::new();
         for (part, _) in &prepared {
-            if part.is_memolanes_journey() && !existing_by_date.contains_key(&part.date) {
+            if parsed.mode == ImportMode::ExportedJourney
+                && !existing_by_date.contains_key(&part.date)
+            {
                 existing_by_date.insert(
                     part.date,
                     txn.query_journeys(Some(part.date), Some(part.date), None)?,
@@ -259,7 +272,7 @@ pub(crate) fn import_selected_parts(
 
         let mut imported_count = 0;
         for (part, data) in prepared {
-            if part.is_memolanes_journey() {
+            if parsed.mode == ImportMode::ExportedJourney {
                 let JourneyData::Vector(vector) = &data else {
                     unreachable!("MemoLanes GPX/KML parts are vector data")
                 };

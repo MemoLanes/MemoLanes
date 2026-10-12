@@ -1,16 +1,27 @@
 use memolanes_core::{
-    api::import::{
-        is_journey_data_empty, load_vector_data, process_vector_data, ImportPreprocessor,
-    },
-    import_data,
+    api::import::{is_journey_data_empty, load_vector_data, process_vector_data},
+    import_data::{self, ImportPreprocessor},
+    journey_header::JourneyInfo,
 };
 
 const LAOJUNSHAN_DOL_CSV: &str = "./tests/data/DoL_laojunshan.csv";
 const STEP_CSV: &str = "./tests/data/step.csv";
 const MEMOLANES_CSV: &str = "./tests/data/raw_data.csv";
 
+fn assert_csv_api_processes(path: &str, expected: ImportPreprocessor) -> JourneyInfo {
+    let (info, vector_data, preprocessor) = load_vector_data(path.to_owned()).unwrap();
+    assert_eq!(
+        std::mem::discriminant(&preprocessor),
+        std::mem::discriminant(&expected),
+        "{path}: unexpected preprocessor {preprocessor:?}",
+    );
+    let journey_data = process_vector_data(&vector_data, preprocessor).unwrap();
+    assert!(!is_journey_data_empty(&journey_data), "{path}");
+    info
+}
+
 #[test]
-fn loads_generated_laojunshan_dol_csv() {
+fn imports_generated_laojunshan_dol_csv() {
     let (parsed, preprocessor) = import_data::csv::load_csv(LAOJUNSHAN_DOL_CSV).unwrap();
     let segments = parsed.flatten();
 
@@ -25,22 +36,12 @@ fn loads_generated_laojunshan_dol_csv() {
 
     let last = segments[0].last().unwrap();
     assert_eq!(last.timestamp_ms, Some(1_696_386_813_000));
-}
-
-#[test]
-fn vector_file_api_processes_generated_laojunshan_dol_csv() {
-    let (journey_info, vector_data, preprocessor) =
-        load_vector_data(LAOJUNSHAN_DOL_CSV.to_owned()).unwrap();
-
+    let journey_info = assert_csv_api_processes(LAOJUNSHAN_DOL_CSV, preprocessor);
     assert_eq!(journey_info.journey_date.to_string(), "2023-10-04");
-    assert!(matches!(preprocessor, ImportPreprocessor::Spare));
-
-    let journey_data = process_vector_data(&vector_data, preprocessor).unwrap();
-    assert!(!is_journey_data_empty(&journey_data));
 }
 
 #[test]
-fn loads_step_csv() {
+fn imports_step_csv() {
     let (parsed, preprocessor) = import_data::csv::load_csv(STEP_CSV).unwrap();
     let segments = parsed.flatten();
 
@@ -58,20 +59,11 @@ fn loads_step_csv() {
 
     let last = segments[0].last().unwrap();
     assert_eq!(last.timestamp_ms, Some(1_767_283_214_000));
+    assert_csv_api_processes(STEP_CSV, preprocessor);
 }
 
 #[test]
-fn vector_file_api_processes_step_csv() {
-    let (_journey_info, vector_data, preprocessor) = load_vector_data(STEP_CSV.to_owned()).unwrap();
-
-    assert!(matches!(preprocessor, ImportPreprocessor::Spare));
-
-    let journey_data = process_vector_data(&vector_data, preprocessor).unwrap();
-    assert!(!is_journey_data_empty(&journey_data));
-}
-
-#[test]
-fn loads_memolanes_csv() {
+fn imports_memolanes_csv() {
     let (parsed, preprocessor) = import_data::csv::load_csv(MEMOLANES_CSV).unwrap();
     let segments = parsed.flatten();
 
@@ -86,17 +78,7 @@ fn loads_memolanes_csv() {
     assert_eq!(first.accuracy, Some(5000.0));
     assert_eq!(first.altitude, Some(0.0));
     assert_eq!(first.speed, Some(0.0));
-}
-
-#[test]
-fn vector_file_api_processes_memolanes_csv() {
-    let (_journey_info, vector_data, preprocessor) =
-        load_vector_data(MEMOLANES_CSV.to_owned()).unwrap();
-
-    assert!(matches!(preprocessor, ImportPreprocessor::Generic));
-
-    let journey_data = process_vector_data(&vector_data, preprocessor).unwrap();
-    assert!(!is_journey_data_empty(&journey_data));
+    assert_csv_api_processes(MEMOLANES_CSV, preprocessor);
 }
 
 #[test]

@@ -1,6 +1,5 @@
-use crate::api::import::ImportPreprocessor;
 use crate::gps::{Point, RawGPSPoint};
-use crate::import_data::{ImportedJourney, ParsedVectorData};
+use crate::import_data::{ImportMode, ImportPreprocessor, ImportedJourney, ParsedVectorData};
 use anyhow::{Context, Result};
 use auto_context::auto_context;
 use chrono::{DateTime, NaiveDate, Utc};
@@ -11,7 +10,6 @@ use log::warn;
 use quick_xml::events::Event;
 use quick_xml::name::QName;
 use quick_xml::{Reader, Writer};
-use std::cell::RefCell;
 use std::fs;
 use std::io::Cursor;
 
@@ -29,20 +27,14 @@ pub fn load_kml(file_path: &str) -> Result<(ParsedVectorData, ImportPreprocessor
     let mut kml_reader = KmlReader::<_, f64>::from_reader(Cursor::new(cleaned_xml));
     let kml_data = kml_reader.read()?;
     let elements = flatten_kml(kml_data);
-    let mut segments = read_track(&elements)?;
-    if segments.is_empty() {
-        segments = read_line_string(&elements)?;
-    }
+    let segments = read_geometries(&elements)?;
     let groups = if segments.is_empty() {
         Vec::new()
     } else {
         vec![ImportedJourney::generic(segments)]
     };
     Ok((
-        ParsedVectorData {
-            groups,
-            ..Default::default()
-        },
+        ParsedVectorData::new(ImportMode::GenericByDate, groups)?,
         ImportPreprocessor::Generic,
     ))
 }
@@ -246,10 +238,10 @@ fn parse_memolanes_kml(xml: &str) -> Result<Option<ParsedVectorData>> {
             groups.push(folder.journey);
         }
     }
-    Ok(Some(ParsedVectorData {
+    Ok(Some(ParsedVectorData::new(
+        ImportMode::ExportedJourney,
         groups,
-        ..Default::default()
-    }))
+    )?))
 }
 
 fn local_name(name: &str) -> &str {
@@ -414,7 +406,14 @@ fn read_track(flatten_data: &[Kml]) -> Result<Vec<Vec<RawGPSPoint>>> {
     Ok(raw_vector_data)
 }
 
-fn read_line_string(flatten_data: &[Kml]) -> Result<Vec<Vec<RawGPSPoint>>> {
+fn read_geometries(flatten_data: &[Kml]) -> Result<Vec<Vec<RawGPSPoint>>> {
+    let tracks_by_placemark = flatten_data
+        .iter()
+        .map(|element| read_track(std::slice::from_ref(element)))
+        .collect::<Result<Vec<_>>>()?;
+    // With Track geometry, standalone Points are location markers. Only use
+    // Points as a trajectory when the file contains no non-empty Tracks.
+    let has_tracks = tracks_by_placemark.iter().any(|tracks| !tracks.is_empty());
     let mut raw_vector_data: Vec<Vec<RawGPSPoint>> = Vec::new();
 
     let convert_to_timestamp = |when: Option<String>| -> Option<i64> {
@@ -435,20 +434,26 @@ fn read_line_string(flatten_data: &[Kml]) -> Result<Vec<Vec<RawGPSPoint>>> {
             .and_then(|when_element| when_element.content.clone())
     };
 
-    let raw_vector_data_segment: RefCell<Vec<RawGPSPoint>> = RefCell::new(Vec::new());
+    let mut raw_vector_data_segment = Vec::new();
 
-    flatten_data.iter().for_each(|k| {
+    for (k, tracks) in flatten_data.iter().zip(tracks_by_placemark) {
         if let Placemark(p) = k {
+            // Raw exports also carry a LineString for the same Track. Prefer the
+            // Track within this Placemark, while keeping other LineStrings.
+            if !tracks.is_empty() {
+                raw_vector_data.extend(tracks);
+                continue;
+            }
             if let Some(geometry) = &p.geometry {
                 match geometry {
-                    Geometry::Point(point) => {
+                    Geometry::Point(point) if !has_tracks => {
                         let timestamp_ms = convert_to_timestamp(
                             p.children
                                 .iter()
                                 .find(|e| e.name == "TimeStamp")
                                 .and_then(extract_time_from_children),
                         );
-                        raw_vector_data_segment.borrow_mut().push(RawGPSPoint {
+                        raw_vector_data_segment.push(RawGPSPoint {
                             point: Point {
                                 latitude: point.coord.y,
                                 longitude: point.coord.x,
@@ -461,7 +466,7 @@ fn read_line_string(flatten_data: &[Kml]) -> Result<Vec<Vec<RawGPSPoint>>> {
                     }
                     Geometry::LineString(line_string) => {
                         line_string.coords.iter().for_each(|coord| {
-                            raw_vector_data_segment.borrow_mut().push(RawGPSPoint {
+                            raw_vector_data_segment.push(RawGPSPoint {
                                 point: Point {
                                     latitude: coord.y,
                                     longitude: coord.x,
@@ -474,17 +479,17 @@ fn read_line_string(flatten_data: &[Kml]) -> Result<Vec<Vec<RawGPSPoint>>> {
                         });
 
                         // we treat different `LineString` as different segments
-                        if !raw_vector_data_segment.borrow().is_empty() {
-                            raw_vector_data.push(raw_vector_data_segment.replace(Vec::new()));
+                        if !raw_vector_data_segment.is_empty() {
+                            raw_vector_data.push(std::mem::take(&mut raw_vector_data_segment));
                         }
                     }
                     _ => (),
                 }
             }
         }
-    });
-    if !raw_vector_data_segment.borrow().is_empty() {
-        raw_vector_data.push(raw_vector_data_segment.into_inner());
+    }
+    if !raw_vector_data_segment.is_empty() {
+        raw_vector_data.push(raw_vector_data_segment);
     }
     Ok(raw_vector_data)
 }

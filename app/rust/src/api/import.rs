@@ -6,24 +6,16 @@ use std::sync::{Mutex, OnceLock};
 
 use anyhow::{Context, Result};
 use auto_context::auto_context;
-use chrono::{DateTime, FixedOffset, Local, NaiveDate, Utc};
+use chrono::{DateTime, FixedOffset, Local, Utc};
 use flutter_rust_bridge::frb;
 
 use super::api;
 use crate::api::api::{get, OpaqueJourneyData};
 use crate::archive::MldxReader;
+pub use crate::import_data::ImportPreprocessor;
 use crate::journey_header::JourneyHeader;
+pub use crate::journey_header::JourneyInfo;
 use crate::{import_data, journey_data::JourneyData, journey_header::JourneyKind};
-
-#[derive(Debug)]
-#[frb(non_opaque)]
-pub struct JourneyInfo {
-    pub journey_date: NaiveDate,
-    pub start_time: Option<DateTime<Utc>>,
-    pub end_time: Option<DateTime<Utc>>,
-    pub journey_kind: JourneyKind,
-    pub note: Option<String>,
-}
 
 #[frb(opaque)]
 pub struct RawVectorData {
@@ -131,14 +123,6 @@ pub fn import_journey_data(
     Ok(())
 }
 
-#[derive(Clone, Copy, Debug)]
-pub enum ImportPreprocessor {
-    None,
-    Generic,
-    FlightTrack,
-    Spare,
-}
-
 impl RawVectorData {
     fn parts(&self) -> &[import_data::ImportPart] {
         self.parts.get_or_init(|| self.parsed.build_parts())
@@ -151,8 +135,10 @@ pub fn analyze_vector_data_parts(vector_data: &RawVectorData) -> Vec<VectorImpor
         .iter()
         .map(|part| VectorImportPartSummary {
             part_key: part.key.clone(),
-            is_memolanes_journey: part.is_memolanes_journey(),
-            is_explicit_journey: part.is_explicit_journey(),
+            is_memolanes_journey: vector_data.parsed.mode()
+                == import_data::ImportMode::ExportedJourney,
+            is_explicit_journey: vector_data.parsed.mode()
+                != import_data::ImportMode::GenericByDate,
             journey_date: part.date.format("%Y-%m-%d").to_string(),
             start_time: part.start,
             end_time: part.end,

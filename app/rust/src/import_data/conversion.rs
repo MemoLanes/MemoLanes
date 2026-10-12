@@ -1,13 +1,12 @@
-use crate::api::import::{ImportPreprocessor, JourneyInfo};
 use crate::flight_track_processor;
 use crate::gps::RawGPSPoint;
 use crate::gps_processor::{
     self, GpsPreprocessor, PreprocessedData, ProcessResult, SegmentGapRule,
 };
-use crate::import_data::ParsedVectorData;
+use crate::import_data::{ImportMode, ImportPreprocessor, ParsedVectorData};
 use crate::journey_data::JourneyData;
 use crate::journey_date_picker::JourneyDatePicker;
-use crate::journey_header::JourneyKind;
+use crate::journey_header::{JourneyInfo, JourneyKind};
 use crate::journey_vector::{JourneyVector, TrackPoint, TrackSegment};
 use chrono::{Local, TimeZone, Utc};
 
@@ -73,7 +72,7 @@ pub(crate) fn process_vector_data(
     raw_data: &[Vec<RawGPSPoint>],
     requested: ImportPreprocessor,
 ) -> JourneyData {
-    if parsed.has_memolanes_metadata() {
+    if parsed.mode() == ImportMode::ExportedJourney {
         if !matches!(requested, ImportPreprocessor::None) {
             log::warn!("Ignoring GPS preprocessor for MemoLanes GPX/KML journey to preserve its track segments");
         }

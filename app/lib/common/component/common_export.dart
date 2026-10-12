@@ -14,6 +14,7 @@ import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/constants/app_typography.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
+import 'package:memolanes/src/rust/export_data.dart';
 import 'package:path/path.dart' as p;
 import 'package:share_plus/share_plus.dart';
 
@@ -93,10 +94,10 @@ enum CommonExportFormat {
 
   String get extension => option.extension;
 
-  api.RawDataExportType get rawDataExportType => switch (this) {
-    CommonExportFormat.rawDataCsv => api.RawDataExportType.csv,
-    CommonExportFormat.rawDataGpx => api.RawDataExportType.gpx,
-    CommonExportFormat.rawDataKml => api.RawDataExportType.kml,
+  RawDataExportType get rawDataExportType => switch (this) {
+    CommonExportFormat.rawDataCsv => RawDataExportType.csv,
+    CommonExportFormat.rawDataGpx => RawDataExportType.gpx,
+    CommonExportFormat.rawDataKml => RawDataExportType.kml,
     _ => throw UnsupportedError('Unsupported raw-data export format: $this'),
   };
 

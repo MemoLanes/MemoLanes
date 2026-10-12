@@ -3,7 +3,6 @@ import 'package:memolanes/common/async_load_token.dart';
 import 'package:memolanes/common/component/base_map_webview.dart';
 import 'package:memolanes/common/loading_manager.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
-import 'package:memolanes/src/rust/api/import.dart' show JourneyInfo;
 import 'package:memolanes/src/rust/journey_header.dart';
 
 enum JourneyPhase {

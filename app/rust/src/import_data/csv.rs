@@ -5,9 +5,8 @@ use csv::{Reader, ReaderBuilder, StringRecord, Trim};
 use serde::Deserialize;
 
 use crate::{
-    api::import::ImportPreprocessor,
     gps::{Point, RawGPSPoint},
-    import_data::{ImportedJourney, ParsedVectorData},
+    import_data::{ImportMode, ImportPreprocessor, ImportedJourney, ParsedVectorData},
 };
 
 // CSV exported by 人生点点
@@ -180,10 +179,12 @@ fn parse_memolanes_rows<R: Read>(reader: &mut Reader<R>) -> Result<ParsedVectorD
                 row_number,
             )?);
     }
-    Ok(ParsedVectorData {
-        groups,
-        preserve_journey_groups: journey_indices.keys().any(Option::is_some),
-    })
+    let mode = if journey_indices.keys().any(Option::is_some) {
+        ImportMode::GenericByJourney
+    } else {
+        ImportMode::GenericByDate
+    };
+    ParsedVectorData::new(mode, groups)
 }
 
 fn raw_data_from_values(
@@ -257,22 +258,22 @@ pub fn load_csv(file_path: &str) -> Result<(ParsedVectorData, ImportPreprocessor
 
     let (parsed, preprocessor) = if is_dol_format(&headers) {
         (
-            ParsedVectorData {
-                groups: vec![ImportedJourney::generic(vec![
+            ParsedVectorData::new(
+                ImportMode::GenericByDate,
+                vec![ImportedJourney::generic(vec![
                     parse_dol_rows(&mut reader).context("failed to parse DoL CSV")?
                 ])],
-                ..Default::default()
-            },
+            )?,
             ImportPreprocessor::Spare,
         )
     } else if is_step_format(&headers) {
         (
-            ParsedVectorData {
-                groups: vec![ImportedJourney::generic(vec![
+            ParsedVectorData::new(
+                ImportMode::GenericByDate,
+                vec![ImportedJourney::generic(vec![
                     parse_step_rows(&mut reader).context("failed to parse Step CSV")?
                 ])],
-                ..Default::default()
-            },
+            )?,
             ImportPreprocessor::Spare,
         )
     } else if is_memolanes_format(&headers) {
@@ -288,7 +289,7 @@ pub fn load_csv(file_path: &str) -> Result<(ParsedVectorData, ImportPreprocessor
     };
 
     if parsed
-        .groups
+        .groups()
         .iter()
         .flat_map(|group| &group.segments)
         .all(Vec::is_empty)

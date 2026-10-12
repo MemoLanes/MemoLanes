@@ -1,71 +1,45 @@
 #[macro_use]
 extern crate assert_float_eq;
 
+pub mod test_utils;
+
 use chrono::{DateTime, NaiveDate, Utc};
-use itertools::Itertools;
 use memolanes_core::api::api::{
     delete_journey_raw_data, export_all_journeys_as_gpx, export_all_journeys_as_kml,
-    export_all_journeys_raw_data, export_journey, has_journeys_raw_data, init, ExportResult,
-    ExportType, RawDataExportType,
+    export_all_journeys_raw_data, export_journey, export_journey_raw_data, generate_full_archive,
+    has_journeys_raw_data, init, ExportResult, ExportType,
 };
-use memolanes_core::api::import::{self as import_api, ImportPreprocessor, JourneyInfo};
+use memolanes_core::api::import as import_api;
+use memolanes_core::archive::MldxReader;
+use memolanes_core::export_data::RawDataExportType;
 use memolanes_core::gps::{ExtendedRawGPSPoint, Point, RawGPSPoint};
 use memolanes_core::gpx_file_utils::{normalize_generic_time, normalize_step_of_my_world_time};
+use memolanes_core::import_data::{ImportPreprocessor, ParsedVectorData};
 use memolanes_core::journey_bitmap::JourneyBitmap;
 use memolanes_core::journey_data::JourneyData;
-use memolanes_core::journey_header::{JourneyKind, JourneyType};
+use memolanes_core::journey_header::{JourneyInfo, JourneyKind, JourneyType};
 use memolanes_core::journey_vector::{JourneyVector, TrackPoint, TrackSegment};
 use memolanes_core::main_db::{MainDb, NewJourney};
 use memolanes_core::raw_data::{JourneyRawData, SerializedJourneyRawData};
 use memolanes_core::{export_data, import_data};
 use std::collections::HashSet;
 use std::fs::{self, File};
+use std::path::Path;
 
-fn run_gpx_integrity_check(
-    import_path: &str,
-    export_path: &str,
-) -> (Vec<TrackPoint>, JourneyInfo, ImportPreprocessor) {
-    let (parsed, preprocessor) = import_data::gpx::load_gpx(import_path).unwrap();
-    let raw_data1 = parsed.flatten();
-    let info = import_data::conversion::journey_info_from_raw_vector_data(&raw_data1);
-    let vector1 = import_data::conversion::journey_vector_from_raw_data_with_gps_preprocessor(
-        &raw_data1, None,
-    )
-    .unwrap();
-
-    export_data::gpx::journey_vector_to_gpx_file(&vector1, &mut File::create(export_path).unwrap())
-        .unwrap();
-
-    let (parsed, _) = import_data::gpx::load_gpx(export_path).unwrap();
-    let raw_data2 = parsed.flatten();
-    let vector2 = import_data::conversion::journey_vector_from_raw_data_with_gps_preprocessor(
-        &raw_data2, None,
-    )
-    .unwrap();
-
-    let points1 = vector1
-        .track_segments
-        .into_iter()
-        .flat_map(|t| t.track_points)
-        .collect_vec();
-    let points2 = vector2
-        .track_segments
-        .into_iter()
-        .flat_map(|t| t.track_points)
-        .collect_vec();
-
-    assert_eq!(
-        points1, points2,
-        "Data integrity check failed for {import_path}"
-    );
-    (points1, info, preprocessor)
+fn load_vector_fixture(path: &Path) -> (ParsedVectorData, ImportPreprocessor) {
+    match path.extension().and_then(|extension| extension.to_str()) {
+        Some("gpx") => import_data::gpx::load_gpx(path.to_str().unwrap()),
+        Some("kml") => import_data::kml::load_kml(path.to_str().unwrap()),
+        _ => panic!("Unsupported vector fixture: {}", path.display()),
+    }
+    .unwrap()
 }
 
-fn run_kml_integrity_check(
+fn run_vector_integrity_check(
     import_path: &str,
     export_path: &str,
 ) -> (Vec<TrackPoint>, JourneyInfo, ImportPreprocessor) {
-    let (parsed, preprocessor) = import_data::kml::load_kml(import_path).unwrap();
+    let (parsed, preprocessor) = load_vector_fixture(Path::new(import_path));
     let raw_data1 = parsed.flatten();
     let info = import_data::conversion::journey_info_from_raw_vector_data(&raw_data1);
     let vector1 = import_data::conversion::journey_vector_from_raw_data_with_gps_preprocessor(
@@ -73,32 +47,39 @@ fn run_kml_integrity_check(
     )
     .unwrap();
 
-    export_data::kml::journey_vector_to_kml_file(&vector1, &mut File::create(export_path).unwrap())
-        .unwrap();
+    let journeys = [test_utils::vector_export(vector1.clone())];
+    let mut file = File::create(export_path).unwrap();
+    match Path::new(export_path)
+        .extension()
+        .and_then(|extension| extension.to_str())
+    {
+        Some("gpx") => export_data::gpx::journeys_to_gpx_file(&journeys, &mut file),
+        Some("kml") => export_data::kml::journeys_to_kml_file(&journeys, &mut file),
+        _ => panic!("Unsupported vector export: {export_path}"),
+    }
+    .unwrap();
+    drop(file);
 
-    let (parsed, _) = import_data::kml::load_kml(export_path).unwrap();
+    let (parsed, _) = load_vector_fixture(Path::new(export_path));
     let raw_data2 = parsed.flatten();
     let vector2 = import_data::conversion::journey_vector_from_raw_data_with_gps_preprocessor(
         &raw_data2, None,
     )
     .unwrap();
 
-    let points1 = vector1
-        .track_segments
-        .into_iter()
-        .flat_map(|t| t.track_points)
-        .collect_vec();
-    let points2 = vector2
-        .track_segments
-        .into_iter()
-        .flat_map(|t| t.track_points)
-        .collect_vec();
-
     assert_eq!(
-        points1, points2,
+        vector1, vector2,
         "Data integrity check failed for {import_path}"
     );
-    (points1, info, preprocessor)
+    (
+        vector1
+            .track_segments
+            .into_iter()
+            .flat_map(|segment| segment.track_points)
+            .collect(),
+        info,
+        preprocessor,
+    )
 }
 
 #[test]
@@ -167,7 +148,7 @@ pub fn gpx() {
     const IMPORT_PATH: &str = "./tests/data/raw_gps_laojunshan.gpx";
     const EXPORT_PATH: &str = "./tests/for_inspection/laojunshan.gpx";
 
-    let (points, journey_info, preprocessor) = run_gpx_integrity_check(IMPORT_PATH, EXPORT_PATH);
+    let (points, journey_info, preprocessor) = run_vector_integrity_check(IMPORT_PATH, EXPORT_PATH);
 
     let start_time = journey_info.start_time.unwrap().timestamp_millis();
     let end_time = journey_info.end_time.unwrap().timestamp_millis();
@@ -198,7 +179,7 @@ pub fn gpx_step_of_my_world() {
     const IMPORT_PATH: &str = "./tests/data/StepOfMyWorld.gpx";
     const EXPORT_PATH: &str = "./tests/for_inspection/StepOfMyWorld.gpx";
 
-    let (points, journey_info, preprocessor) = run_gpx_integrity_check(IMPORT_PATH, EXPORT_PATH);
+    let (points, journey_info, preprocessor) = run_vector_integrity_check(IMPORT_PATH, EXPORT_PATH);
 
     let start_time = journey_info.start_time.unwrap().timestamp_millis();
     let end_time = journey_info.end_time.unwrap().timestamp_millis();
@@ -214,7 +195,7 @@ pub fn gpx_your_app() {
     const IMPORT_PATH: &str = "./tests/data/yourapp.gpx";
     const EXPORT_PATH: &str = "./tests/for_inspection/yourapp.gpx";
 
-    let (points, journey_info, preprocessor) = run_gpx_integrity_check(IMPORT_PATH, EXPORT_PATH);
+    let (points, journey_info, preprocessor) = run_vector_integrity_check(IMPORT_PATH, EXPORT_PATH);
 
     let start_time = journey_info.start_time.unwrap().timestamp_millis();
     let end_time = journey_info.end_time.unwrap().timestamp_millis();
@@ -230,7 +211,8 @@ pub fn gpx_2bulu() {
     const IMPORT_PATH: &str = "./tests/data/2bulu.gpx";
     const EXPORT_PATH: &str = "./tests/for_inspection/2bulu.gpx";
 
-    let (points, _journey_info, preprocessor) = run_gpx_integrity_check(IMPORT_PATH, EXPORT_PATH);
+    let (points, _journey_info, preprocessor) =
+        run_vector_integrity_check(IMPORT_PATH, EXPORT_PATH);
 
     assert_eq!(points.len(), 53);
     assert!(matches!(preprocessor, ImportPreprocessor::Generic));
@@ -241,7 +223,8 @@ pub fn kml_2bulu() {
     const IMPORT_PATH: &str = "./tests/data/2bulu.kml";
     const EXPORT_PATH: &str = "./tests/for_inspection/2bulu.kml";
 
-    let (points, _journey_info, preprocessor) = run_kml_integrity_check(IMPORT_PATH, EXPORT_PATH);
+    let (points, _journey_info, preprocessor) =
+        run_vector_integrity_check(IMPORT_PATH, EXPORT_PATH);
 
     assert_eq!(points.len(), 53);
     assert_f64_near!(points[0].latitude, 36.4375453);
@@ -254,7 +237,7 @@ pub fn kml_track() {
     const IMPORT_PATH: &str = "./tests/data/raw_gps_laojunshan.kml";
     const EXPORT_PATH: &str = "./tests/for_inspection/laojunshan.kml";
 
-    let (points, journey_info, preprocessor) = run_kml_integrity_check(IMPORT_PATH, EXPORT_PATH);
+    let (points, journey_info, preprocessor) = run_vector_integrity_check(IMPORT_PATH, EXPORT_PATH);
 
     let start_time = journey_info
         .start_time
@@ -273,7 +256,8 @@ pub fn kml_line_string() {
     const IMPORT_PATH: &str = "./tests/data/2024-08-24-2104.kml";
     const EXPORT_PATH: &str = "./tests/for_inspection/2024-08-24-2104.kml";
 
-    let (points, _journey_info, _preprocessor) = run_kml_integrity_check(IMPORT_PATH, EXPORT_PATH);
+    let (points, _journey_info, _preprocessor) =
+        run_vector_integrity_check(IMPORT_PATH, EXPORT_PATH);
 
     assert_eq!(points.len(), 10);
     assert_f64_near!(points[0].latitude, 36.6986802655);
@@ -281,7 +265,7 @@ pub fn kml_line_string() {
 }
 
 #[test]
-fn mixed_memolanes_gpx_preserves_routes_with_generic_fallback() {
+fn memolanes_gpx_preserves_tracks_routes_and_ignores_extensions() {
     let temp = tempdir::TempDir::new("mixed-memolanes-gpx").unwrap();
     let path = temp.path().join("mixed.gpx");
     fs::write(
@@ -296,13 +280,64 @@ fn mixed_memolanes_gpx_preserves_routes_with_generic_fallback() {
         </gpx>"#,
     )
     .unwrap();
-    let (parsed, preprocessor) = import_data::gpx::load_gpx(path.to_str().unwrap()).unwrap();
-    assert!(!parsed.has_memolanes_metadata());
-    assert!(matches!(preprocessor, ImportPreprocessor::None));
+    for (path, exported) in [
+        (path.as_path(), false),
+        (
+            Path::new("./tests/data/memolanes_foreign_extensions.gpx"),
+            true,
+        ),
+    ] {
+        let label = path.display();
+        let (parsed, preprocessor) = load_vector_fixture(path);
+        assert_eq!(parsed.is_exported_journey(), exported, "{label}");
+        assert!(matches!(preprocessor, ImportPreprocessor::None), "{label}");
+        if exported {
+            assert_eq!(parsed.groups().len(), 1);
+            assert_eq!(
+                parsed.groups()[0].journey_date,
+                NaiveDate::from_ymd_opt(2026, 9, 11)
+            );
+        }
+        let segments = parsed.flatten();
+        assert_eq!(
+            segments.iter().map(Vec::len).collect::<Vec<_>>(),
+            [2, 2],
+            "{label}"
+        );
+        assert_eq!(
+            segments
+                .iter()
+                .flatten()
+                .map(|point| (point.point.latitude, point.point.longitude))
+                .collect::<Vec<_>>(),
+            [(1.0, 2.0), (1.1, 2.1), (3.0, 4.0), (3.1, 4.1)],
+            "{label}",
+        );
+    }
+}
+
+#[test]
+fn mixed_memolanes_kml_preserves_geometry_without_duplicates() {
+    let (parsed, preprocessor) =
+        import_data::kml::load_kml("./tests/data/mixed_memolanes_geometry.kml").unwrap();
+    assert!(!parsed.is_exported_journey());
+    assert!(matches!(preprocessor, ImportPreprocessor::Generic));
     let segments = parsed.flatten();
     assert_eq!(segments.iter().map(Vec::len).collect::<Vec<_>>(), [2, 2]);
-    assert_eq!(segments[0][0].point.latitude, 1.0);
-    assert_eq!(segments[1][0].point.latitude, 3.0);
+    for (segment, latitude) in segments.iter().zip([1.0, 3.0]) {
+        assert_eq!(segment[0].point.latitude, latitude);
+        assert_eq!(segment[1].point.latitude, latitude + 0.1);
+    }
+    let timestamp = |time| {
+        DateTime::parse_from_rfc3339(time)
+            .unwrap()
+            .timestamp_millis()
+    };
+    assert_eq!(segments[0][0].timestamp_ms, None);
+    assert_eq!(
+        segments[1][0].timestamp_ms,
+        Some(timestamp("2026-09-11T01:00:00Z"))
+    );
 }
 
 fn export_test_vector(offset: f64) -> JourneyData {
@@ -430,15 +465,34 @@ fn bulk_export_import_preserves_journeys_and_raw_data() {
                 .collect::<anyhow::Result<Vec<_>>>()
         })
         .unwrap();
-    let parse_vector = |path: &std::path::Path| {
-        if path.extension().unwrap() == "gpx" {
-            import_data::gpx::load_gpx(path.to_str().unwrap())
+    // Read back real MLDX exports to cover buffered writes and seeking.
+    let mldx_path = temp.path().join("journeys.mldx");
+    for all_journeys in [true, false] {
+        let result = if all_journeys {
+            generate_full_archive(mldx_path.to_string_lossy().into_owned(), false)
         } else {
-            import_data::kml::load_kml(path.to_str().unwrap())
+            export_journey(
+                mldx_path.to_string_lossy().into_owned(),
+                ids[0].clone(),
+                ExportType::MLDX,
+                false,
+            )
+        };
+        assert!(matches!(result.unwrap(), ExportResult::Succeed));
+        let mut archive = MldxReader::open(File::open(&mldx_path).unwrap()).unwrap();
+        for id in if all_journeys { &ids[..] } else { &ids[..1] } {
+            let expected = db
+                .with_txn(|txn| {
+                    Ok((
+                        txn.get_journey_header(id)?.unwrap(),
+                        txn.get_journey_data(id)?,
+                    ))
+                })
+                .unwrap();
+            assert_eq!(archive.load_single_journey(id).unwrap(), Some(expected));
         }
-        .unwrap()
-        .0
-    };
+    }
+    let parse_vector = |path: &Path| load_vector_fixture(path).0;
     let legacy_revision = db
         .with_txn(|txn| Ok(txn.get_journey_header(&ids[1])?.unwrap().revision))
         .unwrap();
@@ -466,7 +520,7 @@ fn bulk_export_import_preserves_journeys_and_raw_data() {
         assert_no_identity(&xml);
         let parsed = parse_vector(path);
         let mut offsets = Vec::new();
-        for group in &parsed.groups {
+        for group in parsed.groups() {
             assert!(group.has_memolanes_metadata());
             assert_eq!(group.start, Some(start));
             assert_eq!(group.end, Some(end));
@@ -508,6 +562,29 @@ fn bulk_export_import_preserves_journeys_and_raw_data() {
         assert_eq!(offsets, [1, 10, 20]);
 
         let extension = path.extension().unwrap().to_str().unwrap();
+        let invalid_metadata = match format {
+            ExportType::GPX => {
+                xml.replacen(&format!("date=\"{first_date}\""), "date=\"invalid\"", 1)
+            }
+            ExportType::KML => xml.replacen(
+                &format!("<Data name=\"memolanes:date\"><value>{first_date}</value></Data>"),
+                "<Data name=\"memolanes:date\"><value>invalid</value></Data>",
+                1,
+            ),
+            _ => unreachable!(),
+        };
+        let fallback_path = temp.path().join(format!("invalid-metadata.{extension}"));
+        fs::write(&fallback_path, invalid_metadata).unwrap();
+        let fallback = parse_vector(&fallback_path);
+        assert!(!fallback.is_exported_journey());
+        assert!(fallback
+            .groups()
+            .iter()
+            .all(|group| group.journey_date.is_none()
+                && group.start.is_none()
+                && group.end.is_none()));
+        assert_eq!(fallback.flatten(), parsed.flatten());
+
         let single = temp.path().join(format!("single.{extension}"));
         assert!(matches!(
             export_journey(
@@ -521,8 +598,8 @@ fn bulk_export_import_preserves_journeys_and_raw_data() {
         ));
         assert_no_identity(&fs::read_to_string(&single).unwrap());
         let single = parse_vector(&single);
-        assert_eq!(single.groups.len(), 1);
-        assert!(parsed.groups.contains(&single.groups[0]));
+        assert_eq!(single.groups().len(), 1);
+        assert!(parsed.groups().contains(&single.groups()[0]));
 
         // Identity fields remain ignored, including invalid values and matching local IDs.
         for (name, source_id, revision, version) in [
@@ -562,7 +639,7 @@ fn bulk_export_import_preserves_journeys_and_raw_data() {
                 .unwrap();
                 let rebound = parse_vector(&rebound);
                 assert!(rebound
-                    .groups
+                    .groups()
                     .iter()
                     .all(|group| !group.has_memolanes_metadata()));
                 assert_eq!(rebound.flatten(), parsed.flatten());
@@ -620,6 +697,7 @@ fn bulk_export_import_preserves_journeys_and_raw_data() {
     let import_file = |path: &std::path::Path| {
         let (_, raw, preprocessor) =
             import_api::load_vector_data(path.to_string_lossy().into_owned()).unwrap();
+        assert!(matches!(preprocessor, ImportPreprocessor::None));
         let parts = import_api::analyze_vector_data_parts(&raw);
         assert_eq!(parts.len(), 3);
         assert!(parts.iter().all(|part| part.is_memolanes_journey));
@@ -641,7 +719,8 @@ fn bulk_export_import_preserves_journeys_and_raw_data() {
         import_api::import_vector_data_by_parts(
             &raw,
             parts.iter().map(|part| part.part_key.clone()).collect(),
-            preprocessor,
+            // An explicit Generic request must still preserve exported segments.
+            ImportPreprocessor::Generic,
             JourneyKind::DefaultKind,
             None,
         )
@@ -863,7 +942,7 @@ fn bulk_export_import_preserves_journeys_and_raw_data() {
                 assert!(text.contains(&format!("MemoLanes Raw Data {first_date} #{index}")));
             }
             let parsed = parse_vector(&path);
-            assert!(!parsed.has_memolanes_metadata());
+            assert!(!parsed.is_exported_journey());
             parsed.flatten()
         };
         assert_eq!(segments.iter().map(Vec::len).collect::<Vec<_>>(), [2, 2]);
@@ -886,7 +965,21 @@ fn bulk_export_import_preserves_journeys_and_raw_data() {
         assert!(result.is_err());
         assert!(!path.exists());
     }
-    for id in ids.into_iter().chain([corrupt_id]) {
+    // Single exports must also remove files when a writer rejects a GPS timestamp.
+    let mut invalid_raw = export_test_raw_data(31.0);
+    invalid_raw.points[1].raw_gps_point.timestamp_ms = Some(i64::MAX);
+    let invalid_id = insert_raw(&mut db, first_date, invalid_raw.serialize().unwrap());
+    for (format, extension) in &raw_formats[1..] {
+        let path = temp.path().join(format!("single-raw.{extension}"));
+        assert!(export_journey_raw_data(
+            path.to_string_lossy().into_owned(),
+            invalid_id.clone(),
+            *format,
+        )
+        .is_err());
+        assert!(!path.exists());
+    }
+    for id in ids.into_iter().chain([corrupt_id, invalid_id]) {
         delete_journey_raw_data(id).unwrap();
     }
     assert_empty_raw();

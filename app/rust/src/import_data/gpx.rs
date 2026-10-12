@@ -1,7 +1,6 @@
-use crate::api::import::ImportPreprocessor;
 use crate::gps::{Point, RawGPSPoint};
 use crate::gpx_file_utils::{analyze_and_prepare_gpx, MEMOLANES_NAMESPACE};
-use crate::import_data::{ImportedJourney, ParsedVectorData};
+use crate::import_data::{ImportMode, ImportPreprocessor, ImportedJourney, ParsedVectorData};
 use anyhow::{Context, Result};
 use auto_context::auto_context;
 use chrono::{DateTime, NaiveDate, Utc};
@@ -31,10 +30,7 @@ pub fn load_gpx(file_path: &str) -> Result<(ParsedVectorData, ImportPreprocessor
         .map(|segment| ImportedJourney::generic(vec![segment]))
         .collect();
     Ok((
-        ParsedVectorData {
-            groups,
-            ..Default::default()
-        },
+        ParsedVectorData::new(ImportMode::GenericByDate, groups)?,
         preprocessor,
     ))
 }
@@ -149,19 +145,20 @@ fn parse_memolanes_gpx(xml: &str) -> Result<Option<ParsedVectorData>> {
         let (namespace, event) = reader
             .read_resolved_event()
             .context("Invalid MemoLanes GPX XML")?;
+        let is_gpx = matches!(&namespace, ResolveResult::Unbound)
+            || matches!(&namespace, ResolveResult::Bound(uri)
+                if matches!(uri.as_ref(), "http://www.topografix.com/GPX/1/1" | "http://www.topografix.com/GPX/1/0"));
         let empty = matches!(&event, Event::Empty(_));
-        match event {
+        let closing = match event {
             Event::Start(element) | Event::Empty(element) => {
-                let name = element.name().as_ref().to_owned();
-                match local_name(&name) {
-                    "rte" if path.len() == 1 => has_routes = true,
-                    "trk" if path.len() == 1 => {
+                let name = local_name(element.name().as_ref()).to_owned();
+                match name.as_str() {
+                    "rte" if is_gpx && path == ["gpx"] => has_routes = true,
+                    "trk" if is_gpx && path == ["gpx"] => {
                         current = Some(ImportedJourney::generic(Vec::new()));
                     }
                     "journey"
-                        if path.len() == 3
-                            && local_name(&path[1]) == "trk"
-                            && local_name(&path[2]) == "extensions"
+                        if path == ["gpx", "trk", "extensions"]
                             && matches!(namespace, ResolveResult::Bound(uri) if uri.as_ref() == MEMOLANES_NAMESPACE) =>
                     {
                         marked = true;
@@ -180,42 +177,45 @@ fn parse_memolanes_gpx(xml: &str) -> Result<Option<ParsedVectorData>> {
                             }
                         }
                     }
-                    "trkseg" if path.len() == 2 && local_name(&path[1]) == "trk" => {
+                    "trkseg" if is_gpx && path == ["gpx", "trk"] => {
                         segment = Some(Vec::new());
                     }
-                    "trkpt" if segment.is_some() => {
-                        segment.as_mut().unwrap().push(track_point(&element)?);
+                    "trkpt" if is_gpx && path == ["gpx", "trk", "trkseg"] => {
+                        if let Some(points) = segment.as_mut() {
+                            points.push(track_point(&element)?);
+                        }
                     }
                     _ => {}
                 }
                 if empty {
-                    if local_name(&name) == "trkseg" {
-                        if let (Some(group), Some(points)) = (current.as_mut(), segment.take()) {
-                            group.segments.push(points);
-                        }
-                    }
+                    Some(name)
                 } else {
-                    path.push(name);
+                    // A foreign ancestor cannot form part of a GPX structural path.
+                    path.push(if is_gpx { name } else { String::new() });
+                    None
                 }
             }
             Event::End(element) => {
-                match local_name(element.name().as_ref()) {
-                    "trkseg" => {
-                        if let (Some(group), Some(points)) = (current.as_mut(), segment.take()) {
-                            group.segments.push(points);
-                        }
-                    }
-                    "trk" => {
-                        if let Some(group) = current.take() {
-                            groups.push(group);
-                        }
-                    }
-                    _ => {}
-                }
                 path.pop();
+                Some(local_name(element.name().as_ref()).to_owned())
             }
             Event::Eof => break,
-            _ => {}
+            _ => None,
+        };
+        if is_gpx {
+            match closing.as_deref() {
+                Some("trkseg") if path == ["gpx", "trk"] => {
+                    if let (Some(group), Some(points)) = (current.as_mut(), segment.take()) {
+                        group.segments.push(points);
+                    }
+                }
+                Some("trk") if path == ["gpx"] => {
+                    if let Some(group) = current.take() {
+                        groups.push(group);
+                    }
+                }
+                _ => {}
+            }
         }
     }
 
@@ -229,10 +229,10 @@ fn parse_memolanes_gpx(xml: &str) -> Result<Option<ParsedVectorData>> {
         warn!("MemoLanes GPX contains unmarked tracks or routes; using generic GPX import");
         return Ok(None);
     }
-    Ok(Some(ParsedVectorData {
+    Ok(Some(ParsedVectorData::new(
+        ImportMode::ExportedJourney,
         groups,
-        ..Default::default()
-    }))
+    )?))
 }
 
 pub fn load_gpx_raw_data(gpx_data: &gpx::Gpx) -> Result<Vec<Vec<RawGPSPoint>>> {

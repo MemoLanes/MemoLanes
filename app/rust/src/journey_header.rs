@@ -95,6 +95,16 @@ impl JourneyKind {
     }
 }
 
+#[derive(Debug)]
+#[frb(non_opaque)]
+pub struct JourneyInfo {
+    pub journey_date: NaiveDate,
+    pub start_time: Option<DateTime<Utc>>,
+    pub end_time: Option<DateTime<Utc>>,
+    pub journey_kind: JourneyKind,
+    pub note: Option<String>,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 #[frb(non_opaque)]
 pub struct JourneyHeader {

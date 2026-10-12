@@ -7,23 +7,19 @@ import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
 import 'package:memolanes/common/journey_kind_visuals.dart';
 import 'package:memolanes/constants/app_typography.dart';
-import 'package:memolanes/src/rust/api/import.dart' as import_api;
+import 'package:memolanes/src/rust/import_data.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
 
 String importPreprocessorLabel(
   BuildContext context,
-  import_api.ImportPreprocessor value,
+  ImportPreprocessor value,
 ) => switch (value) {
-  import_api.ImportPreprocessor.none => context.tr('import.preprocessor.none'),
-  import_api.ImportPreprocessor.generic => context.tr(
-    'import.preprocessor.generic',
-  ),
-  import_api.ImportPreprocessor.flightTrack => context.tr(
+  ImportPreprocessor.none => context.tr('import.preprocessor.none'),
+  ImportPreprocessor.generic => context.tr('import.preprocessor.generic'),
+  ImportPreprocessor.flightTrack => context.tr(
     'import.preprocessor.flight_track',
   ),
-  import_api.ImportPreprocessor.spare => context.tr(
-    'import.preprocessor.spare',
-  ),
+  ImportPreprocessor.spare => context.tr('import.preprocessor.spare'),
 };
 
 class ImportPreprocessorTile extends StatelessWidget {
@@ -36,8 +32,8 @@ class ImportPreprocessorTile extends StatelessWidget {
     this.bottom = true,
   });
 
-  final import_api.ImportPreprocessor value;
-  final ValueChanged<import_api.ImportPreprocessor> onSelected;
+  final ImportPreprocessor value;
+  final ValueChanged<ImportPreprocessor> onSelected;
   final VoidCallback? onInfoTap;
   final LabelTilePosition position;
   final bool bottom;
@@ -55,7 +51,7 @@ class ImportPreprocessorTile extends StatelessWidget {
       ),
       onTap: () => _showOptionPicker(
         context,
-        values: import_api.ImportPreprocessor.values,
+        values: ImportPreprocessor.values,
         selectedValue: value,
         labelOf: (item) => importPreprocessorLabel(context, item),
         onSelected: onSelected,

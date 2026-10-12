@@ -5,6 +5,7 @@ import 'package:memolanes/common/app_haptics.dart';
 import 'package:memolanes/common/app_translation_loader.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
+import 'package:memolanes/src/rust/export_data.dart';
 import 'package:memolanes/src/rust/frb_generated.dart';
 import 'package:memolanes/src/rust/legacy_raw_data.dart';
 import 'package:provider/provider.dart';
@@ -224,13 +225,13 @@ void main() {
 
       await openPicker(false);
       await tap('common.cancel');
-      for (final format in api.RawDataExportType.values) {
+      for (final format in RawDataExportType.values) {
         await openPicker(true);
         await tap('data.export_data.raw_data_group');
         await tap('journey.export_raw_data_${format.name}');
         expect(
           find.text(tr('journey.raw_data_lossy_format_warning')),
-          format == api.RawDataExportType.csv ? findsNothing : findsOneWidget,
+          format == RawDataExportType.csv ? findsNothing : findsOneWidget,
         );
         await tap('common.export');
         expect(backend.exportedFormat, format);
@@ -240,17 +241,20 @@ void main() {
         );
         await tap('common.ok');
       }
-      for (final available in [false, null]) {
-        await openPicker(available);
-        await tap('common.cancel');
-      }
+      await openPicker(false);
+      await tap('common.cancel');
+      // An inspection failure must still offer a complete MLDX backup.
+      await openPicker(null);
+      await tap('common.export');
+      expect(backend.archivedRawData, isTrue);
     },
   );
 }
 
 class _ExportApi extends Fake implements RustLibApi {
   bool? hasRawData = false;
-  api.RawDataExportType? exportedFormat;
+  RawDataExportType? exportedFormat;
+  bool? archivedRawData;
 
   @override
   Future<bool> crateApiApiHasJourneys() async => true;
@@ -262,9 +266,18 @@ class _ExportApi extends Fake implements RustLibApi {
   @override
   Future<api.ExportResult> crateApiApiExportAllJourneysRawData({
     required String targetFilepath,
-    required api.RawDataExportType exportType,
+    required RawDataExportType exportType,
   }) async {
     exportedFormat = exportType;
+    return api.ExportResult.dataIsEmpty;
+  }
+
+  @override
+  Future<api.ExportResult> crateApiApiGenerateFullArchive({
+    required String targetFilepath,
+    required bool includeRawData,
+  }) async {
+    archivedRawData = includeRawData;
     return api.ExportResult.dataIsEmpty;
   }
 

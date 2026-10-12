@@ -10,7 +10,6 @@ import 'package:memolanes/common/component/app_dialog.dart';
 import 'package:memolanes/common/component/app_option_tile.dart';
 import 'package:memolanes/common/journey_kind_visuals.dart';
 import 'package:memolanes/common/simple_date_utils.dart';
-import 'package:memolanes/src/rust/api/import.dart' show JourneyInfo;
 import 'package:memolanes/src/rust/journey_header.dart';
 
 import 'journey_time_picker_dialog.dart';

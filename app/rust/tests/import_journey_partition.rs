@@ -2,7 +2,8 @@ use chrono::{Local, NaiveDate, TimeZone};
 use memolanes_core::{
     api::import::{
         analyze_vector_data_parts, import_vector_data_by_parts, is_journey_data_empty,
-        load_vector_data, process_vector_data_for_part, ImportPreprocessor, RawVectorData,
+        load_vector_data, process_vector_data, process_vector_data_for_part, ImportPreprocessor,
+        RawVectorData,
     },
     gps::{Point, RawGPSPoint},
     import_data::{
@@ -121,6 +122,10 @@ fn missing_timestamps_are_preserved() {
 #[test]
 fn fully_untimed_data_cannot_be_grouped() {
     assert!(group_by_date(&[vec![point(None, 1.0)]]).is_empty());
+    let (_temp, data, _) = load_csv_vector_data("untimed-preview", ",0,0,1,,,\n", false);
+    assert!(analyze_vector_data_parts(&data).is_empty());
+    let preview = process_vector_data(&data, ImportPreprocessor::None).unwrap();
+    assert!(!is_journey_data_empty(&preview));
 }
 
 #[test]
@@ -182,8 +187,8 @@ fn api_uses_partitioned_data() {
         true,
     );
     let (parsed, _) = csv::load_csv(temp.path().join("data.csv").to_str().unwrap()).unwrap();
-    assert_eq!(parsed.groups[0].segments.len(), 2);
-    assert_eq!(parsed.groups[1].segments.len(), 1);
+    assert_eq!(parsed.groups()[0].segments.len(), 2);
+    assert_eq!(parsed.groups()[1].segments.len(), 1);
     let parts = analyze_vector_data_parts(&vector_data);
     assert_eq!(parts.len(), 3);
     assert!(parts.iter().all(|part| part.is_explicit_journey

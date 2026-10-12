@@ -12,7 +12,7 @@ import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
 import 'package:memolanes/common/simple_date_utils.dart';
 import 'package:memolanes/common/utils.dart';
-import 'package:memolanes/src/rust/api/import.dart' as import_api;
+import 'package:memolanes/src/rust/import_data.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
 
 class JourneyInfoEditPage extends StatefulWidget {
@@ -35,14 +35,13 @@ class JourneyInfoEditPage extends StatefulWidget {
   final String? note;
   final JourneyKind? journeyKind;
   final FutureOr<void> Function(
-    import_api.JourneyInfo journeyInfo,
-    import_api.ImportPreprocessor preprocessor,
+    JourneyInfo journeyInfo,
+    ImportPreprocessor preprocessor,
   )
   saveData;
-  final FutureOr<void> Function(import_api.ImportPreprocessor preprocessor)?
-  previewData;
+  final FutureOr<void> Function(ImportPreprocessor preprocessor)? previewData;
   final ImportType? importType;
-  final import_api.ImportPreprocessor? preprocessor;
+  final ImportPreprocessor? preprocessor;
 
   @override
   State<JourneyInfoEditPage> createState() => _JourneyInfoEditPageState();
@@ -57,7 +56,7 @@ class _JourneyInfoEditPageState extends State<JourneyInfoEditPage> {
   JourneyKind _journeyKind = JourneyKind.defaultKind;
   bool _saving = false;
   final TextEditingController _noteController = TextEditingController();
-  late import_api.ImportPreprocessor _preprocessor;
+  late ImportPreprocessor _preprocessor;
 
   Future<DateTime?> selectDateAndTime(
     BuildContext context,
@@ -100,8 +99,7 @@ class _JourneyInfoEditPageState extends State<JourneyInfoEditPage> {
     _journeyDate = widget.journeyDate;
     _journeyKind = widget.journeyKind ?? _journeyKind;
     _noteController.text = widget.note ?? "";
-    _preprocessor =
-        widget.preprocessor ?? import_api.ImportPreprocessor.generic;
+    _preprocessor = widget.preprocessor ?? ImportPreprocessor.generic;
   }
 
   @override
@@ -118,7 +116,7 @@ class _JourneyInfoEditPageState extends State<JourneyInfoEditPage> {
     }
     setState(() => _saving = true);
     try {
-      final journeyInfo = import_api.JourneyInfo(
+      final journeyInfo = JourneyInfo(
         journeyDate: _journeyDate!.toFrbNaiveDate(),
         startTime: _startTime,
         endTime: _endTime,
@@ -225,7 +223,7 @@ class _JourneyInfoEditPageState extends State<JourneyInfoEditPage> {
     );
   }
 
-  void _selectPreprocessor(import_api.ImportPreprocessor processor) {
+  void _selectPreprocessor(ImportPreprocessor processor) {
     if (_preprocessor == processor) return;
     setState(() {
       _preprocessor = processor;
