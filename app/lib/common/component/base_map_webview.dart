@@ -613,6 +613,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
         InAppWebView(
           key: const ValueKey('map_webview'),
           initialSettings: InAppWebViewSettings(
+            topScrollEdgeEffectHidden: true,
             javaScriptEnabled: true,
             useShouldOverrideUrlLoading: true,
             allowFileAccessFromFileURLs: true,

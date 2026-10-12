@@ -443,7 +443,7 @@ packages:
     description:
       path: flutter_inappwebview
       ref: master
-      resolved-ref: b7ab16dd29ce82eae31d95bba8dc72f324141d46
+      resolved-ref: c801ec5ca8650f4f4b9a2416914cb2148e6f1a7b
       url: "https://github.com/MemoLanes/flutter_inappwebview"
     source: git
     version: "6.2.0-beta.3"
@@ -452,7 +452,7 @@ packages:
     description:
       path: flutter_inappwebview_android
       ref: master
-      resolved-ref: b7ab16dd29ce82eae31d95bba8dc72f324141d46
+      resolved-ref: c801ec5ca8650f4f4b9a2416914cb2148e6f1a7b
       url: "https://github.com/MemoLanes/flutter_inappwebview"
     source: git
     version: "1.2.0-beta.3"
@@ -469,7 +469,7 @@ packages:
     description:
       path: flutter_inappwebview_ios
       ref: master
-      resolved-ref: b7ab16dd29ce82eae31d95bba8dc72f324141d46
+      resolved-ref: c801ec5ca8650f4f4b9a2416914cb2148e6f1a7b
       url: "https://github.com/MemoLanes/flutter_inappwebview"
     source: git
     version: "1.2.0-beta.3"
@@ -494,7 +494,7 @@ packages:
     description:
       path: flutter_inappwebview_platform_interface
       ref: master
-      resolved-ref: b7ab16dd29ce82eae31d95bba8dc72f324141d46
+      resolved-ref: c801ec5ca8650f4f4b9a2416914cb2148e6f1a7b
       url: "https://github.com/MemoLanes/flutter_inappwebview"
     source: git
     version: "1.4.0-beta.3"
