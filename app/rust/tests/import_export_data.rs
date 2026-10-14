@@ -13,7 +13,7 @@ use memolanes_core::api::import as import_api;
 use memolanes_core::archive::MldxReader;
 use memolanes_core::export_data::RawDataExportType;
 use memolanes_core::gps::{ExtendedRawGPSPoint, Point, RawGPSPoint};
-use memolanes_core::gpx_file_utils::{normalize_generic_time, normalize_step_of_my_world_time};
+use memolanes_core::import_data::gpx::{normalize_generic_time, normalize_step_of_my_world_time};
 use memolanes_core::import_data::{ImportPreprocessor, ParsedVectorData};
 use memolanes_core::journey_bitmap::JourneyBitmap;
 use memolanes_core::journey_data::JourneyData;
@@ -29,6 +29,7 @@ fn load_vector_fixture(path: &Path) -> (ParsedVectorData, ImportPreprocessor) {
     match path.extension().and_then(|extension| extension.to_str()) {
         Some("gpx") => import_data::gpx::load_gpx(path.to_str().unwrap()),
         Some("kml") => import_data::kml::load_kml(path.to_str().unwrap()),
+        Some("csv") => import_data::csv::load_csv(path.to_str().unwrap()),
         _ => panic!("Unsupported vector fixture: {}", path.display()),
     }
     .unwrap()
@@ -143,19 +144,74 @@ fn parse_fwss_snapshot_time_from_filename_is_case_insensitive() {
 }
 
 #[test]
-pub fn gpx() {
-    const IMPORT_PATH: &str = "./tests/data/raw_gps_laojunshan.gpx";
-    const EXPORT_PATH: &str = "./tests/for_inspection/laojunshan.gpx";
-
-    let (points, journey_info, preprocessor) = run_vector_integrity_check(IMPORT_PATH, EXPORT_PATH);
-
-    let start_time = journey_info.start_time.unwrap().timestamp_millis();
-    let end_time = journey_info.end_time.unwrap().timestamp_millis();
-
-    assert_eq!(points.len(), 2945);
-    assert_eq!(start_time, 1696383677000);
-    assert_eq!(end_time, 1696386835000);
-    assert!(matches!(preprocessor, ImportPreprocessor::Generic));
+fn vector_fixtures_roundtrip() {
+    use ImportPreprocessor::{Generic, Spare};
+    let temp = tempdir::TempDir::new("vector-roundtrip").unwrap();
+    for (file, count, times, first_point, expected_processor) in [
+        (
+            "raw_gps_laojunshan.gpx",
+            2945,
+            Some((1696383677000, 1696386835000)),
+            None,
+            Generic,
+        ),
+        (
+            "StepOfMyWorld.gpx",
+            313,
+            Some((1766592001000, 1766678400000)),
+            None,
+            Spare,
+        ),
+        (
+            "yourapp.gpx",
+            400,
+            Some((1766624275000, 1766665298000)),
+            None,
+            Spare,
+        ),
+        ("2bulu.gpx", 53, None, None, Generic),
+        (
+            "2bulu.kml",
+            53,
+            None,
+            Some((36.4375453, 116.9442243)),
+            Generic,
+        ),
+        (
+            "raw_gps_laojunshan.kml",
+            1651,
+            Some((1696383677000, 1696386835000)),
+            None,
+            Generic,
+        ),
+        (
+            "2024-08-24-2104.kml",
+            10,
+            None,
+            Some((36.6986802655, 117.1179554744)),
+            Generic,
+        ),
+    ] {
+        eprintln!("vector roundtrip: {file}");
+        let (points, info, processor) = run_vector_integrity_check(
+            &format!("./tests/data/{file}"),
+            temp.path().join(file).to_str().unwrap(),
+        );
+        assert_eq!(points.len(), count, "{file}");
+        assert_eq!(
+            std::mem::discriminant(&processor),
+            std::mem::discriminant(&expected_processor),
+            "{file}"
+        );
+        if let Some((start, end)) = times {
+            assert_eq!(info.start_time.unwrap().timestamp_millis(), start, "{file}");
+            assert_eq!(info.end_time.unwrap().timestamp_millis(), end, "{file}");
+        }
+        if let Some((latitude, longitude)) = first_point {
+            assert_f64_near!(points[0].latitude, latitude);
+            assert_f64_near!(points[0].longitude, longitude);
+        }
+    }
 }
 
 #[test]
@@ -223,7 +279,8 @@ fn gpx_accepts_positive_dateline_from_any_source() {
 
         // Waypoints share the same preparation even though the trajectory
         // importer only consumes tracks and routes.
-        let (prepared, _) = memolanes_core::gpx_file_utils::analyze_and_prepare_gpx(&xml).unwrap();
+        let (prepared, _) =
+            memolanes_core::import_data::gpx::analyze_and_prepare_gpx(&xml).unwrap();
         let gpx = gpx::read(prepared.as_bytes()).unwrap();
         assert_eq!(gpx.waypoints.len(), 1);
         assert_eq!(gpx.waypoints[0].name.as_deref(), Some("East & West"));
@@ -251,96 +308,6 @@ fn gpx_still_rejects_out_of_range_longitudes() {
             "{longitude}"
         );
     }
-}
-
-#[test]
-pub fn gpx_step_of_my_world() {
-    const IMPORT_PATH: &str = "./tests/data/StepOfMyWorld.gpx";
-    const EXPORT_PATH: &str = "./tests/for_inspection/StepOfMyWorld.gpx";
-
-    let (points, journey_info, preprocessor) = run_vector_integrity_check(IMPORT_PATH, EXPORT_PATH);
-
-    let start_time = journey_info.start_time.unwrap().timestamp_millis();
-    let end_time = journey_info.end_time.unwrap().timestamp_millis();
-
-    assert_eq!(points.len(), 313);
-    assert_eq!(start_time, 1766592001000);
-    assert_eq!(end_time, 1766678400000);
-    assert!(matches!(preprocessor, ImportPreprocessor::Spare));
-}
-
-#[test]
-pub fn gpx_your_app() {
-    const IMPORT_PATH: &str = "./tests/data/yourapp.gpx";
-    const EXPORT_PATH: &str = "./tests/for_inspection/yourapp.gpx";
-
-    let (points, journey_info, preprocessor) = run_vector_integrity_check(IMPORT_PATH, EXPORT_PATH);
-
-    let start_time = journey_info.start_time.unwrap().timestamp_millis();
-    let end_time = journey_info.end_time.unwrap().timestamp_millis();
-
-    assert_eq!(points.len(), 400);
-    assert_eq!(start_time, 1766624275000);
-    assert_eq!(end_time, 1766665298000);
-    assert!(matches!(preprocessor, ImportPreprocessor::Spare));
-}
-
-#[test]
-pub fn gpx_2bulu() {
-    const IMPORT_PATH: &str = "./tests/data/2bulu.gpx";
-    const EXPORT_PATH: &str = "./tests/for_inspection/2bulu.gpx";
-
-    let (points, _journey_info, preprocessor) =
-        run_vector_integrity_check(IMPORT_PATH, EXPORT_PATH);
-
-    assert_eq!(points.len(), 53);
-    assert!(matches!(preprocessor, ImportPreprocessor::Generic));
-}
-
-#[test]
-pub fn kml_2bulu() {
-    const IMPORT_PATH: &str = "./tests/data/2bulu.kml";
-    const EXPORT_PATH: &str = "./tests/for_inspection/2bulu.kml";
-
-    let (points, _journey_info, preprocessor) =
-        run_vector_integrity_check(IMPORT_PATH, EXPORT_PATH);
-
-    assert_eq!(points.len(), 53);
-    assert_f64_near!(points[0].latitude, 36.4375453);
-    assert_f64_near!(points[0].longitude, 116.9442243);
-    assert!(matches!(preprocessor, ImportPreprocessor::Generic));
-}
-
-#[test]
-pub fn kml_track() {
-    const IMPORT_PATH: &str = "./tests/data/raw_gps_laojunshan.kml";
-    const EXPORT_PATH: &str = "./tests/for_inspection/laojunshan.kml";
-
-    let (points, journey_info, preprocessor) = run_vector_integrity_check(IMPORT_PATH, EXPORT_PATH);
-
-    let start_time = journey_info
-        .start_time
-        .unwrap_or_default()
-        .timestamp_millis();
-    let end_time = journey_info.end_time.unwrap_or_default().timestamp_millis();
-
-    assert_eq!(points.len(), 1651);
-    assert_eq!(start_time, 1696383677000);
-    assert_eq!(end_time, 1696386835000);
-    assert!(matches!(preprocessor, ImportPreprocessor::Generic));
-}
-
-#[test]
-pub fn kml_line_string() {
-    const IMPORT_PATH: &str = "./tests/data/2024-08-24-2104.kml";
-    const EXPORT_PATH: &str = "./tests/for_inspection/2024-08-24-2104.kml";
-
-    let (points, _journey_info, _preprocessor) =
-        run_vector_integrity_check(IMPORT_PATH, EXPORT_PATH);
-
-    assert_eq!(points.len(), 10);
-    assert_f64_near!(points[0].latitude, 36.6986802655);
-    assert_f64_near!(points[0].longitude, 117.1179554744);
 }
 
 #[test]
@@ -472,6 +439,163 @@ fn kml_prefers_tracks_across_placemarks_and_falls_back_without_tracks() {
     }
 }
 
+#[test]
+fn preprocessor_selection_by_format_source_and_label() {
+    use ImportPreprocessor::{Generic, None as NoPreprocessor, Spare};
+    let temp = tempdir::TempDir::new("preprocessor").unwrap();
+    for (source, label, gpx_processor, kml_processor) in [
+        (
+            "MemoLanes",
+            "MemoLanes Journey 2026-10-14",
+            NoPreprocessor,
+            NoPreprocessor,
+        ),
+        ("MemoLanes", "", Generic, Generic),
+        ("Other App", "", Generic, Generic),
+        ("MemoLanes", "MemoLanes Raw Data", Generic, Generic),
+        (
+            "MemoLanes",
+            "MemoLanes Journey; MemoLanes Raw Data",
+            Generic,
+            Generic,
+        ),
+        ("StepOfMyWorld", "", Spare, Generic),
+        ("YourApp", "", Spare, Generic),
+        ("StepOfMyWorld", "MemoLanes Journey", Spare, NoPreprocessor),
+        ("YourApp", "MemoLanes Journey", Spare, NoPreprocessor),
+    ] {
+        for (extension, expected) in [("gpx", gpx_processor), ("kml", kml_processor)] {
+            eprintln!("preprocessor: {extension}, {source}, {label}");
+            let path = temp.path().join(format!("track.{extension}"));
+            let xml = match extension {
+                "gpx" => format!(
+                    r#"<gpx version="1.1" creator="{source}" xmlns="http://www.topografix.com/GPX/1/1"><trk><name>{label}</name><trkseg><trkpt lat="31" lon="121"/></trkseg></trk></gpx>"#
+                ),
+                "kml" => format!(
+                    r#"<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>{source}</name><Placemark><name>{label}</name><Point><coordinates>121,31</coordinates></Point></Placemark></Document></kml>"#
+                ),
+                _ => unreachable!(),
+            };
+            fs::write(&path, xml).unwrap();
+            let (_, _, actual) =
+                import_api::load_vector_data(path.to_string_lossy().into_owned()).unwrap();
+            assert_eq!(
+                std::mem::discriminant(&actual),
+                std::mem::discriminant(&expected),
+                "{extension}: {source}, {label}"
+            );
+        }
+    }
+}
+
+#[test]
+fn csv_sources_preserve_fields_and_use_the_expected_preprocessor() {
+    use ImportPreprocessor::{Generic, Spare};
+    for (file, count, timestamp, longitude, latitude, expected) in [
+        (
+            "DoL_laojunshan.csv",
+            155,
+            1_696_383_677_000,
+            111.643623,
+            33.718950,
+            Spare,
+        ),
+        (
+            "step.csv",
+            2,
+            1_767_196_805_000,
+            117.118118,
+            36.697596,
+            Spare,
+        ),
+        (
+            "raw_data.csv",
+            929,
+            1_754_726_365_283,
+            -0.104277,
+            51.520302,
+            Generic,
+        ),
+    ] {
+        eprintln!("CSV source: {file}");
+        let path = format!("./tests/data/{file}");
+        let (parsed, processor) = import_data::csv::load_csv(&path).unwrap();
+        let segments = parsed.flatten();
+        assert_eq!(
+            std::mem::discriminant(&processor),
+            std::mem::discriminant(&expected),
+            "{file}"
+        );
+        assert_eq!(segments.len(), 1, "{file}");
+        assert_eq!(segments[0].len(), count, "{file}");
+        let first = &segments[0][0];
+        assert_eq!(
+            (
+                first.timestamp_ms,
+                first.point.longitude,
+                first.point.latitude
+            ),
+            (Some(timestamp), longitude, latitude),
+            "{file}"
+        );
+        let (info, raw, detected) = import_api::load_vector_data(path).unwrap();
+        assert_eq!(
+            std::mem::discriminant(&detected),
+            std::mem::discriminant(&expected),
+            "{file}"
+        );
+        let data = import_api::process_vector_data(&raw, detected).unwrap();
+        assert!(!import_api::is_journey_data_empty(&data), "{file}");
+        match file {
+            "DoL_laojunshan.csv" => {
+                assert_eq!(
+                    segments[0].last().unwrap().timestamp_ms,
+                    Some(1_696_386_813_000)
+                );
+                assert_eq!(info.journey_date.to_string(), "2023-10-04");
+            }
+            "step.csv" => {
+                assert_eq!(
+                    segments[0].last().unwrap().timestamp_ms,
+                    Some(1_767_283_214_000)
+                );
+                assert_eq!(
+                    (first.accuracy, first.altitude, first.speed),
+                    (Some(5.35099), Some(49.254_64), None)
+                );
+            }
+            "raw_data.csv" => assert_eq!(
+                (first.accuracy, first.altitude, first.speed),
+                (Some(5000.0), Some(0.0), Some(0.0))
+            ),
+            _ => unreachable!(),
+        }
+    }
+}
+
+#[test]
+fn invalid_csv_reports_the_cause() {
+    let temp = tempdir::TempDir::new("invalid-csv").unwrap();
+    let path = temp.path().join("track.csv");
+    for (csv, expected_error) in [
+        ("lat,lon,time\n36.697645,117.117744,1772523225\n", "unsupported CSV format"),
+        ("timestamp,longitude,latitude,heading,accuracy,verticalAccuracy,speed,distance,altitude,course,param1,param2,param3\n1772523225,117.117744,91,326.305,14,3,0.049,0.000,49.491,326.305,0,0,\n", "invalid latitude 91 at CSV row 2"),
+    ] {
+        fs::write(&path, csv).unwrap();
+        let error = import_data::csv::load_csv(path.to_str().unwrap()).unwrap_err();
+        assert!(format!("{error:#}").contains(expected_error), "expected {expected_error}, got {error:#}");
+    }
+}
+
+fn with_ignored_metadata(xml: &str, extension: &str) -> String {
+    match extension {
+            "gpx" => xml.replace("<gpx ", "<gpx xmlns:memolanes=\"https://app.memolanes.com/ns/journey/1\" ")
+                .replace("</type>", "</type><extensions><memolanes:journey date=\"2000-01-01\" start=\"invalid\" sourceJourneyId=\"old-id\" sourceRevision=\"old-revision\"/></extensions>"),
+            "kml" => xml.replace("<Folder>", "<Folder><ExtendedData><Data name=\"memolanes:date\"><value>2000-01-01</value></Data><Data name=\"memolanes:sourceJourneyId\"><value>old-id</value></Data></ExtendedData>"),
+            _ => unreachable!(),
+    }
+}
+
 fn export_test_vector(offset: f64) -> JourneyData {
     JourneyData::Vector(JourneyVector {
         track_segments: vec![
@@ -535,8 +659,15 @@ fn bulk_export_preserves_geometry_and_reimports_as_ordinary_data() {
     )
     .unwrap();
     let mut db = MainDb::open(&support).unwrap();
-    let gpx_path = temp.path().join("all.gpx");
-    let kml_path = temp.path().join("all.kml");
+    // The bridge owns a process-wide OnceLock, so initialize it once and
+    // exercise the vector and raw-data scenarios against the same database.
+    check_vector_exports(temp.path(), &mut db);
+    check_raw_exports(temp.path(), &support, &mut db);
+}
+
+fn check_vector_exports(temp: &Path, db: &mut MainDb) {
+    let gpx_path = temp.join("all.gpx");
+    let kml_path = temp.join("all.kml");
     let export_gpx = || export_all_journeys_as_gpx(gpx_path.to_string_lossy().into_owned());
     let export_kml = || export_all_journeys_as_kml(kml_path.to_string_lossy().into_owned());
     let assert_empty_vectors = || {
@@ -598,7 +729,7 @@ fn bulk_export_preserves_geometry_and_reimports_as_ordinary_data() {
         })
         .unwrap();
     // Read back real MLDX exports to cover buffered writes and seeking.
-    let mldx_path = temp.path().join("journeys.mldx");
+    let mldx_path = temp.join("journeys.mldx");
     for all_journeys in [true, false] {
         let result = if all_journeys {
             generate_full_archive(mldx_path.to_string_lossy().into_owned(), false)
@@ -624,13 +755,13 @@ fn bulk_export_preserves_geometry_and_reimports_as_ordinary_data() {
             assert_eq!(archive.load_single_journey(id).unwrap(), Some(expected));
         }
     }
-    let parse_vector = |path: &Path| load_vector_fixture(path).0;
     // Both formats retain coordinates and segment boundaries, without a custom
     // reimport protocol. Untimed tracks follow the ordinary single-import flow.
     for (format, path, result) in [
         (ExportType::GPX, &gpx_path, export_gpx()),
         (ExportType::KML, &kml_path, export_kml()),
     ] {
+        eprintln!("vector export and reimport: {format:?}");
         assert!(matches!(result.unwrap(), ExportResult::Succeed));
         let xml = fs::read_to_string(path).unwrap();
         assert!(!xml.contains("memolanes:"));
@@ -645,7 +776,7 @@ fn bulk_export_preserves_geometry_and_reimports_as_ordinary_data() {
             [2, 1, 2, 1, 2, 1]
         );
         let mut offsets = Vec::new();
-        for pair in segments.chunks_exact(2) {
+        for pair in segments.as_chunks::<2>().0 {
             let offset = pair[0][0].point.latitude;
             offsets.push(offset as i32);
             assert_eq!(
@@ -669,7 +800,7 @@ fn bulk_export_preserves_geometry_and_reimports_as_ordinary_data() {
         assert_eq!(offsets, [1, 10, 20]);
 
         let extension = path.extension().unwrap().to_str().unwrap();
-        let single = temp.path().join(format!("single.{extension}"));
+        let single = temp.join(format!("single.{extension}"));
         assert!(matches!(
             export_journey(
                 single.to_string_lossy().into_owned(),
@@ -692,15 +823,10 @@ fn bulk_export_preserves_geometry_and_reimports_as_ordinary_data() {
         assert!(segments.windows(2).any(|pair| pair == single_segments));
 
         // Old MemoLanes metadata is ignored just like any third-party extension.
-        let legacy_xml = match format {
-            ExportType::GPX => xml.replace("<gpx ", "<gpx xmlns:memolanes=\"https://app.memolanes.com/ns/journey/1\" ")
-                .replace("</type>", "</type><extensions><memolanes:journey date=\"2000-01-01\" start=\"invalid\" sourceJourneyId=\"old-id\" sourceRevision=\"old-revision\"/></extensions>"),
-            ExportType::KML => xml.replace("<Folder>", "<Folder><ExtendedData><Data name=\"memolanes:date\"><value>2000-01-01</value></Data><Data name=\"memolanes:sourceJourneyId\"><value>old-id</value></Data></ExtendedData>"),
-            _ => unreachable!(),
-        };
-        let legacy_path = temp.path().join(format!("legacy.{extension}"));
+        let legacy_xml = with_ignored_metadata(&xml, extension);
+        let legacy_path = temp.join(format!("legacy.{extension}"));
         fs::write(&legacy_path, legacy_xml).unwrap();
-        assert_eq!(parse_vector(&legacy_path), parsed);
+        assert_eq!(load_vector_fixture(&legacy_path).0, parsed);
         for input in [path, &legacy_path] {
             let original_headers = db
                 .with_txn(|txn| txn.query_journeys(None, None, None))
@@ -750,7 +876,10 @@ fn bulk_export_preserves_geometry_and_reimports_as_ordinary_data() {
             .unwrap();
         }
     }
+}
 
+fn check_raw_exports(temp: &Path, support: &str, db: &mut MainDb) {
+    let first_date = NaiveDate::from_ymd_opt(2026, 9, 11).unwrap();
     // Raw exports include only non-empty v2 attachments, even without vector data.
     let raw_formats = [
         (RawDataExportType::CSV, "csv"),
@@ -758,7 +887,7 @@ fn bulk_export_preserves_geometry_and_reimports_as_ordinary_data() {
         (RawDataExportType::KML, "kml"),
     ];
     let export_raw = |format, extension: &str| {
-        let path = temp.path().join(format!("raw.{extension}"));
+        let path = temp.join(format!("raw.{extension}"));
         (
             export_all_journeys_raw_data(path.to_string_lossy().into_owned(), format),
             path,
@@ -795,7 +924,7 @@ fn bulk_export_preserves_geometry_and_reimports_as_ordinary_data() {
         .unwrap()
     };
     insert_raw(
-        &mut db,
+        db,
         first_date,
         JourneyRawData::new(Vec::new(), 0).serialize().unwrap(),
     );
@@ -806,7 +935,7 @@ fn bulk_export_preserves_geometry_and_reimports_as_ordinary_data() {
         .iter()
         .map(|latitude| {
             insert_raw(
-                &mut db,
+                db,
                 first_date,
                 export_test_raw_data(*latitude).serialize().unwrap(),
             )
@@ -816,7 +945,10 @@ fn bulk_export_preserves_geometry_and_reimports_as_ordinary_data() {
     for (format, extension) in raw_formats {
         let (result, path) = export_raw(format, extension);
         assert!(matches!(result.unwrap(), ExportResult::Succeed));
-        let segments = if format == RawDataExportType::CSV {
+        eprintln!("raw export and reimport: {extension}");
+        let is_csv = format == RawDataExportType::CSV;
+        let parsed = load_vector_fixture(&path).0;
+        let input = if is_csv {
             let mut reader = csv::Reader::from_path(&path).unwrap();
             let headers = reader.headers().unwrap();
             assert_eq!(headers.len(), 8);
@@ -831,118 +963,20 @@ fn bulk_export_preserves_geometry_and_reimports_as_ordinary_data() {
                 assert_eq!(rows.len(), 2);
                 assert_eq!(rows[0][2].parse::<f64>().unwrap(), latitude);
             }
-            let (_, raw, preprocessor) =
-                import_api::load_vector_data(path.to_string_lossy().into_owned()).unwrap();
-            let parts = import_api::analyze_vector_data_parts(&raw);
-            assert_eq!(parts.len(), 2);
-            assert_eq!(parts[0].journey_date, parts[1].journey_date);
-            assert!(parts.iter().all(|part| part.is_explicit_journey));
-            let import_raw = |note| {
-                import_api::import_vector_data_by_parts(
-                    &raw,
-                    parts.iter().map(|part| part.part_key.clone()).collect(),
-                    preprocessor,
-                    JourneyKind::DefaultKind,
-                    note,
-                )
-                .unwrap()
-            };
-            assert_eq!(import_raw(Some("raw CSV import".to_owned())), 2);
-            db.with_txn(|txn| {
-                let imported = txn
-                    .query_journeys(None, None, None)?
-                    .into_iter()
-                    .filter(|header| header.note.as_deref() == Some("raw CSV import"))
-                    .collect::<Vec<_>>();
-                assert_eq!(imported.len(), 2);
-                let mut imported_latitudes = Vec::new();
-                for header in imported {
-                    assert!(!header.has_raw_data);
-                    let JourneyData::Vector(vector) = txn.get_journey_data(&header.id)? else {
-                        panic!("CSV import is not vector data");
-                    };
-                    assert_eq!(vector.track_segments.len(), 1);
-                    assert_eq!(vector.track_segments[0].track_points.len(), 2);
-                    imported_latitudes.push(vector.track_segments[0].track_points[0].latitude);
-                }
-                imported_latitudes.sort_by(f64::total_cmp);
-                assert_eq!(imported_latitudes, latitudes);
-                Ok(())
-            })
-            .unwrap();
-
-            // IDs select source groups; CSV reimports still create new journeys.
-            assert_eq!(import_raw(None), 2);
-            import_data::csv::load_csv(path.to_str().unwrap())
-                .unwrap()
-                .0
-                .flatten()
+            path
         } else {
             let text = fs::read_to_string(&path).unwrap();
-            for id in &ids {
-                assert!(!text.contains(id));
-            }
+            assert!(ids.iter().all(|id| !text.contains(id)));
             for index in 1..=2 {
                 assert!(text.contains(&format!("MemoLanes Raw Data {first_date} #{index}")));
             }
-            let parsed = parse_vector(&path);
-            // Timed GPX/KML use the same date-based multi-import path even if
-            // they carry legacy MemoLanes metadata. Reimports always add copies.
-            let legacy_xml = match format {
-                RawDataExportType::GPX => text.replace("<gpx ", "<gpx xmlns:memolanes=\"https://app.memolanes.com/ns/journey/1\" ")
-                    .replace("</type>", "</type><extensions><memolanes:journey date=\"2000-01-01\"/></extensions>"),
-                RawDataExportType::KML => text.replace("<Folder>", "<Folder><ExtendedData><Data name=\"memolanes:date\"><value>2000-01-01</value></Data></ExtendedData>"),
-                _ => unreachable!(),
-            };
-            let legacy_path = temp.path().join(format!("legacy-raw.{extension}"));
-            fs::write(&legacy_path, legacy_xml).unwrap();
-            assert_eq!(parse_vector(&legacy_path), parsed);
-            let (plain_info, plain_raw, _) =
-                import_api::load_vector_data(path.to_string_lossy().into_owned()).unwrap();
-            let plain_parts = import_api::analyze_vector_data_parts(&plain_raw);
-            let (info, raw, preprocessor) =
-                import_api::load_vector_data(legacy_path.to_string_lossy().into_owned()).unwrap();
-            assert!(matches!(preprocessor, ImportPreprocessor::Generic));
-            assert_eq!(info.journey_date, plain_info.journey_date);
-            assert_eq!(info.start_time, plain_info.start_time);
-            assert_eq!(info.end_time, plain_info.end_time);
-            let parts = import_api::analyze_vector_data_parts(&raw);
-            assert!(!parts.is_empty());
-            assert_eq!(parts.len(), plain_parts.len());
-            for (part, plain) in parts.iter().zip(&plain_parts) {
-                assert!(!part.is_explicit_journey);
-                assert_eq!(part.part_key, plain.part_key);
-                assert_eq!(part.journey_date, plain.journey_date);
-                assert_eq!(part.start_time, plain.start_time);
-                assert_eq!(part.end_time, plain.end_time);
-                assert_eq!(part.point_count, plain.point_count);
-            }
-            let initial_count = db
-                .with_txn(|txn| Ok(txn.query_journeys(None, None, None)?.len()))
-                .unwrap();
-            for _ in 0..2 {
-                assert_eq!(
-                    import_api::import_vector_data_by_parts(
-                        &raw,
-                        parts.iter().map(|part| part.part_key.clone()).collect(),
-                        preprocessor,
-                        JourneyKind::DefaultKind,
-                        None,
-                    )
-                    .unwrap(),
-                    parts.len() as u64
-                );
-            }
-            db.with_txn(|txn| {
-                assert_eq!(
-                    txn.query_journeys(None, None, None)?.len(),
-                    initial_count + 2 * parts.len()
-                );
-                Ok(())
-            })
-            .unwrap();
-            parsed.flatten()
+            let legacy_path = temp.join(format!("legacy-raw.{extension}"));
+            fs::write(&legacy_path, with_ignored_metadata(&text, extension)).unwrap();
+            // Identical parsed data also yields identical date partitions and metadata.
+            assert_eq!(load_vector_fixture(&legacy_path).0, parsed);
+            legacy_path
         };
+        let segments = parsed.flatten();
         assert_eq!(segments.iter().map(Vec::len).collect::<Vec<_>>(), [2, 2]);
         let mut exported_latitudes = segments
             .iter()
@@ -950,11 +984,77 @@ fn bulk_export_preserves_geometry_and_reimports_as_ordinary_data() {
             .collect::<Vec<_>>();
         exported_latitudes.sort_by(f64::total_cmp);
         assert_eq!(exported_latitudes, latitudes);
+
+        // All three formats share preprocessing and persistence. Only CSV's
+        // explicit IDs affect grouping; importing twice must always add copies.
+        let (_, raw, processor) =
+            import_api::load_vector_data(input.to_string_lossy().into_owned()).unwrap();
+        assert!(matches!(processor, ImportPreprocessor::Generic));
+        let parts = import_api::analyze_vector_data_parts(&raw);
+        assert_eq!(parts.len(), if is_csv { 2 } else { 1 });
+        assert!(parts
+            .iter()
+            .all(|part| part.is_explicit_journey == is_csv
+                && part.journey_date == parts[0].journey_date));
+        let original_headers = db
+            .with_txn(|txn| txn.query_journeys(None, None, None))
+            .unwrap();
+        for note in [Some("raw import".to_owned()), None] {
+            assert_eq!(
+                import_api::import_vector_data_by_parts(
+                    &raw,
+                    parts.iter().map(|part| part.part_key.clone()).collect(),
+                    processor,
+                    JourneyKind::DefaultKind,
+                    note,
+                )
+                .unwrap(),
+                parts.len() as u64
+            );
+        }
+        db.with_txn(|txn| {
+            let headers = txn.query_journeys(None, None, None)?;
+            assert_eq!(headers.len(), original_headers.len() + 2 * parts.len());
+            for header in &original_headers {
+                assert_eq!(txn.get_journey_header(&header.id)?, Some(header.clone()));
+            }
+            let imported = headers
+                .iter()
+                .filter(|header| !original_headers.iter().any(|old| old.id == header.id))
+                .collect::<Vec<_>>();
+            assert_eq!(
+                imported
+                    .iter()
+                    .filter(|header| header.note.as_deref() == Some("raw import"))
+                    .count(),
+                parts.len()
+            );
+            let mut imported_latitudes = Vec::new();
+            for header in imported {
+                assert!(!header.has_raw_data);
+                let JourneyData::Vector(vector) = txn.get_journey_data(&header.id)? else {
+                    panic!("{extension} import is not vector data");
+                };
+                assert_eq!(vector.track_segments.len(), if is_csv { 1 } else { 2 });
+                for segment in vector.track_segments {
+                    assert_eq!(segment.track_points.len(), 2);
+                    imported_latitudes.push(segment.track_points[0].latitude);
+                }
+                txn.delete_journey(&header.id)?;
+            }
+            imported_latitudes.sort_by(f64::total_cmp);
+            assert_eq!(
+                imported_latitudes,
+                [latitudes[0], latitudes[0], latitudes[1], latitudes[1]]
+            );
+            Ok(())
+        })
+        .unwrap();
     }
 
     // Fail after writing valid journeys, remove partial files, then refresh availability.
     let corrupt_id = insert_raw(
-        &mut db,
+        db,
         first_date.pred_opt().unwrap(),
         SerializedJourneyRawData::from_bytes(b"invalid".to_vec()),
     );
@@ -966,9 +1066,9 @@ fn bulk_export_preserves_geometry_and_reimports_as_ordinary_data() {
     // Single exports must also remove files when a writer rejects a GPS timestamp.
     let mut invalid_raw = export_test_raw_data(31.0);
     invalid_raw.points[1].raw_gps_point.timestamp_ms = Some(i64::MAX);
-    let invalid_id = insert_raw(&mut db, first_date, invalid_raw.serialize().unwrap());
+    let invalid_id = insert_raw(db, first_date, invalid_raw.serialize().unwrap());
     for (format, extension) in &raw_formats[1..] {
-        let path = temp.path().join(format!("single-raw.{extension}"));
+        let path = temp.join(format!("single-raw.{extension}"));
         assert!(export_journey_raw_data(
             path.to_string_lossy().into_owned(),
             invalid_id.clone(),

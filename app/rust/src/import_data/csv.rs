@@ -6,7 +6,7 @@ use serde::Deserialize;
 
 use crate::{
     gps::{Point, RawGPSPoint},
-    import_data::{ImportMode, ImportPreprocessor, ImportedJourney, ParsedVectorData},
+    import_data::{ImportGrouping, ImportPreprocessor, ImportedJourney, ParsedVectorData},
 };
 
 // CSV exported by 人生点点
@@ -179,12 +179,12 @@ fn parse_memolanes_rows<R: Read>(reader: &mut Reader<R>) -> Result<ParsedVectorD
                 row_number,
             )?);
     }
-    let mode = if journey_indices.keys().any(Option::is_some) {
-        ImportMode::GenericByJourney
+    let grouping = if journey_indices.keys().any(Option::is_some) {
+        ImportGrouping::ByJourney
     } else {
-        ImportMode::GenericByDate
+        ImportGrouping::ByDate
     };
-    Ok(ParsedVectorData::new(mode, groups))
+    Ok(ParsedVectorData::new(grouping, groups))
 }
 
 fn raw_data_from_values(
@@ -259,7 +259,7 @@ pub fn load_csv(file_path: &str) -> Result<(ParsedVectorData, ImportPreprocessor
     let (parsed, preprocessor) = if is_dol_format(&headers) {
         (
             ParsedVectorData::new(
-                ImportMode::GenericByDate,
+                ImportGrouping::ByDate,
                 vec![ImportedJourney::generic(vec![
                     parse_dol_rows(&mut reader).context("failed to parse DoL CSV")?
                 ])],
@@ -269,7 +269,7 @@ pub fn load_csv(file_path: &str) -> Result<(ParsedVectorData, ImportPreprocessor
     } else if is_step_format(&headers) {
         (
             ParsedVectorData::new(
-                ImportMode::GenericByDate,
+                ImportGrouping::ByDate,
                 vec![ImportedJourney::generic(vec![
                     parse_step_rows(&mut reader).context("failed to parse Step CSV")?
                 ])],

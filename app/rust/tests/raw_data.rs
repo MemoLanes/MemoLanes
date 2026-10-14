@@ -236,11 +236,14 @@ fn journey_raw_data_gpx_preserves_fields_and_uses_received_timestamp_as_fallback
 
     let mut gpx = Cursor::new(Vec::new());
     export_data::gpx::journey_raw_data_to_gpx_file(&raw_data, &mut gpx).unwrap();
+    assert!(std::str::from_utf8(gpx.get_ref())
+        .unwrap()
+        .contains("<type>MemoLanes Raw Data</type>"));
     gpx.set_position(0);
     let gpx = gpx::read(gpx).unwrap();
     assert_eq!(
         gpx.metadata.unwrap().name.as_deref(),
-        Some("MemoLanes RawData")
+        Some("MemoLanes Raw Data")
     );
     assert_eq!(gpx.tracks.len(), 1);
     assert_eq!(gpx.tracks[0].segments.len(), 1);

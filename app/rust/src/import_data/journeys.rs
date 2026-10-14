@@ -9,50 +9,20 @@ use crate::gps::RawGPSPoint;
 use crate::import_data::{
     conversion, csv, gpx,
     journey_partition::{self, SegmentSlice},
-    kml, ImportPreprocessor,
+    kml, ImportGrouping, ImportPreprocessor, ImportedJourney, ParsedVectorData,
 };
 use crate::journey_data::JourneyData;
 use crate::journey_header::{JourneyInfo, JourneyKind};
 use crate::main_db::NewJourney;
 use crate::storage::Storage;
 
-/// A group of source segments, optionally grouped by CSV journey ID.
-#[derive(Clone, Debug, PartialEq)]
-pub struct ImportedJourney {
-    pub segments: Vec<Vec<RawGPSPoint>>,
-}
-
-impl ImportedJourney {
-    pub fn generic(segments: Vec<Vec<RawGPSPoint>>) -> Self {
-        Self { segments }
-    }
-}
-
-/// GPX/KML and ordinary CSV use date-based grouping; CSV with journey IDs
-/// retains its explicit groups.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum ImportMode {
-    GenericByDate,
-    GenericByJourney,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct ParsedVectorData {
-    groups: Vec<ImportedJourney>,
-    mode: ImportMode,
-}
-
 impl ParsedVectorData {
-    pub(crate) fn new(mode: ImportMode, groups: Vec<ImportedJourney>) -> Self {
-        Self { groups, mode }
-    }
-
     pub fn groups(&self) -> &[ImportedJourney] {
         &self.groups
     }
 
-    pub(crate) fn mode(&self) -> ImportMode {
-        self.mode
+    pub(crate) fn grouping(&self) -> ImportGrouping {
+        self.grouping
     }
 
     pub fn flatten(&self) -> Vec<Vec<RawGPSPoint>> {
@@ -63,8 +33,8 @@ impl ParsedVectorData {
     }
 
     pub(crate) fn build_parts(&self) -> Vec<ImportPart> {
-        match self.mode {
-            ImportMode::GenericByJourney => self
+        match self.grouping {
+            ImportGrouping::ByJourney => self
                 .groups
                 .iter()
                 .enumerate()
@@ -86,7 +56,7 @@ impl ParsedVectorData {
                     }
                 })
                 .collect(),
-            ImportMode::GenericByDate => {
+            ImportGrouping::ByDate => {
                 let partition = journey_partition::partition_generic_groups(&self.groups);
                 partition
                     .index

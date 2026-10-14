@@ -1,6 +1,6 @@
 use crate::gps::{Point, RawGPSPoint};
 use crate::import_data::preprocessor::{detect_preprocessor, TrackFileFormat};
-use crate::import_data::{ImportMode, ImportPreprocessor, ImportedJourney, ParsedVectorData};
+use crate::import_data::{ImportGrouping, ImportPreprocessor, ImportedJourney, ParsedVectorData};
 use anyhow::{Context, Result};
 use auto_context::auto_context;
 use chrono::{DateTime, Utc};
@@ -33,7 +33,7 @@ pub fn load_kml(file_path: &str) -> Result<(ParsedVectorData, ImportPreprocessor
         vec![ImportedJourney::generic(segments)]
     };
     Ok((
-        ParsedVectorData::new(ImportMode::GenericByDate, groups),
+        ParsedVectorData::new(ImportGrouping::ByDate, groups),
         preprocessor,
     ))
 }

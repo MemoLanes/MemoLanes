@@ -1,18 +1,11 @@
-use crate::export_data::JourneyExport;
+use crate::export_data::{write_text, JourneyExport, JOURNEY_LABEL, RAW_DATA_LABEL};
 use crate::raw_data::JourneyRawData;
 use anyhow::{Context, Ok, Result};
 use auto_context::auto_context;
 use chrono::{DateTime, SecondsFormat, Utc};
-use quick_xml::events::{BytesDecl, BytesEnd, BytesStart, BytesText, Event};
+use quick_xml::events::{BytesDecl, BytesEnd, BytesStart, Event};
 use quick_xml::Writer;
 use std::io::Write;
-
-fn write_text<W: Write>(xml: &mut Writer<W>, tag: &str, value: &str) -> Result<()> {
-    xml.write_event(Event::Start(BytesStart::new(tag)))?;
-    xml.write_event(Event::Text(BytesText::new(value)))?;
-    xml.write_event(Event::End(BytesEnd::new(tag)))?;
-    Ok(())
-}
 
 /// Streams each Folder, Placemark and coordinate without building a KML tree
 /// or a segment-sized coordinate string in memory.
@@ -48,7 +41,7 @@ impl<W: Write> KmlJourneyWriter<W> {
         write_text(
             xml,
             "name",
-            &format!("MemoLanes Journey {}", journey.journey_date),
+            &format!("{JOURNEY_LABEL} {}", journey.journey_date),
         )?;
         xml.write_event(Event::Start(BytesStart::new("TimeStamp")))?;
         write_text(xml, "when", &journey.journey_date.to_string())?;
@@ -78,7 +71,7 @@ impl<W: Write> KmlJourneyWriter<W> {
         write_text(xml, "name", name)?;
         write_text(xml, "description", "Raw GPS data exported by MemoLanes")?;
         xml.write_event(Event::Start(BytesStart::new("Placemark")))?;
-        write_text(xml, "name", "MemoLanes Raw Data")?;
+        write_text(xml, "name", RAW_DATA_LABEL)?;
         xml.write_event(Event::Start(BytesStart::new("gx:Track")))?;
         // gx:Track requires every `when` before every `gx:coord`.
         for point in &data.points {
@@ -163,6 +156,6 @@ pub fn journey_raw_data_to_kml_file<T: Write>(
     writer: &mut T,
 ) -> Result<()> {
     let mut writer = KmlJourneyWriter::new_raw_data(writer)?;
-    writer.write_raw_data(raw_data, "MemoLanes Raw Data")?;
+    writer.write_raw_data(raw_data, RAW_DATA_LABEL)?;
     writer.finish()
 }

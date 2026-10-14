@@ -98,6 +98,6 @@ fn converts_legacy_raw_data_csv_to_gpx_file() {
     assert_f64_near!(track_points[0].point().y(), 51.520302);
     assert_eq!(
         gpx.metadata.unwrap().name.as_deref(),
-        Some("MemoLanes RawData")
+        Some("MemoLanes Raw Data")
     );
 }

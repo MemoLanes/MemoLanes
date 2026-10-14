@@ -1,22 +1,12 @@
-use crate::export_data::JourneyExport;
+use crate::export_data::{write_text, JourneyExport, JOURNEY_LABEL, RAW_DATA_LABEL};
 use crate::gps::ExtendedRawGPSPoint;
 use crate::raw_data::JourneyRawData;
 use anyhow::{Context, Ok, Result};
 use auto_context::auto_context;
-use quick_xml::events::{BytesDecl, BytesEnd, BytesStart, BytesText, Event};
+use quick_xml::events::{BytesDecl, BytesEnd, BytesStart, Event};
 use quick_xml::Writer;
 use std::io::Write;
 use time::OffsetDateTime;
-
-pub const JOURNEY_TYPE_NAME: &str = "MemoLanes Journey";
-pub const RAW_DATA_TYPE_NAME: &str = "MemoLanes RawData";
-
-fn write_text_element<W: Write>(writer: &mut Writer<W>, name: &str, value: &str) -> Result<()> {
-    writer.write_event(Event::Start(BytesStart::new(name)))?;
-    writer.write_event(Event::Text(BytesText::new(value)))?;
-    writer.write_event(Event::End(BytesEnd::new(name)))?;
-    Ok(())
-}
 
 fn track_point_element(latitude: f64, longitude: f64) -> BytesStart<'static> {
     // GPX excludes +180. Keep dateline segment endpoints on their original
@@ -57,7 +47,7 @@ impl<W: Write> GpxJourneyWriter<W> {
         xml.write_event(Event::Start(root))?;
         if raw_data {
             xml.write_event(Event::Start(BytesStart::new("metadata")))?;
-            write_text_element(&mut xml, "name", RAW_DATA_TYPE_NAME)?;
+            write_text(&mut xml, "name", RAW_DATA_LABEL)?;
             xml.write_event(Event::End(BytesEnd::new("metadata")))?;
         }
         Ok(Self { xml })
@@ -66,12 +56,12 @@ impl<W: Write> GpxJourneyWriter<W> {
     pub(crate) fn write_journey(&mut self, journey: &JourneyExport) -> Result<()> {
         let xml = &mut self.xml;
         xml.write_event(Event::Start(BytesStart::new("trk")))?;
-        write_text_element(
+        write_text(
             xml,
             "name",
-            &format!("MemoLanes Journey {}", journey.journey_date),
+            &format!("{JOURNEY_LABEL} {}", journey.journey_date),
         )?;
-        write_text_element(xml, "type", JOURNEY_TYPE_NAME)?;
+        write_text(xml, "type", JOURNEY_LABEL)?;
 
         for segment in &journey.vector.track_segments {
             xml.write_event(Event::Start(BytesStart::new("trkseg")))?;
@@ -99,8 +89,8 @@ impl<W: Write> GpxJourneyWriter<W> {
     ) -> Result<()> {
         let xml = &mut self.xml;
         xml.write_event(Event::Start(BytesStart::new("trk")))?;
-        write_text_element(xml, "name", name)?;
-        write_text_element(xml, "type", RAW_DATA_TYPE_NAME)?;
+        write_text(xml, "name", name)?;
+        write_text(xml, "type", RAW_DATA_LABEL)?;
         xml.write_event(Event::Start(BytesStart::new("trkseg")))?;
         for point in points {
             let point = point?;
@@ -110,7 +100,7 @@ impl<W: Write> GpxJourneyWriter<W> {
                 raw.point.longitude,
             )))?;
             if let Some(elevation) = raw.altitude {
-                write_text_element(xml, "ele", &f64::from(elevation).to_string())?;
+                write_text(xml, "ele", &f64::from(elevation).to_string())?;
             }
             let timestamp_ms = raw.timestamp_ms.unwrap_or(point.received_timestamp_ms);
             if timestamp_ms > 0 {
@@ -118,10 +108,10 @@ impl<W: Write> GpxJourneyWriter<W> {
                     i128::from(timestamp_ms) * 1_000_000,
                 )?
                 .into();
-                write_text_element(xml, "time", &time.format()?)?;
+                write_text(xml, "time", &time.format()?)?;
             }
             if let Some(accuracy) = raw.accuracy {
-                write_text_element(xml, "hdop", &f64::from(accuracy).to_string())?;
+                write_text(xml, "hdop", &f64::from(accuracy).to_string())?;
             }
             xml.write_event(Event::End(BytesEnd::new("trkpt")))?;
         }
@@ -155,6 +145,6 @@ pub fn journey_raw_data_to_gpx_file<W: Write>(
     writer: &mut W,
 ) -> Result<()> {
     let mut writer = GpxJourneyWriter::new_raw_data(writer)?;
-    writer.write_raw_data(raw_data, "MemoLanes Raw Data")?;
+    writer.write_raw_data(raw_data, RAW_DATA_LABEL)?;
     writer.finish()
 }

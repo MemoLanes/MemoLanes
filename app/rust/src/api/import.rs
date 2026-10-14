@@ -134,8 +134,8 @@ pub fn analyze_vector_data_parts(vector_data: &RawVectorData) -> Vec<VectorImpor
         .iter()
         .map(|part| VectorImportPartSummary {
             part_key: part.key.clone(),
-            is_explicit_journey: vector_data.parsed.mode()
-                != import_data::ImportMode::GenericByDate,
+            is_explicit_journey: vector_data.parsed.grouping()
+                != import_data::ImportGrouping::ByDate,
             journey_date: part.date.format("%Y-%m-%d").to_string(),
             start_time: part.start,
             end_time: part.end,
