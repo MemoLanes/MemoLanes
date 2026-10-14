@@ -27,7 +27,6 @@ pub struct RawVectorData {
 #[frb(non_opaque)]
 pub struct VectorImportPartSummary {
     pub part_key: String,
-    pub is_memolanes_journey: bool,
     pub is_explicit_journey: bool,
     pub journey_date: String,
     pub start_time: Option<DateTime<Utc>>,
@@ -135,8 +134,6 @@ pub fn analyze_vector_data_parts(vector_data: &RawVectorData) -> Vec<VectorImpor
         .iter()
         .map(|part| VectorImportPartSummary {
             part_key: part.key.clone(),
-            is_memolanes_journey: vector_data.parsed.mode()
-                == import_data::ImportMode::ExportedJourney,
             is_explicit_journey: vector_data.parsed.mode()
                 != import_data::ImportMode::GenericByDate,
             journey_date: part.date.format("%Y-%m-%d").to_string(),
@@ -188,7 +185,6 @@ pub fn process_vector_data(
 ) -> Result<OpaqueJourneyData> {
     Ok(OpaqueJourneyData::new(
         import_data::conversion::process_vector_data(
-            &vector_data.parsed,
             &vector_data.parsed.flatten(),
             import_processor,
         ),

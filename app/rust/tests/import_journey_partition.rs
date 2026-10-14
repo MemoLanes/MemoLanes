@@ -191,9 +191,9 @@ fn api_uses_partitioned_data() {
     assert_eq!(parsed.groups()[1].segments.len(), 1);
     let parts = analyze_vector_data_parts(&vector_data);
     assert_eq!(parts.len(), 3);
-    assert!(parts.iter().all(|part| part.is_explicit_journey
-        && !part.is_memolanes_journey
-        && part.point_count == 2));
+    assert!(parts
+        .iter()
+        .all(|part| part.is_explicit_journey && part.point_count == 2));
     assert_eq!(parts[0].journey_date, parts[1].journey_date);
     assert_ne!(parts[0].part_key, parts[1].part_key);
     assert_eq!(parts[2].missing_timestamp_count, 2);

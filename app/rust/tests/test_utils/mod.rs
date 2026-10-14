@@ -269,8 +269,6 @@ pub fn vector_export(
 ) -> memolanes_core::export_data::JourneyExport {
     memolanes_core::export_data::JourneyExport {
         journey_date: NaiveDate::from_ymd_opt(2026, 9, 11).unwrap(),
-        start: None,
-        end: None,
         vector,
     }
 }

@@ -1,6 +1,5 @@
 use crate::export_data::JourneyExport;
 use crate::gps::ExtendedRawGPSPoint;
-use crate::gpx_file_utils::MEMOLANES_NAMESPACE;
 use crate::raw_data::JourneyRawData;
 use anyhow::{Context, Ok, Result};
 use auto_context::auto_context;
@@ -9,7 +8,7 @@ use quick_xml::Writer;
 use std::io::Write;
 use time::OffsetDateTime;
 
-pub use crate::gpx_file_utils::JOURNEY_TYPE_NAME;
+pub const JOURNEY_TYPE_NAME: &str = "MemoLanes Journey";
 pub const RAW_DATA_TYPE_NAME: &str = "MemoLanes RawData";
 
 fn write_text_element<W: Write>(writer: &mut Writer<W>, name: &str, value: &str) -> Result<()> {
@@ -20,14 +19,20 @@ fn write_text_element<W: Write>(writer: &mut Writer<W>, name: &str, value: &str)
 }
 
 fn track_point_element(latitude: f64, longitude: f64) -> BytesStart<'static> {
+    // GPX excludes +180. Keep dateline segment endpoints on their original
+    // side by using the closest representable valid longitude.
+    let longitude = if longitude == 180.0 {
+        longitude.next_down()
+    } else {
+        longitude
+    };
     let mut point = BytesStart::new("trkpt");
     point.push_attribute(("lat", latitude.to_string().as_str()));
     point.push_attribute(("lon", longitude.to_string().as_str()));
     point
 }
 
-/// The gpx crate ignores arbitrary extensions, so the MemoLanes format uses
-/// quick-xml and writes one journey and segment at a time.
+/// Writes one journey and segment at a time without buffering the full export.
 pub(crate) struct GpxJourneyWriter<W: Write> {
     xml: Writer<W>,
 }
@@ -49,9 +54,6 @@ impl<W: Write> GpxJourneyWriter<W> {
         root.push_attribute(("creator", "MemoLanes"));
         root.push_attribute(("xmlns", "http://www.topografix.com/GPX/1/1"));
         root.push_attribute(("xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance"));
-        if !raw_data {
-            root.push_attribute(("xmlns:memolanes", MEMOLANES_NAMESPACE));
-        }
         xml.write_event(Event::Start(root))?;
         if raw_data {
             xml.write_event(Event::Start(BytesStart::new("metadata")))?;
@@ -70,20 +72,6 @@ impl<W: Write> GpxJourneyWriter<W> {
             &format!("MemoLanes Journey {}", journey.journey_date),
         )?;
         write_text_element(xml, "type", JOURNEY_TYPE_NAME)?;
-        xml.write_event(Event::Start(BytesStart::new("extensions")))?;
-        let date = journey.journey_date.to_string();
-        let start = journey.start.map(|value| value.to_rfc3339());
-        let end = journey.end.map(|value| value.to_rfc3339());
-        let mut metadata = BytesStart::new("memolanes:journey");
-        metadata.push_attribute(("date", date.as_str()));
-        if let Some(value) = start.as_deref() {
-            metadata.push_attribute(("start", value));
-        }
-        if let Some(value) = end.as_deref() {
-            metadata.push_attribute(("end", value));
-        }
-        xml.write_event(Event::Empty(metadata))?;
-        xml.write_event(Event::End(BytesEnd::new("extensions")))?;
 
         for segment in &journey.vector.track_segments {
             xml.write_event(Event::Start(BytesStart::new("trkseg")))?;

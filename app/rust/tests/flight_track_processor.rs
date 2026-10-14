@@ -113,13 +113,14 @@ fn run_tests() {
             .flatten();
         assert_eq!(segments.len(), result.track_segments.len());
         for (exported, source) in segments.iter().zip(&result.track_segments) {
-            assert!(exported
-                .iter()
-                .map(|p| (p.point.latitude, p.point.longitude))
-                .eq(source
-                    .track_points
-                    .iter()
-                    .map(|p| (p.latitude, p.longitude))));
+            assert_eq!(exported.len(), source.track_points.len());
+            for (exported, source) in exported.iter().zip(&source.track_points) {
+                assert_eq!(exported.point.latitude, source.latitude);
+                assert!((-180.0..180.0).contains(&exported.point.longitude));
+                // +180 endpoints must stay on the eastern side, with only
+                // floating-point rounding needed for GPX's exclusive bound.
+                assert!((exported.point.longitude - source.longitude).abs() < 1e-12);
+            }
         }
         let gpx = fs::read(path).unwrap();
         verify_gpx(name, &gpx);

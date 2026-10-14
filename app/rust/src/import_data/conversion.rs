@@ -3,11 +3,11 @@ use crate::gps::RawGPSPoint;
 use crate::gps_processor::{
     self, GpsPreprocessor, PreprocessedData, ProcessResult, SegmentGapRule,
 };
-use crate::import_data::{ImportMode, ImportPreprocessor, ParsedVectorData};
+use crate::import_data::ImportPreprocessor;
 use crate::journey_data::JourneyData;
 use crate::journey_date_picker::JourneyDatePicker;
 use crate::journey_header::{JourneyInfo, JourneyKind};
-use crate::journey_vector::{JourneyVector, TrackPoint, TrackSegment};
+use crate::journey_vector::{JourneyVector, TrackPoint};
 use chrono::{Local, TimeZone, Utc};
 
 /// `segment_gap_rule_for_preprocessor = None` meaning disable preprocessor
@@ -49,36 +49,10 @@ pub fn journey_vector_from_raw_data_with_gps_preprocessor(
         .expect("Impossible, `preprocessed_data` does not contain error")
 }
 
-/// MemoLanes exports have already been segmented; replay their geometry as-is.
-pub fn journey_vector_from_exported_segments(raw_data: &[Vec<RawGPSPoint>]) -> JourneyVector {
-    JourneyVector {
-        track_segments: raw_data
-            .iter()
-            .map(|segment| TrackSegment {
-                track_points: segment
-                    .iter()
-                    .map(|point| TrackPoint {
-                        latitude: point.point.latitude,
-                        longitude: point.point.longitude,
-                    })
-                    .collect(),
-            })
-            .collect(),
-    }
-}
-
 pub(crate) fn process_vector_data(
-    parsed: &ParsedVectorData,
     raw_data: &[Vec<RawGPSPoint>],
     requested: ImportPreprocessor,
 ) -> JourneyData {
-    if parsed.mode() == ImportMode::ExportedJourney {
-        if !matches!(requested, ImportPreprocessor::None) {
-            log::warn!("Ignoring GPS preprocessor for MemoLanes GPX/KML journey to preserve its track segments");
-        }
-        return JourneyData::Vector(journey_vector_from_exported_segments(raw_data));
-    }
-
     let vector = match requested {
         ImportPreprocessor::None => {
             journey_vector_from_raw_data_with_gps_preprocessor(raw_data, None)

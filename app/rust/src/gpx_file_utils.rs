@@ -1,53 +1,62 @@
+use crate::import_data::preprocessor::{detect_preprocessor, TrackFileFormat};
 use crate::import_data::ImportPreprocessor;
 use anyhow::Result;
 use chrono::Datelike;
-use quick_xml::events::{BytesText, Event};
+use quick_xml::events::{BytesStart, BytesText, Event};
 use quick_xml::{Reader, Writer};
-
-pub const JOURNEY_TYPE_NAME: &str = "MemoLanes Journey";
-pub(crate) const MEMOLANES_NAMESPACE: &str = "https://app.memolanes.com/ns/journey/1";
 
 type TimeNormalizer = fn(&str) -> Option<String>;
 
 pub fn analyze_and_prepare_gpx(xml: &str) -> Result<(String, ImportPreprocessor)> {
-    let preprocessor = detect_gpx_preprocessor(xml);
+    let preprocessor = detect_preprocessor(xml, TrackFileFormat::Gpx);
 
-    // TODO: `normalize_gpx_time_with` is actually doing a full XML parse + rewrite.
+    // TODO: `normalize_gpx_with` is actually doing a full XML parse + rewrite.
     // We should try to avoid calling it unless necessary.
     let xml = match preprocessor {
-        ImportPreprocessor::Spare => normalize_gpx_time_with(xml, normalize_step_of_my_world_time)?,
-        _ => normalize_gpx_time_with(xml, normalize_generic_time)?,
+        ImportPreprocessor::Spare => normalize_gpx_with(xml, normalize_step_of_my_world_time)?,
+        _ => normalize_gpx_with(xml, normalize_generic_time)?,
     };
 
     Ok((xml, preprocessor))
 }
 
-fn detect_gpx_preprocessor(xml: &str) -> ImportPreprocessor {
-    // TODO: This is pretty hacky: trying to match some known strings at the
-    // beginning of the file.
-    // Better approach could be parsing the XML / actually detecting the
-    // properties of the data in it (is it actually spare?)
-    const PROBE_LIMIT: usize = 8 * 1024;
-
-    let head = xml
-        .chars()
-        .take(PROBE_LIMIT)
-        .collect::<String>()
-        .to_ascii_lowercase();
-
-    // stepofmyworld (一生足迹), yourapp (灵感足迹)
-    if head.contains("stepofmyworld") || head.contains("yourapp") {
-        ImportPreprocessor::Spare
-    } else if head.contains(&JOURNEY_TYPE_NAME.to_ascii_lowercase()) {
-        ImportPreprocessor::None
-    } else {
-        ImportPreprocessor::Generic
+/// Accept the +180 endpoint in files from any source. GPX's longitude upper
+/// bound is exclusive; keep the point on the eastern side of the dateline.
+fn normalize_point_longitude<'a>(
+    element: BytesStart<'a>,
+    modified: &mut bool,
+) -> Result<BytesStart<'a>> {
+    if !matches!(element.local_name().as_ref(), "trkpt" | "rtept" | "wpt") {
+        return Ok(element);
     }
+    let Some(longitude) = element.try_get_attribute("lon")? else {
+        return Ok(element);
+    };
+    if longitude
+        .normalized_value(quick_xml::XmlVersion::Implicit1_0)?
+        .parse::<f64>()
+        != Ok(180.0)
+    {
+        return Ok(element);
+    }
+
+    let mut normalized = element.to_owned();
+    normalized.clear_attributes();
+    for attribute in element.attributes() {
+        let attribute = attribute?;
+        let value = if attribute.key.as_ref() == "lon" {
+            180.0_f64.next_down().to_string().into()
+        } else {
+            attribute.normalized_value(quick_xml::XmlVersion::Implicit1_0)?
+        };
+        normalized.push_attribute((attribute.key.as_ref(), value));
+    }
+    *modified = true;
+    Ok(normalized)
 }
 
-fn normalize_gpx_time_with(xml: &str, normalizer: TimeNormalizer) -> Result<String> {
+fn normalize_gpx_with(xml: &str, normalizer: TimeNormalizer) -> Result<String> {
     let mut reader = Reader::from_str(xml);
-    reader.config_mut().trim_text(true);
 
     let mut writer = Writer::new(Vec::new());
     let mut buf = Vec::new();
@@ -72,16 +81,15 @@ fn normalize_gpx_time_with(xml: &str, normalizer: TimeNormalizer) -> Result<Stri
                 writer.write_event(Event::End(e.to_end().to_owned()))?;
             }
 
-            Ok(Event::Start(e)) => writer.write_event(Event::Start(e.into_owned()))?,
-            Ok(Event::Empty(e)) => writer.write_event(Event::Empty(e.into_owned()))?,
-            Ok(Event::End(e)) => writer.write_event(Event::End(e.into_owned()))?,
-            Ok(Event::Text(e)) => writer.write_event(Event::Text(e.into_owned()))?,
-            Ok(Event::CData(e)) => writer.write_event(Event::CData(e.into_owned()))?,
-            Ok(Event::Decl(e)) => writer.write_event(Event::Decl(e.into_owned()))?,
+            Ok(Event::Start(e)) => {
+                writer.write_event(Event::Start(normalize_point_longitude(e, &mut modified)?))?
+            }
+            Ok(Event::Empty(e)) => {
+                writer.write_event(Event::Empty(normalize_point_longitude(e, &mut modified)?))?
+            }
             Ok(Event::Eof) => break,
-
-            Ok(_) => {}
-            Err(e) => anyhow::bail!("XML parse error during GPX time normalize: {e:?}"),
+            Ok(event) => writer.write_event(event)?,
+            Err(e) => anyhow::bail!("XML parse error during GPX normalization: {e:?}"),
         }
 
         buf.clear();

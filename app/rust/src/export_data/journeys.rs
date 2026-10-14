@@ -2,7 +2,7 @@ use std::fs::File;
 use std::io::{BufWriter, Write};
 
 use anyhow::{anyhow, Result};
-use chrono::{DateTime, NaiveDate, Utc};
+use chrono::NaiveDate;
 
 use crate::journey_data::JourneyData;
 use crate::journey_header::{JourneyHeader, JourneyType};
@@ -104,8 +104,6 @@ impl<W: Write> JourneyFileWriter for RawDataWriter<W> {
 #[derive(Clone, Debug)]
 pub struct JourneyExport {
     pub journey_date: NaiveDate,
-    pub start: Option<DateTime<Utc>>,
-    pub end: Option<DateTime<Utc>>,
     pub vector: JourneyVector,
 }
 
@@ -113,8 +111,6 @@ impl JourneyExport {
     pub(crate) fn from_header(header: JourneyHeader, vector: JourneyVector) -> Self {
         Self {
             journey_date: header.journey_date,
-            start: header.start,
-            end: header.end,
             vector,
         }
     }

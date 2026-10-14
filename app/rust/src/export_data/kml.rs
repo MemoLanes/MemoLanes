@@ -14,16 +14,6 @@ fn write_text<W: Write>(xml: &mut Writer<W>, tag: &str, value: &str) -> Result<(
     Ok(())
 }
 
-fn write_data<W: Write>(xml: &mut Writer<W>, name: &str, value: &str) -> Result<()> {
-    let mut data = BytesStart::new("Data");
-    let name = format!("memolanes:{name}");
-    data.push_attribute(("name", name.as_str()));
-    xml.write_event(Event::Start(data))?;
-    write_text(xml, "value", value)?;
-    xml.write_event(Event::End(BytesEnd::new("Data")))?;
-    Ok(())
-}
-
 /// Streams each Folder, Placemark and coordinate without building a KML tree
 /// or a segment-sized coordinate string in memory.
 pub(crate) struct KmlJourneyWriter<W: Write> {
@@ -63,15 +53,6 @@ impl<W: Write> KmlJourneyWriter<W> {
         xml.write_event(Event::Start(BytesStart::new("TimeStamp")))?;
         write_text(xml, "when", &journey.journey_date.to_string())?;
         xml.write_event(Event::End(BytesEnd::new("TimeStamp")))?;
-        xml.write_event(Event::Start(BytesStart::new("ExtendedData")))?;
-        write_data(xml, "date", &journey.journey_date.to_string())?;
-        if let Some(start) = journey.start {
-            write_data(xml, "start", &start.to_rfc3339())?;
-        }
-        if let Some(end) = journey.end {
-            write_data(xml, "end", &end.to_rfc3339())?;
-        }
-        xml.write_event(Event::End(BytesEnd::new("ExtendedData")))?;
 
         for segment in &journey.vector.track_segments {
             xml.write_event(Event::Start(BytesStart::new("Placemark")))?;

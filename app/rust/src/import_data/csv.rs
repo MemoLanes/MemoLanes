@@ -184,7 +184,7 @@ fn parse_memolanes_rows<R: Read>(reader: &mut Reader<R>) -> Result<ParsedVectorD
     } else {
         ImportMode::GenericByDate
     };
-    ParsedVectorData::new(mode, groups)
+    Ok(ParsedVectorData::new(mode, groups))
 }
 
 fn raw_data_from_values(
@@ -263,7 +263,7 @@ pub fn load_csv(file_path: &str) -> Result<(ParsedVectorData, ImportPreprocessor
                 vec![ImportedJourney::generic(vec![
                     parse_dol_rows(&mut reader).context("failed to parse DoL CSV")?
                 ])],
-            )?,
+            ),
             ImportPreprocessor::Spare,
         )
     } else if is_step_format(&headers) {
@@ -273,7 +273,7 @@ pub fn load_csv(file_path: &str) -> Result<(ParsedVectorData, ImportPreprocessor
                 vec![ImportedJourney::generic(vec![
                     parse_step_rows(&mut reader).context("failed to parse Step CSV")?
                 ])],
-            )?,
+            ),
             ImportPreprocessor::Spare,
         )
     } else if is_memolanes_format(&headers) {

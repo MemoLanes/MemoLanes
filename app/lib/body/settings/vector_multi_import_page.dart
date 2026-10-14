@@ -37,9 +37,6 @@ class _VectorMultiImportPageState extends State<VectorMultiImportPage> {
   final DateFormat _timeFormat = DateFormat('HH:mm');
   bool _isImporting = false;
 
-  bool get _hasMemolanesJourneys =>
-      widget.parts.any((part) => part.isMemolanesJourney);
-
   @override
   void initState() {
     super.initState();
@@ -139,14 +136,7 @@ class _VectorMultiImportPageState extends State<VectorMultiImportPage> {
       );
       if (!mounted) return;
       if (count == BigInt.zero) {
-        await showCommonDialog(
-          context,
-          context.tr(
-            _hasMemolanesJourneys
-                ? 'import.vector_multi.all_skipped'
-                : 'import.empty_data',
-          ),
-        );
+        await showCommonDialog(context, context.tr('import.empty_data'));
         return;
       }
       await showCommonDialog(
@@ -213,17 +203,14 @@ class _VectorMultiImportPageState extends State<VectorMultiImportPage> {
           useSafeArea: false,
           separators: false,
           children: [
-            if (!_hasMemolanesJourneys)
-              ImportPreprocessorTile(
-                value: _preprocessor,
-                position: LabelTilePosition.top,
-                onSelected: (value) => setState(() => _preprocessor = value),
-              ),
+            ImportPreprocessorTile(
+              value: _preprocessor,
+              position: LabelTilePosition.top,
+              onSelected: (value) => setState(() => _preprocessor = value),
+            ),
             JourneyKindTile(
               value: _journeyKind,
-              position: _hasMemolanesJourneys
-                  ? LabelTilePosition.top
-                  : LabelTilePosition.middle,
+              position: LabelTilePosition.middle,
               onSelected: (value) => setState(() => _journeyKind = value),
             ),
             JourneyNoteTile(
@@ -237,9 +224,8 @@ class _VectorMultiImportPageState extends State<VectorMultiImportPage> {
           ],
         ),
         collapsedIcon: Icons.tune,
-        collapsedText: _hasMemolanesJourneys
-            ? journeyKindLabel(context, _journeyKind)
-            : '${importPreprocessorLabel(context, _preprocessor)} · ${journeyKindLabel(context, _journeyKind)}',
+        collapsedText:
+            '${importPreprocessorLabel(context, _preprocessor)} · ${journeyKindLabel(context, _journeyKind)}',
       ),
     );
   }

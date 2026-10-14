@@ -1,294 +1,41 @@
 use crate::gps::{Point, RawGPSPoint};
+use crate::import_data::preprocessor::{detect_preprocessor, TrackFileFormat};
 use crate::import_data::{ImportMode, ImportPreprocessor, ImportedJourney, ParsedVectorData};
 use anyhow::{Context, Result};
 use auto_context::auto_context;
-use chrono::{DateTime, NaiveDate, Utc};
+use chrono::{DateTime, Utc};
 use kml::types::{Element, Geometry};
 use kml::Kml::Placemark;
 use kml::{Kml, KmlReader};
-use log::warn;
 use quick_xml::events::Event;
-use quick_xml::name::QName;
 use quick_xml::{Reader, Writer};
 use std::fs;
 use std::io::Cursor;
 
-/// Parses KML while retaining MemoLanes Folder and Placemark boundaries.
-/// Ordinary KML descriptions are sanitized before generic parsing.
+/// Parses KML geometry, retaining LineString and Track segment boundaries.
 #[auto_context]
 pub fn load_kml(file_path: &str) -> Result<(ParsedVectorData, ImportPreprocessor)> {
     let xml = fs::read_to_string(file_path)?;
-    if xml.contains("memolanes:") {
-        if let Some(parsed) = parse_memolanes_kml(&xml)? {
-            return Ok((parsed, ImportPreprocessor::None));
-        }
-    }
+    let preprocessor = detect_preprocessor(&xml, TrackFileFormat::Kml);
     let (cleaned_xml, _) = read_kml_description_and_remove(&xml)?;
     let mut kml_reader = KmlReader::<_, f64>::from_reader(Cursor::new(cleaned_xml));
     let kml_data = kml_reader.read()?;
     let elements = flatten_kml(kml_data);
-    let segments = read_geometries(&elements)?;
+    // Prefer Tracks across the whole file. Only fall back to other geometry
+    // when there are no non-empty Tracks, regardless of the exporting app.
+    let mut segments = read_track(&elements)?;
+    if segments.is_empty() {
+        segments = read_line_string(&elements)?;
+    }
     let groups = if segments.is_empty() {
         Vec::new()
     } else {
         vec![ImportedJourney::generic(segments)]
     };
     Ok((
-        ParsedVectorData::new(ImportMode::GenericByDate, groups)?,
-        ImportPreprocessor::Generic,
+        ParsedVectorData::new(ImportMode::GenericByDate, groups),
+        preprocessor,
     ))
-}
-
-struct KmlFolder {
-    order: usize,
-    journey: ImportedJourney,
-    marked: bool,
-    placemarks: usize,
-    coordinates: Vec<String>,
-}
-
-/// Decode logical text without treating CDATA or comments as literal markup.
-fn read_element_text(reader: &mut Reader<&[u8]>, name: QName<'_>) -> Result<String> {
-    let raw = reader.read_text(name)?;
-    let mut content = Reader::from_str(&raw);
-    let mut value = String::new();
-    loop {
-        match content.read_event()? {
-            Event::Text(text) => value.push_str(text.as_ref()),
-            Event::CData(text) => value.push_str(text.as_ref()),
-            Event::GeneralRef(reference) => value.push_str(&quick_xml::escape::unescape(
-                &format!("&{};", reference.as_ref()),
-            )?),
-            Event::Eof => return Ok(value.trim().to_owned()),
-            _ => {}
-        }
-    }
-}
-
-fn parse_memolanes_kml(xml: &str) -> Result<Option<ParsedVectorData>> {
-    let mut reader = Reader::from_str(xml);
-    reader.config_mut().trim_text(true);
-    let mut folders = Vec::<KmlFolder>::new();
-    let mut finished = Vec::<KmlFolder>::new();
-    let mut data_name: Option<String> = None;
-    let mut in_extended_data = false;
-    let mut in_timestamp = false;
-    let mut in_placemark = false;
-    let mut in_linestring = false;
-    let mut line_has_coordinates = false;
-    let mut has_marker = false;
-    let mut invalid_marker = false;
-    let mut unmarked_geometry = false;
-    let mut next_order = 0;
-
-    loop {
-        match reader.read_event()? {
-            Event::Start(event) if local_name(event.name().as_ref()) == "Folder" => {
-                folders.push(KmlFolder {
-                    order: next_order,
-                    journey: ImportedJourney::generic(Vec::new()),
-                    marked: false,
-                    placemarks: 0,
-                    coordinates: Vec::new(),
-                });
-                next_order += 1;
-            }
-            Event::End(event) if local_name(event.name().as_ref()) == "Folder" => {
-                if let Some(folder) = folders.pop() {
-                    if folder.marked {
-                        has_marker = true;
-                        if folder.journey.journey_date.is_none()
-                            || folder.placemarks != folder.coordinates.len()
-                        {
-                            invalid_marker = true;
-                        }
-                    } else if folder.placemarks > 0 {
-                        unmarked_geometry = true;
-                    }
-                    finished.push(folder);
-                }
-            }
-            Event::Start(event) if local_name(event.name().as_ref()) == "Placemark" => {
-                in_placemark = true;
-                if let Some(folder) = folders.last_mut() {
-                    folder.placemarks += 1;
-                } else {
-                    unmarked_geometry = true;
-                }
-            }
-            Event::End(event) if local_name(event.name().as_ref()) == "Placemark" => {
-                in_placemark = false;
-            }
-            Event::Start(event) if local_name(event.name().as_ref()) == "LineString" => {
-                in_linestring = true;
-                line_has_coordinates = false;
-            }
-            Event::End(event) if local_name(event.name().as_ref()) == "LineString" => {
-                if in_placemark && !line_has_coordinates {
-                    if let Some(folder) = folders.last_mut() {
-                        folder.coordinates.push(String::new());
-                    }
-                }
-                in_linestring = false;
-            }
-            Event::Start(event) if local_name(event.name().as_ref()) == "TimeStamp" => {
-                in_timestamp = true;
-            }
-            Event::End(event) if local_name(event.name().as_ref()) == "TimeStamp" => {
-                in_timestamp = false;
-            }
-            Event::Start(event) if local_name(event.name().as_ref()) == "ExtendedData" => {
-                in_extended_data = true;
-            }
-            Event::End(event) if local_name(event.name().as_ref()) == "ExtendedData" => {
-                in_extended_data = false;
-            }
-            Event::Start(event)
-                if local_name(event.name().as_ref()) == "Data"
-                    && in_extended_data
-                    && !in_placemark =>
-            {
-                data_name = event
-                    .attributes()
-                    .filter_map(Result::ok)
-                    .find(|attr| attr.key.as_ref() == "name")
-                    .and_then(|attr| {
-                        attr.normalized_value(quick_xml::XmlVersion::Implicit1_0)
-                            .ok()
-                            .map(|value| value.into_owned())
-                    })
-                    .filter(|name| {
-                        matches!(
-                            name.as_str(),
-                            "memolanes:date" | "memolanes:start" | "memolanes:end"
-                        )
-                    });
-                if data_name.is_some() {
-                    if let Some(folder) = folders.last_mut() {
-                        folder.marked = true;
-                    }
-                }
-            }
-            Event::End(event) if local_name(event.name().as_ref()) == "Data" => {
-                data_name = None;
-            }
-            Event::Start(event)
-                if local_name(event.name().as_ref()) == "value" && data_name.is_some() =>
-            {
-                let value = read_element_text(&mut reader, event.name())?;
-                if let (Some(folder), Some(name)) = (folders.last_mut(), data_name.as_deref()) {
-                    match name {
-                        "memolanes:date" => {
-                            folder.journey.journey_date =
-                                NaiveDate::parse_from_str(&value, "%Y-%m-%d").ok();
-                        }
-                        "memolanes:start" => {
-                            folder.journey.start = parse_optional_time(&value, "start");
-                        }
-                        "memolanes:end" => {
-                            folder.journey.end = parse_optional_time(&value, "end");
-                        }
-                        _ => {}
-                    }
-                }
-            }
-            Event::Start(event)
-                if local_name(event.name().as_ref()) == "when" && in_timestamp && !in_placemark =>
-            {
-                let value = read_element_text(&mut reader, event.name())?;
-                if let Some(folder) = folders.last_mut() {
-                    if folder.journey.journey_date.is_none() {
-                        folder.journey.journey_date =
-                            NaiveDate::parse_from_str(value.trim(), "%Y-%m-%d").ok();
-                    }
-                }
-            }
-            Event::Start(event)
-                if local_name(event.name().as_ref()) == "coordinates"
-                    && in_placemark
-                    && in_linestring =>
-            {
-                let value = read_element_text(&mut reader, event.name())?;
-                if let Some(folder) = folders.last_mut() {
-                    folder.coordinates.push(value);
-                    line_has_coordinates = true;
-                } else {
-                    unmarked_geometry = true;
-                }
-            }
-            Event::Eof => break,
-            _ => {}
-        }
-    }
-    if invalid_marker || (has_marker && unmarked_geometry) {
-        warn!("Incomplete or mixed MemoLanes KML metadata; using ordinary KML import");
-        return Ok(None);
-    }
-    if !has_marker {
-        return Ok(None);
-    }
-    finished.sort_by_key(|folder| folder.order);
-    let mut groups = Vec::new();
-    for mut folder in finished {
-        for coordinates in folder.coordinates {
-            let segment = parse_coordinates(&coordinates)?;
-            folder.journey.segments.push(segment);
-        }
-        if !folder.journey.segments.is_empty() {
-            groups.push(folder.journey);
-        }
-    }
-    Ok(Some(ParsedVectorData::new(
-        ImportMode::ExportedJourney,
-        groups,
-    )?))
-}
-
-fn local_name(name: &str) -> &str {
-    name.rsplit(':').next().unwrap_or(name)
-}
-
-fn parse_optional_time(value: &str, field: &str) -> Option<DateTime<Utc>> {
-    match DateTime::parse_from_rfc3339(value) {
-        Ok(value) => Some(value.with_timezone(&Utc)),
-        Err(error) => {
-            warn!("Ignoring invalid MemoLanes KML {field} time {value:?}: {error}");
-            None
-        }
-    }
-}
-
-fn parse_coordinates(value: &str) -> Result<Vec<RawGPSPoint>> {
-    value
-        .split_whitespace()
-        .map(|coordinate| {
-            let mut parts = coordinate.split(',');
-            let longitude = parts
-                .next()
-                .context("Missing KML longitude")?
-                .parse::<f64>()
-                .with_context(|| format!("Invalid KML longitude in {coordinate:?}"))?;
-            let latitude = parts
-                .next()
-                .context("Missing KML latitude")?
-                .parse::<f64>()
-                .with_context(|| format!("Invalid KML latitude in {coordinate:?}"))?;
-            anyhow::ensure!(
-                longitude.is_finite() && latitude.is_finite(),
-                "Non-finite KML coordinate in {coordinate:?}"
-            );
-            Ok(RawGPSPoint {
-                point: Point {
-                    latitude,
-                    longitude,
-                },
-                timestamp_ms: None,
-                accuracy: None,
-                altitude: None,
-                speed: None,
-            })
-        })
-        .collect()
 }
 
 /// 2bulu generated KML contains HTML tags in <description>, which breaks the KML parser.
@@ -406,14 +153,7 @@ fn read_track(flatten_data: &[Kml]) -> Result<Vec<Vec<RawGPSPoint>>> {
     Ok(raw_vector_data)
 }
 
-fn read_geometries(flatten_data: &[Kml]) -> Result<Vec<Vec<RawGPSPoint>>> {
-    let tracks_by_placemark = flatten_data
-        .iter()
-        .map(|element| read_track(std::slice::from_ref(element)))
-        .collect::<Result<Vec<_>>>()?;
-    // With Track geometry, standalone Points are location markers. Only use
-    // Points as a trajectory when the file contains no non-empty Tracks.
-    let has_tracks = tracks_by_placemark.iter().any(|tracks| !tracks.is_empty());
+fn read_line_string(flatten_data: &[Kml]) -> Result<Vec<Vec<RawGPSPoint>>> {
     let mut raw_vector_data: Vec<Vec<RawGPSPoint>> = Vec::new();
 
     let convert_to_timestamp = |when: Option<String>| -> Option<i64> {
@@ -436,17 +176,11 @@ fn read_geometries(flatten_data: &[Kml]) -> Result<Vec<Vec<RawGPSPoint>>> {
 
     let mut raw_vector_data_segment = Vec::new();
 
-    for (k, tracks) in flatten_data.iter().zip(tracks_by_placemark) {
+    for k in flatten_data {
         if let Placemark(p) = k {
-            // Raw exports also carry a LineString for the same Track. Prefer the
-            // Track within this Placemark, while keeping other LineStrings.
-            if !tracks.is_empty() {
-                raw_vector_data.extend(tracks);
-                continue;
-            }
             if let Some(geometry) = &p.geometry {
                 match geometry {
-                    Geometry::Point(point) if !has_tracks => {
+                    Geometry::Point(point) => {
                         let timestamp_ms = convert_to_timestamp(
                             p.children
                                 .iter()
