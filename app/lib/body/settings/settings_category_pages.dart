@@ -570,10 +570,15 @@ class _DataManagementSettingsPageState
             ),
             const SizedBox(height: 8),
             AppOptionTile(
-              trailing: AppOptionTileTrailing.none,
               icon: Icons.public_outlined,
               title: dialogContext.tr('data.import_data.fog_of_world_title'),
               subtitle: dialogContext.tr('data.import_data.fog_of_world_desc'),
+              onTap: () => showCommonDialog(
+                dialogContext,
+                dialogContext.tr('import.import_fow_data.description_md'),
+                title: dialogContext.tr('data.import_data.fog_of_world_title'),
+                markdown: true,
+              ),
             ),
           ],
         ),
