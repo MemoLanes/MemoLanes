@@ -1,5 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:memolanes/body/time_machine/time_range_picker.dart';
@@ -73,7 +74,7 @@ void main() {
     expect(ranges.last.$2, SimpleDate(currentYear, 12, 31));
   });
 
-  testWidgets('timeline menu sections remain reachable in narrow viewports', (
+  testWidgets('timeline menu keeps full labels reachable in narrow viewports', (
     tester,
   ) async {
     tester.view.devicePixelRatio = 1;
@@ -95,12 +96,26 @@ void main() {
       await tester.pumpAndSettle();
       for (final key in [
         'time_machine.menu_title_view',
+        'time_machine.menu_view_period',
+        'time_machine.menu_view_as_of',
+        'time_machine.menu_view_custom',
         'time_machine.menu_title_granularity',
+        'time_machine.menu_year',
+        'time_machine.menu_month',
+        'time_machine.menu_day',
         'time_machine.menu_title_layer',
+        'journey_kind.default',
+        'journey_kind.flight',
       ]) {
-        await tester.ensureVisible(find.text(tr(key)));
+        final label = find.text(tr(key)).last;
+        await tester.ensureVisible(label);
         await tester.pumpAndSettle();
-        expect(find.text(tr(key)).hitTestable(), findsOneWidget);
+        expect(label.hitTestable(), findsOneWidget);
+        expect(
+          tester.renderObject<RenderParagraph>(label).didExceedMaxLines,
+          isFalse,
+          reason: 'The full ${tr(key)} label must be readable.',
+        );
       }
       expect(tester.takeException(), isNull);
     }

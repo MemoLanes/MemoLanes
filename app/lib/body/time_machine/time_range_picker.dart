@@ -19,8 +19,6 @@ import 'package:memolanes/src/rust/journey_header.dart';
 
 export 'time_ruler.dart' show TimeRulerMode, TimeRuler;
 
-const _modeMenuMinColumnWidth = 96.0;
-const _modeMenuMaxColumnWidth = 116.0;
 const _modeMenuDividerWidth = 1.0;
 const _modeMenuPadding = EdgeInsets.all(16);
 
@@ -238,16 +236,6 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
           position: AppMenuPosition.auto,
           offset: const Offset(0, 12),
           margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-          // The SDK needs a bounded width for this LayoutBuilder-based menu.
-          style: MenuStyle(
-            fixedSize: WidgetStatePropertyAll(
-              Size(
-                _TimeMachineViewModeAndLayerMenu.preferredWidth +
-                    _modeMenuPadding.horizontal,
-                double.infinity,
-              ),
-            ),
-          ),
           surfaceBuilder: (_, child) =>
               TimeMachineGlassSurface(padding: _modeMenuPadding, child: child),
           menuBuilder: (_) => _buildModeMenu(),
@@ -293,8 +281,6 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
 /// - middle column = granularity (year/month/day, disabled in custom)
 /// - right column = layers (multi-select)
 class _TimeMachineViewModeAndLayerMenu extends StatefulWidget {
-  static const preferredWidth =
-      _modeMenuMaxColumnWidth * 3 + _modeMenuDividerWidth * 2;
   final TimeMachineViewMode currentViewMode;
   final void Function(TimeMachineViewMode) onViewModeSelect;
   final TimeRulerMode currentRulerMode;
@@ -363,63 +349,46 @@ class _TimeMachineViewModeAndLayerMenuState
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final availableWidth = constraints.hasBoundedWidth
-            ? constraints.maxWidth
-            : _TimeMachineViewModeAndLayerMenu.preferredWidth;
-        final columnWidth = ((availableWidth - _modeMenuDividerWidth * 2) / 3)
-            .clamp(_modeMenuMinColumnWidth, _modeMenuMaxColumnWidth);
-
-        final content = IntrinsicHeight(
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _buildMenuColumn(
-                width: columnWidth,
-                title: context.tr('time_machine.menu_title_view'),
-                children: _viewModeKeys
-                    .map((e) => _buildViewModeItem(e.$1, e.$2))
-                    .toList(),
-              ),
-              _buildColumnDivider(),
-              _buildMenuColumn(
-                width: columnWidth,
-                title: context.tr('time_machine.menu_title_granularity'),
-                children: _granularityKeys
-                    .map((e) => _buildGranularityItem(e.$1, e.$2))
-                    .toList(),
-              ),
-              _buildColumnDivider(),
-              _buildMenuColumn(
-                width: columnWidth,
-                title: context.tr('time_machine.menu_title_layer'),
-                children: _layerKeys
-                    .map((e) => _buildLayerItem(e.$1, e.$2))
-                    .toList(),
-              ),
-            ],
-          ),
-        );
-
-        // Keep the three-column grid intact on very small screens instead of
-        // compressing labels or letting selected backgrounds touch dividers.
-        return SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: content,
-        );
-      },
+    // Size each column from its translated content, including the checkmark.
+    // A narrow region scrolls the grid instead of truncating its labels.
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: IntrinsicHeight(
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildMenuColumn(
+              title: context.tr('time_machine.menu_title_view'),
+              children: _viewModeKeys
+                  .map((e) => _buildViewModeItem(e.$1, e.$2))
+                  .toList(),
+            ),
+            _buildColumnDivider(),
+            _buildMenuColumn(
+              title: context.tr('time_machine.menu_title_granularity'),
+              children: _granularityKeys
+                  .map((e) => _buildGranularityItem(e.$1, e.$2))
+                  .toList(),
+            ),
+            _buildColumnDivider(),
+            _buildMenuColumn(
+              title: context.tr('time_machine.menu_title_layer'),
+              children: _layerKeys
+                  .map((e) => _buildLayerItem(e.$1, e.$2))
+                  .toList(),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
   Widget _buildMenuColumn({
-    required double width,
     required String title,
     required List<Widget> children,
   }) {
-    return SizedBox(
-      width: width,
+    return IntrinsicWidth(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -439,14 +408,15 @@ class _TimeMachineViewModeAndLayerMenuState
   }
 
   Widget _buildColumnTitle(String text) {
-    return SizedBox(
-      height: 32,
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 32),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 6),
         child: Center(
           child: Text(
             text,
             maxLines: 1,
+            softWrap: false,
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
             style: AppTypography.sectionLabel.copyWith(
@@ -474,10 +444,10 @@ class _TimeMachineViewModeAndLayerMenuState
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(9),
-          child: SizedBox(
-            height: 40,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 40),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
               child: Row(
                 children: [
                   if (isSelected)
@@ -493,6 +463,7 @@ class _TimeMachineViewModeAndLayerMenuState
                     child: Text(
                       context.tr(labelKey),
                       maxLines: 1,
+                      softWrap: false,
                       overflow: TextOverflow.ellipsis,
                       style: AppTypography.itemTitle.copyWith(
                         color: isSelected

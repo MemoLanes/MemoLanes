@@ -95,6 +95,8 @@ class CompactJourneyInfoField extends StatelessWidget {
   Widget build(BuildContext context) {
     final labelText = Text(
       label,
+      maxLines: 1,
+      softWrap: false,
       style: AppTypography.label.copyWith(
         color: context.appColors.mutedInkColor,
       ),
@@ -118,26 +120,25 @@ class CompactJourneyInfoField extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              SizedBox(
-                width: 92,
-                child: onInfoTap == null
-                    ? labelText
-                    : InkWell(
-                        onTap: onInfoTap,
-                        borderRadius: BorderRadius.circular(4),
-                        child: Row(
-                          children: [
-                            Flexible(child: labelText),
-                            const SizedBox(width: 4),
-                            Icon(
-                              Icons.info_outline,
-                              size: 16,
-                              color: context.appColors.mutedInkColor,
-                            ),
-                          ],
-                        ),
+              if (onInfoTap == null)
+                labelText
+              else
+                InkWell(
+                  onTap: onInfoTap,
+                  borderRadius: BorderRadius.circular(4),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      labelText,
+                      const SizedBox(width: 4),
+                      Icon(
+                        Icons.info_outline,
+                        size: 16,
+                        color: context.appColors.mutedInkColor,
                       ),
-              ),
+                    ],
+                  ),
+                ),
               const SizedBox(width: 6),
               Expanded(
                 child:

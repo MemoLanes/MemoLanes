@@ -1,5 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -29,7 +30,9 @@ void main() {
   testWidgets(
     'shared form preserves its draft and metadata across device changes',
     (tester) async {
-      final scenes = ValueNotifier(const _Scene(supported: false));
+      final scenes = ValueNotifier(
+        const _Scene(supported: false, size: Size(393, 852)),
+      );
       addTearDown(scenes.dispose);
       import_api.JourneyInfo? saved;
       import_api.ImportPreprocessor? selectedPreprocessor;
@@ -41,6 +44,16 @@ void main() {
         onSave: (value) => saved = value,
         onPreprocessorInfo: () => infoTaps++,
         onPreprocessorSelected: (value) => selectedPreprocessor = value,
+      );
+      final label = tr('import.preprocessor.label');
+      final paragraph = tester.renderObject<RenderParagraph>(find.text(label));
+      expect(paragraph.didExceedMaxLines, isFalse);
+      expect(
+        paragraph.getBoxesForSelection(
+          TextSelection(baseOffset: 0, extentOffset: label.length),
+        ),
+        hasLength(1),
+        reason: 'The $label label must not be split across lines.',
       );
       await tester.tap(find.byIcon(Icons.info_outline));
       await tester.pumpAndSettle();
