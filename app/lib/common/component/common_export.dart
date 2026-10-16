@@ -8,7 +8,6 @@ import 'package:flutter_file_saver/flutter_file_saver.dart';
 import 'package:memolanes/common/component/app_button.dart';
 import 'package:memolanes/common/component/app_dialog.dart';
 import 'package:memolanes/common/component/app_option_tile.dart';
-import 'package:memolanes/common/component/basic_dialog_card.dart';
 import 'package:memolanes/common/loading_manager.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/utils.dart';
@@ -222,10 +221,14 @@ Future<bool> showCommonExport(
       return true;
     }
 
-    final action = await showBasicCard<_PreparedExportAction>(
+    final action = await showAppDialog<_PreparedExportAction>(
       context,
-      title: context.tr('common.export'),
-      builder: (_) => const _ExportActionSheetContent(),
+      size: AppDialogSize.content,
+      builder: (dialogContext) => AppDialogContent(
+        title: context.tr('common.export'),
+        contentPadding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+        child: const _ExportActionSheetContent(),
+      ),
     );
 
     if (action == null || !context.mounted) return false;
@@ -446,9 +449,8 @@ class _ExportFormatDialogState extends State<_ExportFormatDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AppDialogCard(
+    return AppDialogContent(
       title: widget.title,
-      maxHeightFactor: 0.78,
       contentPadding: const EdgeInsets.fromLTRB(20, 14, 20, 18),
       actions: AppDialogActions(
         children: [
@@ -464,92 +466,85 @@ class _ExportFormatDialogState extends State<_ExportFormatDialog> {
         duration: const Duration(milliseconds: 180),
         curve: Curves.easeOut,
         alignment: Alignment.topCenter,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 420),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (widget.formatGroups.length > 1) ...[
-                Align(
-                  alignment: AlignmentDirectional.centerStart,
-                  child: Text(
-                    context.tr('data.export_data.content_section_title'),
-                    style: AppTypography.sectionLabel.copyWith(
-                      color: context.appColors.mutedInkColor,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 6.0),
-                SizedBox(
-                  width: double.infinity,
-                  child: SegmentedButton<int>(
-                    showSelectedIcon: false,
-                    expandedInsets: EdgeInsets.zero,
-                    segments: [
-                      for (var i = 0; i < widget.formatGroups.length; i++)
-                        ButtonSegment<int>(
-                          value: i,
-                          label: Text(widget.formatGroups[i].label),
-                        ),
-                    ],
-                    selected: {_selectedGroupIndex},
-                    onSelectionChanged: _selectGroup,
-                    style: ButtonStyle(
-                      backgroundColor: WidgetStateProperty.resolveWith((
-                        states,
-                      ) {
-                        if (states.contains(WidgetState.selected)) {
-                          return context.appColors.primaryGreen.withValues(
-                            alpha: 0.18,
-                          );
-                        }
-                        return context.appColors.surfaceColor.withValues(
-                          alpha: 0.76,
-                        );
-                      }),
-                      foregroundColor: WidgetStateProperty.resolveWith((
-                        states,
-                      ) {
-                        if (states.contains(WidgetState.selected)) {
-                          return context.appColors.primaryGreen;
-                        }
-                        return context.appColors.mutedInkColor;
-                      }),
-                      side: WidgetStatePropertyAll(
-                        BorderSide(color: context.appColors.lineColor),
-                      ),
-                      textStyle: const WidgetStatePropertyAll(
-                        AppTypography.itemTitle,
-                      ),
-                      visualDensity: VisualDensity.compact,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 14.0),
-              ],
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (widget.formatGroups.length > 1) ...[
               Align(
                 alignment: AlignmentDirectional.centerStart,
                 child: Text(
-                  context.tr('data.export_data.format_section_title'),
+                  context.tr('data.export_data.content_section_title'),
                   style: AppTypography.sectionLabel.copyWith(
                     color: context.appColors.mutedInkColor,
                   ),
                 ),
               ),
               const SizedBox(height: 6.0),
-              Column(
-                children: [
-                  for (var i = 0; i < _selectedGroup.formats.length; i++) ...[
-                    _buildFormatOption(_selectedGroup.formats[i]),
-                    if (i < _selectedGroup.formats.length - 1)
-                      const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: SegmentedButton<int>(
+                  showSelectedIcon: false,
+                  expandedInsets: EdgeInsets.zero,
+                  segments: [
+                    for (var i = 0; i < widget.formatGroups.length; i++)
+                      ButtonSegment<int>(
+                        value: i,
+                        label: Text(widget.formatGroups[i].label),
+                      ),
                   ],
-                ],
+                  selected: {_selectedGroupIndex},
+                  onSelectionChanged: _selectGroup,
+                  style: ButtonStyle(
+                    backgroundColor: WidgetStateProperty.resolveWith((states) {
+                      if (states.contains(WidgetState.selected)) {
+                        return context.appColors.primaryGreen.withValues(
+                          alpha: 0.18,
+                        );
+                      }
+                      return context.appColors.surfaceColor.withValues(
+                        alpha: 0.76,
+                      );
+                    }),
+                    foregroundColor: WidgetStateProperty.resolveWith((states) {
+                      if (states.contains(WidgetState.selected)) {
+                        return context.appColors.primaryGreen;
+                      }
+                      return context.appColors.mutedInkColor;
+                    }),
+                    side: WidgetStatePropertyAll(
+                      BorderSide(color: context.appColors.lineColor),
+                    ),
+                    textStyle: const WidgetStatePropertyAll(
+                      AppTypography.itemTitle,
+                    ),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
               ),
-              _buildRawDataToggle(),
-              _buildLossyWarning(),
+              const SizedBox(height: 14.0),
             ],
-          ),
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: Text(
+                context.tr('data.export_data.format_section_title'),
+                style: AppTypography.sectionLabel.copyWith(
+                  color: context.appColors.mutedInkColor,
+                ),
+              ),
+            ),
+            const SizedBox(height: 6.0),
+            Column(
+              children: [
+                for (var i = 0; i < _selectedGroup.formats.length; i++) ...[
+                  _buildFormatOption(_selectedGroup.formats[i]),
+                  if (i < _selectedGroup.formats.length - 1)
+                    const SizedBox(height: 8),
+                ],
+              ],
+            ),
+            _buildRawDataToggle(),
+            _buildLossyWarning(),
+          ],
         ),
       ),
     );

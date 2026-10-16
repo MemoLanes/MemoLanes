@@ -337,7 +337,12 @@ class _RegionAreaListSkeletonTile extends StatelessWidget {
       child: Row(
         children: [
           if (showIcon) ...[
-            const _RegionAreaSkeletonBlock(width: 42, height: 42, radius: 999),
+            const AchievementSkeletonBlock(
+              backgroundAlpha: 0.78,
+              width: 42,
+              height: 42,
+              radius: 999,
+            ),
             const SizedBox(width: 12),
           ],
           Expanded(
@@ -349,25 +354,38 @@ class _RegionAreaListSkeletonTile extends StatelessWidget {
                     Expanded(
                       child: Align(
                         alignment: Alignment.centerLeft,
-                        child: _RegionAreaSkeletonBlock(width: 128, height: 16),
+                        child: AchievementSkeletonBlock(
+                          backgroundAlpha: 0.78,
+                          width: 128,
+                          height: 16,
+                        ),
                       ),
                     ),
                     SizedBox(width: 10),
-                    _RegionAreaSkeletonBlock(width: 78, height: 16),
+                    AchievementSkeletonBlock(
+                      backgroundAlpha: 0.78,
+                      width: 78,
+                      height: 16,
+                    ),
                   ],
                 ),
                 const SizedBox(height: 9),
                 Row(
                   children: [
                     const Expanded(
-                      child: _RegionAreaSkeletonBlock(
+                      child: AchievementSkeletonBlock(
+                        backgroundAlpha: 0.78,
                         width: double.infinity,
                         height: 6,
                         radius: 999,
                       ),
                     ),
                     const SizedBox(width: 10),
-                    const _RegionAreaSkeletonBlock(width: 54, height: 12),
+                    const AchievementSkeletonBlock(
+                      backgroundAlpha: 0.78,
+                      width: 54,
+                      height: 12,
+                    ),
                   ],
                 ),
               ],
@@ -375,33 +393,14 @@ class _RegionAreaListSkeletonTile extends StatelessWidget {
           ),
           if (showChevron) ...[
             const SizedBox(width: 8),
-            const _RegionAreaSkeletonBlock(width: 22, height: 22),
+            const AchievementSkeletonBlock(
+              backgroundAlpha: 0.78,
+              width: 22,
+              height: 22,
+            ),
           ],
         ],
       ),
-    );
-  }
-}
-
-class _RegionAreaSkeletonBlock extends StatelessWidget {
-  const _RegionAreaSkeletonBlock({
-    required this.width,
-    required this.height,
-    this.radius = 6,
-  });
-
-  final double width;
-  final double height;
-  final double radius;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: context.appColors.lineColor.withValues(alpha: 0.78),
-        borderRadius: BorderRadius.circular(radius),
-      ),
-      child: SizedBox(width: width, height: height),
     );
   }
 }

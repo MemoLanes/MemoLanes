@@ -6,6 +6,7 @@ import 'package:memolanes/common/app_haptics.dart';
 import 'package:memolanes/common/component/app_button.dart';
 import 'package:memolanes/common/component/liquid_glass_surface.dart';
 import 'package:memolanes/common/gps_manager.dart';
+import 'package:memolanes/common/app_layout.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/constants/app_typography.dart';
 import 'package:memolanes/theme/app_colors.dart';
@@ -23,6 +24,10 @@ const double _recordingEndControlInnerAlpha = 0.8;
 
 class RecordingButtons extends StatefulWidget {
   const RecordingButtons({super.key});
+
+  static const maximumWidth = 360.0;
+  static const minimumWidth = _recordingControlWidth;
+  static const height = _recordingControlHeight;
 
   @override
   State<RecordingButtons> createState() => _RecordingButtonsState();
@@ -55,7 +60,9 @@ class _RecordingButtonsState extends State<RecordingButtons> {
 
     return PointerInterceptor(
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 360),
+        constraints: const BoxConstraints(
+          maxWidth: RecordingButtons.maximumWidth,
+        ),
         child: AnimatedSwitcher(
           duration: const Duration(milliseconds: 280),
           switchInCurve: Curves.easeOutBack,
@@ -169,6 +176,8 @@ class _StartJourneyButton extends StatelessWidget {
 }
 
 class _ActiveJourneyControls extends StatelessWidget {
+  static const _primaryWidth = 112.0;
+
   const _ActiveJourneyControls({
     super.key,
     required this.isPaused,
@@ -190,7 +199,11 @@ class _ActiveJourneyControls extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             SizedBox(
-              width: 112,
+              width: AppLayoutScope.of(context)
+                  .recordingLeadingSpace(_recordingControlWidth, _primaryWidth),
+            ),
+            SizedBox(
+              width: _primaryWidth,
               height: 42,
               child: LiquidGlassSurface(
                 borderRadius: BorderRadius.circular(18),

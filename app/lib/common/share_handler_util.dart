@@ -7,6 +7,7 @@ import 'package:memolanes/body/settings/import_data_page.dart';
 import 'package:memolanes/common/component/app_button.dart';
 import 'package:memolanes/common/component/app_dialog.dart';
 import 'package:memolanes/common/component/common_dialog.dart';
+import 'package:memolanes/common/app_layout.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/theme/app_colors.dart';
@@ -108,27 +109,29 @@ class ShareHandlerUtil {
               alpha: lerpDouble(0.22, 0.58, context.appColors.darkProgress)!,
             ),
           ),
-          Dialog(
-            elevation: 0,
-            backgroundColor: Colors.transparent,
-            insetPadding: const EdgeInsets.symmetric(
-              horizontal: 24,
-              vertical: 24,
-            ),
-            child: PointerInterceptor(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 420),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: CommonDialog(
-                    title: context.tr('import.shared_file.busy_title'),
-                    content: context.tr('import.shared_file.busy_message'),
-                    buttons: [
-                      DialogButton(
-                        text: context.tr('common.ok'),
-                        onPressed: _dismissBusyNotice,
+          AppModalRegion(
+            useSafeArea: false,
+            child: Dialog(
+              elevation: 0,
+              backgroundColor: Colors.transparent,
+              insetPadding: const EdgeInsets.all(24),
+              child: PointerInterceptor(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 420),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: AppDialogSurface(
+                      child: CommonDialog(
+                        title: context.tr('import.shared_file.busy_title'),
+                        content: context.tr('import.shared_file.busy_message'),
+                        buttons: [
+                          DialogButton(
+                            text: context.tr('common.ok'),
+                            onPressed: _dismissBusyNotice,
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ),

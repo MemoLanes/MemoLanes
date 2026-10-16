@@ -1,8 +1,8 @@
+import 'package:memolanes/common/component/app_dialog.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:memolanes/common/component/app_option_tile.dart';
-import 'package:memolanes/common/component/setup_bottom_sheet.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/common/service/device_region.dart';
@@ -134,8 +134,9 @@ Future<achievement.Worldview?> showWorldviewPicker(
   BuildContext context, {
   required achievement.Worldview selectedWorldview,
 }) {
-  return showSetupCard<achievement.Worldview>(
+  return showAppDialog<achievement.Worldview>(
     context,
+    size: AppDialogSize.content,
     builder: (_) => _RegionPickerSheet(selectedWorldview: selectedWorldview),
   );
 }
@@ -147,9 +148,8 @@ class _RegionPickerSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SetupDialogCard(
+    return AppDialogContent(
       title: context.tr("privacy.region_title"),
-      maxHeightFactor: 0.55,
       contentPadding: const EdgeInsets.fromLTRB(20, 14, 20, 10),
       child: Column(
         children: [

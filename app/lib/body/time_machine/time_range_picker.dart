@@ -4,6 +4,8 @@ import 'package:memolanes/theme/app_colors.dart';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:memolanes/common/app_layout.dart';
+import 'package:memolanes/common/component/app_menu.dart';
 import 'package:memolanes/body/time_machine/time_machine_glass_surface.dart';
 import 'package:memolanes/common/app_haptics.dart';
 import 'package:memolanes/common/component/app_date_picker_dialog.dart';
@@ -16,6 +18,11 @@ import 'time_ruler.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
 
 export 'time_ruler.dart' show TimeRulerMode, TimeRuler;
+
+const _modeMenuMinColumnWidth = 96.0;
+const _modeMenuMaxColumnWidth = 116.0;
+const _modeMenuDividerWidth = 1.0;
+const _modeMenuPadding = EdgeInsets.all(16);
 
 /// Time range picker with mode-based range selection.
 /// Supports the [TimeMachineViewMode.period],
@@ -73,12 +80,7 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
   SimpleDate _fromDate = SimpleDate.today();
   SimpleDate _toDate = SimpleDate.today();
 
-  final OverlayPortalController _modeMenuController = OverlayPortalController(
-    debugLabel: 'time-machine-mode-menu',
-  );
-  final LayerLink _modeMenuLayerLink = LayerLink();
-  final GlobalKey _modeMenuTargetKey = GlobalKey();
-  final Object _modeMenuTapRegionGroup = Object();
+  final _modeMenuController = MenuController();
 
   /// Single source of truth for lower bound used by ruler/range/pickers.
   SimpleDate get _effectiveEarliest {
@@ -153,16 +155,6 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
     _notifyRange();
   }
 
-  void _toggleModeMenu() {
-    _modeMenuController.toggle();
-  }
-
-  void _hideModeMenu() {
-    if (_modeMenuController.isShowing) {
-      _modeMenuController.hide();
-    }
-  }
-
   SimpleDate get _displayDate =>
       SimpleDate(_displayYear, _displayMonth, _displayDay);
 
@@ -192,6 +184,11 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
 
   @override
   Widget build(BuildContext context) {
+    final layout = AppLayoutScope.of(context);
+    final scaler = MediaQuery.textScalerOf(context);
+    final blockHeight = layout
+        .controlConstraints(height: _kPickerBlockHeight)
+        .constrainHeight(scaler.scale(11) * 1.2 + scaler.scale(12) * 2.4 + 14);
     final rulerChild = _viewMode != TimeMachineViewMode.custom
         ? TimeRuler(
             rulerMode: _rulerMode,
@@ -236,114 +233,42 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        OverlayPortal(
+        AppMenu(
           controller: _modeMenuController,
-          overlayChildBuilder: (overlayContext) {
-            final mediaQuery = MediaQuery.of(overlayContext);
-            const menuGap = 12.0;
-            const safeAreaMargin = 12.0;
-            final maxMenuWidth = math.max(
-              0.0,
-              mediaQuery.size.width -
-                  mediaQuery.viewPadding.left -
-                  mediaQuery.viewPadding.right -
-                  48,
-            );
-            final targetRenderObject = _modeMenuTargetKey.currentContext
-                ?.findRenderObject();
-            final targetBox = targetRenderObject is RenderBox
-                ? targetRenderObject
-                : null;
-            final targetTop = targetBox?.localToGlobal(Offset.zero).dy ?? 0;
-            final targetBottom = targetTop + (targetBox?.size.height ?? 0);
-            final safeTop = mediaQuery.viewPadding.top + safeAreaMargin;
-            final safeBottom =
-                mediaQuery.size.height -
-                mediaQuery.viewPadding.bottom -
-                safeAreaMargin;
-            final spaceAbove = math.max(0.0, targetTop - menuGap - safeTop);
-            final spaceBelow = math.max(
-              0.0,
-              safeBottom - targetBottom - menuGap,
-            );
-            final placeAbove = spaceAbove >= spaceBelow;
-            final maxMenuHeight = placeAbove ? spaceAbove : spaceBelow;
-
-            // OverlayPortal's child receives full-screen constraints. Align
-            // loosens them before the follower is measured, so the follower's
-            // anchor uses the menu's actual size instead of the screen size.
-            return Align(
-              alignment: Alignment.topLeft,
-              child: CompositedTransformFollower(
-                link: _modeMenuLayerLink,
-                showWhenUnlinked: false,
-                targetAnchor: placeAbove
-                    ? Alignment.topLeft
-                    : Alignment.bottomLeft,
-                followerAnchor: placeAbove
-                    ? Alignment.bottomLeft
-                    : Alignment.topLeft,
-                offset: Offset(0, placeAbove ? -menuGap : menuGap),
-                child: TapRegion(
-                  groupId: _modeMenuTapRegionGroup,
-                  onTapOutside: (_) => _hideModeMenu(),
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxWidth: maxMenuWidth,
-                      maxHeight: maxMenuHeight,
-                    ),
-                    child: TweenAnimationBuilder<double>(
-                      tween: Tween(begin: 0, end: 1),
-                      duration: const Duration(milliseconds: 160),
-                      curve: Curves.easeOutCubic,
-                      builder: (context, value, child) => Opacity(
-                        opacity: value,
-                        child: Transform.scale(
-                          scale: 0.96 + value * 0.04,
-                          alignment: placeAbove
-                              ? Alignment.bottomLeft
-                              : Alignment.topLeft,
-                          child: child,
-                        ),
-                      ),
-                      child: _buildModeMenu(),
-                    ),
-                  ),
-                ),
+          position: AppMenuPosition.auto,
+          offset: const Offset(0, 12),
+          margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          // The SDK needs a bounded width for this LayoutBuilder-based menu.
+          style: MenuStyle(
+            fixedSize: WidgetStatePropertyAll(
+              Size(
+                _TimeMachineViewModeAndLayerMenu.preferredWidth +
+                    _modeMenuPadding.horizontal,
+                double.infinity,
               ),
-            );
-          },
-          child: CompositedTransformTarget(
-            key: _modeMenuTargetKey,
-            link: _modeMenuLayerLink,
-            child: TapRegion(
-              groupId: _modeMenuTapRegionGroup,
-              child: PointerInterceptor(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: _toggleModeMenu,
-                  child: TimeRangeControllerBall(
-                    key: ValueKey(
-                      'ball-$_displayYear-$_displayMonth-$_displayDay',
-                    ),
-                    viewMode: _viewMode,
-                    rulerMode: _rulerMode,
-                    selectedDate: _viewMode == TimeMachineViewMode.custom
-                        ? _toDate
-                        : _displayDate,
-                    loading: widget.loading,
-                  ),
-                ),
-              ),
+            ),
+          ),
+          surfaceBuilder: (_, child) =>
+              TimeMachineGlassSurface(padding: _modeMenuPadding, child: child),
+          menuBuilder: (_) => _buildModeMenu(),
+          child: PointerInterceptor(
+            child: TimeRangeControllerBall(
+              key: ValueKey('ball-$_displayYear-$_displayMonth-$_displayDay'),
+              viewMode: _viewMode,
+              rulerMode: _rulerMode,
+              selectedDate: _viewMode == TimeMachineViewMode.custom
+                  ? _toDate
+                  : _displayDate,
+              loading: widget.loading,
             ),
           ),
         ),
         const SizedBox(width: 12),
         Expanded(
           child: TapRegion(
-            groupId: _modeMenuTapRegionGroup,
+            groupId: _modeMenuController,
             child: PointerInterceptor(
-              child: SizedBox(height: _kPickerBlockHeight, child: rulerChild),
+              child: SizedBox(height: blockHeight, child: rulerChild),
             ),
           ),
         ),
@@ -352,20 +277,13 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
   }
 
   Widget _buildModeMenu() {
-    return TimeMachineGlassSurface(
-      padding: const EdgeInsets.all(16),
-      child: PointerInterceptor(
-        child: SingleChildScrollView(
-          child: _TimeMachineViewModeAndLayerMenu(
-            currentViewMode: _viewMode,
-            onViewModeSelect: _onViewModeSelected,
-            currentRulerMode: _rulerMode,
-            onRulerModeSelect: _onRulerModeSelected,
-            selectedJourneyKinds: widget.selectedJourneyKinds,
-            onJourneyKindsChanged: widget.onJourneyKindsChanged,
-          ),
-        ),
-      ),
+    return _TimeMachineViewModeAndLayerMenu(
+      currentViewMode: _viewMode,
+      onViewModeSelect: _onViewModeSelected,
+      currentRulerMode: _rulerMode,
+      onRulerModeSelect: _onRulerModeSelected,
+      selectedJourneyKinds: widget.selectedJourneyKinds,
+      onJourneyKindsChanged: widget.onJourneyKindsChanged,
     );
   }
 }
@@ -375,6 +293,8 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
 /// - middle column = granularity (year/month/day, disabled in custom)
 /// - right column = layers (multi-select)
 class _TimeMachineViewModeAndLayerMenu extends StatefulWidget {
+  static const preferredWidth =
+      _modeMenuMaxColumnWidth * 3 + _modeMenuDividerWidth * 2;
   final TimeMachineViewMode currentViewMode;
   final void Function(TimeMachineViewMode) onViewModeSelect;
   final TimeRulerMode currentRulerMode;
@@ -398,10 +318,6 @@ class _TimeMachineViewModeAndLayerMenu extends StatefulWidget {
 
 class _TimeMachineViewModeAndLayerMenuState
     extends State<_TimeMachineViewModeAndLayerMenu> {
-  static const double _minColumnWidth = 96;
-  static const double _maxColumnWidth = 116;
-  static const double _dividerWidth = 1;
-
   static const _viewModeKeys = [
     (TimeMachineViewMode.period, 'time_machine.menu_view_period'),
     (TimeMachineViewMode.asOf, 'time_machine.menu_view_as_of'),
@@ -451,11 +367,9 @@ class _TimeMachineViewModeAndLayerMenuState
       builder: (context, constraints) {
         final availableWidth = constraints.hasBoundedWidth
             ? constraints.maxWidth
-            : _maxColumnWidth * 3 + _dividerWidth * 2;
-        final columnWidth = ((availableWidth - _dividerWidth * 2) / 3).clamp(
-          _minColumnWidth,
-          _maxColumnWidth,
-        );
+            : _TimeMachineViewModeAndLayerMenu.preferredWidth;
+        final columnWidth = ((availableWidth - _modeMenuDividerWidth * 2) / 3)
+            .clamp(_modeMenuMinColumnWidth, _modeMenuMaxColumnWidth);
 
         final content = IntrinsicHeight(
           child: Row(
@@ -516,8 +430,8 @@ class _TimeMachineViewModeAndLayerMenuState
 
   Widget _buildColumnDivider() {
     return VerticalDivider(
-      width: _dividerWidth,
-      thickness: _dividerWidth,
+      width: _modeMenuDividerWidth,
+      thickness: _modeMenuDividerWidth,
       color: context.appColors.lineColor,
       indent: 8,
       endIndent: 8,
@@ -711,11 +625,33 @@ class TimeRangeControllerBall extends StatelessWidget {
       ],
     );
 
+    final constraints = AppLayoutScope.of(context)
+        .controlConstraints(width: _buttonSize, height: _buttonSize);
+    var buttonSize = constraints
+        .constrain(const Size.square(_buttonSize))
+        .shortestSide;
+    if (!constraints.isTight) {
+      final painter = TextPainter(
+        text: TextSpan(
+          text: mainText,
+          style: DefaultTextStyle.of(context).style
+              .merge(_contentStyle(context)),
+        ),
+        textScaler: MediaQuery.textScalerOf(context),
+        textDirection: Directionality.of(context),
+      )..layout();
+      final measured = math.max(
+        painter.width + 12,
+        painter.height + MediaQuery.textScalerOf(context).scale(11) * 1.2 + 14,
+      );
+      buttonSize = constraints.constrain(Size.square(measured)).shortestSide;
+      painter.dispose();
+    }
     return TimeMachineGlassSurface(
       borderRadius: BorderRadius.circular(_borderRadius),
       child: SizedBox(
-        width: _buttonSize,
-        height: _buttonSize,
+        width: buttonSize,
+        height: buttonSize,
         child: Center(
           child: FittedBox(
             fit: BoxFit.scaleDown,

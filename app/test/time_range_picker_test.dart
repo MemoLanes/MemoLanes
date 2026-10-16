@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:memolanes/body/time_machine/time_range_picker.dart';
+import 'package:memolanes/common/component/app_menu.dart';
 import 'package:memolanes/common/app_translation_loader.dart';
 import 'package:memolanes/common/simple_date_utils.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
@@ -70,5 +71,38 @@ void main() {
     expect(ranges, isNotEmpty);
     expect(ranges.last.$1, SimpleDate(2020));
     expect(ranges.last.$2, SimpleDate(currentYear, 12, 31));
+  });
+
+  testWidgets('timeline menu sections remain reachable in narrow viewports', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    await tester.runAsync(() async {
+      await tester.pumpWidget(_buildTestApp(onRangeChanged: (_, _) {}));
+      await tester.pump(const Duration(seconds: 1));
+    });
+    await tester.pumpAndSettle();
+    for (final size in [
+      const Size(800, 600),
+      const Size(393, 852),
+      const Size(320, 720),
+    ]) {
+      tester.view.physicalSize = size;
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(AppMenu));
+      await tester.pumpAndSettle();
+      for (final key in [
+        'time_machine.menu_title_view',
+        'time_machine.menu_title_granularity',
+        'time_machine.menu_title_layer',
+      ]) {
+        await tester.ensureVisible(find.text(tr(key)));
+        await tester.pumpAndSettle();
+        expect(find.text(tr(key)).hitTestable(), findsOneWidget);
+      }
+      expect(tester.takeException(), isNull);
+    }
   });
 }

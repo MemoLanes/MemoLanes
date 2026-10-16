@@ -159,7 +159,7 @@ class SettingsBody extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 10),
-                const LabelTileContent(showArrow: true),
+                const Flexible(child: LabelTileContent(showArrow: true)),
               ],
             )
           : const LabelTileContent(showArrow: true),

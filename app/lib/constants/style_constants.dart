@@ -47,14 +47,20 @@ class StyleConstants {
       navBarSafeArea + mapPrimaryControlNavBarSpacing;
 
   static double navBarBottomInset(BuildContext context) {
-    final bottomGestureInset = MediaQuery.systemGestureInsetsOf(context).bottom;
-    final bottomSafeArea = MediaQuery.viewPaddingOf(context).bottom;
-
-    return switch ((
-      bottomGestureInset,
-      bottomSafeArea,
+    return navBarBottomInsetForMedia(
+      MediaQuery.of(context),
       defaultTargetPlatform,
-    )) {
+    );
+  }
+
+  static double navBarBottomInsetForMedia(
+    MediaQueryData media,
+    TargetPlatform platform,
+  ) {
+    final bottomGestureInset = media.systemGestureInsets.bottom;
+    final bottomSafeArea = media.viewPadding.bottom;
+
+    return switch ((bottomGestureInset, bottomSafeArea, platform)) {
       (> 0, _, _) => bottomGestureInset + navBarGestureBottomInset,
       (_, > 0, TargetPlatform.iOS) => navBarGestureBottomInset,
       (_, > 0, _) => bottomSafeArea + navBarSystemAreaGap,
@@ -68,7 +74,21 @@ class StyleConstants {
   static double mapPrimaryControlBottomInsetForContext(BuildContext context) =>
       navBarSafeAreaForContext(context) + mapPrimaryControlNavBarSpacing;
 
+  static const double pageContentMaxWidth = 640;
+  static const double dialogCompactMaxWidth = 420;
+  static const double contentMinWidth = 320;
+  static const double minimumMapExtent = 120;
+
+  // Preserve the floating calendar/list card's reading size. The layout
+  // container still shrinks these budgets to its actual clear pane.
+  static const double mapPickerMaxWidth = 480;
+  static const double mapPickerWideMaxWidth = 720;
+  static const double mapPickerMinHeight = 390;
+  static const double mapPickerMaxHeight = 530;
+
   // Overlays
+  static const double overlayBarContentHeight = 48;
+  static const double overlayBarBottomInset = 4;
   static const double overlayFloatingRadius = 16.0;
 
   // Shared elevation for glass buttons and cards displayed over the map.

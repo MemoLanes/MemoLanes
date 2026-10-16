@@ -1,4 +1,12 @@
 {
+  "navigation": {
+    "record": "记录",
+    "timeline": "时光机",
+    "journeys": "行程",
+    "achievements": "成就",
+    "settings": "设置",
+    "more": "更多"
+  },
   "home": {
     "start_new_journey": "开始新旅程",
     "pause": "暂停",
@@ -204,10 +212,6 @@
       "data_file": "数据文件",
       "keep_open_hint": "处理期间请保持此页面打开"
     },
-    "vector": {
-      "title": "导入轨迹文件",
-      "description_md": "支持以下轨迹文件格式：\n\n1. **GPX** (`.gpx`)\n2. **KML** (`.kml`)\n3. **CSV** (`.csv`)"
-    },
     "mldx_preview": {
       "title": "归档导入",
       "skipped_identical": "已跳过 {} 条完全相同的旅程",
@@ -235,7 +239,6 @@
       "successful": "成功导入 {} 条旅程"
     },
     "import_fow_data": {
-      "description_md": "导入世界迷雾 App 中产生的数据。\n\n支持以下格式：\n1. Zip 格式：将世界迷雾网盘同步 Sync 文件夹压缩为 Zip 格式压缩包。\n2. Fwss 格式：世界迷雾快照文件。  \n\n世界迷雾 App 数据不包含轨迹历史变化过程，实际导出数据为从使用开始到导出时点的所有轨迹。如您保留了多个世界迷雾历史文件，可尝试将数据上传至 [迷雾机器-时光机](https://fogmachine.8bits.io/time-machine)，并使用“导出迹忆归档”功能。",
       "warning_for_import_multiple_data_md": "请注意，数据库中已经包含世界迷雾数据。\n\n导入多段数据时请确保数据不重叠，或者使用 [迷雾机器-时光机](https://fogmachine.8bits.io/time-machine) 中的“导出迹忆归档”功能。该功能通过计算数据差异的方式逐一处理快照，达到历史足迹与时间对应的效果。"
     }
   },

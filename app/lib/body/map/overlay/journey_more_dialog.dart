@@ -10,13 +10,13 @@ enum JourneyMoreAction { delete }
 Future<JourneyMoreAction?> showJourneyMoreDialog(BuildContext context) {
   return showAppDialog<JourneyMoreAction>(
     context,
-    maxWidth: 360,
+    surfaceBuilder: (child) =>
+        AppDialogSurface(style: AppDialogSurfaceStyle.glass, child: child),
+
     insetPadding: const EdgeInsets.symmetric(horizontal: 38, vertical: 24),
     builder: (dialogContext) {
-      return AppDialogCard(
+      return AppDialogContent(
         title: dialogContext.tr('common.more'),
-        surfaceStyle: AppDialogSurfaceStyle.glass,
-        maxHeightFactor: 0.6,
         contentPadding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
         child: Column(
           mainAxisSize: MainAxisSize.min,

@@ -1,4 +1,12 @@
 {
+  "navigation": {
+    "record": "Record",
+    "timeline": "Timeline",
+    "journeys": "Journeys",
+    "achievements": "Achievements",
+    "settings": "Settings",
+    "more": "More"
+  },
   "home": {
     "start_new_journey": "Start new journey",
     "pause": "Pause",
@@ -204,10 +212,6 @@
       "data_file": "Data file",
       "keep_open_hint": "Keep this page open while processing"
     },
-    "vector": {
-      "title": "Import Track File",
-      "description_md": "The following track file formats are supported:\n\n1. **GPX** (`.gpx`)\n2. **KML** (`.kml`)\n3. **CSV** (`.csv`)"
-    },
     "mldx_preview": {
       "title": "Archive Import",
       "skipped_identical": "{} identical journey(s) skipped",
@@ -235,7 +239,6 @@
       "successful": "Successfully imported {} journeys"
     },
     "import_fow_data": {
-      "description_md": "Import data generated from the Fog of World app.\n\nThis feature supports the following formats:\n1. Zip format: Compress the Fog of World cloud sync \"Sync\" folder into a Zip archive.\n2. Fwss format: Fog of World snapshot file.\n\nThe Fog of World app data does not include history. The exported data only contains the whole tracks from the start until the export point. If you have multiple historical Fog of World data, you can try uploading these to [Fog Machine - Time Machine](https://fogmachine.8bits.io/time-machine) and using the \"Export MemoLanes Archive\" feature.",
       "warning_for_import_multiple_data_md": "Note: The database already contains Fog of World data.\n\nWhen importing multiple data snapshots, please ensure that these snapshots do not overlap, or use the \"Export MemoLanes Archive\" feature in [Fog Machine - Time Machine](https://fogmachine.8bits.io/time-machine). This feature processes snapshots one by one by calculating differences, achieving the effect of matching historical tracks with their corresponding time."
     }
   },

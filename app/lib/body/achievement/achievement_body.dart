@@ -10,8 +10,8 @@ import 'package:memolanes/body/achievement/cards/achievement_source_card.dart';
 import 'package:memolanes/body/achievement/shared/achievement_common.dart';
 import 'package:memolanes/common/achievement_stats_store.dart';
 import 'package:memolanes/common/component/cards/option_card.dart';
+import 'package:memolanes/common/component/page_content_layout.dart';
 import 'package:memolanes/common/component/safe_area_wrapper.dart';
-import 'package:memolanes/common/component/scroll_views/single_child_scroll_view.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/constants/app_typography.dart';
 import 'package:memolanes/constants/style_constants.dart';
@@ -73,11 +73,9 @@ class _AchievementBodyState extends State<AchievementBody> {
     final hasOngoingJourney =
         context.watch<GpsManager>().recordingStatus != GpsRecordingStatus.none;
 
-    return MlSingleChildScrollView(
-      padding: EdgeInsets.only(
-        top: widget.topSafeArea + 16,
-        bottom: widget.bottomSafeArea + 16,
-      ),
+    return PageContentLayout.dashboard(
+      topPadding: widget.topSafeArea,
+      bottomPadding: widget.bottomSafeArea + 16,
       children: [
         const _AchievementPageTitle(),
         const SizedBox(height: StyleConstants.pageTitleCardSpacing),
@@ -169,34 +167,38 @@ class _SourceSkeletonCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final compact = useCompactAchievementCardLayout(context);
-
-    return OptionCard(
-      children: [
-        Padding(
-          padding: achievementCardPadding,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const _SkeletonBlock(width: 96, height: 22),
-              const SizedBox(height: 12),
-              const _SkeletonBlock(width: 220, height: 14),
-              SizedBox(height: compact ? 16 : 18),
-              _TotalAreaSkeleton(compact: compact),
-              const SizedBox(height: 18),
-              Row(
-                children: [
-                  Expanded(child: _SourceMetricSkeleton(compact: compact)),
-                  SizedBox(width: compact ? 8 : 18),
-                  _SkeletonBlock(width: compact ? 24 : 38, height: 30),
-                  SizedBox(width: compact ? 8 : 18),
-                  Expanded(child: _SourceMetricSkeleton(compact: compact)),
-                ],
-              ),
-            ],
+    return OptionCard.builder(
+      contentBuilder: (context, constraints) {
+        final compact = constraints.maxWidth < 470;
+        return [
+          Padding(
+            padding: achievementCardPadding,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const AchievementSkeletonBlock(width: 96, height: 22),
+                const SizedBox(height: 12),
+                const AchievementSkeletonBlock(width: 220, height: 14),
+                SizedBox(height: compact ? 16 : 18),
+                _TotalAreaSkeleton(compact: compact),
+                const SizedBox(height: 18),
+                Row(
+                  children: [
+                    Expanded(child: _SourceMetricSkeleton(compact: compact)),
+                    SizedBox(width: compact ? 8 : 18),
+                    AchievementSkeletonBlock(
+                      width: compact ? 24 : 38,
+                      height: 30,
+                    ),
+                    SizedBox(width: compact ? 8 : 18),
+                    Expanded(child: _SourceMetricSkeleton(compact: compact)),
+                  ],
+                ),
+              ],
+            ),
           ),
-        ),
-      ],
+        ];
+      },
     );
   }
 }
@@ -224,13 +226,13 @@ class _TotalAreaSkeleton extends StatelessWidget {
           const Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _SkeletonBlock(width: 16, height: 16, radius: 999),
+              AchievementSkeletonBlock(width: 16, height: 16, radius: 999),
               SizedBox(width: 6),
-              _SkeletonBlock(width: 86, height: 13),
+              AchievementSkeletonBlock(width: 86, height: 13),
             ],
           ),
           SizedBox(height: compact ? 10 : 12),
-          const _SkeletonBlock(width: 186, height: 52),
+          const AchievementSkeletonBlock(width: 186, height: 52),
         ],
       ),
     );
@@ -258,7 +260,7 @@ class _SourceMetricSkeleton extends StatelessWidget {
         children: [
           Row(
             children: [
-              _SkeletonBlock(
+              AchievementSkeletonBlock(
                 width: compact ? 44 : 76,
                 height: compact ? 44 : 76,
                 radius: 999,
@@ -268,43 +270,29 @@ class _SourceMetricSkeleton extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _SkeletonBlock(width: compact ? 58 : 72, height: 14),
+                    AchievementSkeletonBlock(
+                      width: compact ? 58 : 72,
+                      height: 14,
+                    ),
                     const SizedBox(height: 8),
-                    _SkeletonBlock(width: compact ? 74 : 96, height: 28),
+                    AchievementSkeletonBlock(
+                      width: compact ? 74 : 96,
+                      height: 28,
+                    ),
                   ],
                 ),
               ),
             ],
           ),
           SizedBox(height: compact ? 10 : 12),
-          const _SkeletonBlock(width: 88, height: 13),
+          const AchievementSkeletonBlock(width: 88, height: 13),
           SizedBox(height: compact ? 10 : 12),
-          _SkeletonBlock(width: double.infinity, height: compact ? 6 : 8),
+          AchievementSkeletonBlock(
+            width: double.infinity,
+            height: compact ? 6 : 8,
+          ),
         ],
       ),
-    );
-  }
-}
-
-class _SkeletonBlock extends StatelessWidget {
-  const _SkeletonBlock({
-    required this.width,
-    required this.height,
-    this.radius = 6,
-  });
-
-  final double width;
-  final double height;
-  final double radius;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: context.appColors.lineColor,
-        borderRadius: BorderRadius.circular(radius),
-      ),
-      child: SizedBox(width: width, height: height),
     );
   }
 }

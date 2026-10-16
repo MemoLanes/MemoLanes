@@ -1,6 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
+import 'package:memolanes/common/app_layout.dart';
 
 class TopPersistentToast {
   TopPersistentToast._internal();
@@ -29,9 +30,7 @@ class TopPersistentToast {
 
     _overlayEntry = OverlayEntry(
       builder: (overlayContext) {
-        final mediaQuery = MediaQuery.of(overlayContext);
-        final screenHeight = mediaQuery.size.height;
-        final topOffset = screenHeight / 6;
+        final insets = AppLayout.fromContext(overlayContext).toastInsets;
 
         final theme = Theme.of(overlayContext);
         final dialogBg =
@@ -40,9 +39,9 @@ class TopPersistentToast {
         final bodyText = _lastMessage ?? '';
 
         return Positioned(
-          top: topOffset,
-          left: 16,
-          right: 16,
+          top: insets.top,
+          left: insets.left,
+          right: insets.right,
           child: Material(
             color: Colors.transparent,
             child: PointerInterceptor(

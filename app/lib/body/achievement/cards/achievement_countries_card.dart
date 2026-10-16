@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:memolanes/theme/app_colors.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -10,7 +12,11 @@ import 'package:memolanes/constants/app_typography.dart';
 import 'package:memolanes/utils/nav_helper.dart';
 import 'package:provider/provider.dart';
 
-const _countriesGridColumnCount = 5;
+// Preserve a readable flag/name item in the space supplied by OptionCard.
+int _countryColumns(BoxConstraints constraints) => math.max(
+  1,
+  ((constraints.maxWidth - achievementCardPadding.horizontal) / 60).floor(),
+);
 const _countryItemHeight = 82.0;
 const _countryRowSpacing = 6.0;
 const _countryItemVerticalPadding = 2.0;
@@ -36,26 +42,31 @@ class AchievementCountriesCard extends StatelessWidget {
     }
 
     final countries = store.countries;
-    return OptionCard(
-      children: [
-        Padding(
-          padding: achievementCardPadding,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _CountriesHeader(
-                count: countries.length,
-                hasCountries: countries.isNotEmpty,
-              ),
-              const SizedBox(height: 18),
-              if (countries.isEmpty)
-                const _CountriesEmptyState()
-              else
-                _CountriesGrid(countries: countries),
-            ],
+    return OptionCard.builder(
+      contentBuilder: (context, constraints) {
+        return [
+          Padding(
+            padding: achievementCardPadding,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _CountriesHeader(
+                  count: countries.length,
+                  hasCountries: countries.isNotEmpty,
+                ),
+                const SizedBox(height: 18),
+                if (countries.isEmpty)
+                  const _CountriesEmptyState()
+                else
+                  _CountriesGrid(
+                    countries: countries,
+                    columnCount: _countryColumns(constraints),
+                  ),
+              ],
+            ),
           ),
-        ),
-      ],
+        ];
+      },
     );
   }
 }
@@ -163,7 +174,9 @@ class _CountriesHeader extends StatelessWidget {
 }
 
 class _CountriesGrid extends StatelessWidget {
-  const _CountriesGrid({required this.countries});
+  const _CountriesGrid({required this.countries, required this.columnCount});
+
+  final int columnCount;
 
   final List<AchievementCountryStats> countries;
 
@@ -171,15 +184,8 @@ class _CountriesGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     final rows = <Widget>[];
 
-    for (
-      var start = 0;
-      start < countries.length;
-      start += _countriesGridColumnCount
-    ) {
-      final rowCountries = countries
-          .skip(start)
-          .take(_countriesGridColumnCount)
-          .toList();
+    for (var start = 0; start < countries.length; start += columnCount) {
+      final rowCountries = countries.skip(start).take(columnCount).toList();
       rows.add(
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -187,21 +193,19 @@ class _CountriesGrid extends StatelessWidget {
           children: [
             for (final country in rowCountries)
               Expanded(
-                child: SizedBox(
-                  height: _countryItemHeight,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    minHeight: _countryItemHeight,
+                  ),
                   child: _CountryFlagItem(country: country),
                 ),
               ),
-            for (
-              var i = rowCountries.length;
-              i < _countriesGridColumnCount;
-              i++
-            )
+            for (var i = rowCountries.length; i < columnCount; i++)
               const Expanded(child: SizedBox(height: _countryItemHeight)),
           ],
         ),
       );
-      if (start + _countriesGridColumnCount < countries.length) {
+      if (start + columnCount < countries.length) {
         rows.add(const SizedBox(height: _countryRowSpacing));
       }
     }
@@ -249,8 +253,10 @@ class _CountryFlagItem extends StatelessWidget {
                 size: _countryFlagSize,
               ),
               const SizedBox(height: _countryNameTopSpacing),
-              SizedBox(
-                height: _countryNameSlotHeight,
+              ConstrainedBox(
+                constraints: const BoxConstraints(
+                  minHeight: _countryNameSlotHeight,
+                ),
                 child: FractionallySizedBox(
                   widthFactor: _countryNameWidthFactor,
                   child: _CountryNameText(countryName),
@@ -305,35 +311,45 @@ class _CountriesSkeletonCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return OptionCard(
-      children: [
-        Padding(
-          padding: achievementCardPadding,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const _SkeletonBlock(width: 104, height: 22),
-              const SizedBox(height: 12),
-              const _SkeletonBlock(width: 190, height: 14),
-              const SizedBox(height: 18),
-              for (var row = 0; row < 2; row++) ...[
-                Row(
-                  children: [
-                    for (var i = 0; i < _countriesGridColumnCount; i++)
-                      const Expanded(
-                        child: SizedBox(
-                          height: _countryItemHeight,
-                          child: _CountrySkeletonItem(),
-                        ),
-                      ),
-                  ],
+    return OptionCard.builder(
+      contentBuilder: (context, constraints) {
+        return [
+          Padding(
+            padding: achievementCardPadding,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const AchievementSkeletonBlock(
+                  alignment: Alignment.centerLeft,
+                  width: 104,
+                  height: 22,
                 ),
-                if (row == 0) const SizedBox(height: _countryRowSpacing),
+                const SizedBox(height: 12),
+                const AchievementSkeletonBlock(
+                  alignment: Alignment.centerLeft,
+                  width: 190,
+                  height: 14,
+                ),
+                const SizedBox(height: 18),
+                for (var row = 0; row < 2; row++) ...[
+                  Row(
+                    children: [
+                      for (var i = 0; i < _countryColumns(constraints); i++)
+                        const Expanded(
+                          child: SizedBox(
+                            height: _countryItemHeight,
+                            child: _CountrySkeletonItem(),
+                          ),
+                        ),
+                    ],
+                  ),
+                  if (row == 0) const SizedBox(height: _countryRowSpacing),
+                ],
               ],
-            ],
+            ),
           ),
-        ),
-      ],
+        ];
+      },
     );
   }
 }
@@ -348,7 +364,7 @@ class _CountrySkeletonItem extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          _SkeletonBlock(
+          AchievementSkeletonBlock(
             width: _countryFlagSize,
             height: _countryFlagSize,
             radius: 999,
@@ -360,39 +376,15 @@ class _CountrySkeletonItem extends StatelessWidget {
             child: FractionallySizedBox(
               widthFactor: _countryNameWidthFactor,
               child: Center(
-                child: _SkeletonBlock(width: double.infinity, height: 10),
+                child: AchievementSkeletonBlock(
+                  alignment: Alignment.centerLeft,
+                  width: double.infinity,
+                  height: 10,
+                ),
               ),
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _SkeletonBlock extends StatelessWidget {
-  const _SkeletonBlock({
-    required this.width,
-    required this.height,
-    this.radius = 6,
-    this.alignment = Alignment.centerLeft,
-  });
-
-  final double width;
-  final double height;
-  final double radius;
-  final Alignment alignment;
-
-  @override
-  Widget build(BuildContext context) {
-    return Align(
-      alignment: alignment,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: context.appColors.lineColor,
-          borderRadius: BorderRadius.circular(radius),
-        ),
-        child: SizedBox(width: width, height: height),
       ),
     );
   }

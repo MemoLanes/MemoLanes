@@ -1,7 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:memolanes/common/component/capsule_style_app_bar.dart';
-import 'package:memolanes/common/component/basic_dialog_card.dart';
+import 'package:memolanes/common/component/app_dialog.dart';
 import 'package:memolanes/common/component/app_option_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
@@ -56,53 +56,61 @@ class _MapSettingsPageState extends State<MapSettingsPage> {
   }
 
   void _showMapStylePicker() {
-    showBasicCard(
+    showAppDialog(
       context,
-      title: context.tr("general.map_settings.style"),
-      builder: (dialogContext) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (final mapStyle in MapStyle.all) ...[
-            AppOptionTile(
-              icon: Icons.map_outlined,
-              title: _labelFor(mapStyle),
-              selected: _current.id == mapStyle.id,
-              trailing: AppOptionTileTrailing.selection,
-              onTap: () {
-                Navigator.of(dialogContext).pop();
-                _updateStyle(mapStyle);
-              },
-            ),
-            if (mapStyle != MapStyle.all.last) const SizedBox(height: 8),
+      size: AppDialogSize.content,
+      builder: (dialogContext) => AppDialogContent(
+        title: context.tr("general.map_settings.style"),
+        contentPadding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final mapStyle in MapStyle.all) ...[
+              AppOptionTile(
+                icon: Icons.map_outlined,
+                title: _labelFor(mapStyle),
+                selected: _current.id == mapStyle.id,
+                trailing: AppOptionTileTrailing.selection,
+                onTap: () {
+                  Navigator.of(dialogContext).pop();
+                  _updateStyle(mapStyle);
+                },
+              ),
+              if (mapStyle != MapStyle.all.last) const SizedBox(height: 8),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
 
   void _showFogStylePicker() {
-    showBasicCard(
+    showAppDialog(
       context,
-      title: context.tr("general.map_settings.fog_mode"),
-      builder: (dialogContext) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (final fogStyle in MapFogStyle.all) ...[
-            AppOptionTile(
-              icon: fogStyle == MapFogStyle.dark
-                  ? Icons.dark_mode_outlined
-                  : Icons.light_mode_outlined,
-              title: _fogStyleLabelFor(fogStyle),
-              selected: _currentFogStyle == fogStyle,
-              trailing: AppOptionTileTrailing.selection,
-              onTap: () {
-                Navigator.of(dialogContext).pop();
-                _updateFogStyle(fogStyle);
-              },
-            ),
-            if (fogStyle != MapFogStyle.all.last) const SizedBox(height: 8),
+      size: AppDialogSize.content,
+      builder: (dialogContext) => AppDialogContent(
+        title: context.tr("general.map_settings.fog_mode"),
+        contentPadding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final fogStyle in MapFogStyle.all) ...[
+              AppOptionTile(
+                icon: fogStyle == MapFogStyle.dark
+                    ? Icons.dark_mode_outlined
+                    : Icons.light_mode_outlined,
+                title: _fogStyleLabelFor(fogStyle),
+                selected: _currentFogStyle == fogStyle,
+                trailing: AppOptionTileTrailing.selection,
+                onTap: () {
+                  Navigator.of(dialogContext).pop();
+                  _updateFogStyle(fogStyle);
+                },
+              ),
+              if (fogStyle != MapFogStyle.all.last) const SizedBox(height: 8),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }

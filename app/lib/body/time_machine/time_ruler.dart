@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:memolanes/theme/app_colors.dart';
 
 import 'package:flutter/material.dart';
+import 'package:memolanes/common/app_layout.dart';
 import 'package:intl/intl.dart';
 import 'package:memolanes/body/time_machine/time_machine_glass_surface.dart';
 import 'package:memolanes/common/app_haptics.dart';
@@ -316,6 +317,57 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
   bool _isSnapping = false;
   int _lastHapticIndex = -1;
   double _viewportWidth = 0;
+  double _unitSpacing = kRulerUnitSpacing;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _updateTickSpacing();
+  }
+
+  void _updateTickSpacing() {
+    final constraints = AppLayoutScope.of(context)
+        .controlConstraints(width: kRulerUnitSpacing);
+    var spacing = kRulerUnitSpacing;
+    if (!constraints.hasTightWidth) {
+      var measured = 44.0;
+      // Measure labels rather than shrinking Dynamic Type into a fixed tick.
+      final labels = widget.rulerMode == TimeRulerMode.month
+          ? [
+              for (var month = 1; month <= 12; month++)
+                DateFormat(
+                  'MMM',
+                  Localizations.localeOf(context).toString(),
+                ).format(DateTime(2000, month)),
+            ]
+          : [widget.rulerMode == TimeRulerMode.year ? '8888' : '88'];
+      for (final label in labels) {
+        final painter = TextPainter(
+          text: TextSpan(
+            text: label,
+            style: DefaultTextStyle.of(context).style.merge(
+              AppTypography.micro.copyWith(fontWeight: FontWeight.w700),
+            ),
+          ),
+          textScaler: MediaQuery.textScalerOf(context),
+          textDirection: Directionality.of(context),
+        )..layout();
+        if (painter.width + 8 > measured) measured = painter.width + 8;
+        painter.dispose();
+      }
+      // Labels belong to the scrollable content, so a tick can be wider than
+      // its viewport. Keep spacing positive while the viewport is collapsing.
+      spacing = measured;
+    }
+    if (spacing != _unitSpacing) {
+      _unitSpacing = spacing;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _scrollController.hasClients) {
+          _scrollController.jumpTo(_offsetForIndex(_data.selectedIndex));
+        }
+      });
+    }
+  }
 
   _RulerData get _data => _buildData(widget);
 
@@ -358,7 +410,7 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
       }
       final idx = d.selectedIndex.clamp(0, d.itemCount - 1);
       _lastHapticIndex = idx;
-      _scrollController.jumpTo((idx * kRulerUnitSpacing).toDouble());
+      _scrollController.jumpTo((idx * _unitSpacing).toDouble());
       d.reportSelection(idx);
     });
   }
@@ -366,6 +418,7 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
   @override
   void didUpdateWidget(_InfiniteTimeRuler oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.rulerMode != widget.rulerMode) _updateTickSpacing();
     final selectionChanged =
         oldWidget.selectedYear != widget.selectedYear ||
         oldWidget.selectedMonth != widget.selectedMonth ||
@@ -374,7 +427,7 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
       final idx = _data.selectedIndex.clamp(0, _data.itemCount - 1);
       _lastHapticIndex = idx;
       if (_scrollController.hasClients) {
-        _scrollController.jumpTo((idx * kRulerUnitSpacing).toDouble());
+        _scrollController.jumpTo((idx * _unitSpacing).toDouble());
       }
     }
   }
@@ -411,18 +464,17 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
   int _indexAtOffset(double pixels) {
     final maxIdx = _data.itemCount > 0 ? _data.itemCount - 1 : 0;
     if (_viewportWidth <= 0) {
-      return (pixels / kRulerUnitSpacing).round().clamp(0, maxIdx);
+      return (pixels / _unitSpacing).round().clamp(0, maxIdx);
     }
     final centerContent = pixels + _viewportWidth / 2;
-    final centerPadding = _viewportWidth / 2 - kRulerUnitSpacing / 2;
+    final centerPadding = _viewportWidth / 2 - _unitSpacing / 2;
     final index =
-        ((centerContent - centerPadding - kRulerUnitSpacing / 2) /
-                kRulerUnitSpacing)
+        ((centerContent - centerPadding - _unitSpacing / 2) / _unitSpacing)
             .round();
     return index.clamp(0, maxIdx);
   }
 
-  double _offsetForIndex(int index) => (index * kRulerUnitSpacing).toDouble();
+  double _offsetForIndex(int index) => (index * _unitSpacing).toDouble();
 
   bool _isAlignedToTick(int index) {
     if (!_scrollController.hasClients) return false;
@@ -442,10 +494,7 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
     if (_viewportWidth <= 0) return;
     if (_isSnapping) return;
     final maxIdx = _data.itemCount > 0 ? _data.itemCount - 1 : 0;
-    final bucket = (n.metrics.pixels / kRulerUnitSpacing).floor().clamp(
-      0,
-      maxIdx,
-    );
+    final bucket = (n.metrics.pixels / _unitSpacing).floor().clamp(0, maxIdx);
     if (bucket != _lastHapticIndex) {
       _lastHapticIndex = bucket;
       AppHaptics.selection();
@@ -490,7 +539,7 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
                   if (mounted) setState(() => _viewportWidth = w);
                 });
               }
-              final centerPadding = (w / 2 - kRulerUnitSpacing / 2).clamp(
+              final centerPadding = (w / 2 - _unitSpacing / 2).clamp(
                 0.0,
                 double.infinity,
               );
@@ -511,7 +560,7 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
                     child: ListView.builder(
                       controller: _scrollController,
                       scrollDirection: Axis.horizontal,
-                      itemExtent: kRulerUnitSpacing,
+                      itemExtent: _unitSpacing,
                       itemCount: count,
                       padding: EdgeInsets.only(
                         left: centerPadding,

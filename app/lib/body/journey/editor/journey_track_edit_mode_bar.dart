@@ -24,6 +24,10 @@ enum DrawEntryMode {
 class ModeSwitchBar extends StatelessWidget {
   static const double extent = 56.0;
   static const double safeAreaMinimum = 16.0;
+  static const double _drawMenuBottomGap = 8.0;
+
+  static double preferredHeight({required bool isDrawMenuOpen}) =>
+      extent + (isDrawMenuOpen ? _DrawModeMenu.extent + _drawMenuBottomGap : 0);
 
   final OperationMode currentMode;
   final ValueChanged<OperationMode> onModeChanged;
@@ -52,122 +56,144 @@ class ModeSwitchBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final selectedModeWidth = MediaQuery.sizeOf(context).width < 340
-        ? 58.0
-        : 66.0;
-    final saveCallback = onSave;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final selectedModeWidth = constraints.maxWidth < 340 ? 58.0 : 66.0;
+        final saveCallback = onSave;
 
-    return Align(
-      alignment: Alignment.bottomCenter,
-      child: IntrinsicWidth(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 190),
-              reverseDuration: const Duration(milliseconds: 150),
-              switchInCurve: Curves.easeOutCubic,
-              switchOutCurve: Curves.easeInCubic,
-              transitionBuilder: (child, animation) {
-                return FadeTransition(
-                  opacity: animation,
-                  child: SizeTransition(
-                    sizeFactor: animation,
-                    alignment: Alignment.bottomCenter,
-                    child: child,
-                  ),
-                );
-              },
-              child: isDrawMenuOpen
-                  ? Padding(
-                      key: const ValueKey('draw-mode-menu'),
-                      padding: const EdgeInsets.only(left: 2, bottom: 8),
-                      child: _DrawModeMenu(
-                        currentMode: currentDrawMode,
-                        onModeChanged: onDrawModeChanged,
+        final bar = Align(
+          alignment: Alignment.bottomCenter,
+          child: IntrinsicWidth(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 190),
+                  reverseDuration: const Duration(milliseconds: 150),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  transitionBuilder: (child, animation) {
+                    return FadeTransition(
+                      opacity: animation,
+                      child: SizeTransition(
+                        sizeFactor: animation,
+                        alignment: Alignment.bottomCenter,
+                        child: child,
                       ),
-                    )
-                  : const SizedBox.shrink(
-                      key: ValueKey('draw-mode-menu-hidden'),
-                    ),
-            ),
-            LiquidGlassSurface(
-              borderRadius: BorderRadius.circular(22),
-              backgroundAlpha: 0.4,
-              borderAlpha: 0.42,
-              blurSigma: 28,
-              reflectionAlpha: 0.18,
-              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 6),
-              child: SizedBox(
-                height: extent - 12,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _EditorModeButton(
-                      icon: Icons.open_with_rounded,
-                      label: context.tr('journey.editor.move'),
-                      isSelected: currentMode == OperationMode.move,
-                      selectedWidth: selectedModeWidth,
-                      onTap: () {
-                        AppHaptics.selection();
-                        onModeChanged(OperationMode.move);
-                      },
-                    ),
-                    _EditorModeButton(
-                      icon: currentDrawMode.icon,
-                      label: context.tr(currentDrawMode.labelKey),
-                      isSelected: _isDrawSelected,
-                      selectedWidth: selectedModeWidth,
-                      onTap: () {
-                        AppHaptics.selection();
-                        onDrawPressed();
-                      },
-                    ),
-                    _EditorModeButton(
-                      icon: Icons.delete_sweep_rounded,
-                      label: context.tr('journey.editor.erase'),
-                      isSelected: currentMode == OperationMode.delete,
-                      selectedWidth: selectedModeWidth,
-                      isCaution: true,
-                      onTap: () {
-                        AppHaptics.selection();
-                        onModeChanged(OperationMode.delete);
-                      },
-                    ),
-                    Container(
-                      width: 1,
-                      height: 24,
-                      margin: const EdgeInsets.symmetric(horizontal: 4),
-                      color: context.appColors.lineColor.withValues(alpha: 0.9),
-                    ),
-                    _UndoButton(
-                      label: context.tr('journey.editor.undo'),
-                      onTap: onUndo,
-                    ),
-                    const SizedBox(width: 3),
-                    SizedBox(
-                      width: 76,
-                      child: AppButton(
-                        label: context.tr('journey.editor.save'),
-                        icon: Icons.check_rounded,
-                        size: AppButtonSize.compact,
-                        expand: true,
-                        onPressed: saveCallback == null
-                            ? null
-                            : () {
-                                AppHaptics.medium();
-                                saveCallback();
-                              },
-                      ),
-                    ),
-                  ],
+                    );
+                  },
+                  child: isDrawMenuOpen
+                      ? Padding(
+                          key: const ValueKey('draw-mode-menu'),
+                          padding: const EdgeInsets.only(
+                            left: 2,
+                            bottom: _drawMenuBottomGap,
+                          ),
+                          child: _DrawModeMenu(
+                            currentMode: currentDrawMode,
+                            onModeChanged: onDrawModeChanged,
+                          ),
+                        )
+                      : const SizedBox.shrink(
+                          key: ValueKey('draw-mode-menu-hidden'),
+                        ),
                 ),
-              ),
+                LiquidGlassSurface(
+                  borderRadius: BorderRadius.circular(22),
+                  backgroundAlpha: 0.4,
+                  borderAlpha: 0.42,
+                  blurSigma: 28,
+                  reflectionAlpha: 0.18,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 5,
+                    vertical: 6,
+                  ),
+                  child: SizedBox(
+                    height: extent - 12,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _EditorModeButton(
+                          icon: Icons.open_with_rounded,
+                          label: context.tr('journey.editor.move'),
+                          isSelected: currentMode == OperationMode.move,
+                          selectedWidth: selectedModeWidth,
+                          onTap: () {
+                            AppHaptics.selection();
+                            onModeChanged(OperationMode.move);
+                          },
+                        ),
+                        _EditorModeButton(
+                          icon: currentDrawMode.icon,
+                          label: context.tr(currentDrawMode.labelKey),
+                          isSelected: _isDrawSelected,
+                          selectedWidth: selectedModeWidth,
+                          onTap: () {
+                            AppHaptics.selection();
+                            onDrawPressed();
+                          },
+                        ),
+                        _EditorModeButton(
+                          icon: Icons.delete_sweep_rounded,
+                          label: context.tr('journey.editor.erase'),
+                          isSelected: currentMode == OperationMode.delete,
+                          selectedWidth: selectedModeWidth,
+                          isCaution: true,
+                          onTap: () {
+                            AppHaptics.selection();
+                            onModeChanged(OperationMode.delete);
+                          },
+                        ),
+                        Container(
+                          width: 1,
+                          height: 24,
+                          margin: const EdgeInsets.symmetric(horizontal: 4),
+                          color: context.appColors.lineColor.withValues(
+                            alpha: 0.9,
+                          ),
+                        ),
+                        _UndoButton(
+                          label: context.tr('journey.editor.undo'),
+                          onTap: onUndo,
+                        ),
+                        const SizedBox(width: 3),
+                        SizedBox(
+                          width: 76,
+                          child: AppButton(
+                            label: context.tr('journey.editor.save'),
+                            icon: Icons.check_rounded,
+                            size: AppButtonSize.compact,
+                            expand: true,
+                            onPressed: saveCallback == null
+                                ? null
+                                : () {
+                                    AppHaptics.medium();
+                                    saveCallback();
+                                  },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+        return SingleChildScrollView(
+          reverse: true,
+          hitTestBehavior: HitTestBehavior.deferToChild,
+          child: SingleChildScrollView(
+            hitTestBehavior: HitTestBehavior.deferToChild,
+            scrollDirection: Axis.horizontal,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minWidth: constraints.maxWidth),
+              child: bar,
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -322,6 +348,11 @@ class _UndoButton extends StatelessWidget {
 class _DrawModeMenu extends StatelessWidget {
   const _DrawModeMenu({required this.currentMode, required this.onModeChanged});
 
+  static const double _padding = 6.0;
+  static const double _optionGap = 3.0;
+  static const double extent =
+      _DrawModeOption.extent * 2 + _padding * 2 + _optionGap;
+
   final DrawEntryMode currentMode;
   final ValueChanged<DrawEntryMode> onModeChanged;
 
@@ -335,7 +366,7 @@ class _DrawModeMenu extends StatelessWidget {
         borderAlpha: 0.48,
         blurSigma: 28,
         reflectionAlpha: 0.14,
-        padding: const EdgeInsets.all(6),
+        padding: const EdgeInsets.all(_padding),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -348,7 +379,7 @@ class _DrawModeMenu extends StatelessWidget {
                 onModeChanged(DrawEntryMode.freehand);
               },
             ),
-            const SizedBox(height: 3),
+            const SizedBox(height: _optionGap),
             _DrawModeOption(
               icon: DrawEntryMode.linked.icon,
               label: context.tr(DrawEntryMode.linked.labelKey),
@@ -366,6 +397,8 @@ class _DrawModeMenu extends StatelessWidget {
 }
 
 class _DrawModeOption extends StatelessWidget {
+  static const double extent = 40.0;
+
   const _DrawModeOption({
     required this.icon,
     required this.label,
@@ -391,7 +424,7 @@ class _DrawModeOption extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         curve: Curves.easeOutCubic,
-        height: 40,
+        height: extent,
         decoration: BoxDecoration(
           color: isSelected
               ? context.appColors.primaryGreen.withValues(alpha: 0.25)

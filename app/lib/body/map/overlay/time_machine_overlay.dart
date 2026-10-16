@@ -1,12 +1,11 @@
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:memolanes/body/time_machine/time_range_picker.dart';
 import 'package:memolanes/common/async_load_token.dart';
+import 'package:memolanes/common/component/map_overlay_panel.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/simple_date_utils.dart';
-import 'package:memolanes/constants/style_constants.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/journey_header.dart';
 
@@ -133,17 +132,9 @@ class _TimeMachineOverlayState extends State<TimeMachineOverlay> {
       return const SizedBox.shrink();
     }
 
-    final padding = MediaQuery.viewPaddingOf(context);
-    final horizontalSafeArea = math.max(padding.left, padding.right);
-
     return Stack(
       children: [
-        Positioned(
-          left: horizontalSafeArea + 24,
-          right: horizontalSafeArea + 24,
-          bottom: StyleConstants.mapPrimaryControlBottomInsetForContext(
-            context,
-          ),
+        MapOverlayPanel.controls(
           child: TimeRangePicker(
             earliestDate: earliest,
             loading: _loading,

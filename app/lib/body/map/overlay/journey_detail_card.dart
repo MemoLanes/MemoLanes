@@ -1,19 +1,15 @@
 import 'package:memolanes/theme/app_colors.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:memolanes/constants/app_typography.dart';
 import 'package:memolanes/body/journey/compact_journey_info_card.dart';
 import 'package:memolanes/common/app_haptics.dart';
 import 'package:memolanes/common/component/app_button.dart';
-import 'package:memolanes/common/component/app_date_picker_dialog.dart';
-import 'package:memolanes/common/component/app_dialog.dart';
-import 'package:memolanes/common/component/app_option_tile.dart';
 import 'package:memolanes/common/journey_kind_visuals.dart';
 import 'package:memolanes/common/simple_date_utils.dart';
 import 'package:memolanes/src/rust/api/import.dart' show JourneyInfo;
 import 'package:memolanes/src/rust/journey_header.dart';
 
-import 'journey_time_picker_dialog.dart';
+import 'package:memolanes/body/journey/journey_info_form.dart';
 
 class CollapsibleJourneyDetail extends StatefulWidget {
   const CollapsibleJourneyDetail({super.key, required this.child});
@@ -177,7 +173,7 @@ class _CollapsibleJourneyDetailState extends State<CollapsibleJourneyDetail> {
   }
 }
 
-class JourneyDetailCard extends StatefulWidget {
+class JourneyDetailCard extends StatelessWidget {
   const JourneyDetailCard({
     super.key,
     required this.journey,
@@ -197,160 +193,25 @@ class JourneyDetailCard extends StatefulWidget {
   final VoidCallback onEdit;
   final VoidCallback onMore;
   final VoidCallback onCancel;
-  final Future<void> Function(JourneyInfo journeyInfo) onSave;
-
-  @override
-  State<JourneyDetailCard> createState() => _JourneyDetailCardState();
-}
-
-class _JourneyDetailCardState extends State<JourneyDetailCard> {
-  static final DateTime _firstDate = DateTime(1970);
-
-  late SimpleDate _journeyDate;
-  DateTime? _startTime;
-  DateTime? _endTime;
-  late JourneyKind _journeyKind;
-  final TextEditingController _noteController = TextEditingController();
-
-  JourneyHeader get journey => widget.journey;
-
-  @override
-  void initState() {
-    super.initState();
-    _resetFields();
-  }
-
-  @override
-  void didUpdateWidget(covariant JourneyDetailCard oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.isEditing != widget.isEditing ||
-        (oldWidget.journey.revision != widget.journey.revision &&
-            !widget.isEditing)) {
-      _resetFields();
-    }
-  }
-
-  void _resetFields() {
-    _journeyDate = journey.journeyDate.toSimpleDate();
-    _startTime = journey.start;
-    _endTime = journey.end;
-    _journeyKind = journey.journeyKind;
-    _noteController.text = journey.note ?? '';
-  }
-
-  @override
-  void dispose() {
-    _noteController.dispose();
-    super.dispose();
-  }
-
-  DateTime _validInitialDate(DateTime date) {
-    final now = DateTime.now();
-    if (date.isBefore(_firstDate)) return _firstDate;
-    if (date.isAfter(now)) return now;
-    return date;
-  }
-
-  Future<DateTime?> _selectDateAndTime(DateTime? current) async {
-    final seed = current?.toLocal() ?? DateTime.now();
-    final date = await showAppDatePickerDialog(
-      context,
-      initialDate: _validInitialDate(seed),
-      firstDate: _firstDate,
-      lastDate: DateTime.now(),
-      highlightInitialDate: true,
-    );
-    if (date == null || !mounted) return null;
-    final time = await showDialog<TimeOfDay>(
-      context: context,
-      barrierColor: context.appColors.shadowColor.withValues(
-        alpha: context.appColors.pickerBarrierAlpha,
-      ),
-      builder: (dialogContext) =>
-          CompactJourneyTimeDialog(initialTime: TimeOfDay.fromDateTime(seed)),
-    );
-    if (time == null) return null;
-    return DateTime(date.year, date.month, date.day, time.hour, time.minute);
-  }
-
-  Future<void> _selectJourneyDate() async {
-    final selected = await showAppDatePickerDialog(
-      context,
-      initialDate: _validInitialDate(_journeyDate.toLocalDateTime()),
-      firstDate: _firstDate,
-      lastDate: DateTime.now(),
-      highlightInitialDate: true,
-    );
-    if (selected == null || !mounted) return;
-    setState(() => _journeyDate = selected.toSimpleDate());
-  }
-
-  Future<void> _selectJourneyKind() async {
-    final selected = await showAppDialog<JourneyKind>(
-      context,
-      maxWidth: 340,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 42),
-      barrierColor: context.appColors.shadowColor.withValues(
-        alpha: context.appColors.pickerBarrierAlpha,
-      ),
-      builder: (dialogContext) => AppDialogCard(
-        title: context.tr('journey.journey_kind'),
-        surfaceStyle: AppDialogSurfaceStyle.glass,
-        maxHeightFactor: 0.5,
-        contentPadding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            AppOptionTile(
-              backgroundAlpha: 0.5,
-              iconWidget: JourneyKindIcon(
-                kind: JourneyKind.defaultKind,
-                color: dialogContext.appColors.deepGreen,
-                size: 20,
-              ),
-              title: journeyKindLabel(context, JourneyKind.defaultKind),
-              selected: _journeyKind == JourneyKind.defaultKind,
-              trailing: AppOptionTileTrailing.selection,
-              onTap: () =>
-                  Navigator.of(dialogContext).pop(JourneyKind.defaultKind),
-            ),
-            const SizedBox(height: 8),
-            AppOptionTile(
-              backgroundAlpha: 0.5,
-              iconWidget: JourneyKindIcon(
-                kind: JourneyKind.flight,
-                color: dialogContext.appColors.deepGreen,
-                size: 20,
-              ),
-              title: journeyKindLabel(context, JourneyKind.flight),
-              selected: _journeyKind == JourneyKind.flight,
-              trailing: AppOptionTileTrailing.selection,
-              onTap: () => Navigator.of(dialogContext).pop(JourneyKind.flight),
-            ),
-          ],
-        ),
-      ),
-    );
-    if (selected == null || !mounted) return;
-    setState(() => _journeyKind = selected);
-  }
-
-  Future<void> _save() => widget.onSave(
-    JourneyInfo(
-      journeyDate: _journeyDate.toFrbNaiveDate(),
-      startTime: _startTime,
-      endTime: _endTime,
-      note: _noteController.text,
-      journeyKind: _journeyKind,
-    ),
-  );
+  final Future<void> Function(JourneyInfo) onSave;
 
   @override
   Widget build(BuildContext context) {
-    final isEditing = widget.isEditing;
-    final canEdit = isEditing && !widget.isSaving;
+    if (isEditing) {
+      return JourneyInfoForm(
+        key: ValueKey(journey.id),
+        journeyDate: journey.journeyDate.toSimpleDate(),
+        startTime: journey.start,
+        endTime: journey.end,
+        note: journey.note,
+        journeyKind: journey.journeyKind,
+        hasRawData: journey.hasRawData,
+        isSaving: isSaving,
+        onCancel: onCancel,
+        onSave: onSave,
+      );
+    }
     final note = journey.note?.trim();
-
     return Padding(
       padding: const EdgeInsets.fromLTRB(14, 0, 14, 13),
       child: Column(
@@ -361,74 +222,25 @@ class _JourneyDetailCardState extends State<JourneyDetailCard> {
           CompactJourneyInfoField(
             icon: Icons.calendar_today_rounded,
             label: context.tr('journey.journey_date'),
-            value: isEditing
-                ? _journeyDate.toString()
-                : journey.journeyDate.toSimpleDate().toString(),
-            onTap: canEdit ? _selectJourneyDate : null,
+            value: journey.journeyDate.toSimpleDate().toString(),
           ),
           CompactJourneyInfoField(
             icon: Icons.sell_outlined,
             label: context.tr('journey.journey_kind'),
-            value: journeyKindLabel(
-              context,
-              isEditing ? _journeyKind : journey.journeyKind,
-            ),
-            onTap: canEdit ? _selectJourneyKind : null,
+            value: journeyKindLabel(context, journey.journeyKind),
           ),
           CompactJourneyInfoField(
             icon: Icons.schedule_rounded,
             label: context.tr('journey.start_time'),
-            value: formatJourneyInfoTime(
-              isEditing ? _startTime : journey.start,
-            ),
-            onTap: canEdit
-                ? () async {
-                    final selected = await _selectDateAndTime(_startTime);
-                    if (selected != null && mounted) {
-                      setState(() => _startTime = selected);
-                    }
-                  }
-                : null,
+            value: formatJourneyInfoTime(journey.start),
           ),
           CompactJourneyInfoField(
             icon: Icons.schedule_rounded,
             label: context.tr('journey.end_time'),
-            value: formatJourneyInfoTime(isEditing ? _endTime : journey.end),
-            onTap: canEdit
-                ? () async {
-                    final selected = await _selectDateAndTime(_endTime);
-                    if (selected != null && mounted) {
-                      setState(() => _endTime = selected);
-                    }
-                  }
-                : null,
+            value: formatJourneyInfoTime(journey.end),
           ),
           JourneyRawDataInfoField(hasRawData: journey.hasRawData),
-          if (isEditing)
-            CompactJourneyInfoField(
-              icon: Icons.notes_rounded,
-              label: context.tr('journey.note'),
-              trailing: TextField(
-                controller: _noteController,
-                readOnly: !canEdit,
-                minLines: 1,
-                maxLines: 2,
-                textAlign: TextAlign.right,
-                style: AppTypography.supporting.copyWith(
-                  color: context.appColors.deepGreen,
-                  fontWeight: FontWeight.w600,
-                ),
-                decoration: InputDecoration(
-                  isDense: true,
-                  border: InputBorder.none,
-                  hintText: context.tr('common.please_enter'),
-                  hintStyle: AppTypography.supporting.copyWith(
-                    color: context.appColors.mutedInkColor,
-                  ),
-                ),
-              ),
-            )
-          else if (note != null && note.isNotEmpty)
+          if (note != null && note.isNotEmpty)
             CompactJourneyInfoField(
               icon: Icons.notes_rounded,
               label: context.tr('journey.note'),
@@ -436,72 +248,41 @@ class _JourneyDetailCardState extends State<JourneyDetailCard> {
               maxLines: 2,
             ),
           const SizedBox(height: 10),
-          AnimatedSwitcher(
-            duration: const Duration(milliseconds: 220),
-            child: isEditing
-                ? Row(
-                    key: const ValueKey('save-journey-information'),
-                    children: [
-                      Expanded(
-                        child: AppButton(
-                          size: AppButtonSize.compact,
-                          expand: true,
-                          label: context.tr('common.cancel'),
-                          variant: AppButtonVariant.secondary,
-                          onPressed: widget.isSaving ? null : widget.onCancel,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: AppButton(
-                          size: AppButtonSize.compact,
-                          expand: true,
-                          icon: Icons.check_rounded,
-                          label: context.tr('common.save'),
-                          variant: AppButtonVariant.primary,
-                          onPressed: widget.isSaving ? null : _save,
-                          loading: widget.isSaving,
-                        ),
-                      ),
-                    ],
-                  )
-                : Row(
-                    key: const ValueKey('journey-actions'),
-                    children: [
-                      Expanded(
-                        child: AppButton(
-                          size: AppButtonSize.compact,
-                          expand: true,
-                          icon: Icons.ios_share_rounded,
-                          label: context.tr('common.export'),
-                          variant: AppButtonVariant.secondary,
-                          onPressed: widget.onExport,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: AppButton(
-                          size: AppButtonSize.compact,
-                          expand: true,
-                          icon: Icons.edit_outlined,
-                          label: context.tr('common.edit'),
-                          variant: AppButtonVariant.primary,
-                          onPressed: widget.onEdit,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: AppButton(
-                          size: AppButtonSize.compact,
-                          expand: true,
-                          icon: Icons.more_horiz_rounded,
-                          label: context.tr('common.more'),
-                          variant: AppButtonVariant.secondary,
-                          onPressed: widget.onMore,
-                        ),
-                      ),
-                    ],
-                  ),
+          Row(
+            key: const ValueKey('journey-actions'),
+            children: [
+              Expanded(
+                child: AppButton(
+                  size: AppButtonSize.compact,
+                  expand: true,
+                  icon: Icons.ios_share_rounded,
+                  label: context.tr('common.export'),
+                  variant: AppButtonVariant.secondary,
+                  onPressed: onExport,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: AppButton(
+                  size: AppButtonSize.compact,
+                  expand: true,
+                  icon: Icons.edit_outlined,
+                  label: context.tr('common.edit'),
+                  onPressed: onEdit,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: AppButton(
+                  size: AppButtonSize.compact,
+                  expand: true,
+                  icon: Icons.more_horiz_rounded,
+                  label: context.tr('common.more'),
+                  variant: AppButtonVariant.secondary,
+                  onPressed: onMore,
+                ),
+              ),
+            ],
           ),
         ],
       ),

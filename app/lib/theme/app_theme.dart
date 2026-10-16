@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:wolt_modal_sheet/wolt_modal_sheet.dart';
 import 'package:memolanes/constants/index.dart';
 
 import 'app_colors.dart';
@@ -56,7 +57,14 @@ abstract final class AppTheme {
 
     return ThemeData(
       useMaterial3: true,
-      extensions: [colors],
+      extensions: [
+        colors,
+        const WoltModalSheetThemeData(
+          modalElevation: 0,
+          clipBehavior: Clip.none,
+          mainContentScrollPhysics: NeverScrollableScrollPhysics(),
+        ),
+      ],
       fontFamilyFallback: Platform.isIOS
           ? ['.AppleSystemUIFont', 'PingFang SC']
           : null,

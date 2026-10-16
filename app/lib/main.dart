@@ -1,6 +1,4 @@
 import 'dart:async';
-import 'dart:io';
-import 'dart:math' as math;
 
 import 'package:memolanes/theme/app_theme.dart';
 
@@ -18,19 +16,18 @@ import 'package:memolanes/body/settings/settings_body.dart'
 import 'package:memolanes/common/achievement_stats_store.dart';
 import 'package:memolanes/common/app_theme_controller.dart';
 import 'package:memolanes/common/app_translation_loader.dart';
+import 'package:memolanes/common/component/app_navigation_shell.dart';
 import 'package:memolanes/common/component/bottom_nav_bar.dart';
 import 'package:memolanes/common/component/database_version_too_new_gate.dart';
 import 'package:memolanes/common/component/map_controls/map_copyright_button.dart';
-import 'package:memolanes/common/component/safe_area_wrapper.dart';
 import 'package:memolanes/common/gps_manager.dart';
+import 'package:memolanes/common/duo_device.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/map_style.dart';
 import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/utils/nav_helper.dart';
 import 'package:memolanes/common/update_notifier.dart';
 import 'package:memolanes/common/loading_manager.dart';
-import 'package:memolanes/constants/index.dart';
-import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:provider/provider.dart';
 
 void main() async {
@@ -145,7 +142,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       builder: (context, child) {
         return AnnotatedRegion<SystemUiOverlayStyle>(
           value: Theme.of(context).appBarTheme.systemOverlayStyle!,
-          child: GlobalLoadingOverlay(child: child ?? const SizedBox.shrink()),
+          child: DuoDeviceProvider(
+            child: GlobalLoadingOverlay(
+              child: child ?? const SizedBox.shrink(),
+            ),
+          ),
         );
       },
       theme: AppTheme.light,
@@ -311,18 +312,9 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final mediaQuery = MediaQuery.of(context);
-    final edgeToEdgeScroll = _selectedIndex > 2;
-    final navBarBottomInset = StyleConstants.navBarBottomInset(context);
-    final horizontalSafeArea = math.max(
-      mediaQuery.viewPadding.left,
-      mediaQuery.viewPadding.right,
-    );
     final mapCopyrightTextMarkdown = MapStyle.findById(
       MMKVUtil.getString(MMKVKey.mapStyle),
     ).copyright;
-    const mapCopyrightNavBarGap = 6.0;
-    const mapCopyrightTrailingGap = 8.0;
 
     return PopScope(
       canPop: false,
@@ -330,72 +322,25 @@ class _MyHomePageState extends State<MyHomePage> {
         if (didPop) return;
         await _handleOnPop();
       },
-      child: Scaffold(
-        body: Stack(
-          children: [
-            // Menu pages keep their vertical insets inside the scroll content
-            // so the viewport extends beneath system chrome and the nav bar.
-            MediaQuery.removePadding(
-              context: context,
-              removeTop: edgeToEdgeScroll,
-              removeBottom: edgeToEdgeScroll,
-              child: SafeAreaWrapper(
-                useSafeArea: _selectedIndex > 2,
-                child: _buildPageContent(
-                  topSafeArea: edgeToEdgeScroll ? mediaQuery.padding.top : 0,
-                  bottomSafeArea:
-                      StyleConstants.navBarHeight + navBarBottomInset,
-                ),
-              ),
+      child: AppNavigationShell(
+        bodyBuilder: _buildPageContent,
+        navigationVisible: _journeys.appChromeVisible,
+        contentMode: _selectedIndex > 2
+            ? AppNavigationContentMode.inset
+            : AppNavigationContentMode.fullBleed,
+        navigationBuilder: (context, {required axis, required allowOverflow}) =>
+            BottomNavBar(
+              axis: axis,
+              allowOverflow: allowOverflow,
+              selectedIndex: _selectedIndex,
+              onIndexChanged: _selectTab,
+              hasUpdateNotification: context
+                  .watch<UpdateNotifier>()
+                  .hasUpdateNotification,
             ),
-            if (_journeys.appChromeVisible)
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: Padding(
-                  padding: EdgeInsets.only(
-                    left: horizontalSafeArea,
-                    right: horizontalSafeArea,
-                    bottom: navBarBottomInset,
-                  ),
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: SizedBox(
-                      width:
-                          mediaQuery.size.width -
-                          BottomNavBar.designHorizontalMargin * 2,
-                      height: BottomNavBar.height,
-                      // TODO: Remove this iOS PlatformView composition workaround
-                      // once Flutter #190003 is included in the stable SDK:
-                      // https://github.com/flutter/flutter/pull/190003
-                      child: PointerInterceptor(
-                        intercepting: Platform.isIOS,
-                        child: BottomNavBar(
-                          selectedIndex: _selectedIndex,
-                          onIndexChanged: _selectTab,
-                          hasUpdateNotification: context
-                              .watch<UpdateNotifier>()
-                              .hasUpdateNotification,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            if (_selectedIndex <= 2 && _journeys.appChromeVisible)
-              Positioned(
-                right: mediaQuery.viewPadding.right + mapCopyrightTrailingGap,
-                bottom:
-                    navBarBottomInset +
-                    BottomNavBar.height +
-                    mapCopyrightNavBarGap,
-                child: MapCopyrightButton(
-                  textMarkdown: mapCopyrightTextMarkdown,
-                ),
-              ),
-          ],
-        ),
+        bottomTrailingOverlay: _selectedIndex <= 2
+            ? MapCopyrightButton(textMarkdown: mapCopyrightTextMarkdown)
+            : null,
       ),
     );
   }

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:memolanes/theme/app_colors.dart';
 
@@ -38,14 +39,10 @@ class JourneyBody extends StatefulWidget {
 }
 
 class _JourneyBodyState extends State<JourneyBody> {
-  static const _landscapeContentPadding = 16.0;
-  static const _landscapeColumnGap = 16.0;
-  static const _landscapeCalendarMinWidth = 320.0;
-  static const _landscapeCalendarMaxWidth = 360.0;
-  static const _landscapeListMinWidth = 280.0;
-
   late final JourneyListController _controller;
   final ScrollController _journeyListScrollController = ScrollController();
+  // Keep the selected calendar mode/month when its viewport changes shape.
+  final _calendarKey = GlobalKey();
 
   @override
   void initState() {
@@ -101,36 +98,8 @@ class _JourneyBodyState extends State<JourneyBody> {
       controller: _journeyListScrollController,
       padding: const EdgeInsets.only(right: 12, bottom: 20),
       itemCount: _controller.journeyHeaders.length,
-      itemBuilder: (context, index) {
-        final header = _controller.journeyHeaders[index];
-        return LabelTile(
-          label: header.start != null
-              ? timeFormat.format(header.start!.toLocal())
-              : header.journeyDate.toSimpleDate().toString(),
-          prefix: Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: Container(
-              width: 34,
-              height: 34,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: context.appColors.softGreen,
-                borderRadius: BorderRadius.circular(11),
-              ),
-              child: JourneyKindIcon(
-                kind: header.journeyKind,
-                color: context.appColors.deepGreen,
-                size: 18,
-              ),
-            ),
-          ),
-          trailing: LabelTileContent(showArrow: true),
-          onTap: () async {
-            AppHaptics.selection();
-            await widget.onJourneySelected(header);
-          },
-        );
-      },
+      itemBuilder: (context, index) =>
+          _buildJourneyRow(context, index, timeFormat),
     );
 
     return ScrollbarTheme(
@@ -156,55 +125,68 @@ class _JourneyBodyState extends State<JourneyBody> {
     );
   }
 
+  Widget _buildJourneyRow(
+    BuildContext context,
+    int index,
+    DateFormat timeFormat,
+  ) {
+    final header = _controller.journeyHeaders[index];
+    return LabelTile(
+      label: header.start != null
+          ? timeFormat.format(header.start!.toLocal())
+          : header.journeyDate.toSimpleDate().toString(),
+      prefix: Padding(
+        padding: const EdgeInsets.only(right: 12),
+        child: Container(
+          width: 34,
+          height: 34,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: context.appColors.softGreen,
+            borderRadius: BorderRadius.circular(11),
+          ),
+          child: JourneyKindIcon(
+            kind: header.journeyKind,
+            color: context.appColors.deepGreen,
+            size: 18,
+          ),
+        ),
+      ),
+      trailing: LabelTileContent(showArrow: true),
+      onTap: () async {
+        AppHaptics.selection();
+        await widget.onJourneySelected(header);
+      },
+    );
+  }
+
+  Widget _calendar(SimpleDate firstDate) => _CalendarSurface(
+    child: JourneyListCalendar(
+      key: _calendarKey,
+      controller: _controller,
+      firstDate: firstDate,
+      fitLabels: true,
+    ),
+  );
+
+  List<Widget> _portraitHeader(SimpleDate firstDate) => [
+    _calendar(firstDate),
+    const SizedBox(height: 10),
+    Text(
+      context.tr('journey.records_title'),
+      style: AppTypography.itemTitle.copyWith(
+        color: context.appColors.inkColor,
+        fontWeight: FontWeight.w700,
+      ),
+    ),
+    const SizedBox(height: 6),
+  ];
+
   void _showAllJourneyKinds() {
     unawaited(
       GlobalLoadingManager.instance.runWithLoading(
         _controller.showAllJourneyKinds,
       ),
-    );
-  }
-
-  Widget _buildLandscapeBody(SimpleDate firstDate) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final availableWidth =
-            constraints.maxWidth -
-            _landscapeContentPadding * 2 -
-            _landscapeColumnGap;
-        final preferredCalendarWidth = availableWidth * 0.42;
-        final maxCalendarWidth = (availableWidth - _landscapeListMinWidth)
-            .clamp(0.0, _landscapeCalendarMaxWidth)
-            .toDouble();
-        final minCalendarWidth = maxCalendarWidth < _landscapeCalendarMinWidth
-            ? maxCalendarWidth
-            : _landscapeCalendarMinWidth;
-        final calendarWidth = preferredCalendarWidth
-            .clamp(minCalendarWidth, maxCalendarWidth)
-            .toDouble();
-
-        return Padding(
-          padding: const EdgeInsets.all(_landscapeContentPadding),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              SizedBox(
-                width: calendarWidth,
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.only(bottom: 20),
-                  child: _CalendarSurface(
-                    child: JourneyListCalendar(
-                      controller: _controller,
-                      firstDate: firstDate,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: _landscapeColumnGap),
-              Expanded(child: _buildJourneyHeaderList()),
-            ],
-          ),
-        );
-      },
     );
   }
 
@@ -214,8 +196,6 @@ class _JourneyBodyState extends State<JourneyBody> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    final isLandscape =
-        MediaQuery.orientationOf(context) == Orientation.landscape;
     final firstDate = _controller.firstDate;
     if (firstDate == null) {
       return const Padding(
@@ -224,33 +204,59 @@ class _JourneyBodyState extends State<JourneyBody> {
       );
     }
 
-    if (isLandscape) {
-      return _buildLandscapeBody(firstDate);
-    }
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _CalendarSurface(
-            child: JourneyListCalendar(
-              controller: _controller,
-              firstDate: firstDate,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // A calendar and a useful list column must both fit this card.
+        if (constraints.maxWidth > constraints.maxHeight &&
+            constraints.maxWidth >= 320 + 240 + 16 + 32) {
+          final calendarWidth = (constraints.maxWidth - 48 - 240).clamp(
+            320.0,
+            360.0,
+          );
+          return Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SizedBox(
+                  width: calendarWidth,
+                  child: SingleChildScrollView(child: _calendar(firstDate)),
+                ),
+                const SizedBox(width: 16),
+                Expanded(child: _buildJourneyHeaderList()),
+              ],
             ),
+          );
+        }
+        const padding = EdgeInsets.fromLTRB(12, 10, 12, 0);
+        return Padding(
+          padding: padding,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              ConstrainedBox(
+                // Keep the natural calendar height and a reachable list row.
+                // Only the header scrolls if the local viewport is too short.
+                constraints: BoxConstraints(
+                  maxHeight: math.max(
+                    0,
+                    constraints.maxHeight -
+                        padding.vertical -
+                        kMinInteractiveDimension,
+                  ),
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: _portraitHeader(firstDate),
+                  ),
+                ),
+              ),
+              Expanded(child: _buildJourneyHeaderList()),
+            ],
           ),
-          const SizedBox(height: 10),
-          Text(
-            context.tr('journey.records_title'),
-            style: AppTypography.itemTitle.copyWith(
-              color: context.appColors.inkColor,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Expanded(child: _buildJourneyHeaderList()),
-        ],
-      ),
+        );
+      },
     );
   }
 }

@@ -50,7 +50,7 @@ class _DatabaseVersionTooNewGateState extends State<DatabaseVersionTooNewGate> {
       barrierDismissible: false,
       builder: (dialogContext) => PopScope(
         canPop: false,
-        child: AppDialogCard(
+        child: AppDialogContent(
           title: dialogContext.tr('startup_error.title'),
           actions: AppButton(
             label: dialogContext.tr(

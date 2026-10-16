@@ -1,11 +1,10 @@
 import 'package:country_flags/country_flags.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:memolanes/common/component/custom_popup.dart';
+import 'package:memolanes/common/component/app_menu.dart';
 import 'package:memolanes/constants/app_typography.dart';
 import 'package:memolanes/src/rust/achievement/region.dart';
 import 'package:memolanes/theme/app_colors.dart';
-import 'package:pointer_interceptor/pointer_interceptor.dart';
 
 export 'package:memolanes/common/achievement_stats_store.dart'
     show AchievementAreaStats;
@@ -99,10 +98,6 @@ String _formatNumberWithinDigits(double value) {
 
 String formatPercent(double value, {int fractionDigits = 1}) {
   return '${(value * 100).toStringAsFixed(fractionDigits)}%';
-}
-
-bool useCompactAchievementCardLayout(BuildContext context) {
-  return MediaQuery.sizeOf(context).width < 470;
 }
 
 class AchievementCountryFlag extends StatelessWidget {
@@ -233,26 +228,23 @@ class AchievementCardTitleRow extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 4),
-        CustomPopup(
-          position: PopupPosition.top,
-          verticalOffset: 8,
-          contentRadius: 16,
-          backgroundColorBuilder: (context) => context.appColors.surfaceColor,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 12,
-            vertical: 10,
-          ),
-          barrierColor: Colors.transparent,
-          contentBuilder: (context) => PointerInterceptor(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 260),
-              child: Text(
-                info,
-                style: AppTypography.supporting.copyWith(
-                  color: context.appColors.inkColor,
-                ),
+        AppMenu(
+          menuBuilder: (context) => ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 260),
+            child: Text(
+              info,
+              style: AppTypography.supporting.copyWith(
+                color: context.appColors.inkColor,
               ),
             ),
+          ),
+          position: AppMenuPosition.top,
+          offset: const Offset(0, 8),
+          surfaceBuilder: (context, child) => AppMenuSurface(
+            radius: 16,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            backgroundColor: context.appColors.surfaceColor,
+            child: child,
           ),
           child: Padding(
             padding: const EdgeInsets.only(top: 1),
@@ -310,5 +302,40 @@ class AchievementProgressLine extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// Placeholder geometry shared by achievement cards and region lists.
+class AchievementSkeletonBlock extends StatelessWidget {
+  const AchievementSkeletonBlock({
+    super.key,
+    required this.width,
+    required this.height,
+    this.radius = 6,
+    this.alignment,
+    this.backgroundAlpha,
+  });
+
+  final double width;
+  final double height;
+  final double radius;
+  final Alignment? alignment;
+  final double? backgroundAlpha;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = context.appColors.lineColor;
+    final block = DecoratedBox(
+      decoration: BoxDecoration(
+        color: backgroundAlpha == null
+            ? color
+            : color.withValues(alpha: backgroundAlpha),
+        borderRadius: BorderRadius.circular(radius),
+      ),
+      child: SizedBox(width: width, height: height),
+    );
+    return alignment == null
+        ? block
+        : Align(alignment: alignment!, child: block);
   }
 }

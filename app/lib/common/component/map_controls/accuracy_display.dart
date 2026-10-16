@@ -6,7 +6,8 @@ import 'package:memolanes/theme/app_colors.dart';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:memolanes/common/component/custom_popup.dart';
+import 'package:memolanes/common/component/app_menu.dart';
+import 'package:memolanes/common/component/map_controls/map_popup_surface.dart';
 import 'package:memolanes/common/component/liquid_glass_surface.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/constants/app_typography.dart';
@@ -37,40 +38,15 @@ class AccuracyDisplay extends StatelessWidget {
 
           if (!hasData) return button;
 
-          return CustomPopup(
-            position: PopupPosition.left,
-            horizontalOffset: -16,
-            contentRadius: 24,
-            barrierColor: Colors.transparent,
-            contentDecorationBuilder: _popupDecoration,
-            content: PointerInterceptor(child: const _AccuracyPopupContent()),
+          return AppMenu(
+            menuBuilder: (_) => const _AccuracyPopupContent(),
+            position: AppMenuPosition.side,
+            offset: const Offset(16, 0),
+            surfaceBuilder: (_, child) => MapPopupSurface(child: child),
             child: button,
           );
         },
       ),
-    );
-  }
-
-  BoxDecoration _popupDecoration(BuildContext context) {
-    return BoxDecoration(
-      color: context.appColors.glassColor.withValues(
-        alpha: context.appColors.mapPopupBackgroundAlpha,
-      ),
-      borderRadius: BorderRadius.circular(24),
-      border: Border.all(
-        color: context.appColors.glassBorderColor.withValues(
-          alpha: context.appColors.mapPopupBorderAlpha,
-        ),
-      ),
-      boxShadow: [
-        BoxShadow(
-          color: context.appColors.shadowColor.withValues(
-            alpha: context.appColors.mapPopupShadowAlpha,
-          ),
-          blurRadius: 22,
-          offset: const Offset(0, 8),
-        ),
-      ],
     );
   }
 }
@@ -178,12 +154,8 @@ class _AccuracyPopupContent extends StatelessWidget {
       builder: (context, gpsState, child) {
         final position = gpsState.latestPosition;
         if (position == null) {
-          final route = ModalRoute.of(context);
-          // Close this popup after the build, preserving any dialog above it.
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (context.mounted && route != null && route.isActive) {
-              route.navigator?.removeRoute(route);
-            }
+            if (context.mounted) MenuController.maybeOf(context)?.close();
           });
           return const SizedBox.shrink();
         }
@@ -192,7 +164,7 @@ class _AccuracyPopupContent extends StatelessWidget {
         final statusColor = getStatusColor(context.appColors, accuracyLevel);
 
         return GestureDetector(
-          onTap: () => Navigator.of(context).pop(),
+          onTap: () => MenuController.maybeOf(context)?.close(),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,

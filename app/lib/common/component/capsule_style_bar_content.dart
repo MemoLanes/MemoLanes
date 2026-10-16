@@ -1,19 +1,19 @@
 import 'package:memolanes/theme/app_colors.dart';
 import 'package:flutter/material.dart';
-import 'package:memolanes/common/component/custom_popup.dart';
+import 'package:memolanes/common/component/back_button_target.dart';
+import 'package:memolanes/common/component/app_menu.dart';
 import 'package:memolanes/common/component/liquid_glass_surface.dart';
 import 'package:memolanes/common/component/map_glass_back_button.dart';
 import 'package:memolanes/constants/app_typography.dart';
 import 'package:memolanes/constants/style_constants.dart';
-import 'package:pointer_interceptor/pointer_interceptor.dart';
 
 enum CapsuleBarSurfaceStyle { solid, mapGlass }
 
 class CapsuleBarConstants {
   CapsuleBarConstants._();
 
-  static const double barContentHeight = 48.0;
-  static const double barBottomInset = 4.0;
+  static const double barContentHeight = StyleConstants.overlayBarContentHeight;
+  static const double barBottomInset = StyleConstants.overlayBarBottomInset;
   static const double maxSafeTop = 80.0;
   static const double pillRadius = 18.0;
   static const double iconButtonSize = 36.0;
@@ -36,6 +36,7 @@ class CapsuleBarContent extends StatelessWidget {
     this.subtitleFg,
     this.surfaceStyle = CapsuleBarSurfaceStyle.solid,
     this.showTitleBackground = true,
+    this.showBackButton = true,
   });
 
   final bool showOnlyBackButton;
@@ -44,7 +45,7 @@ class CapsuleBarContent extends StatelessWidget {
   final VoidCallback? onBack;
   final VoidCallback? onMoreTap;
 
-  /// If set, the more button is wrapped with [CustomPopup] and shows this content on tap.
+  /// If set, the more button is wrapped with [AppMenu] and shows this content on tap.
   final Widget? moreMenuContent;
   final Widget? moreIcon;
   final Color? foregroundColor;
@@ -52,6 +53,7 @@ class CapsuleBarContent extends StatelessWidget {
   final Color? subtitleFg;
   final CapsuleBarSurfaceStyle surfaceStyle;
   final bool showTitleBackground;
+  final bool showBackButton;
 
   Color _fg(BuildContext context) =>
       foregroundColor ?? context.appColors.inkColor;
@@ -59,6 +61,23 @@ class CapsuleBarContent extends StatelessWidget {
       pillColor ?? context.appColors.surfaceColor;
   Color _subFg(BuildContext context) =>
       subtitleFg ?? context.appColors.mutedInkColor;
+
+  /// The same back visual/callback can also occupy a detached primary navigation column.
+  Widget buildBackButton(
+    BuildContext context, {
+    bool expandedTouchTarget = false,
+  }) {
+    final callback = onBack ?? () => Navigator.maybePop(context);
+    final button = surfaceStyle == CapsuleBarSurfaceStyle.mapGlass
+        ? MapGlassBackButton(onPressed: callback)
+        : _pillButton(
+            context,
+            const Icon(Icons.arrow_back_ios_new, size: 20),
+            callback,
+          );
+    if (!expandedTouchTarget) return button;
+    return BackButtonTarget(onPressed: callback, child: button);
+  }
 
   Widget _pillButton(
     BuildContext context,
@@ -149,7 +168,6 @@ class CapsuleBarContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final onBackCallback = onBack ?? () => Navigator.maybePop(context);
     final safeAreaPadding = MediaQuery.paddingOf(context);
     return SizedBox(
       height: CapsuleBarConstants.barContentHeight,
@@ -160,29 +178,31 @@ class CapsuleBarContent extends StatelessWidget {
         ),
         child: Row(
           children: [
-            if (surfaceStyle == CapsuleBarSurfaceStyle.mapGlass)
-              MapGlassBackButton(onPressed: onBackCallback)
+            if (showBackButton)
+              buildBackButton(context)
             else
-              _pillButton(
-                context,
-                const Icon(Icons.arrow_back_ios_new, size: 20),
-                onBackCallback,
+              SizedBox(
+                width: surfaceStyle == CapsuleBarSurfaceStyle.mapGlass
+                    ? 42
+                    : CapsuleBarConstants.iconButtonSize,
               ),
             if (!showOnlyBackButton) ...[
               const SizedBox(width: 12),
               Expanded(child: Center(child: _titlePill(context))),
               const SizedBox(width: 12),
               if (moreMenuContent != null)
-                CustomPopup(
-                  position: PopupPosition.bottom,
-                  contentRadius: StyleConstants.overlayFloatingRadius,
-                  barrierColor: Colors.transparent,
-                  backgroundColorBuilder: _pill,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
+                AppMenu(
+                  menuBuilder: (_) => moreMenuContent!,
+                  position: AppMenuPosition.bottom,
+                  surfaceBuilder: (context, child) => AppMenuSurface(
+                    radius: StyleConstants.overlayFloatingRadius,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    backgroundColor: _pill(context),
+                    child: child,
                   ),
-                  content: PointerInterceptor(child: moreMenuContent!),
                   child: _pillButton(
                     context,
                     moreIcon ?? const Icon(Icons.more_horiz, size: 24),

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:memolanes/common/app_layout.dart';
 import 'package:memolanes/theme/app_colors.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
@@ -154,7 +155,10 @@ class GlobalLoadingOverlay extends StatelessWidget {
                           context.appColors.darkProgress,
                         )!,
                       ),
-                      const Center(child: _DefaultLoadingCard()),
+                      const AppModalRegion(
+                        useSafeArea: false,
+                        child: Center(child: _DefaultLoadingCard()),
+                      ),
                     ],
                   ),
                 ),

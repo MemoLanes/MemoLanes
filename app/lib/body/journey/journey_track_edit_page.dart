@@ -9,6 +9,8 @@ import 'package:memolanes/body/journey/editor/top_persistent_toast.dart';
 import 'package:memolanes/common/component/capsule_style_overlay_app_bar.dart';
 import 'package:memolanes/common/component/capsule_style_bar_content.dart';
 import 'package:memolanes/common/log.dart';
+import 'package:memolanes/common/app_layout.dart';
+import 'package:memolanes/common/component/map_overlay_panel.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/api/edit_session.dart'
@@ -456,49 +458,53 @@ class _JourneyTrackEditPageState extends State<JourneyTrackEditPage> {
         Navigator.of(context).pop(result);
       },
       child: Scaffold(
-        body: Stack(
-          children: [
-            if (_mapRendererProxy != null)
-              Listener(
-                onPointerDown: (_) => _dismissDrawModeMenu(),
-                child: JourneyEditorMapView(
-                  key: _mapWebviewKey,
-                  mapRendererProxy: _mapRendererProxy!,
-                  initialMapBounds: _initialMapBounds,
-                  onSelectionBox: _onSelectionBox,
-                  onDrawPath: _onDrawPath,
-                  onMapZoomChanged: _handleMapZoomUpdate,
+        body: AppLayoutBuilder(
+          builder: (context, layout) {
+            return Stack(
+              children: [
+                if (_mapRendererProxy != null)
+                  Listener(
+                    onPointerDown: (_) => _dismissDrawModeMenu(),
+                    child: JourneyEditorMapView(
+                      key: _mapWebviewKey,
+                      mapRendererProxy: _mapRendererProxy!,
+                      initialMapBounds: _initialMapBounds,
+                      onSelectionBox: _onSelectionBox,
+                      onDrawPath: _onDrawPath,
+                      onMapZoomChanged: _handleMapZoomUpdate,
+                    ),
+                  )
+                else
+                  const Center(child: CircularProgressIndicator()),
+                CapsuleStyleOverlayAppBar.overlayBar(
+                  title: context.tr("journey.editor.page_title"),
+                  surfaceStyle: CapsuleBarSurfaceStyle.mapGlass,
                 ),
-              )
-            else
-              const Center(child: CircularProgressIndicator()),
-            CapsuleStyleOverlayAppBar.overlayBar(
-              title: context.tr("journey.editor.page_title"),
-              surfaceStyle: CapsuleBarSurfaceStyle.mapGlass,
-            ),
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: SafeArea(
-                minimum: const EdgeInsets.all(ModeSwitchBar.safeAreaMinimum),
-                child: PointerInterceptor(
-                  child: ModeSwitchBar(
-                    currentMode: _mode,
-                    onModeChanged: _handleModeChange,
-                    currentDrawMode: _isLinkedDrawEnabled
-                        ? DrawEntryMode.linked
-                        : DrawEntryMode.freehand,
-                    isDrawMenuOpen: _isDrawModeMenuOpen,
-                    onDrawPressed: _handleDrawToolPressed,
-                    onDrawModeChanged: _handleDrawEntrySelected,
-                    onUndo: _canUndo && !_operationInProgress ? _undo : null,
-                    onSave: _canUndo && !_operationInProgress ? _save : null,
+                MapOverlayPanel.toolbar(
+                  minimumHeight:
+                      ModeSwitchBar.preferredHeight(
+                        isDrawMenuOpen: _isDrawModeMenuOpen,
+                      ) +
+                      ModeSwitchBar.safeAreaMinimum * 2,
+                  minimumPadding: ModeSwitchBar.safeAreaMinimum,
+                  child: PointerInterceptor(
+                    child: ModeSwitchBar(
+                      currentMode: _mode,
+                      onModeChanged: _handleModeChange,
+                      currentDrawMode: _isLinkedDrawEnabled
+                          ? DrawEntryMode.linked
+                          : DrawEntryMode.freehand,
+                      isDrawMenuOpen: _isDrawModeMenuOpen,
+                      onDrawPressed: _handleDrawToolPressed,
+                      onDrawModeChanged: _handleDrawEntrySelected,
+                      onUndo: _canUndo && !_operationInProgress ? _undo : null,
+                      onSave: _canUndo && !_operationInProgress ? _save : null,
+                    ),
                   ),
                 ),
-              ),
-            ),
-          ],
+              ],
+            );
+          },
         ),
       ),
     );
