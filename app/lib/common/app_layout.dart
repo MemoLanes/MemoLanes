@@ -348,15 +348,26 @@ class AppLayout {
     size.height - bounds.bottom,
   );
 
-  /// Menus use remaining padding (unlike persistent map cards, which retain
-  /// physical view padding) and clear the full keyboard rectangle.
-  Rect menuRegionFor(Offset anchor, {Size? overlaySize}) => _usesRegions
-      ? regionFor(anchor)
-      : _media.padding.deflateRect(
-          _media.viewInsets.deflateRect(
-            Offset.zero & (overlaySize ?? _media.size),
-          ),
-        );
+  /// Menus clear hardware, the keyboard and the host page's navigation bounds.
+  /// The host supplies its actual navigation geometry when menus use the full
+  /// Navigator overlay rather than that page's content viewport.
+  Rect menuRegionFor(
+    Offset anchor, {
+    Size? overlaySize,
+    Rect? navigationBounds,
+  }) {
+    final bounds = _usesRegions
+        ? regionFor(anchor)
+        : _media.padding.deflateRect(
+            _media.viewInsets.deflateRect(
+              Offset.zero & (overlaySize ?? _media.size),
+            ),
+          );
+    return _nearest(
+      _clearRegions(bounds, [navigationBounds ?? this.navigationBounds]),
+      anchor,
+    );
+  }
 
   /// One width budget for page content, map cards and Wolt dialogs.
   static BoxConstraints contentConstraints(

@@ -146,7 +146,11 @@ class _AppMenuState extends State<AppMenu> {
       ),
     );
     final bounds = widget.margin.deflateRect(
-      layout.menuRegionFor(_anchor.center, overlaySize: size),
+      layout.menuRegionFor(
+        _anchor.center,
+        overlaySize: size,
+        navigationBounds: AppLayoutScope.maybeOf(context)?.navigationBounds,
+      ),
     );
     final above =
         widget.position == AppMenuPosition.top ||
@@ -169,8 +173,7 @@ class _AppMenuState extends State<AppMenu> {
       AppMenuPosition.auto => Alignment(rtl ? 1 : -1, above ? -1 : 1),
       _ => above ? Alignment.topCenter : Alignment.bottomCenter,
     };
-    // MenuAnchor aligns starting edges. Translate existing centered/side
-    // attachment into its offset; the SDK owns final positioning and clamping.
+    // Translate centered/side attachment into MenuAnchor's alignment offset.
     final offset = switch (widget.position) {
       AppMenuPosition.side => Offset(
         (left ? -_menuSize.width - widget.offset.dx : widget.offset.dx) +
@@ -185,80 +188,93 @@ class _AppMenuState extends State<AppMenu> {
         above ? -_menuSize.height - widget.offset.dy : widget.offset.dy,
       ),
     };
+    // MenuAnchor limits size using reservedPadding, but positions against the
+    // root overlay's safe area. Keep its target inside our clear region too.
+    final origin =
+        alignment.withinRect(_anchor) +
+        offset -
+        Offset(rtl ? _menuSize.width : 0, 0);
+    final clampedOrigin = Offset(
+      origin.dx.clamp(
+        bounds.left,
+        math.max(bounds.left, bounds.right - _menuSize.width),
+      ),
+      origin.dy.clamp(
+        bounds.top,
+        math.max(bounds.top, bounds.bottom - _menuSize.height),
+      ),
+    );
     final padding = EdgeInsets.fromLTRB(
       bounds.left,
       bounds.top,
       math.max(0, size.width - bounds.right),
       math.max(0, size.height - bounds.bottom),
     );
-    return MediaQuery(
-      data: media.copyWith(padding: padding, viewInsets: EdgeInsets.zero),
-      child: MenuAnchor(
-        animated: true,
-        controller: _controller,
-        clipBehavior: Clip.none,
-        crossAxisUnconstrained: false,
-        consumeOutsideTap: true,
-        reservedPadding: padding,
-        alignmentOffset: offset,
-        style: MenuStyle(
-          alignment: alignment,
-          padding: const WidgetStatePropertyAll(EdgeInsets.zero),
-          visualDensity: VisualDensity.standard,
-          backgroundColor: const WidgetStatePropertyAll(Colors.transparent),
-          surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
-          elevation: const WidgetStatePropertyAll(0),
-        ).merge(widget.style),
-        onOpen: _opened,
-        onClose: _closed,
-        onAnimationStatusChanged: (status) => _animationStatus = status,
-        builder: (_, controller, child) => GestureDetector(
-          behavior: HitTestBehavior.translucent,
-          onTap: () => _animationStatus.isForwardOrCompleted
-              ? controller.close()
-              : controller.open(),
-          child: child,
-        ),
-        menuChildren: [
-          NotificationListener<SizeChangedLayoutNotification>(
-            onNotification: (_) {
-              _schedulePlacement();
-              return false;
-            },
-            child: SizeChangedLayoutNotifier(
-              key: _menuKey,
-              child: Builder(
-                builder: (context) {
-                  final content = SingleChildScrollView(
-                    primary: false,
-                    child: widget.menuBuilder(context),
-                  );
-                  // The SDK scrolls menu items. Our glass surface stays fixed
-                  // while a long custom item scrolls inside its rounded border.
-                  return ConstrainedBox(
-                    constraints: BoxConstraints(maxHeight: maxHeight),
-                    child: Focus(
-                      autofocus: true,
-                      child: Semantics(
-                        scopesRoute: true,
-                        explicitChildNodes: true,
-                        namesRoute: true,
-                        label: MaterialLocalizations.of(context).popupMenuLabel,
-                        child: PointerInterceptor(
-                          child:
-                              widget.surfaceBuilder?.call(context, content) ??
-                              AppMenuSurface(child: content),
-                        ),
+    return MenuAnchor(
+      animated: true,
+      controller: _controller,
+      clipBehavior: Clip.none,
+      crossAxisUnconstrained: false,
+      consumeOutsideTap: true,
+      reservedPadding: padding,
+      alignmentOffset: offset + clampedOrigin - origin,
+      style: MenuStyle(
+        alignment: alignment,
+        padding: const WidgetStatePropertyAll(EdgeInsets.zero),
+        visualDensity: VisualDensity.standard,
+        backgroundColor: const WidgetStatePropertyAll(Colors.transparent),
+        surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
+        elevation: const WidgetStatePropertyAll(0),
+      ).merge(widget.style),
+      onOpen: _opened,
+      onClose: _closed,
+      onAnimationStatusChanged: (status) => _animationStatus = status,
+      builder: (_, controller, child) => GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: () => _animationStatus.isForwardOrCompleted
+            ? controller.close()
+            : controller.open(),
+        child: child,
+      ),
+      menuChildren: [
+        NotificationListener<SizeChangedLayoutNotification>(
+          onNotification: (_) {
+            _schedulePlacement();
+            return false;
+          },
+          child: SizeChangedLayoutNotifier(
+            key: _menuKey,
+            child: Builder(
+              builder: (context) {
+                final content = SingleChildScrollView(
+                  primary: false,
+                  child: widget.menuBuilder(context),
+                );
+                // The SDK scrolls menu items. Our glass surface stays fixed
+                // while a long custom item scrolls inside its rounded border.
+                return ConstrainedBox(
+                  constraints: BoxConstraints(maxHeight: maxHeight),
+                  child: Focus(
+                    autofocus: true,
+                    child: Semantics(
+                      scopesRoute: true,
+                      explicitChildNodes: true,
+                      namesRoute: true,
+                      label: MaterialLocalizations.of(context).popupMenuLabel,
+                      child: PointerInterceptor(
+                        child:
+                            widget.surfaceBuilder?.call(context, content) ??
+                            AppMenuSurface(child: content),
                       ),
                     ),
-                  );
-                },
-              ),
+                  ),
+                );
+              },
             ),
           ),
-        ],
-        child: widget.child,
-      ),
+        ),
+      ],
+      child: widget.child,
     );
   }
 }

@@ -23,6 +23,7 @@ import 'package:memolanes/common/component/app_calendar_mode_picker.dart';
 import 'package:memolanes/common/component/bottom_nav_bar.dart';
 import 'package:memolanes/common/component/liquid_glass_surface.dart';
 import 'package:memolanes/common/component/map_controls/layer_button.dart';
+import 'package:memolanes/common/component/map_controls/map_popup_surface.dart';
 import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/duo_device.dart';
 import 'package:memolanes/common/app_layout.dart';
@@ -321,9 +322,27 @@ void main() {
     expect(tester.takeException(), isNull);
   }, variant: const TargetPlatformVariant({TargetPlatform.iOS}));
 
-  testWidgets('open layer popup follows book and tabletop folds', (
+  testWidgets('open layer popup clears navigation and follows native folds', (
     tester,
   ) async {
+    final landscape = await _pumpScene(
+      tester,
+      const _Viewport('landscape', Size(852, 793), DuoBarEdge.unknown),
+      _OverlayMode.record,
+    );
+    await tester.tap(find.byType(LayerButton));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .getRect(find.byType(MapPopupSurface))
+          .overlaps(landscape.navigationBounds),
+      isFalse,
+      reason:
+          'Popup ${tester.getRect(find.byType(MapPopupSurface))} must clear '
+          'navigation ${landscape.navigationBounds}',
+    );
+    await tester.tap(find.byType(LayerButton));
+    await tester.pumpAndSettle();
     final layout = await _pumpScene(
       tester,
       _viewports.firstWhere((v) => v.name == 'book'),
@@ -331,8 +350,9 @@ void main() {
     );
     await tester.tap(find.byType(LayerButton));
     await tester.pumpAndSettle();
-    final popup = tester.getRect(find.byType(LayerPopupContent));
+    final popup = tester.getRect(find.byType(MapPopupSurface));
     expect(layout.regions.any((region) => _contains(region, popup)), isTrue);
+    expect(popup.overlaps(layout.navigationBounds), isFalse);
     expect(
       popup.overlaps(
         _viewports.firstWhere((v) => v.name == 'book').regions.single.frame,
@@ -344,11 +364,12 @@ void main() {
       _viewports.firstWhere((v) => v.name == 'tabletop'),
       _OverlayMode.record,
     );
-    final movedPopup = tester.getRect(find.byType(LayerPopupContent));
+    final movedPopup = tester.getRect(find.byType(MapPopupSurface));
     expect(
       tabletopLayout.regions.any((region) => _contains(region, movedPopup)),
       isTrue,
     );
+    expect(movedPopup.overlaps(tabletopLayout.navigationBounds), isFalse);
     expect(
       movedPopup.overlaps(
         _viewports.firstWhere((v) => v.name == 'tabletop').regions.single.frame,
