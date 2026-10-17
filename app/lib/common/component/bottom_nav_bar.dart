@@ -1,9 +1,12 @@
 import 'dart:ui';
 
 import 'package:badges/badges.dart' as badges;
+import 'package:easy_localization/easy_localization.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:memolanes/common/app_haptics.dart';
 import 'package:memolanes/common/component/liquid_glass_surface.dart';
+import 'package:memolanes/common/component/app_dialog.dart';
+import 'package:memolanes/common/component/app_option_tile.dart';
 import 'package:memolanes/constants/style_constants.dart';
 import 'package:memolanes/theme/app_colors.dart';
 
@@ -13,25 +16,62 @@ class BottomNavBar extends StatelessWidget {
     required this.selectedIndex,
     required this.onIndexChanged,
     required this.hasUpdateNotification,
+    this.axis = Axis.horizontal,
   });
 
   final int selectedIndex;
   final ValueChanged<int> onIndexChanged;
   final bool Function() hasUpdateNotification;
+  final Axis axis;
 
   static const double height = StyleConstants.navBarHeight;
-  static const double designHorizontalMargin = 24;
 
-  Alignment get _selectionAlignment => switch (selectedIndex) {
-    0 => Alignment.centerLeft,
-    1 => const Alignment(-0.5, 0),
-    2 => Alignment.center,
-    3 => const Alignment(0.5, 0),
-    _ => Alignment.centerRight,
-  };
+  static const _icons = [
+    (Icons.explore_outlined, Icons.explore_rounded),
+    (Icons.access_time_rounded, Icons.history_rounded),
+    (Icons.route_outlined, Icons.route),
+    (Icons.emoji_events_outlined, Icons.emoji_events_rounded),
+    (Icons.settings_outlined, Icons.settings_rounded),
+  ];
+  static const _labels = [
+    'record',
+    'timeline',
+    'journeys',
+    'achievements',
+    'settings',
+  ];
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final extent = axis == Axis.horizontal
+          ? constraints.maxWidth
+          : constraints.maxHeight;
+      final count = (extent / 44).floor().clamp(1, 5);
+      final slots = count == 5
+          ? [0, 1, 2, 3, 4]
+          : [for (var i = 0; i < count - 1; i++) i, -1];
+      final selected = slots.contains(selectedIndex)
+          ? slots.indexOf(selectedIndex)
+          : slots.indexOf(-1);
+      final position = slots.length == 1
+          ? 0.0
+          : -1 + selected * 2 / (slots.length - 1);
+      return _buildBar(
+        context,
+        slots,
+        axis == Axis.horizontal
+            ? Alignment(position, 0)
+            : Alignment(0, position),
+      );
+    },
+  );
+
+  Widget _buildBar(
+    BuildContext context,
+    List<int> slots,
+    Alignment selectionAlignment,
+  ) {
     final darkProgress = context.appColors.darkProgress;
     final glowEdge = Color.lerp(
       Colors.white,
@@ -58,13 +98,21 @@ class BottomNavBar extends StatelessWidget {
         fit: StackFit.expand,
         children: [
           Positioned(
-            left: 42,
-            right: 42,
-            bottom: 1,
-            height: 1,
+            left: axis == Axis.horizontal ? 42 : null,
+            right: axis == Axis.horizontal ? 42 : 1,
+            top: axis == Axis.vertical ? 42 : null,
+            bottom: axis == Axis.horizontal ? 1 : 42,
+            height: axis == Axis.horizontal ? 1 : null,
+            width: axis == Axis.vertical ? 1 : null,
             child: DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
+                  begin: axis == Axis.horizontal
+                      ? Alignment.centerLeft
+                      : Alignment.topCenter,
+                  end: axis == Axis.horizontal
+                      ? Alignment.centerRight
+                      : Alignment.bottomCenter,
                   colors: [glowEdge, glowCenter, glowEdge],
                 ),
               ),
@@ -73,7 +121,7 @@ class BottomNavBar extends StatelessWidget {
           AnimatedAlign(
             duration: const Duration(milliseconds: 460),
             curve: Curves.easeOutCubic,
-            alignment: _selectionAlignment,
+            alignment: selectionAlignment,
             child: TweenAnimationBuilder<double>(
               key: ValueKey(selectedIndex),
               tween: Tween(begin: 0, end: 1),
@@ -102,8 +150,8 @@ class BottomNavBar extends StatelessWidget {
                 );
               },
               child: FractionallySizedBox(
-                widthFactor: 0.2,
-                heightFactor: 1,
+                widthFactor: axis == Axis.horizontal ? 1 / slots.length : 1,
+                heightFactor: axis == Axis.horizontal ? 1 : 1 / slots.length,
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 4,
@@ -138,33 +186,17 @@ class BottomNavBar extends StatelessWidget {
           ),
           Material(
             color: Colors.transparent,
-            child: Row(
+            child: Flex(
+              direction: axis,
               children: [
-                _buildNavItem(
-                  context,
-                  Icons.explore_outlined,
-                  Icons.explore_rounded,
-                  0,
-                ),
-                _buildNavItem(
-                  context,
-                  Icons.access_time_rounded,
-                  Icons.history_rounded,
-                  1,
-                ),
-                _buildNavItem(context, Icons.route_outlined, Icons.route, 2),
-                _buildNavItem(
-                  context,
-                  Icons.emoji_events_outlined,
-                  Icons.emoji_events_rounded,
-                  3,
-                ),
-                _buildNavItem(
-                  context,
-                  Icons.settings_outlined,
-                  Icons.settings_rounded,
-                  4,
-                ),
+                for (final index in slots)
+                  _buildNavItem(
+                    context,
+                    index < 0 ? Icons.more_horiz_rounded : _icons[index].$1,
+                    index < 0 ? Icons.more_horiz_rounded : _icons[index].$2,
+                    index,
+                    slots,
+                  ),
               ],
             ),
           ),
@@ -173,65 +205,112 @@ class BottomNavBar extends StatelessWidget {
     );
   }
 
+  Future<void> _showOverflow(BuildContext context, List<int> slots) async {
+    final index = await showAppDialog<int>(
+      context,
+      surfaceBuilder: (child) =>
+          AppDialogSurface(style: AppDialogSurfaceStyle.glass, child: child),
+      builder: (dialogContext) => AppDialogContent(
+        title: context.tr('navigation.more'),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          spacing: 8,
+          children: [
+            for (var i = 0; i < _icons.length; i++)
+              if (!slots.contains(i))
+                AppOptionTile(
+                  icon: _icons[i].$1,
+                  title: context.tr('navigation.${_labels[i]}'),
+                  onTap: () => Navigator.of(dialogContext).pop(i),
+                ),
+          ],
+        ),
+      ),
+    );
+    if (index != null) onIndexChanged(index);
+  }
+
   Widget _buildNavItem(
     BuildContext context,
     IconData icon,
     IconData activeIcon,
     int index,
+    List<int> slots,
   ) {
-    final isSelected = selectedIndex == index;
+    final isSelected =
+        selectedIndex == index || (index < 0 && !slots.contains(selectedIndex));
 
-    return Expanded(
-      child: InkWell(
-        onTap: () {
-          if (!isSelected) AppHaptics.selection();
+    final item = InkWell(
+      excludeFromSemantics: true,
+      onTap: () {
+        if (!isSelected) AppHaptics.selection();
+        if (index < 0) {
+          _showOverflow(context, slots);
+        } else {
           onIndexChanged(index);
-        },
-        borderRadius: BorderRadius.circular(22),
-        child: Center(
-          child: badges.Badge(
-            showBadge: index == 4 && hasUpdateNotification(),
-            position: badges.BadgePosition.topEnd(top: -4, end: -5),
-            badgeStyle: badges.BadgeStyle(
-              badgeColor: context.appColors.warningColor,
-              padding: EdgeInsets.all(4),
-            ),
-            child: TweenAnimationBuilder<double>(
-              tween: Tween(begin: 0, end: isSelected ? 1 : 0),
-              duration: const Duration(milliseconds: 420),
-              curve: Curves.easeInOutCubic,
-              builder: (context, progress, _) {
-                // Both selecting and deselecting pass through the midpoint.
-                // Blur peaks there, hiding the glyph swap and creating a
-                // short refraction-like focus transition.
-                final blurProgress = 4 * progress * (1 - progress);
-                final blurSigma = blurProgress * 2.2;
-                final scale = 1 + progress * 0.1 + blurProgress * 0.045;
-                final color = Color.lerp(
-                  context.appColors.mutedInkColor,
-                  context.appColors.deepGreen,
-                  progress,
-                );
+        }
+      },
+      borderRadius: BorderRadius.circular(22),
+      child: Center(
+        child: badges.Badge(
+          showBadge:
+              (index == 4 || (index < 0 && !slots.contains(4))) &&
+              hasUpdateNotification(),
+          position: badges.BadgePosition.topEnd(top: -4, end: -5),
+          badgeStyle: badges.BadgeStyle(
+            badgeColor: context.appColors.warningColor,
+            padding: EdgeInsets.all(4),
+          ),
+          child: TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0, end: isSelected ? 1 : 0),
+            duration: const Duration(milliseconds: 420),
+            curve: Curves.easeInOutCubic,
+            builder: (context, progress, _) {
+              // Both selecting and deselecting pass through the midpoint.
+              // Blur peaks there, hiding the glyph swap and creating a
+              // short refraction-like focus transition.
+              final blurProgress = 4 * progress * (1 - progress);
+              final blurSigma = blurProgress * 2.2;
+              final scale = 1 + progress * 0.1 + blurProgress * 0.045;
+              final color = Color.lerp(
+                context.appColors.mutedInkColor,
+                context.appColors.deepGreen,
+                progress,
+              );
 
-                return Transform.scale(
-                  scale: scale,
-                  child: ImageFiltered(
-                    imageFilter: ImageFilter.blur(
-                      sigmaX: blurSigma,
-                      sigmaY: blurSigma,
-                      tileMode: TileMode.decal,
-                    ),
-                    child: Icon(
-                      isSelected ? activeIcon : icon,
-                      color: color,
-                      size: 27 + progress * 2,
-                    ),
+              return Transform.scale(
+                scale: scale,
+                child: ImageFiltered(
+                  imageFilter: ImageFilter.blur(
+                    sigmaX: blurSigma,
+                    sigmaY: blurSigma,
+                    tileMode: TileMode.decal,
                   ),
-                );
-              },
-            ),
+                  child: Icon(
+                    isSelected ? activeIcon : icon,
+                    color: color,
+                    size: 27 + progress * 2,
+                  ),
+                ),
+              );
+            },
           ),
         ),
+      ),
+    );
+    return Expanded(
+      child: Semantics(
+        label: context.tr('navigation.${index < 0 ? 'more' : _labels[index]}'),
+        selected: isSelected,
+        button: true,
+        onTap: () {
+          if (index < 0) {
+            _showOverflow(context, slots);
+          } else {
+            onIndexChanged(index);
+          }
+        },
+        child: item,
       ),
     );
   }

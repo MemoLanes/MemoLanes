@@ -1,8 +1,9 @@
 import 'package:memolanes/theme/app_colors.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:memolanes/body/journey/compact_journey_info_card.dart';
 import 'package:memolanes/common/component/app_option_tile.dart';
-import 'package:memolanes/common/component/basic_dialog_card.dart';
+import 'package:memolanes/common/component/app_dialog.dart';
 import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
 import 'package:memolanes/common/journey_kind_visuals.dart';
@@ -32,6 +33,7 @@ class ImportPreprocessorTile extends StatelessWidget {
     required this.value,
     required this.onSelected,
     this.onInfoTap,
+    this.compact = false,
     this.position = LabelTilePosition.single,
     this.bottom = true,
   });
@@ -39,27 +41,37 @@ class ImportPreprocessorTile extends StatelessWidget {
   final import_api.ImportPreprocessor value;
   final ValueChanged<import_api.ImportPreprocessor> onSelected;
   final VoidCallback? onInfoTap;
+  final bool compact;
   final LabelTilePosition position;
   final bool bottom;
 
   @override
   Widget build(BuildContext context) {
+    final label = context.tr('import.preprocessor.label');
+    final valueLabel = importPreprocessorLabel(context, value);
+    void showOptions() => _showOptionPicker(
+      context,
+      values: import_api.ImportPreprocessor.values,
+      selectedValue: value,
+      labelOf: (item) => importPreprocessorLabel(context, item),
+      onSelected: onSelected,
+    );
+    if (compact) {
+      return CompactJourneyInfoField(
+        icon: Icons.tune_rounded,
+        label: label,
+        value: valueLabel,
+        onTap: showOptions,
+        onInfoTap: onInfoTap,
+      );
+    }
     return LabelTile(
-      label: context.tr('import.preprocessor.label'),
+      label: label,
       infoLabelOnTap: onInfoTap,
       position: position,
       bottom: bottom,
-      trailing: LabelTileContent(
-        content: importPreprocessorLabel(context, value),
-        showArrow: true,
-      ),
-      onTap: () => _showOptionPicker(
-        context,
-        values: import_api.ImportPreprocessor.values,
-        selectedValue: value,
-        labelOf: (item) => importPreprocessorLabel(context, item),
-        onSelected: onSelected,
-      ),
+      trailing: LabelTileContent(content: valueLabel, showArrow: true),
+      onTap: showOptions,
     );
   }
 }
@@ -119,6 +131,7 @@ class JourneyNoteTile extends StatelessWidget {
   final double maxHeight;
   final int maxLines;
   final double widthFactor;
+
   final LabelTilePosition position;
   final bool bottom;
 
@@ -129,25 +142,23 @@ class JourneyNoteTile extends StatelessWidget {
       position: position,
       bottom: bottom,
       maxHeight: maxHeight,
-      trailing: SizedBox(
-        width: MediaQuery.sizeOf(context).width * widthFactor,
-        child: TextField(
-          controller: controller,
-          onTapOutside: (_) => FocusManager.instance.primaryFocus?.unfocus(),
-          keyboardType: TextInputType.multiline,
-          textInputAction: TextInputAction.newline,
-          maxLines: maxLines,
-          minLines: 1,
-          style: AppTypography.body.copyWith(color: context.appColors.inkColor),
-          decoration: InputDecoration.collapsed(
-            border: InputBorder.none,
-            hintText: context.tr('common.please_enter'),
-            hintStyle: AppTypography.body.copyWith(
-              color: context.appColors.mutedInkColor,
-            ),
+      trailingWidthFactor: widthFactor,
+      trailing: TextField(
+        controller: controller,
+        onTapOutside: (_) => FocusManager.instance.primaryFocus?.unfocus(),
+        keyboardType: TextInputType.multiline,
+        textInputAction: TextInputAction.newline,
+        maxLines: maxLines,
+        minLines: 1,
+        style: AppTypography.body.copyWith(color: context.appColors.inkColor),
+        decoration: InputDecoration.collapsed(
+          border: InputBorder.none,
+          hintText: context.tr('common.please_enter'),
+          hintStyle: AppTypography.body.copyWith(
+            color: context.appColors.mutedInkColor,
           ),
-          textAlign: TextAlign.right,
         ),
+        textAlign: TextAlign.right,
       ),
     );
   }
@@ -161,25 +172,28 @@ void _showOptionPicker<T>(
   Widget Function(BuildContext context, T value)? iconBuilder,
   required ValueChanged<T> onSelected,
 }) {
-  showBasicCard(
+  showAppDialog(
     context,
-    builder: (dialogContext) => Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        for (var i = 0; i < values.length; i++) ...[
-          if (i > 0) const SizedBox(height: 8),
-          AppOptionTile(
-            iconWidget: iconBuilder?.call(dialogContext, values[i]),
-            title: labelOf(values[i]),
-            selected: values[i] == selectedValue,
-            trailing: AppOptionTileTrailing.selection,
-            onTap: () {
-              Navigator.of(dialogContext).pop();
-              onSelected(values[i]);
-            },
-          ),
+    builder: (dialogContext) => AppDialogContent(
+      contentPadding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (var i = 0; i < values.length; i++) ...[
+            if (i > 0) const SizedBox(height: 8),
+            AppOptionTile(
+              iconWidget: iconBuilder?.call(dialogContext, values[i]),
+              title: labelOf(values[i]),
+              selected: values[i] == selectedValue,
+              trailing: AppOptionTileTrailing.selection,
+              onTap: () {
+                Navigator.of(dialogContext).pop();
+                onSelected(values[i]);
+              },
+            ),
+          ],
         ],
-      ],
+      ),
     ),
   );
 }

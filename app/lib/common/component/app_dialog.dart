@@ -1,10 +1,13 @@
 import 'dart:ui' show lerpDouble;
 
+import 'package:flutter/material.dart' as legacy show Theme;
 import 'package:material_ui/material_ui.dart';
 import 'package:memolanes/common/component/liquid_glass_surface.dart';
+import 'package:memolanes/common/app_layout.dart';
 import 'package:memolanes/constants/app_typography.dart';
 import 'package:memolanes/theme/app_colors.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
+import 'package:wolt_modal_sheet/wolt_modal_sheet.dart';
 
 enum AppDialogSurfaceStyle { solid, glass }
 
@@ -73,8 +76,8 @@ class AppDialogSurface extends StatelessWidget {
   }
 }
 
-class AppDialogCard extends StatelessWidget {
-  const AppDialogCard({
+class AppDialogContent extends StatelessWidget {
+  const AppDialogContent({
     super.key,
     required this.child,
     this.title,
@@ -82,11 +85,8 @@ class AppDialogCard extends StatelessWidget {
     this.leading,
     this.actions,
     this.showHeader = true,
-    this.surfaceStyle = AppDialogSurfaceStyle.solid,
-    this.maxHeightFactor = 0.78,
     this.contentPadding = const EdgeInsets.fromLTRB(20, 12, 20, 18),
-    this.backgroundColor,
-  }) : assert(maxHeightFactor > 0 && maxHeightFactor <= 1);
+  });
 
   final Widget child;
   final String? title;
@@ -94,74 +94,62 @@ class AppDialogCard extends StatelessWidget {
   final Widget? leading;
   final Widget? actions;
   final bool showHeader;
-  final AppDialogSurfaceStyle surfaceStyle;
-  final double maxHeightFactor;
   final EdgeInsetsGeometry contentPadding;
-  final Color? backgroundColor;
 
   @override
   Widget build(BuildContext context) {
-    return ConstrainedBox(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.sizeOf(context).height * maxHeightFactor,
-      ),
-      child: AppDialogSurface(
-        style: surfaceStyle,
-        backgroundColor: backgroundColor,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (showHeader && title != null) ...[
-              const SizedBox(height: 14),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Row(
-                  children: [
-                    SizedBox(width: 44, child: leading),
-                    Expanded(
-                      child: Text(
-                        title!,
-                        style: AppTypography.surfaceTitle.copyWith(
-                          color: context.appColors.deepGreen,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                    const SizedBox(width: 44),
-                  ],
-                ),
-              ),
-              if (subtitle != null) ...[
-                const SizedBox(height: 6),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (showHeader && title != null) ...[
+          const SizedBox(height: 14),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Row(
+              children: [
+                SizedBox(width: 44, child: leading),
+                Expanded(
                   child: Text(
-                    subtitle!,
-                    style: AppTypography.supporting.copyWith(
-                      color: context.appColors.mutedInkColor,
+                    title!,
+                    style: AppTypography.surfaceTitle.copyWith(
+                      color: context.appColors.deepGreen,
                     ),
                     textAlign: TextAlign.center,
                   ),
                 ),
+                const SizedBox(width: 44),
               ],
-            ] else
-              const SizedBox(height: 8),
-            Flexible(
-              fit: FlexFit.loose,
-              child: SingleChildScrollView(
-                primary: false,
-                padding: contentPadding,
-                child: child,
+            ),
+          ),
+          if (subtitle != null) ...[
+            const SizedBox(height: 6),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Text(
+                subtitle!,
+                style: AppTypography.supporting.copyWith(
+                  color: context.appColors.mutedInkColor,
+                ),
+                textAlign: TextAlign.center,
               ),
             ),
-            if (actions != null)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                child: actions!,
-              ),
           ],
+        ] else
+          const SizedBox(height: 8),
+        Flexible(
+          fit: FlexFit.loose,
+          child: SingleChildScrollView(
+            primary: false,
+            padding: contentPadding,
+            child: child,
+          ),
         ),
-      ),
+        if (actions != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+            child: actions!,
+          ),
+      ],
     );
   }
 }
@@ -180,41 +168,107 @@ class AppDialogActions extends StatelessWidget {
   }
 }
 
+/// Shared modal entry: callers provide content, and this owns the route,
+/// surface, keyboard constraints and native safe region. Use AppMenu for anchors.
 Future<T?> showAppDialog<T>(
   BuildContext context, {
   required WidgetBuilder builder,
   bool barrierDismissible = true,
   Color? barrierColor,
-  double maxWidth = 420,
-  EdgeInsets insetPadding = const EdgeInsets.symmetric(
-    horizontal: 24,
-    vertical: 24,
-  ),
+  Widget Function(Widget)? surfaceBuilder,
 }) {
-  assert(maxWidth > 0);
-  return showDialog<T>(
+  final themes = InheritedTheme.capture(
+    from: context,
+    to: Navigator.of(context, rootNavigator: true).context,
+  );
+  return WoltModalSheet.show<T>(
     context: context,
+    useRootNavigator: true,
+    useSafeArea: false,
+    enableDrag: false,
+    showDragHandle: false,
     barrierDismissible: barrierDismissible,
-    barrierColor:
+    modalBarrierColor:
         barrierColor ??
         context.appColors.shadowColor.withValues(
           alpha: lerpDouble(0.22, 0.58, context.appColors.darkProgress)!,
         ),
-    builder: (dialogContext) => Dialog(
-      elevation: 0,
-      backgroundColor: Colors.transparent,
-      insetPadding: insetPadding,
-      // Limit the platform-view interceptor to the card. Wrapping Dialog would
-      // cover the modal barrier and swallow outside taps above a map WebView.
-      child: PointerInterceptor(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: maxWidth),
-          child: SizedBox(
-            width: double.infinity,
-            child: builder(dialogContext),
-          ),
+    // Preserve showDialog's native foldable behavior. DuoDeviceProvider clears
+    // engine features on actual Duo, where AppModalRegion owns placement.
+    modalDecorator: (child) => themes.wrap(
+      // Wolt still reads the SDK Material theme and localizations.
+      // ignore: deprecated_member_use
+      MaterialUiCompatibilityBridge(
+        child: Builder(
+          builder: (context) {
+            final theme = legacy.Theme.of(context);
+            return legacy.Theme(
+              data: theme.copyWith(
+                extensions: [
+                  ...theme.extensions.values,
+                  const WoltModalSheetThemeData(
+                    modalElevation: 0,
+                    clipBehavior: Clip.none,
+                    mainContentScrollPhysics: NeverScrollableScrollPhysics(),
+                  ),
+                ],
+              ),
+              child: DisplayFeatureSubScreen(
+                child: AppModalRegion(child: child),
+              ),
+            );
+          },
         ),
       ),
     ),
+    pageContentDecorator: (child) => PointerInterceptor(child: child),
+    modalTypeBuilder: (context) => _AppDialogType(
+      DialogTheme.of(context).shape ??
+          const RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(28)),
+          ),
+      surfaceBuilder,
+    ),
+    pageListBuilder: (_) => [
+      SliverWoltModalSheetPage(
+        hasTopBarLayer: false,
+        hasSabGradient: false,
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        mainContentSliversBuilder: (_) => [
+          // Wolt owns the available viewport. The card keeps its fixed header
+          // and actions, and scrolls only its body inside that constraint.
+          SliverLayoutBuilder(
+            builder: (context, constraints) => SliverToBoxAdapter(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: constraints.viewportMainAxisExtent,
+                ),
+                child: builder(context),
+              ),
+            ),
+          ),
+        ],
+      ),
+    ],
   );
+}
+
+/// Product dimensions; route, keyboard and transition behavior belong to Wolt.
+class _AppDialogType extends WoltDialogType {
+  const _AppDialogType(ShapeBorder shape, this.surfaceBuilder)
+    : super(shapeBorder: shape);
+
+  final Widget Function(Widget)? surfaceBuilder;
+
+  @override
+  BoxConstraints layoutModal(Size availableSize) =>
+      AppLayout.dialogConstraints(availableSize);
+
+  @override
+  Widget decoratePageContent(
+    BuildContext context,
+    Widget child,
+    bool useSafeArea,
+  ) => surfaceBuilder?.call(child) ?? AppDialogSurface(child: child);
 }

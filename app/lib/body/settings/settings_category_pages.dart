@@ -13,7 +13,7 @@ import 'package:memolanes/body/settings/raw_data_page.dart';
 import 'package:memolanes/common/app_haptics.dart';
 import 'package:memolanes/common/component/app_button.dart';
 import 'package:memolanes/common/component/app_option_tile.dart';
-import 'package:memolanes/common/component/basic_dialog_card.dart';
+import 'package:memolanes/common/component/app_dialog.dart';
 import 'package:memolanes/common/component/capsule_style_app_bar.dart';
 import 'package:memolanes/common/component/common_export.dart';
 import 'package:memolanes/common/component/tiles/label_tile.dart';
@@ -189,30 +189,33 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
   }
 
   Future<void> _selectLanguage() async {
-    final selected = await showBasicCard<String>(
+    final selected = await showAppDialog<String>(
       context,
-      title: context.tr('settings.language.title'),
-      builder: (dialogContext) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _languageOption(
-            dialogContext,
-            'system',
-            context.tr('settings.language.system'),
-          ),
-          const SizedBox(height: 8),
-          _languageOption(
-            dialogContext,
-            'zh-CN',
-            context.tr('settings.language.chinese'),
-          ),
-          const SizedBox(height: 8),
-          _languageOption(
-            dialogContext,
-            'en-US',
-            context.tr('settings.language.english'),
-          ),
-        ],
+      builder: (dialogContext) => AppDialogContent(
+        title: context.tr('settings.language.title'),
+        contentPadding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _languageOption(
+              dialogContext,
+              'system',
+              context.tr('settings.language.system'),
+            ),
+            const SizedBox(height: 8),
+            _languageOption(
+              dialogContext,
+              'zh-CN',
+              context.tr('settings.language.chinese'),
+            ),
+            const SizedBox(height: 8),
+            _languageOption(
+              dialogContext,
+              'en-US',
+              context.tr('settings.language.english'),
+            ),
+          ],
+        ),
       ),
     );
     if (!mounted || selected == null) return;
@@ -526,47 +529,57 @@ class _DataManagementSettingsPageState
   }
 
   Future<void> _showImportDataCard(BuildContext context) async {
-    final shouldSelectFile = await showBasicDialogCard<bool>(
+    final shouldSelectFile = await showAppDialog<bool>(
       context,
-      title: context.tr('data.import_data.title'),
-      contentPadding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-      actions: Builder(
-        builder: (dialogContext) => AppButton(
-          label: dialogContext.tr('data.import_data.choose_file'),
-          expand: true,
-          onPressed: () => Navigator.of(dialogContext).pop(true),
+      builder: (dialogContext) => AppDialogContent(
+        title: context.tr('data.import_data.title'),
+        contentPadding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+        actions: Builder(
+          builder: (dialogContext) => AppButton(
+            label: dialogContext.tr('data.import_data.choose_file'),
+            expand: true,
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+          ),
         ),
-      ),
-      builder: (dialogContext) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: Text(
-              dialogContext.tr('data.import_data.description'),
-              style: AppTypography.supporting.copyWith(
-                color: dialogContext.appColors.mutedInkColor,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Text(
+                dialogContext.tr('data.import_data.description'),
+                style: AppTypography.supporting.copyWith(
+                  color: dialogContext.appColors.mutedInkColor,
+                ),
               ),
             ),
-          ),
-          _ImportFormatInfoRow(
-            icon: Icons.archive_outlined,
-            title: dialogContext.tr('data.import_data.mldx_title'),
-            subtitle: dialogContext.tr('data.import_data.mldx_desc'),
-          ),
-          const SizedBox(height: 8),
-          _ImportFormatInfoRow(
-            icon: Icons.route_outlined,
-            title: dialogContext.tr('data.import_data.vector_title'),
-            subtitle: dialogContext.tr('data.import_data.vector_desc'),
-          ),
-          const SizedBox(height: 8),
-          _ImportFormatInfoRow(
-            icon: Icons.public_outlined,
-            title: dialogContext.tr('data.import_data.fog_of_world_title'),
-            subtitle: dialogContext.tr('data.import_data.fog_of_world_desc'),
-          ),
-        ],
+            AppOptionTile(
+              trailing: AppOptionTileTrailing.none,
+              icon: Icons.archive_outlined,
+              title: dialogContext.tr('data.import_data.mldx_title'),
+              subtitle: dialogContext.tr('data.import_data.mldx_desc'),
+            ),
+            const SizedBox(height: 8),
+            AppOptionTile(
+              trailing: AppOptionTileTrailing.none,
+              icon: Icons.route_outlined,
+              title: dialogContext.tr('data.import_data.vector_title'),
+              subtitle: dialogContext.tr('data.import_data.vector_desc'),
+            ),
+            const SizedBox(height: 8),
+            AppOptionTile(
+              icon: Icons.public_outlined,
+              title: dialogContext.tr('data.import_data.fog_of_world_title'),
+              subtitle: dialogContext.tr('data.import_data.fog_of_world_desc'),
+              onTap: () => showCommonDialog(
+                dialogContext,
+                dialogContext.tr('import.import_fow_data.description_md'),
+                title: dialogContext.tr('data.import_data.fog_of_world_title'),
+                markdown: true,
+              ),
+            ),
+          ],
+        ),
       ),
     );
 
@@ -597,99 +610,20 @@ class _DataManagementSettingsPageState
 
     final selectedType = importType!;
 
-    if (selectedType == ImportType.vector) {
-      await showCommonDialog(
-        context,
-        context.tr('import.vector.description_md'),
-        markdown: true,
-      );
-    } else {
-      await showCommonDialog(
-        context,
-        context.tr('import.import_fow_data.description_md'),
-        markdown: true,
-      );
+    if (selectedType == ImportType.fow && await api.containsBitmapJourney()) {
       if (!context.mounted) return;
-      if (await api.containsBitmapJourney()) {
-        if (!context.mounted) return;
-        await showCommonDialog(
-          context,
-          context.tr(
-            'import.import_fow_data.warning_for_import_multiple_data_md',
-          ),
-          markdown: true,
-        );
-      }
+      await showCommonDialog(
+        context,
+        context.tr(
+          'import.import_fow_data.warning_for_import_multiple_data_md',
+        ),
+        markdown: true,
+      );
     }
     if (!context.mounted) return;
     navigatorPush(
       context,
       page: ImportDataPage(path: path, importType: selectedType),
-    );
-  }
-}
-
-class _ImportFormatInfoRow extends StatelessWidget {
-  const _ImportFormatInfoRow({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-  });
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints(minHeight: 58),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: context.appColors.surfaceColor.withValues(alpha: 0.76),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: context.appColors.lineColor),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: context.appColors.softGreen,
-              borderRadius: BorderRadius.circular(11),
-            ),
-            child: Icon(icon, color: context.appColors.deepGreen, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTypography.itemTitle.copyWith(
-                    color: context.appColors.inkColor,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  subtitle,
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTypography.caption.copyWith(
-                    color: context.appColors.mutedInkColor,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -754,12 +688,14 @@ class _AboutSettingsPageState extends State<AboutSettingsPage> {
                       ),
                       const SizedBox(width: 8),
                     ],
-                    GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () =>
-                          setState(() => _showCommitHash = !_showCommitHash),
-                      child: LabelTileContent(
-                        content: _showCommitHash ? _commitHash : _version,
+                    Flexible(
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () =>
+                            setState(() => _showCommitHash = !_showCommitHash),
+                        child: LabelTileContent(
+                          content: _showCommitHash ? _commitHash : _version,
+                        ),
                       ),
                     ),
                   ],

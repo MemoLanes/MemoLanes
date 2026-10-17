@@ -18,22 +18,18 @@ class TrackingButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return LiquidGlassSurface(
       circular: true,
-      child: SizedBox(
-        width: 44,
-        height: 44,
-        child: IconButton(
-          onPressed: () {
-            AppHaptics.selection();
-            onPressed();
-          },
-          icon: Icon(
-            trackingMode == TrackingMode.off
-                ? Icons.near_me_disabled
-                : Icons.near_me,
-            color: trackingMode == TrackingMode.displayAndTracking
-                ? context.appColors.deepGreen
-                : context.appColors.mutedInkColor,
-          ),
+      child: IconButton(
+        onPressed: () {
+          AppHaptics.selection();
+          onPressed();
+        },
+        icon: Icon(
+          trackingMode == TrackingMode.off
+              ? Icons.near_me_disabled
+              : Icons.near_me,
+          color: trackingMode == TrackingMode.displayAndTracking
+              ? context.appColors.deepGreen
+              : context.appColors.mutedInkColor,
         ),
       ),
     );

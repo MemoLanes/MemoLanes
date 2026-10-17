@@ -4,6 +4,7 @@ import 'package:memolanes/theme/app_colors.dart';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:memolanes/common/component/app_menu.dart';
 import 'package:memolanes/body/time_machine/time_machine_glass_surface.dart';
 import 'package:memolanes/common/app_haptics.dart';
 import 'package:memolanes/common/component/app_date_picker_dialog.dart';
@@ -16,6 +17,9 @@ import 'time_ruler.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
 
 export 'time_ruler.dart' show TimeRulerMode, TimeRuler;
+
+const _modeMenuDividerWidth = 1.0;
+const _modeMenuPadding = EdgeInsets.all(16);
 
 /// Time range picker with mode-based range selection.
 /// Supports the [TimeMachineViewMode.period],
@@ -73,12 +77,7 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
   SimpleDate _fromDate = SimpleDate.today();
   SimpleDate _toDate = SimpleDate.today();
 
-  final OverlayPortalController _modeMenuController = OverlayPortalController(
-    debugLabel: 'time-machine-mode-menu',
-  );
-  final LayerLink _modeMenuLayerLink = LayerLink();
-  final GlobalKey _modeMenuTargetKey = GlobalKey();
-  final Object _modeMenuTapRegionGroup = Object();
+  final _modeMenuController = MenuController();
 
   /// Single source of truth for lower bound used by ruler/range/pickers.
   SimpleDate get _effectiveEarliest {
@@ -153,16 +152,6 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
     _notifyRange();
   }
 
-  void _toggleModeMenu() {
-    _modeMenuController.toggle();
-  }
-
-  void _hideModeMenu() {
-    if (_modeMenuController.isShowing) {
-      _modeMenuController.hide();
-    }
-  }
-
   SimpleDate get _displayDate =>
       SimpleDate(_displayYear, _displayMonth, _displayDay);
 
@@ -192,6 +181,11 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
 
   @override
   Widget build(BuildContext context) {
+    final scaler = MediaQuery.textScalerOf(context);
+    final blockHeight = math.max(
+      _kPickerBlockHeight,
+      scaler.scale(11) * 1.2 + scaler.scale(12) * 2.4 + 14,
+    );
     final rulerChild = _viewMode != TimeMachineViewMode.custom
         ? TimeRuler(
             rulerMode: _rulerMode,
@@ -236,104 +230,25 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        OverlayPortal(
+        AppMenu(
           controller: _modeMenuController,
-          overlayChildBuilder: (overlayContext) {
-            final mediaQuery = MediaQuery.of(overlayContext);
-            const menuGap = 12.0;
-            const safeAreaMargin = 12.0;
-            final maxMenuWidth = math.max(
-              0.0,
-              mediaQuery.size.width -
-                  mediaQuery.viewPadding.left -
-                  mediaQuery.viewPadding.right -
-                  48,
-            );
-            final targetRenderObject = _modeMenuTargetKey.currentContext
-                ?.findRenderObject();
-            final targetBox = targetRenderObject is RenderBox
-                ? targetRenderObject
-                : null;
-            final targetTop = targetBox?.localToGlobal(Offset.zero).dy ?? 0;
-            final targetBottom = targetTop + (targetBox?.size.height ?? 0);
-            final safeTop = mediaQuery.viewPadding.top + safeAreaMargin;
-            final safeBottom =
-                mediaQuery.size.height -
-                mediaQuery.viewPadding.bottom -
-                safeAreaMargin;
-            final spaceAbove = math.max(0.0, targetTop - menuGap - safeTop);
-            final spaceBelow = math.max(
-              0.0,
-              safeBottom - targetBottom - menuGap,
-            );
-            final placeAbove = spaceAbove >= spaceBelow;
-            final maxMenuHeight = placeAbove ? spaceAbove : spaceBelow;
-
-            // OverlayPortal's child receives full-screen constraints. Align
-            // loosens them before the follower is measured, so the follower's
-            // anchor uses the menu's actual size instead of the screen size.
-            return Align(
-              alignment: Alignment.topLeft,
-              child: CompositedTransformFollower(
-                link: _modeMenuLayerLink,
-                showWhenUnlinked: false,
-                targetAnchor: placeAbove
-                    ? Alignment.topLeft
-                    : Alignment.bottomLeft,
-                followerAnchor: placeAbove
-                    ? Alignment.bottomLeft
-                    : Alignment.topLeft,
-                offset: Offset(0, placeAbove ? -menuGap : menuGap),
-                child: TapRegion(
-                  groupId: _modeMenuTapRegionGroup,
-                  onTapOutside: (_) => _hideModeMenu(),
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxWidth: maxMenuWidth,
-                      maxHeight: maxMenuHeight,
-                    ),
-                    child: TweenAnimationBuilder<double>(
-                      tween: Tween(begin: 0, end: 1),
-                      duration: const Duration(milliseconds: 160),
-                      curve: Curves.easeOutCubic,
-                      builder: (context, value, child) => Opacity(
-                        opacity: value,
-                        child: Transform.scale(
-                          scale: 0.96 + value * 0.04,
-                          alignment: placeAbove
-                              ? Alignment.bottomLeft
-                              : Alignment.topLeft,
-                          child: child,
-                        ),
-                      ),
-                      child: _buildModeMenu(),
-                    ),
-                  ),
-                ),
-              ),
-            );
-          },
-          child: CompositedTransformTarget(
-            key: _modeMenuTargetKey,
-            link: _modeMenuLayerLink,
-            child: TapRegion(
-              groupId: _modeMenuTapRegionGroup,
-              child: PointerInterceptor(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: _toggleModeMenu,
-                  child: TimeRangeControllerBall(
-                    key: ValueKey(
-                      'ball-$_displayYear-$_displayMonth-$_displayDay',
-                    ),
-                    viewMode: _viewMode,
-                    rulerMode: _rulerMode,
-                    selectedDate: _viewMode == TimeMachineViewMode.custom
-                        ? _toDate
-                        : _displayDate,
-                    loading: widget.loading,
-                  ),
-                ),
+          position: AppMenuPosition.auto,
+          offset: const Offset(0, 12),
+          margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          surfaceBuilder: (_, child) =>
+              TimeMachineGlassSurface(padding: _modeMenuPadding, child: child),
+          menuBuilder: (_) => _buildModeMenu(),
+          child: PointerInterceptor(
+            child: SizedBox.square(
+              dimension: blockHeight,
+              child: TimeRangeControllerBall(
+                key: ValueKey('ball-$_displayYear-$_displayMonth-$_displayDay'),
+                viewMode: _viewMode,
+                rulerMode: _rulerMode,
+                selectedDate: _viewMode == TimeMachineViewMode.custom
+                    ? _toDate
+                    : _displayDate,
+                loading: widget.loading,
               ),
             ),
           ),
@@ -341,9 +256,9 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
         const SizedBox(width: 12),
         Expanded(
           child: TapRegion(
-            groupId: _modeMenuTapRegionGroup,
+            groupId: _modeMenuController,
             child: PointerInterceptor(
-              child: SizedBox(height: _kPickerBlockHeight, child: rulerChild),
+              child: SizedBox(height: blockHeight, child: rulerChild),
             ),
           ),
         ),
@@ -352,20 +267,13 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
   }
 
   Widget _buildModeMenu() {
-    return TimeMachineGlassSurface(
-      padding: const EdgeInsets.all(16),
-      child: PointerInterceptor(
-        child: SingleChildScrollView(
-          child: _TimeMachineViewModeAndLayerMenu(
-            currentViewMode: _viewMode,
-            onViewModeSelect: _onViewModeSelected,
-            currentRulerMode: _rulerMode,
-            onRulerModeSelect: _onRulerModeSelected,
-            selectedJourneyKinds: widget.selectedJourneyKinds,
-            onJourneyKindsChanged: widget.onJourneyKindsChanged,
-          ),
-        ),
-      ),
+    return _TimeMachineViewModeAndLayerMenu(
+      currentViewMode: _viewMode,
+      onViewModeSelect: _onViewModeSelected,
+      currentRulerMode: _rulerMode,
+      onRulerModeSelect: _onRulerModeSelected,
+      selectedJourneyKinds: widget.selectedJourneyKinds,
+      onJourneyKindsChanged: widget.onJourneyKindsChanged,
     );
   }
 }
@@ -398,10 +306,6 @@ class _TimeMachineViewModeAndLayerMenu extends StatefulWidget {
 
 class _TimeMachineViewModeAndLayerMenuState
     extends State<_TimeMachineViewModeAndLayerMenu> {
-  static const double _minColumnWidth = 96;
-  static const double _maxColumnWidth = 116;
-  static const double _dividerWidth = 1;
-
   static const _viewModeKeys = [
     (TimeMachineViewMode.period, 'time_machine.menu_view_period'),
     (TimeMachineViewMode.asOf, 'time_machine.menu_view_as_of'),
@@ -447,65 +351,46 @@ class _TimeMachineViewModeAndLayerMenuState
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final availableWidth = constraints.hasBoundedWidth
-            ? constraints.maxWidth
-            : _maxColumnWidth * 3 + _dividerWidth * 2;
-        final columnWidth = ((availableWidth - _dividerWidth * 2) / 3).clamp(
-          _minColumnWidth,
-          _maxColumnWidth,
-        );
-
-        final content = IntrinsicHeight(
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _buildMenuColumn(
-                width: columnWidth,
-                title: context.tr('time_machine.menu_title_view'),
-                children: _viewModeKeys
-                    .map((e) => _buildViewModeItem(e.$1, e.$2))
-                    .toList(),
-              ),
-              _buildColumnDivider(),
-              _buildMenuColumn(
-                width: columnWidth,
-                title: context.tr('time_machine.menu_title_granularity'),
-                children: _granularityKeys
-                    .map((e) => _buildGranularityItem(e.$1, e.$2))
-                    .toList(),
-              ),
-              _buildColumnDivider(),
-              _buildMenuColumn(
-                width: columnWidth,
-                title: context.tr('time_machine.menu_title_layer'),
-                children: _layerKeys
-                    .map((e) => _buildLayerItem(e.$1, e.$2))
-                    .toList(),
-              ),
-            ],
-          ),
-        );
-
-        // Keep the three-column grid intact on very small screens instead of
-        // compressing labels or letting selected backgrounds touch dividers.
-        return SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: content,
-        );
-      },
+    // Size each column from its translated content, including the checkmark.
+    // A narrow region scrolls the grid instead of truncating its labels.
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: IntrinsicHeight(
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildMenuColumn(
+              title: context.tr('time_machine.menu_title_view'),
+              children: _viewModeKeys
+                  .map((e) => _buildViewModeItem(e.$1, e.$2))
+                  .toList(),
+            ),
+            _buildColumnDivider(),
+            _buildMenuColumn(
+              title: context.tr('time_machine.menu_title_granularity'),
+              children: _granularityKeys
+                  .map((e) => _buildGranularityItem(e.$1, e.$2))
+                  .toList(),
+            ),
+            _buildColumnDivider(),
+            _buildMenuColumn(
+              title: context.tr('time_machine.menu_title_layer'),
+              children: _layerKeys
+                  .map((e) => _buildLayerItem(e.$1, e.$2))
+                  .toList(),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
   Widget _buildMenuColumn({
-    required double width,
     required String title,
     required List<Widget> children,
   }) {
-    return SizedBox(
-      width: width,
+    return IntrinsicWidth(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -516,8 +401,8 @@ class _TimeMachineViewModeAndLayerMenuState
 
   Widget _buildColumnDivider() {
     return VerticalDivider(
-      width: _dividerWidth,
-      thickness: _dividerWidth,
+      width: _modeMenuDividerWidth,
+      thickness: _modeMenuDividerWidth,
       color: context.appColors.lineColor,
       indent: 8,
       endIndent: 8,
@@ -525,14 +410,15 @@ class _TimeMachineViewModeAndLayerMenuState
   }
 
   Widget _buildColumnTitle(String text) {
-    return SizedBox(
-      height: 32,
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 32),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 6),
         child: Center(
           child: Text(
             text,
             maxLines: 1,
+            softWrap: false,
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
             style: AppTypography.sectionLabel.copyWith(
@@ -560,10 +446,10 @@ class _TimeMachineViewModeAndLayerMenuState
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(9),
-          child: SizedBox(
-            height: 40,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 40),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
               child: Row(
                 children: [
                   if (isSelected)
@@ -579,6 +465,7 @@ class _TimeMachineViewModeAndLayerMenuState
                     child: Text(
                       context.tr(labelKey),
                       maxLines: 1,
+                      softWrap: false,
                       overflow: TextOverflow.ellipsis,
                       style: AppTypography.itemTitle.copyWith(
                         color: isSelected
@@ -663,13 +550,7 @@ class TimeRangeControllerBall extends StatelessWidget {
     required this.loading,
   });
 
-  static const double _buttonSize = 60;
   static const double _borderRadius = 12;
-  TextStyle _contentStyle(BuildContext context) =>
-      AppTypography.sectionLabel.copyWith(
-        color: context.appColors.deepGreen,
-        fontWeight: FontWeight.w700,
-      );
 
   @override
   Widget build(BuildContext context) {
@@ -707,22 +588,24 @@ class TimeRangeControllerBall extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
           ),
-        Text(mainText, style: _contentStyle(context)),
+        Text(
+          mainText,
+          style: AppTypography.sectionLabel.copyWith(
+            color: context.appColors.deepGreen,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
       ],
     );
 
     return TimeMachineGlassSurface(
       borderRadius: BorderRadius.circular(_borderRadius),
-      child: SizedBox(
-        width: _buttonSize,
-        height: _buttonSize,
-        child: Center(
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 6),
-              child: content,
-            ),
+      child: Center(
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            child: content,
           ),
         ),
       ),

@@ -3,14 +3,18 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:fpdart/fpdart.dart' as f;
-import 'package:memolanes/body/journey/journey_info_edit_page.dart';
+import 'package:memolanes/body/journey/journey_info_form.dart';
+import 'package:memolanes/body/journey/journey_info_fields.dart';
+import 'package:memolanes/body/journey/compact_journey_info_card.dart';
 import 'package:memolanes/body/settings/import_preprocessor_notice.dart';
 import 'package:memolanes/body/settings/vector_multi_import_page.dart';
-import 'package:memolanes/common/component/capsule_style_overlay_app_bar.dart';
 import 'package:memolanes/common/component/base_map_webview.dart';
-import 'package:memolanes/common/component/cards/line_painter.dart';
+import 'package:memolanes/common/component/back_button_target.dart';
 import 'package:memolanes/common/component/import_loading_page.dart';
+import 'package:memolanes/common/component/map_glass_back_button.dart';
+import 'package:memolanes/common/component/map_overlay_panel.dart';
 import 'package:memolanes/common/log.dart';
+import 'package:memolanes/common/app_layout.dart';
 import 'package:memolanes/common/loading_manager.dart';
 import 'package:memolanes/common/simple_date_utils.dart';
 import 'package:memolanes/common/utils.dart';
@@ -18,7 +22,6 @@ import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/api/import.dart' as import_api;
 import 'package:memolanes/theme/app_theme.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
-import 'package:sliding_up_panel/sliding_up_panel.dart';
 
 class ImportDataPage extends StatefulWidget {
   const ImportDataPage({
@@ -46,6 +49,7 @@ class _ImportDataPage extends State<ImportDataPage> {
   journeyDataMaybeRaw;
   api.MapRendererProxy? _mapRendererProxy;
   MapBounds? _initialMapBounds;
+  final _detailPanelKey = GlobalKey<MapOverlayPanelState>();
   late import_api.ImportPreprocessor _preprocessor;
   List<import_api.VectorImportPartSummary> _vectorParts = const [];
   bool _isInitializing = true;
@@ -217,12 +221,32 @@ class _ImportDataPage extends State<ImportDataPage> {
     if (!mounted) return;
     if (success) {
       await showCommonDialog(context, context.tr("import.successful"));
+      if (mounted) popCurrentRoute(context, true);
     } else {
       await showCommonDialog(context, context.tr("import.empty_data"));
-      // Blocking the return after the save process completes
-      throw Exception("[import_data] Save data is empty");
     }
   }
+
+  Widget _buildInfoForm(import_api.JourneyInfo journeyInfo) => JourneyInfoForm(
+    startTime: journeyInfo.startTime,
+    endTime: journeyInfo.endTime,
+    journeyDate: journeyInfo.journeyDate.toSimpleDate(),
+    note: journeyInfo.note,
+    journeyKind: journeyInfo.journeyKind,
+    onSave: (journeyInfo) => _saveData(journeyInfo, _preprocessor),
+    extraFields: widget.importType == ImportType.vector
+        ? ImportPreprocessorTile(
+            compact: true,
+            value: _preprocessor,
+            onSelected: _previewData,
+            onInfoTap: () => showCommonDialog(
+              context,
+              context.tr('import.preprocessor.description_md'),
+              markdown: true,
+            ),
+          )
+        : null,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -231,69 +255,42 @@ class _ImportDataPage extends State<ImportDataPage> {
     }
 
     final journeyInfo = this.journeyInfo;
-    final panelHeight = widget.importType == ImportType.vector ? 530.0 : 510.0;
-    final mapBoundsPadding =
-        CapsuleStyleOverlayAppBar.mapFitPaddingForBottomOverlay(
-          context,
-          bottomOverlayHeight: panelHeight,
-        );
-
+    final mapRendererProxy = _mapRendererProxy;
     final page = Scaffold(
+      resizeToAvoidBottomInset: false,
+      backgroundColor: context.appColors.canvasColor,
       body: journeyInfo == null
           ? const SizedBox.shrink()
-          : Stack(
-              children: [
-                SlidingUpPanel(
-                  color: context.appColors.canvasColor,
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(16.0),
-                    topRight: Radius.circular(16.0),
-                  ),
-                  maxHeight: panelHeight,
-                  defaultPanelState: PanelState.OPEN,
-                  panel: PointerInterceptor(
-                    child: Center(
-                      child: Column(
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.only(top: 12.0),
-                            child: CustomPaint(
-                              size: const Size(40.0, 4.0),
-                              painter: LinePainter(
-                                color: context.appColors.mutedInkColor
-                                    .withValues(alpha: 0.44),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 16.0),
-                          JourneyInfoEditPage(
-                            startTime: journeyInfo.startTime,
-                            endTime: journeyInfo.endTime,
-                            journeyDate: journeyInfo.journeyDate.toSimpleDate(),
-                            note: journeyInfo.note,
-                            saveData: (journeyInfo, preprocessor) =>
-                                _saveData(journeyInfo, preprocessor),
-                            previewData: _previewData,
-                            importType: widget.importType,
-                            preprocessor: _preprocessor,
-                          ),
-                        ],
+          : AppLayoutBuilder(
+              builder: (context, _) => Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (mapRendererProxy != null)
+                    BaseMapWebview(
+                      key: const ValueKey('mapWidget'),
+                      mapRendererProxy: mapRendererProxy,
+                      initialMapBounds: _initialMapBounds,
+                      overlayPanel: _detailPanelKey,
+                    ),
+                  MapOverlayPanel.detail(
+                    key: _detailPanelKey,
+                    child: PointerInterceptor(
+                      child: JourneyInfoPanelSurface(
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.only(top: 10),
+                          child: _buildInfoForm(journeyInfo),
+                        ),
                       ),
                     ),
                   ),
-                  body: _mapRendererProxy == null
-                      ? const SizedBox.shrink()
-                      : BaseMapWebview(
-                          key: const ValueKey("mapWidget"),
-                          mapRendererProxy: _mapRendererProxy!,
-                          initialMapBounds: _initialMapBounds,
-                          initialMapBoundsPadding: mapBoundsPadding,
-                        ),
-                ),
-                CapsuleStyleOverlayAppBar.overlayBar(
-                  title: context.tr("data.import_data.title"),
-                ),
-              ],
+                  BackButtonTarget.positioned(
+                    onPressed: () => Navigator.maybePop(context),
+                    child: MapGlassBackButton(
+                      onPressed: () => Navigator.maybePop(context),
+                    ),
+                  ),
+                ],
+              ),
             ),
     );
 
