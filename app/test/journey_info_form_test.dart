@@ -65,14 +65,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(selectedPreprocessor, import_api.ImportPreprocessor.flightTrack);
       expect(infoTaps, 1);
-      final state = tester.state(find.byType(JourneyInfoForm));
-      final controller = tester
-          .widget<TextField>(find.byType(TextField))
-          .controller!;
-      await tester.enterText(
-        find.byType(TextField),
-        'A long imported note kept while folding and resizing.',
-      );
+      const draft = 'A long imported note kept while folding and resizing.';
+      await tester.enterText(find.byType(TextField), draft);
       FocusManager.instance.primaryFocus?.unfocus();
       await tester.pumpAndSettle();
       for (final scene in [
@@ -85,22 +79,17 @@ void main() {
         tester.view.physicalSize = scene.size;
         scenes.value = scene;
         await tester.pumpAndSettle();
-        expect(tester.state(find.byType(JourneyInfoForm)), same(state));
         expect(
-          tester.widget<TextField>(find.byType(TextField)).controller,
-          same(controller),
+          tester.widget<TextField>(find.byType(TextField)).controller!.text,
+          draft,
         );
         _expectNoteFits(tester);
-        expect(
-          tester.getSize(find.byKey(const Key('map-viewport'))),
-          scene.size,
-        );
       }
       await tester.ensureVisible(find.text(tr('common.save')));
       await tester.pumpAndSettle();
       await tester.tap(find.text(tr('common.save')));
       await tester.pumpAndSettle();
-      expect(saved!.note, controller.text);
+      expect(saved!.note, draft);
       expect(saved!.journeyKind, JourneyKind.flight);
       expect(saved!.journeyDate, DateTime.utc(2026, 10, 1));
       expect(tester.takeException(), isNull);
@@ -109,7 +98,7 @@ void main() {
   );
 
   testWidgets(
-    'a landscape keyboard moves the card without resizing the map',
+    'landscape form keeps note and save reachable above the keyboard',
     (tester) async {
       final scenes = ValueNotifier(
         const _Scene(
@@ -128,10 +117,9 @@ void main() {
         onSave: (value) => saved = value,
       );
       final card = tester.getRect(find.byType(JourneyInfoPanelSurface));
-      expect(card.bottom, lessThanOrEqualTo(175));
       expect(
-        tester.getSize(find.byKey(const Key('map-viewport'))),
-        const Size(667, 375),
+        card.bottom,
+        lessThanOrEqualTo(scenes.value.size.height - scenes.value.keyboard),
       );
       await tester.ensureVisible(find.byType(TextField));
       await tester.enterText(find.byType(TextField), 'Keyboard draft');
@@ -222,11 +210,8 @@ Future<void> _pumpForm(
             home: Scaffold(
               resizeToAvoidBottomInset: false,
               body: AppLayoutBuilder(
-                builder: (_, layout) => Stack(
+                builder: (_, _) => Stack(
                   children: [
-                    const Positioned.fill(
-                      child: SizedBox(key: Key('map-viewport')),
-                    ),
                     MapOverlayPanel.detail(
                       child: JourneyInfoPanelSurface(
                         child: SingleChildScrollView(

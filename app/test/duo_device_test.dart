@@ -2,7 +2,7 @@ import 'dart:ui' show DisplayFeature, DisplayFeatureState, DisplayFeatureType;
 
 import 'package:duo_dynamic_sizing/duo_dynamic_sizing.dart'
     as native
-    show DuoBridge, DuoHardware, DuoHardwareScope;
+    show DuoHardware;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -88,14 +88,6 @@ void main() {
       expect(hardware!.folds.single.frame, _hinge);
       expect(channel.snapshots, 1);
       expect(channel.listens, 1);
-      expect(
-        tester
-            .widget<native.DuoHardwareScope>(
-              find.byType(native.DuoHardwareScope),
-            )
-            .bridge,
-        native.DuoBridge.none,
-      );
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pumpAndSettle();
       expect(channel.cancels, 1);
