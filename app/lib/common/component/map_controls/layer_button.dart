@@ -28,15 +28,11 @@ class LayerButton extends StatelessWidget {
       child: PointerInterceptor(
         child: LiquidGlassSurface(
           circular: true,
-          child: SizedBox(
-            width: 44,
-            height: 44,
-            child: Center(
-              child: Icon(
-                Icons.layers,
-                color: context.appColors.deepGreen,
-                size: 20,
-              ),
+          child: Center(
+            child: Icon(
+              Icons.layers,
+              color: context.appColors.deepGreen,
+              size: 20,
             ),
           ),
         ),

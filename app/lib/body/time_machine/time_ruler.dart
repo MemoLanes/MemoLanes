@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:memolanes/theme/app_colors.dart';
 
 import 'package:material_ui/material_ui.dart';
-import 'package:memolanes/common/app_layout.dart';
 import 'package:intl/intl.dart';
 import 'package:memolanes/body/time_machine/time_machine_glass_surface.dart';
 import 'package:memolanes/common/app_haptics.dart';
@@ -317,57 +316,7 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
   bool _isSnapping = false;
   int _lastHapticIndex = -1;
   double _viewportWidth = 0;
-  double _unitSpacing = kRulerUnitSpacing;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _updateTickSpacing();
-  }
-
-  void _updateTickSpacing() {
-    final constraints = AppLayoutScope.of(context)
-        .controlConstraints(width: kRulerUnitSpacing);
-    var spacing = kRulerUnitSpacing;
-    if (!constraints.hasTightWidth) {
-      var measured = 44.0;
-      // Measure labels rather than shrinking Dynamic Type into a fixed tick.
-      final labels = widget.rulerMode == TimeRulerMode.month
-          ? [
-              for (var month = 1; month <= 12; month++)
-                DateFormat(
-                  'MMM',
-                  Localizations.localeOf(context).toString(),
-                ).format(DateTime(2000, month)),
-            ]
-          : [widget.rulerMode == TimeRulerMode.year ? '8888' : '88'];
-      for (final label in labels) {
-        final painter = TextPainter(
-          text: TextSpan(
-            text: label,
-            style: DefaultTextStyle.of(context).style.merge(
-              AppTypography.micro.copyWith(fontWeight: FontWeight.w700),
-            ),
-          ),
-          textScaler: MediaQuery.textScalerOf(context),
-          textDirection: Directionality.of(context),
-        )..layout();
-        if (painter.width + 8 > measured) measured = painter.width + 8;
-        painter.dispose();
-      }
-      // Labels belong to the scrollable content, so a tick can be wider than
-      // its viewport. Keep spacing positive while the viewport is collapsing.
-      spacing = measured;
-    }
-    if (spacing != _unitSpacing) {
-      _unitSpacing = spacing;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && _scrollController.hasClients) {
-          _scrollController.jumpTo(_offsetForIndex(_data.selectedIndex));
-        }
-      });
-    }
-  }
+  static const _unitSpacing = kRulerUnitSpacing;
 
   _RulerData get _data => _buildData(widget);
 
@@ -418,7 +367,6 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
   @override
   void didUpdateWidget(_InfiniteTimeRuler oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.rulerMode != widget.rulerMode) _updateTickSpacing();
     final selectionChanged =
         oldWidget.selectedYear != widget.selectedYear ||
         oldWidget.selectedMonth != widget.selectedMonth ||
@@ -609,13 +557,17 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
               : context.appColors.mutedInkColor.withValues(alpha: 0.68),
         ),
         SizedBox(height: isSelected ? 4 : 6),
-        Text(
-          label,
-          style: AppTypography.micro.copyWith(
-            color: isSelected
-                ? context.appColors.deepGreen
-                : context.appColors.deepGreen.withValues(alpha: 0.72),
-            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            label,
+            maxLines: 1,
+            style: AppTypography.micro.copyWith(
+              color: isSelected
+                  ? context.appColors.deepGreen
+                  : context.appColors.deepGreen.withValues(alpha: 0.72),
+              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+            ),
           ),
         ),
       ],

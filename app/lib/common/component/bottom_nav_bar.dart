@@ -17,17 +17,14 @@ class BottomNavBar extends StatelessWidget {
     required this.onIndexChanged,
     required this.hasUpdateNotification,
     this.axis = Axis.horizontal,
-    this.allowOverflow = false,
   });
 
   final int selectedIndex;
   final ValueChanged<int> onIndexChanged;
   final bool Function() hasUpdateNotification;
   final Axis axis;
-  final bool allowOverflow;
 
   static const double height = StyleConstants.navBarHeight;
-  static const double designHorizontalMargin = 24;
 
   static const _icons = [
     (Icons.explore_outlined, Icons.explore_rounded),
@@ -50,7 +47,7 @@ class BottomNavBar extends StatelessWidget {
       final extent = axis == Axis.horizontal
           ? constraints.maxWidth
           : constraints.maxHeight;
-      final count = allowOverflow ? (extent / 44).floor().clamp(1, 5) : 5;
+      final count = (extent / 44).floor().clamp(1, 5);
       final slots = count == 5
           ? [0, 1, 2, 3, 4]
           : [for (var i = 0; i < count - 1; i++) i, -1];
@@ -244,7 +241,7 @@ class BottomNavBar extends StatelessWidget {
         selectedIndex == index || (index < 0 && !slots.contains(selectedIndex));
 
     final item = InkWell(
-      excludeFromSemantics: allowOverflow,
+      excludeFromSemantics: true,
       onTap: () {
         if (!isSelected) AppHaptics.selection();
         if (index < 0) {
@@ -302,23 +299,19 @@ class BottomNavBar extends StatelessWidget {
       ),
     );
     return Expanded(
-      child: allowOverflow
-          ? Semantics(
-              label: context.tr(
-                'navigation.${index < 0 ? 'more' : _labels[index]}',
-              ),
-              selected: isSelected,
-              button: true,
-              onTap: () {
-                if (index < 0) {
-                  _showOverflow(context, slots);
-                } else {
-                  onIndexChanged(index);
-                }
-              },
-              child: item,
-            )
-          : item,
+      child: Semantics(
+        label: context.tr('navigation.${index < 0 ? 'more' : _labels[index]}'),
+        selected: isSelected,
+        button: true,
+        onTap: () {
+          if (index < 0) {
+            _showOverflow(context, slots);
+          } else {
+            onIndexChanged(index);
+          }
+        },
+        child: item,
+      ),
     );
   }
 }

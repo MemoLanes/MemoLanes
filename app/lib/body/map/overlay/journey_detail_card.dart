@@ -109,17 +109,14 @@ class _CollapsibleJourneyDetailState extends State<CollapsibleJourneyDetail> {
             backgroundAlpha: 0.76,
             child: Tooltip(
               message: title,
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: _restore,
-                  borderRadius: BorderRadius.circular(24),
-                  child: Center(
-                    child: Icon(
-                      Icons.keyboard_arrow_up_rounded,
-                      size: 23,
-                      color: context.appColors.deepGreen,
-                    ),
+              child: InkWell(
+                onTap: _restore,
+                borderRadius: BorderRadius.circular(24),
+                child: Center(
+                  child: Icon(
+                    Icons.keyboard_arrow_up_rounded,
+                    size: 23,
+                    color: context.appColors.deepGreen,
                   ),
                 ),
               ),

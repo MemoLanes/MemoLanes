@@ -305,31 +305,24 @@ class _AppDatePickerDialogState extends State<_AppDatePickerDialog> {
                 ),
               ),
               const SizedBox(height: 6),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+              OverflowBar(
+                alignment: MainAxisAlignment.end,
+                spacing: 8,
+                overflowSpacing: 8,
                 children: [
-                  SizedBox(
-                    width: 112,
-                    child: AppButton(
-                      label: localizations.cancelButtonLabel,
-                      icon: Icons.close_rounded,
-                      variant: AppButtonVariant.secondary,
-                      size: AppButtonSize.compact,
-                      expand: true,
-                      onPressed: () => Navigator.of(context).pop(),
-                    ),
+                  AppButton(
+                    label: localizations.cancelButtonLabel,
+                    icon: Icons.close_rounded,
+                    variant: AppButtonVariant.secondary,
+                    size: AppButtonSize.compact,
+                    onPressed: () => Navigator.of(context).pop(),
                   ),
-                  const SizedBox(width: 8),
-                  SizedBox(
-                    width: 112,
-                    child: AppButton(
-                      label: localizations.okButtonLabel,
-                      icon: Icons.check_rounded,
-                      variant: AppButtonVariant.primary,
-                      size: AppButtonSize.compact,
-                      expand: true,
-                      onPressed: () => Navigator.of(context).pop(_selectedDate),
-                    ),
+                  AppButton(
+                    label: localizations.okButtonLabel,
+                    icon: Icons.check_rounded,
+                    variant: AppButtonVariant.primary,
+                    size: AppButtonSize.compact,
+                    onPressed: () => Navigator.of(context).pop(_selectedDate),
                   ),
                 ],
               ),

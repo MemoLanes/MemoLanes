@@ -11,7 +11,6 @@ import 'package:memolanes/body/achievement/shared/achievement_common.dart';
 import 'package:memolanes/common/achievement_stats_store.dart';
 import 'package:memolanes/common/component/cards/option_card.dart';
 import 'package:memolanes/common/component/page_content_layout.dart';
-import 'package:memolanes/common/component/safe_area_wrapper.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/constants/app_typography.dart';
 import 'package:memolanes/constants/style_constants.dart';
@@ -73,11 +72,22 @@ class _AchievementBodyState extends State<AchievementBody> {
     final hasOngoingJourney =
         context.watch<GpsManager>().recordingStatus != GpsRecordingStatus.none;
 
-    return PageContentLayout.dashboard(
-      topPadding: widget.topSafeArea,
-      bottomPadding: widget.bottomSafeArea + 16,
+    return PageContentLayout.tab(
+      topSafeArea: widget.topSafeArea,
+      bottomSafeArea: widget.bottomSafeArea,
       children: [
-        const _AchievementPageTitle(),
+        SizedBox(
+          width: double.infinity,
+          child: Text(
+            context.tr('achievement.title'),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.left,
+            style: AppTypography.pageTitle.copyWith(
+              color: context.appColors.inkColor,
+            ),
+          ),
+        ),
         const SizedBox(height: StyleConstants.pageTitleCardSpacing),
         if (hasOngoingJourney) ...[
           const _OngoingJourneyBanner(),
@@ -103,7 +113,7 @@ class _AchievementStatsCards extends StatelessWidget {
 
     if (stats == null) {
       if (store.isAreaStatsLoading) {
-        return const _AchievementStatsSkeleton();
+        return const _SourceSkeletonCard();
       }
       if (store.areaStatsError != null) {
         return const _AchievementStatsErrorCard();
@@ -111,10 +121,7 @@ class _AchievementStatsCards extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [AchievementSourceCard(stats: stats)],
-    );
+    return AchievementSourceCard(stats: stats);
   }
 }
 
@@ -146,18 +153,6 @@ class _AchievementStatsErrorCard extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _AchievementStatsSkeleton extends StatelessWidget {
-  const _AchievementStatsSkeleton();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [_SourceSkeletonCard()],
     );
   }
 }
@@ -297,77 +292,51 @@ class _SourceMetricSkeleton extends StatelessWidget {
   }
 }
 
-class _AchievementPageTitle extends StatelessWidget {
-  const _AchievementPageTitle();
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeAreaWrapper(
-      child: SizedBox(
-        width: double.infinity,
-        child: Text(
-          context.tr('achievement.title'),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          textAlign: TextAlign.left,
-          style: AppTypography.pageTitle.copyWith(
-            color: context.appColors.inkColor,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _OngoingJourneyBanner extends StatelessWidget {
   const _OngoingJourneyBanner();
 
   @override
   Widget build(BuildContext context) {
-    return SafeAreaWrapper(
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-        decoration: BoxDecoration(
-          color: context.appColors.warningSurfaceColor,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: context.appColors.achievementGoldColor.withValues(
-              alpha: 0.14,
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      decoration: BoxDecoration(
+        color: context.appColors.warningSurfaceColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: context.appColors.achievementGoldColor.withValues(alpha: 0.14),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            Icons.info_outline_rounded,
+            color: context.appColors.achievementGoldColor,
+            size: 19,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  context.tr('achievement.ongoing.title'),
+                  style: AppTypography.itemTitle.copyWith(
+                    color: context.appColors.inkColor,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  context.tr('achievement.ongoing.description'),
+                  style: AppTypography.caption.copyWith(
+                    color: context.appColors.mutedInkColor,
+                  ),
+                ),
+              ],
             ),
           ),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(
-              Icons.info_outline_rounded,
-              color: context.appColors.achievementGoldColor,
-              size: 19,
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    context.tr('achievement.ongoing.title'),
-                    style: AppTypography.itemTitle.copyWith(
-                      color: context.appColors.inkColor,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    context.tr('achievement.ongoing.description'),
-                    style: AppTypography.caption.copyWith(
-                      color: context.appColors.mutedInkColor,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+        ],
       ),
     );
   }

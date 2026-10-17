@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 import 'dart:ui' show lerpDouble;
 
 import 'package:flutter/material.dart' as legacy show Theme;
@@ -6,15 +5,11 @@ import 'package:material_ui/material_ui.dart';
 import 'package:memolanes/common/component/liquid_glass_surface.dart';
 import 'package:memolanes/common/app_layout.dart';
 import 'package:memolanes/constants/app_typography.dart';
-import 'package:memolanes/constants/style_constants.dart';
 import 'package:memolanes/theme/app_colors.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:wolt_modal_sheet/wolt_modal_sheet.dart';
 
 enum AppDialogSurfaceStyle { solid, glass }
-
-/// Reading-sized forms/lists can use more space than a short prompt or picker.
-enum AppDialogSize { compact, content }
 
 class AppDialogSurface extends StatelessWidget {
   const AppDialogSurface({
@@ -180,11 +175,6 @@ Future<T?> showAppDialog<T>(
   required WidgetBuilder builder,
   bool barrierDismissible = true,
   Color? barrierColor,
-  AppDialogSize size = AppDialogSize.compact,
-  EdgeInsets insetPadding = const EdgeInsets.symmetric(
-    horizontal: 24,
-    vertical: 24,
-  ),
   Widget Function(Widget)? surfaceBuilder,
 }) {
   final themes = InheritedTheme.capture(
@@ -233,8 +223,6 @@ Future<T?> showAppDialog<T>(
     ),
     pageContentDecorator: (child) => PointerInterceptor(child: child),
     modalTypeBuilder: (context) => _AppDialogType(
-      size,
-      insetPadding,
       DialogTheme.of(context).shape ??
           const RoundedRectangleBorder(
             borderRadius: BorderRadius.all(Radius.circular(28)),
@@ -268,38 +256,14 @@ Future<T?> showAppDialog<T>(
 
 /// Product dimensions; route, keyboard and transition behavior belong to Wolt.
 class _AppDialogType extends WoltDialogType {
-  const _AppDialogType(
-    this.size,
-    this.insets,
-    ShapeBorder shape,
-    this.surfaceBuilder,
-  ) : super(shapeBorder: shape);
+  const _AppDialogType(ShapeBorder shape, this.surfaceBuilder)
+    : super(shapeBorder: shape);
 
-  final AppDialogSize size;
-  final EdgeInsets insets;
   final Widget Function(Widget)? surfaceBuilder;
 
   @override
-  BoxConstraints layoutModal(Size availableSize) {
-    // Preserve the reading budget before reducing the outer margin in a
-    // narrow pane. Wolt supplies this modal's actual available dimensions.
-    final gap = math.max(
-      8.0,
-      (availableSize.width - StyleConstants.contentMinWidth) / 2,
-    );
-    final padding = insets.copyWith(
-      left: math.min(insets.left, gap),
-      right: math.min(insets.right, gap),
-    );
-    final budget = AppLayout.contentConstraints(
-      availableSize,
-      padding: padding,
-      maxWidth: size == AppDialogSize.compact
-          ? StyleConstants.dialogCompactMaxWidth
-          : StyleConstants.pageContentMaxWidth,
-    );
-    return budget.tighten(width: budget.maxWidth);
-  }
+  BoxConstraints layoutModal(Size availableSize) =>
+      AppLayout.dialogConstraints(availableSize);
 
   @override
   Widget decoratePageContent(

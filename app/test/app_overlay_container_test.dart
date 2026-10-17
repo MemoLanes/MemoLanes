@@ -31,9 +31,12 @@ Future<void> _pump(WidgetTester tester, Widget home, {ThemeData? theme}) async {
 
 void main() {
   testWidgets(
-    'content dialogs grow with their region and retain actions on resize',
+    'dialogs retain reachable actions across phone rotation and keyboard changes',
     (tester) async {
       _view(tester, const Size(900, 600));
+      addTearDown(tester.view.resetPadding);
+      addTearDown(tester.view.resetViewPadding);
+      addTearDown(tester.view.resetViewInsets);
       bool? result;
       await _pump(
         tester,
@@ -42,7 +45,6 @@ void main() {
             body: TextButton(
               onPressed: () async => result = await showAppDialog<bool>(
                 context,
-                size: AppDialogSize.content,
                 barrierDismissible: false,
                 builder: (context) => AppDialogContent(
                   title: 'Form',
@@ -76,15 +78,37 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Form').hitTestable(), findsOneWidget);
       final wide = tester.getRect(find.byType(AppDialogSurface));
-      tester.view.physicalSize = const Size(360, 320);
-      await tester.pumpAndSettle();
-      final narrow = tester.getRect(find.byType(AppDialogSurface));
-      expect(narrow.width, lessThan(wide.width));
-      expect(narrow.left, greaterThanOrEqualTo(0));
-      expect(narrow.right, lessThanOrEqualTo(360));
-      expect(narrow.top, greaterThanOrEqualTo(0));
-      expect(narrow.bottom, lessThanOrEqualTo(320));
-      expect(find.text('Done').hitTestable(), findsOneWidget);
+      for (final (size, padding, keyboard) in const [
+        (Size(393, 852), FakeViewPadding(top: 47, bottom: 34), 0.0),
+        (Size(852, 393), FakeViewPadding(left: 47, bottom: 21), 0.0),
+        (Size(393, 852), FakeViewPadding(top: 47, bottom: 34), 320.0),
+        (Size(360, 320), FakeViewPadding(), 0.0),
+      ]) {
+        tester.view.physicalSize = size;
+        tester.view.viewPadding = padding;
+        tester.view.padding = FakeViewPadding(
+          left: padding.left,
+          top: padding.top,
+          right: padding.right,
+          bottom: keyboard > 0 ? 0 : padding.bottom,
+        );
+        tester.view.viewInsets = FakeViewPadding(bottom: keyboard);
+        await tester.pumpAndSettle();
+        final bounds = tester.getRect(find.byType(AppDialogSurface));
+        expect(bounds.width, lessThanOrEqualTo(wide.width));
+        expect(bounds.center.dx, closeTo(size.width / 2, 0.01));
+        expect(bounds.left, greaterThanOrEqualTo(padding.left));
+        expect(bounds.right, lessThanOrEqualTo(size.width - padding.right));
+        expect(bounds.top, greaterThanOrEqualTo(padding.top));
+        expect(
+          bounds.bottom,
+          lessThanOrEqualTo(
+            size.height - (keyboard > 0 ? keyboard : padding.bottom),
+          ),
+        );
+        expect(find.text('Done').hitTestable(), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      }
       await tester.tap(find.text('Done'));
       await tester.pumpAndSettle();
       expect(find.byType(AppDialogSurface), findsNothing);
@@ -181,6 +205,10 @@ void main() {
     'MenuAnchor preserves bottom attachment and consumes outside taps',
     (tester) async {
       _view(tester, const Size(800, 600));
+      tester.view.padding = const FakeViewPadding(left: 84);
+      tester.view.viewPadding = const FakeViewPadding(left: 84);
+      addTearDown(tester.view.resetPadding);
+      addTearDown(tester.view.resetViewPadding);
       var backgroundTaps = 0;
       await _pump(
         tester,
@@ -188,21 +216,24 @@ void main() {
           body: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: () => backgroundTaps++,
-            child: Center(
-              child: AppMenu(
-                position: AppMenuPosition.bottom,
-                offset: const Offset(0, 8),
-                surfaceBuilder: (_, child) =>
-                    AppMenuSurface(padding: EdgeInsets.zero, child: child),
-                menuBuilder: (_) => const SizedBox(
-                  width: 160,
-                  height: 80,
-                  child: Text('Menu content'),
-                ),
-                child: const SizedBox(
-                  width: 40,
-                  height: 40,
-                  child: Text('Open menu'),
+            child: SafeArea(
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: AppMenu(
+                  position: AppMenuPosition.bottom,
+                  offset: const Offset(0, 8),
+                  surfaceBuilder: (_, child) =>
+                      AppMenuSurface(padding: EdgeInsets.zero, child: child),
+                  menuBuilder: (_) => const SizedBox(
+                    width: 160,
+                    height: 80,
+                    child: Text('Menu content'),
+                  ),
+                  child: const SizedBox(
+                    width: 40,
+                    height: 40,
+                    child: Text('Open menu'),
+                  ),
                 ),
               ),
             ),
@@ -212,6 +243,7 @@ void main() {
       await tester.tap(find.text('Open menu'));
       await tester.pumpAndSettle();
       final expected = tester.getRect(find.byType(AppMenuSurface));
+      expect(expected.left, greaterThanOrEqualTo(84));
       // A point in the shadow must dismiss and consume the tap.
       await tester.tapAt(expected.topLeft - const Offset(2, 2));
       await tester.pumpAndSettle();
@@ -292,84 +324,57 @@ void main() {
     );
   }
 
-  testWidgets('Escape and window resizing close the menu and release Back', (
+  testWidgets('menus release route history after Escape, resize and Back', (
     tester,
   ) async {
     _view(tester, const Size(393, 852));
+    final navigator = GlobalKey<NavigatorState>();
     final menu = MenuController();
-    late BuildContext pageContext;
-    await _pump(
-      tester,
-      Builder(
-        builder: (context) {
-          pageContext = context;
-          return Scaffold(
-            body: Center(
-              child: AppMenu(
-                controller: menu,
-                menuBuilder: (_) => const Text('Menu content'),
-                child: const Text('Open menu'),
-              ),
-            ),
-          );
-        },
+    await tester.pumpWidget(
+      MaterialApp(
+        navigatorKey: navigator,
+        theme: AppTheme.light,
+        home: const Scaffold(body: Text('Home')),
       ),
     );
-    menu.open();
-    await tester.pumpAndSettle();
-    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-    await tester.pumpAndSettle();
-    expect(menu.isOpen, isFalse);
-    expect(ModalRoute.of(pageContext)!.willHandlePopInternally, isFalse);
-    menu.open();
-    await tester.pumpAndSettle();
-    tester.view.physicalSize = const Size(852, 393);
-    await tester.pumpAndSettle();
-    expect(menu.isOpen, isFalse);
-    expect(ModalRoute.of(pageContext)!.willHandlePopInternally, isFalse);
-    expect(tester.takeException(), isNull);
-  }, variant: _ios);
-
-  testWidgets(
-    'Back closes the menu before its page; repeated open adds one history entry',
-    (tester) async {
-      _view(tester, const Size(393, 852));
-      final navigator = GlobalKey<NavigatorState>();
-      final menu = MenuController();
-      await tester.pumpWidget(
-        MaterialApp(
-          navigatorKey: navigator,
-          theme: AppTheme.light,
-          home: const Scaffold(body: Text('Home')),
-        ),
-      );
-      navigator.currentState!.push(
-        MaterialPageRoute<void>(
-          builder: (_) => Scaffold(
-            body: AppMenu(
-              controller: menu,
-              menuBuilder: (_) => const Text('Open menu content'),
-              child: const Text('Menu page'),
-            ),
+    navigator.currentState!.push(
+      MaterialPageRoute<void>(
+        builder: (_) => Scaffold(
+          body: AppMenu(
+            controller: menu,
+            menuBuilder: (_) => const Text('Open menu content'),
+            child: const Text('Menu page'),
           ),
         ),
-      );
-      await tester.pumpAndSettle();
+      ),
+    );
+    await tester.pumpAndSettle();
+    final route = ModalRoute.of(tester.element(find.text('Menu page')))!;
+    for (final resize in [false, true]) {
       menu.open();
-      menu.open();
       await tester.pumpAndSettle();
-      expect(menu.isOpen, isTrue);
-      await navigator.currentState!.maybePop();
+      if (resize) {
+        tester.view.physicalSize = const Size(852, 393);
+      } else {
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      }
       await tester.pumpAndSettle();
       expect(menu.isOpen, isFalse);
-      expect(find.text('Menu page'), findsOneWidget);
-      await navigator.currentState!.maybePop();
-      await tester.pumpAndSettle();
-      expect(find.text('Home'), findsOneWidget);
-      expect(tester.takeException(), isNull);
-    },
-    variant: _ios,
-  );
+      expect(route.willHandlePopInternally, isFalse);
+    }
+    menu.open();
+    menu.open();
+    await tester.pumpAndSettle();
+    expect(menu.isOpen, isTrue);
+    await navigator.currentState!.maybePop();
+    await tester.pumpAndSettle();
+    expect(menu.isOpen, isFalse);
+    expect(find.text('Menu page'), findsOneWidget);
+    await navigator.currentState!.maybePop();
+    await tester.pumpAndSettle();
+    expect(find.text('Home'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  }, variant: _ios);
 
   testWidgets('a menu can close under a modal without popping that modal', (
     tester,

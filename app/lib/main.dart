@@ -336,16 +336,14 @@ class _MyHomePageState extends State<MyHomePage> {
         contentMode: _selectedIndex > 2
             ? AppNavigationContentMode.inset
             : AppNavigationContentMode.fullBleed,
-        navigationBuilder: (context, {required axis, required allowOverflow}) =>
-            BottomNavBar(
-              axis: axis,
-              allowOverflow: allowOverflow,
-              selectedIndex: _selectedIndex,
-              onIndexChanged: _selectTab,
-              hasUpdateNotification: context
-                  .watch<UpdateNotifier>()
-                  .hasUpdateNotification,
-            ),
+        navigationBuilder: (context, {required axis}) => BottomNavBar(
+          axis: axis,
+          selectedIndex: _selectedIndex,
+          onIndexChanged: _selectTab,
+          hasUpdateNotification: context
+              .watch<UpdateNotifier>()
+              .hasUpdateNotification,
+        ),
         bottomTrailingOverlay: _selectedIndex <= 2
             ? MapCopyrightButton(textMarkdown: mapCopyrightTextMarkdown)
             : null,

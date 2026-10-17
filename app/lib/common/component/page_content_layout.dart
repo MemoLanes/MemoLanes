@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:material_ui/material_ui.dart';
 import 'package:memolanes/common/component/safe_area_wrapper.dart';
 import 'package:memolanes/common/component/scroll_views/single_child_scroll_view.dart';
@@ -14,7 +16,7 @@ class PageContentInsets extends StatelessWidget {
     this.ownsChildMargins = false,
   }) : _menuLayout = null;
 
-  /// Main menu content also clears the app's navigation and vertical insets.
+  /// Consumes menu side clearance; the shell passes vertical scroll padding.
   const PageContentInsets.menu({
     super.key,
     required AppLayout layout,
@@ -36,7 +38,10 @@ class PageContentInsets extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final owner = PageInsetsScope.maybeOf(context);
-    final layout = _menuLayout ?? AppLayoutScope.of(context);
+    final layout =
+        _menuLayout ??
+        AppLayoutScope.maybeOf(context) ??
+        AppLayout.fromContext(context);
     final media = MediaQuery.of(context);
     final resolved = _menuLayout == null
         ? layout.contentInsets(media, maintainViewPadding: maintainViewPadding)
@@ -119,47 +124,52 @@ class PageContentLayout extends StatelessWidget {
     this.consumeChildMargins = false,
   });
 
-  const PageContentLayout.dashboard({
+  /// Main menu tabs share the settings page's spacing and content frame.
+  const PageContentLayout.tab({
     super.key,
     required this.children,
-    this.topPadding = 0,
-    this.bottomPadding = 24,
-  }) : framePadding = const EdgeInsets.symmetric(horizontal: 8),
-       framed = null,
+    required double topSafeArea,
+    required double bottomSafeArea,
+  }) : topPadding = topSafeArea + 24,
+       bottomPadding = bottomSafeArea + 16,
+       framePadding = const EdgeInsets.symmetric(horizontal: 8),
+       framed = true,
        consumeChildMargins = true;
 
   final List<Widget> children;
   final double topPadding;
   final double bottomPadding;
   final EdgeInsetsGeometry framePadding;
-  final bool? framed;
+  final bool framed;
   final bool consumeChildMargins;
   @override
   Widget build(BuildContext context) {
-    final layout = AppLayoutScope.of(context);
-    final contentWidth = framed == null
-        ? layout.dashboardContentWidth
-        : PageContentFrame.maxContentWidth;
-    final useFrame = framed ?? contentWidth.isFinite;
-    return MlSingleChildScrollView(
-      padding: EdgeInsets.only(
-        top: topPadding + (framed == null ? layout.dashboardTopPadding : 0),
-        bottom: bottomPadding,
-      ),
-      children: [
-        PageContentFrame(
-          padding: framePadding,
-          maxWidth: contentWidth,
-          framed: useFrame,
-          consumeChildMargins: consumeChildMargins,
-          child: Column(
-            crossAxisAlignment: useFrame
-                ? CrossAxisAlignment.start
-                : CrossAxisAlignment.center,
-            children: children,
-          ),
+    final safe = MediaQuery.paddingOf(context);
+    // Keep vertical clearance inside the scrolling content, including pages
+    // without the main navigation shell. Nested cards must not consume it again.
+    return MediaQuery.removePadding(
+      context: context,
+      removeTop: true,
+      removeBottom: true,
+      child: MlSingleChildScrollView(
+        padding: EdgeInsets.only(
+          top: math.max(topPadding, safe.top),
+          bottom: math.max(bottomPadding, safe.bottom),
         ),
-      ],
+        children: [
+          PageContentFrame(
+            padding: framePadding,
+            framed: framed,
+            consumeChildMargins: consumeChildMargins,
+            child: Column(
+              crossAxisAlignment: framed
+                  ? CrossAxisAlignment.start
+                  : CrossAxisAlignment.center,
+              children: children,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

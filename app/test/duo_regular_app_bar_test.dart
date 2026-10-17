@@ -55,8 +55,10 @@ void main() {
       _Scene(DuoBarEdge.right),
       _Scene(DuoBarEdge.left),
       _Scene(DuoBarEdge.horizontal),
+      _Scene(DuoBarEdge.unknown, supported: false, size: const Size(393, 852)),
       ordinary,
     ]) {
+      tester.view.physicalSize = next.size;
       scenes.value = next;
       await tester.pumpAndSettle();
       expect(
@@ -71,11 +73,9 @@ void main() {
         ),
         findsOneWidget,
       );
-      if (next.supported) {
-        await tester.ensureVisible(row);
-        await tester.pumpAndSettle();
-        expect(tester.getRect(row).overlaps(tester.getRect(_target)), isFalse);
-      }
+      await tester.ensureVisible(checkbox);
+      await tester.pumpAndSettle();
+      expect(checkbox.hitTestable(), findsOneWidget);
       expect(tester.takeException(), isNull);
     }
   }, variant: const TargetPlatformVariant({TargetPlatform.iOS}));
@@ -137,13 +137,13 @@ void main() {
       navigator.currentState!.pop();
       await tester.pumpAndSettle();
       expect(_target, findsOneWidget);
-      await tester.tapAt(tester.getRect(_target).center);
+      await tester.tap(_target);
       await tester.pumpAndSettle();
       expect(find.text('Settings'), findsOneWidget);
       expect(attempts, 1);
       canPop.value = true;
       await tester.pumpAndSettle();
-      await tester.tapAt(tester.getRect(_target).center);
+      await tester.tap(_target);
       await tester.pumpAndSettle();
       expect(find.text('Home'), findsOneWidget);
       expect(_targets, findsNothing);
@@ -262,9 +262,9 @@ Widget _app(
 );
 
 class _Scene {
-  _Scene(this.edge, {this.supported = true});
+  _Scene(this.edge, {this.supported = true, this.size = const Size(951, 669)});
   final DuoBarEdge edge;
-  final Size size = const Size(951, 669);
+  final Size size;
   final bool supported;
   EdgeInsets get padding => !supported
       ? const EdgeInsets.fromLTRB(3, 59, 5, 34)

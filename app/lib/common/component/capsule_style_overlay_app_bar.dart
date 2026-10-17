@@ -59,13 +59,14 @@ class CapsuleStyleOverlayAppBar extends StatelessWidget {
                 CapsuleBarConstants.barContentHeight +
                 CapsuleBarConstants.barBottomInset,
             color: Colors.transparent,
-            child: MediaQuery(
-              data: layout.headerMedia(MediaQuery.of(context)),
+            child: MediaQuery.removePadding(
+              context: context,
+              removeLeft: true,
+              removeTop: true,
+              removeRight: true,
+              removeBottom: true,
               child: Padding(
-                padding: EdgeInsets.only(
-                  top: topInset,
-                  bottom: CapsuleBarConstants.barBottomInset,
-                ),
+                padding: layout.headerContentInsets,
                 child: content,
               ),
             ),

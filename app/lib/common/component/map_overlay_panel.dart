@@ -57,13 +57,23 @@ class MapOverlayPanelState extends State<MapOverlayPanel> {
   @override
   Widget build(BuildContext context) {
     final layout = AppLayoutScope.of(context);
+    // The resolved panel already clears window chrome. Scrollbars, SafeArea
+    // and nested content use this local viewport without consuming it again.
+    final child = MediaQuery.removePadding(
+      context: context,
+      removeLeft: true,
+      removeTop: true,
+      removeRight: true,
+      removeBottom: true,
+      child: widget.child,
+    );
     if (widget._kind == _PanelKind.controls) {
       final insets = layout.primaryControlsInsets;
       return Positioned(
         left: insets.left,
         right: insets.right,
         bottom: insets.bottom,
-        child: widget.child,
+        child: child,
       );
     }
     final bounds = switch (widget._kind) {
@@ -80,24 +90,20 @@ class MapOverlayPanelState extends State<MapOverlayPanel> {
       child: switch (widget._kind) {
         _PanelKind.picker => ConstrainedBox(
           constraints: BoxConstraints(maxHeight: bounds.height),
-          child: widget.child,
+          child: child,
         ),
         _PanelKind.detail => Align(
           alignment: Alignment.bottomCenter,
-          child: SizedBox(
-            key: _contentKey,
-            width: bounds.width,
-            child: widget.child,
-          ),
+          child: SizedBox(key: _contentKey, width: bounds.width, child: child),
         ),
         _PanelKind.toolbar => ConstrainedBox(
           constraints: BoxConstraints(maxHeight: bounds.height),
           child: Padding(
             padding: layout.toolbarPadding(widget.minimumPadding),
-            child: widget.child,
+            child: child,
           ),
         ),
-        _PanelKind.controls => widget.child,
+        _PanelKind.controls => child,
       },
     );
   }

@@ -44,10 +44,17 @@ void main() {
             builder: (_, frame, _) => AppNavigationShell(
               contentMode: frame.mode,
               navigationVisible: frame.navigationVisible,
-              navigationBuilder: (_, {required axis, required allowOverflow}) =>
+              navigationBuilder: (_, {required axis}) =>
                   const SizedBox.expand(key: Key('navigation')),
               bodyBuilder: ({required topSafeArea, required bottomSafeArea}) =>
-                  const _Draft(),
+                  _Draft(
+                    padding: frame.mode == AppNavigationContentMode.inset
+                        ? EdgeInsets.only(
+                            top: topSafeArea,
+                            bottom: bottomSafeArea,
+                          )
+                        : EdgeInsets.zero,
+                  ),
             ),
           ),
         ),
@@ -61,7 +68,12 @@ void main() {
       for (final frame in [
         const _Frame(keyboard: 320),
         const _Frame(keyboard: 320, mode: AppNavigationContentMode.inset),
-        const _Frame(duo: true),
+        const _Frame(windowSize: Size(1200, 800)),
+        const _Frame(
+          duo: true,
+          keyboard: 280,
+          mode: AppNavigationContentMode.inset,
+        ),
         const _Frame(duo: true, keyboard: 280),
         const _Frame(duo: true, navigationVisible: false),
         const _Frame(),
@@ -81,13 +93,22 @@ void main() {
           expect(size, frame.size);
         } else {
           expect(size.height, frame.size.height - frame.keyboard);
+          final layout = AppLayoutScope.of(tester.element(find.byType(_Draft)));
+          body.scroll.jumpTo(body.scroll.position.maxScrollExtent);
+          await tester.pump();
+          expect(
+            tester.getBottomRight(find.byKey(const Key('last-item'))).dy,
+            lessThanOrEqualTo(layout.contentBounds.bottom),
+          );
+          body.scroll.jumpTo(140);
+          await tester.pump();
         }
         expect(tester.takeException(), isNull);
       }
     },
     variant: const TargetPlatformVariant({TargetPlatform.iOS}),
   );
-  testWidgets('nested containers consume native insets and margins once', (
+  testWidgets('nested containers consume insets and margins once', (
     tester,
   ) async {
     Widget content({required bool nested}) => AppLayoutBuilder(
@@ -102,19 +123,21 @@ void main() {
                     child: SizedBox.expand(key: Key('probe')),
                   ),
                 )
-              : const SizedBox.expand(key: Key('probe')),
+              : const SafeArea(child: SizedBox.expand(key: Key('probe'))),
         ),
       ),
     );
-    await _pumpInsets(tester, content(nested: false), duo: true);
-    final bounds = tester.getRect(find.byKey(const Key('probe')));
-    await _pumpInsets(tester, content(nested: true), duo: true);
-    expect(tester.getRect(find.byKey(const Key('probe'))), bounds);
-    expect(
-      MediaQuery.paddingOf(tester.element(find.byKey(const Key('probe')))),
-      EdgeInsets.zero,
-    );
-    expect(tester.takeException(), isNull);
+    for (final duo in [true, false]) {
+      await _pumpInsets(tester, content(nested: false), duo: duo);
+      final bounds = tester.getRect(find.byKey(const Key('probe')));
+      await _pumpInsets(tester, content(nested: true), duo: duo);
+      expect(tester.getRect(find.byKey(const Key('probe'))), bounds);
+      expect(
+        MediaQuery.paddingOf(tester.element(find.byKey(const Key('probe')))),
+        EdgeInsets.zero,
+      );
+      expect(tester.takeException(), isNull);
+    }
   }, variant: const TargetPlatformVariant({TargetPlatform.iOS}));
 
   testWidgets('opting out of framing preserves ordinary SafeArea behavior', (
@@ -179,12 +202,14 @@ class _Frame {
     this.keyboard = 0,
     this.navigationVisible = true,
     this.mode = AppNavigationContentMode.fullBleed,
+    this.windowSize = const Size(393, 852),
   });
   final bool duo;
   final double keyboard;
   final bool navigationVisible;
   final AppNavigationContentMode mode;
-  Size get size => duo ? const Size(951, 669) : const Size(393, 852);
+  final Size windowSize;
+  Size get size => duo ? const Size(951, 669) : windowSize;
   MediaQueryData get media => MediaQueryData(
     size: size,
     padding: EdgeInsets.only(
@@ -197,7 +222,8 @@ class _Frame {
 }
 
 class _Draft extends StatefulWidget {
-  const _Draft();
+  const _Draft({required this.padding});
+  final EdgeInsets padding;
   @override
   State<_Draft> createState() => _DraftState();
 }
@@ -215,9 +241,10 @@ class _DraftState extends State<_Draft> {
   @override
   Widget build(BuildContext context) => ListView(
     controller: scroll,
+    padding: widget.padding,
     children: [
       TextField(controller: note),
-      const SizedBox(height: 1600),
+      const SizedBox(key: Key('last-item'), height: 1600),
     ],
   );
 }

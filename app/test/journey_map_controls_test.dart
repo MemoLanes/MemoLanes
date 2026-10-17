@@ -11,6 +11,7 @@ import 'package:memolanes/body/map/overlay/journey_detail_overlay.dart';
 import 'package:memolanes/body/map/overlay/journey_more_dialog.dart';
 import 'package:memolanes/body/map/overlay/journey_overlay.dart';
 import 'package:memolanes/common/app_haptics.dart';
+import 'package:memolanes/common/app_layout.dart';
 import 'package:memolanes/common/app_translation_loader.dart';
 import 'package:memolanes/common/component/app_button.dart';
 import 'package:memolanes/common/component/common_dialog.dart';
@@ -64,7 +65,7 @@ void main() {
               ],
               supportedLocales: context.supportedLocales,
               locale: context.locale,
-              home: home,
+              home: AppLayoutBuilder(builder: (_, _) => home),
             ),
           ),
         ),
@@ -407,80 +408,6 @@ void main() {
     expect(flow.pickerRevision, 0);
   });
 
-  testWidgets('iOS edge swipe is blocked during deletion', (tester) async {
-    final pending = Completer<void>();
-    mockApi.pendingDelete = pending;
-    addTearDown(() => mockApi.pendingDelete = null);
-    final flow = await openDetail(tester, platform: TargetPlatform.iOS);
-    final deleting = flow.deleteJourney();
-    await tester.pump();
-    await tester.flingFrom(const Offset(5, 150), const Offset(600, 0), 2000);
-    await tester.pump();
-    expect(flow.phase, JourneyPhase.deleting);
-    expect(flow.session, isNotNull);
-    expect(flow.pickerRevision, 0);
-    pending.complete();
-    await tester.pumpAndSettle();
-    await deleting;
-    expect(flow.session, isNull);
-  });
-
-  testWidgets('detail form scrolls above a landscape keyboard', (tester) async {
-    tester.view.devicePixelRatio = 1;
-    tester.view.physicalSize = const Size(667, 375);
-    tester.view.viewInsets = const FakeViewPadding(bottom: 200);
-    addTearDown(tester.view.reset);
-    final saved = <JourneyInfo>[];
-
-    await pumpApp(
-      tester,
-      Scaffold(
-        body: Stack(
-          fit: StackFit.expand,
-          children: [
-            Positioned(
-              left: 16,
-              right: 16,
-              top: 68,
-              bottom: 16,
-              child: Align(
-                alignment: Alignment.bottomCenter,
-                child: SizedBox(
-                  width: 430,
-                  child: CollapsibleJourneyDetail(
-                    child: JourneyDetailCard(
-                      journey: journey,
-                      isEditing: true,
-                      onExport: () {},
-                      onEdit: () {},
-                      onMore: () {},
-                      onCancel: () {},
-                      onSave: (info) async => saved.add(info),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-
-    await tester.ensureVisible(find.byType(TextField));
-    await tester.enterText(find.byType(TextField), 'Landscape draft');
-    await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text(tr('journey.journey_date')));
-    await tester.pumpAndSettle();
-    expect(find.text(tr('journey.journey_date')).hitTestable(), findsOneWidget);
-    await tester.ensureVisible(find.text(tr('common.save')));
-    await tester.pumpAndSettle();
-    expect(find.text(tr('common.save')).hitTestable(), findsOneWidget);
-    await tester.tap(find.text(tr('common.save')));
-    await tester.pumpAndSettle();
-    expect(saved.single.note, 'Landscape draft');
-    expect(tester.takeException(), isNull);
-  });
-
   testWidgets(
     'pending save blocks every exit before the loading overlay appears',
     (tester) async {
@@ -550,16 +477,17 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('pending deletion blocks both system and detail back', (
+  testWidgets('pending deletion blocks gestures, system and detail back', (
     tester,
   ) async {
     final pending = Completer<void>();
     mockApi.pendingDelete = pending;
     addTearDown(() => mockApi.pendingDelete = null);
-    final flow = await openDetail(tester);
+    final flow = await openDetail(tester, platform: TargetPlatform.iOS);
     final delete = flow.deleteJourney();
     await tester.pump();
     expect(GlobalLoadingManager.instance.isLoading, isFalse);
+    await tester.flingFrom(const Offset(5, 150), const Offset(600, 0), 2000);
     await tester.binding.handlePopRoute();
     tester
         .widget<MapGlassBackButton>(find.byType(MapGlassBackButton))
@@ -567,6 +495,7 @@ void main() {
     expect(flow.leave(), isFalse);
     expect(flow.phase, JourneyPhase.deleting);
     expect(flow.session, isNotNull);
+    expect(flow.pickerRevision, 0);
     pending.complete();
     await delete;
     await tester.pumpAndSettle();

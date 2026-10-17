@@ -58,7 +58,6 @@ class _MapSettingsPageState extends State<MapSettingsPage> {
   void _showMapStylePicker() {
     showAppDialog(
       context,
-      size: AppDialogSize.content,
       builder: (dialogContext) => AppDialogContent(
         title: context.tr("general.map_settings.style"),
         contentPadding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
@@ -87,7 +86,6 @@ class _MapSettingsPageState extends State<MapSettingsPage> {
   void _showFogStylePicker() {
     showAppDialog(
       context,
-      size: AppDialogSize.content,
       builder: (dialogContext) => AppDialogContent(
         title: context.tr("general.map_settings.fog_mode"),
         contentPadding: const EdgeInsets.fromLTRB(12, 12, 12, 12),

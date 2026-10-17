@@ -98,7 +98,6 @@ class _RawDataPage extends State<RawDataPage> {
   void _showExportCard(BuildContext context, String filePath) {
     showAppDialog(
       context,
-      size: AppDialogSize.content,
       builder: (dialogContext) => AppDialogContent(
         title: context.tr("common.export"),
         contentPadding: const EdgeInsets.fromLTRB(12, 12, 12, 12),

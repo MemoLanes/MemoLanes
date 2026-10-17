@@ -26,10 +26,9 @@ class SettingsBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SettingsPageLayout(
-      topPadding: topSafeArea + 24,
-      bottomPadding: bottomSafeArea + 16,
-      framePadding: const EdgeInsets.symmetric(horizontal: 8),
+    return SettingsPageLayout.tab(
+      topSafeArea: topSafeArea,
+      bottomSafeArea: bottomSafeArea,
       children: [
         SizedBox(
           width: double.infinity,

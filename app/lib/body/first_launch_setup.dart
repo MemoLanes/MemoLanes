@@ -43,7 +43,6 @@ Future<void> _showPrivacyAndRegionSheet(
 
   final accepted = await showAppDialog<_FirstLaunchAccepted>(
     context,
-    size: AppDialogSize.content,
     barrierDismissible: false,
     builder: (_) =>
         FirstLaunchSetupSheet(initialPrivacyAccepted: privacyAlreadyAccepted),

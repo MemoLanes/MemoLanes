@@ -20,6 +20,7 @@ class AppLayout {
     required this.safeBounds,
     required this.contentBounds,
     required this.navigationBounds,
+    required this.navigationContentSize,
     required this.navigationAxis,
     required this.regions,
     required this.controlRegion,
@@ -41,6 +42,7 @@ class AppLayout {
   final Rect safeBounds;
   final Rect contentBounds;
   final Rect navigationBounds;
+  final Size navigationContentSize;
   final Axis navigationAxis;
   final List<Rect> regions;
   final Rect controlRegion;
@@ -105,18 +107,21 @@ class AppLayout {
   EdgeInsets get mapFitPadding => _mapFitPaddingAround(panelBounds);
 
   EdgeInsets _mapFitPaddingAround(Rect occupied) {
-    var visible =
-        [
-              for (final region in regions)
-                ..._subtract(region, occupied.inflate(16)),
-            ]
-            .where((region) => region.width >= 120 && region.height >= 120)
-            .fold(
-              Rect.zero,
-              (a, b) => b.width * b.height > a.width * a.height ? b : a,
-            );
-    // A keyboard or short window can leave no useful rectangle beside the
-    // floating card. Fit safely within its usable region until space returns.
+    final clear = [
+      for (final region in regions) ..._subtract(region, occupied.inflate(16)),
+    ];
+    final fitting = clear.where(
+      (r) =>
+          r.width >= StyleConstants.minimumMapExtent &&
+          r.height >= StyleConstants.minimumMapExtent,
+    );
+    // Prefer a spacious viewport, but keep a short remaining area ahead of
+    // fitting behind the card when the keyboard or a small window leaves less.
+    var visible = (fitting.isNotEmpty ? fitting : clear).fold(
+      Rect.zero,
+      (a, b) => b.width * b.height > a.width * a.height ? b : a,
+    );
+    // Only a completely covered window needs the full-region fallback.
     if (visible.isEmpty) {
       visible = regions.reduce(
         (a, b) => a.width * a.height > b.width * b.height ? a : b,
@@ -127,24 +132,29 @@ class AppLayout {
 
   /// Keeps MapLibre's fit area positive even when a short window is covered.
   EdgeInsets fitPaddingFor(Rect visible) {
-    final left = math.max(28.0, visible.left + 16);
-    final top = math.max(28.0, visible.top + 16);
-    final right = math.max(28.0, size.width - visible.right + 16);
-    final bottom = math.max(28.0, size.height - visible.bottom + 16);
-    final horizontalScale = math.min(
-      1.0,
-      math.max(0.0, size.width - math.min(120.0, size.width)) / (left + right),
-    );
-    final verticalScale = math.min(
-      1.0,
-      math.max(0.0, size.height - math.min(120.0, size.height)) /
-          (top + bottom),
-    );
-    return EdgeInsets.fromLTRB(
-      left * horizontalScale,
-      top * verticalScale,
-      right * horizontalScale,
-      bottom * verticalScale,
+    final viewport = Offset.zero & size;
+    final intersection = visible.intersect(viewport);
+    final area = intersection.isEmpty ? viewport : intersection;
+    final horizontalGap = math.max(0.0, (area.width - 1) / 2);
+    final verticalGap = math.max(0.0, (area.height - 1) / 2);
+    // Shrink margins inside the chosen area; never enlarge it across a card
+    // or hinge just to keep a minimum camera viewport.
+    return insetsFor(
+      _inset(
+        area,
+        EdgeInsets.fromLTRB(
+          math.min(horizontalGap, math.max(16.0, 28 - area.left)),
+          math.min(verticalGap, math.max(16.0, 28 - area.top)),
+          math.min(
+            horizontalGap,
+            math.max(16.0, 28 - (size.width - area.right)),
+          ),
+          math.min(
+            verticalGap,
+            math.max(16.0, 28 - (size.height - area.bottom)),
+          ),
+        ),
+      ),
     );
   }
 
@@ -154,7 +164,13 @@ class AppLayout {
     if (navigationAxis == Axis.horizontal) return controlRegion;
     final fitting = regions
         .where(
-          (r) => r.height >= 126 && r.width >= (r.height < 260 ? 148 : 44) + 32,
+          (r) =>
+              r.height >= 126 &&
+              r.width >=
+                  (r.height < 260
+                          ? StyleConstants.mapControlsExtent
+                          : StyleConstants.mapControlSize) +
+                      32,
         )
         .toList();
     return _nearest(
@@ -165,35 +181,51 @@ class AppLayout {
     );
   }
 
-  Axis get mapControlsAxis => _usesRegions && _mapControlsRegion.height < 260
-      ? Axis.horizontal
-      : Axis.vertical;
+  Axis get mapControlsAxis =>
+      _mapControlsRegion.height < 260 ? Axis.horizontal : Axis.vertical;
 
   Rect get mapControlsBounds {
-    if (!_usesRegions) {
-      final landscape = _media.orientation == Orientation.landscape;
-      return Rect.fromLTWH(
-        size.width - _media.viewPadding.right - (landscape ? 32 : 18) - 44,
-        size.height - primaryControlBottomInset - (landscape ? 0 : 82) - 148,
-        44,
-        148,
-      );
-    }
     final region = _mapControlsRegion;
     final horizontal = mapControlsAxis == Axis.horizontal;
+    final sideNavigation = navigationAxis == Axis.vertical;
+    final landscape = _media.orientation == Orientation.landscape;
+    final available = _inset(
+      region,
+      EdgeInsets.symmetric(
+        horizontal: sideNavigation ? 16 : (landscape ? 32 : 18),
+        vertical: 12,
+      ),
+    );
     final width = math.min(
-      horizontal ? 148.0 : 44.0,
-      math.max(0.0, region.width - 32),
+      horizontal
+          ? StyleConstants.mapControlsExtent
+          : StyleConstants.mapControlSize,
+      available.width,
     );
     final height = math.min(
-      horizontal ? 44.0 : 148.0,
-      math.max(0.0, region.height - 24),
+      horizontal
+          ? StyleConstants.mapControlSize
+          : StyleConstants.mapControlsExtent,
+      available.height,
     );
+    final bottom = sideNavigation
+        ? region.bottom
+        : navigationBounds.isEmpty
+        ? size.height - primaryControlBottomInset
+        : navigationBounds.top -
+              StyleConstants.mapPrimaryControlNavBarSpacing -
+              math.max(
+                0.0,
+                navigationContentSize.height - navigationBounds.height,
+              );
     return Rect.fromLTWH(
-      navigationAxis == Axis.vertical && _barEdge == DuoBarEdge.right
-          ? region.left + 16
-          : region.right - width - 16,
-      math.max(region.top + 12, region.bottom - height - 82),
+      sideNavigation && _barEdge == DuoBarEdge.right
+          ? available.left
+          : available.right - width,
+      (bottom - height - (sideNavigation || !landscape ? 82 : 0)).clamp(
+        available.top,
+        math.max(available.top, available.bottom - height),
+      ),
       width,
       height,
     );
@@ -210,12 +242,16 @@ class AppLayout {
     required double minimumWidth,
   }) {
     if (!_usesRegions) {
-      final inset =
-          math.max(_media.viewPadding.left, _media.viewPadding.right) + 24;
+      final inset = _horizontalSafeInset + 24;
+      final width = contentConstraints(
+        size,
+        padding: EdgeInsets.symmetric(horizontal: inset),
+        maxWidth: footprint.width,
+      ).maxWidth;
       return Rect.fromLTWH(
-        inset,
+        (size.width - width) / 2,
         size.height - primaryControlBottomInset - footprint.height,
-        math.max(0.0, size.width - 2 * inset),
+        width,
         footprint.height,
       );
     }
@@ -249,7 +285,8 @@ class AppLayout {
         (a, b) => distance(b) < distance(a) ? b : a,
       );
     }
-    var halfWidth = math.max(0.0, region.width - 48) / 2;
+    var halfWidth =
+        math.min(footprint.width, math.max(0.0, region.width - 48)) / 2;
     final regionCenter = region.center.dx;
     // Keep a centered container clear of the actual tab bar. Long labels can
     // use their existing ellipsis without shifting the primary capsule.
@@ -283,6 +320,8 @@ class AppLayout {
 
   double get _navigationBottomInset =>
       StyleConstants.navBarBottomInsetForMedia(_navigationMedia, _platform);
+  double get _horizontalSafeInset =>
+      math.max(_media.viewPadding.left, _media.viewPadding.right);
   double get primaryControlBottomInset =>
       StyleConstants.navBarHeight +
       StyleConstants.navBarBottomInsetForMedia(
@@ -294,13 +333,6 @@ class AppLayout {
       _keyboardInset +
       StyleConstants.mapPrimaryControlNavBarSpacing;
 
-  Size get navigationContentSize => _usesRegions
-      ? navigationBounds.size
-      : Size(
-          math.max(0.0, _media.size.width - 48),
-          StyleConstants.navBarHeight,
-        );
-  bool get navigationAllowsOverflow => _usesRegions;
   Offset get trailingOverlayInsets => _usesRegions
       ? Offset(
           size.width - controlRegion.right + 8,
@@ -314,32 +346,42 @@ class AppLayout {
               _keyboardInset,
         );
 
-  /// Menu viewports consume physical insets; ordinary scrolling pages retain
-  /// their original top/bottom scroll padding and 8pt design margin.
+  /// Side clearance belongs outside the viewport; vertical clearance scrolls
+  /// with the content so system areas never create a clipped bottom strip.
   EdgeInsets get menuInsets => _usesRegions
-      ? insetsFor(contentBounds)
-      : EdgeInsets.only(
-          left: _media.viewPadding.left + 8,
-          right: _media.viewPadding.right + 8,
-        );
+      ? EdgeInsets.only(
+          left: contentBounds.left,
+          right: size.width - contentBounds.right,
+        )
+      : EdgeInsets.symmetric(horizontal: _horizontalSafeInset + 8);
   EdgeInsets get menuScrollInsets => _usesRegions
-      ? EdgeInsets.zero
+      ? EdgeInsets.only(
+          top: contentBounds.top,
+          bottom: size.height - contentBounds.bottom,
+        )
       : EdgeInsets.only(
           top: _navigationMedia.padding.top,
           bottom: StyleConstants.navBarHeight + _navigationBottomInset,
         );
-  // Null leaves the caller's SafeArea in charge. Zero still claims the sides.
+  // Frames consume physical sides once; unframed content can use SafeArea.
+  // Zero still claims the sides, so descendants do not add their own insets.
   EdgeInsets? contentInsets(
     MediaQueryData media, {
     required bool maintainViewPadding,
-  }) => !_usesRegions
-      ? null
-      : maintainViewPadding
-      ? insetsFor(safeBounds)
-      : media.padding;
-  double get dashboardContentWidth =>
-      _usesRegions ? StyleConstants.pageContentMaxWidth : double.infinity;
-  double get dashboardTopPadding => _usesRegions ? 24 : 16;
+  }) {
+    if (!maintainViewPadding) return _usesRegions ? media.padding : null;
+    return _usesRegions
+        ? EdgeInsets.only(
+            left: media.viewPadding.left,
+            right: media.viewPadding.right,
+          )
+        : EdgeInsets.symmetric(
+            horizontal: math.max(
+              media.viewPadding.left,
+              media.viewPadding.right,
+            ),
+          );
+  }
 
   EdgeInsets insetsFor(Rect bounds) => EdgeInsets.fromLTRB(
     bounds.left,
@@ -382,8 +424,22 @@ class AppLayout {
     maxHeight: math.max(0.0, availableSize.height - padding.vertical),
   );
 
-  /// A card uses its clear pane, with room beside it for the map when both fit.
-  /// Width depends on this pane's dimensions, including ordinary windows.
+  /// Shared outer budget for Wolt dialogs and notices without a modal route.
+  static BoxConstraints dialogConstraints(Size availableSize) {
+    final horizontalGap = math.min(
+      24.0,
+      math.max(8.0, (availableSize.width - StyleConstants.contentMinWidth) / 2),
+    );
+    final budget = contentConstraints(
+      availableSize,
+      padding: EdgeInsets.symmetric(horizontal: horizontalGap, vertical: 24),
+      maxWidth: StyleConstants.dialogMaxWidth,
+    );
+    return budget.tighten(width: budget.maxWidth);
+  }
+
+  /// A card stays centered in its clear pane. Its width budget leaves map
+  /// space as the pane widens without changing the card's alignment.
   Rect get panelBounds {
     final available = _inset(_panelRegion, const EdgeInsets.all(16));
     const mapGap = 16.0;
@@ -396,40 +452,21 @@ class AppLayout {
     final budget = contentConstraints(
       Size(available.width - mapSpace, available.height),
     );
-    final left =
-        available.left + (available.width - budget.maxWidth - mapSpace) / 2;
-    return Rect.fromLTWH(
-      left,
-      available.top,
-      budget.maxWidth,
-      budget.maxHeight,
-    );
+    return Alignment.bottomCenter.inscribe(budget.biggest, available);
   }
 
-  /// A browsing card leaves the map visible instead of filling its size limit.
-  /// The clear pane's shape determines its reading width, including folds.
+  /// Browsing cards share the page width while leaving map space vertically.
   Rect get pickerBounds {
     final available = _inset(_panelRegion, const EdgeInsets.all(16));
-    // The keyboard can shorten a portrait pane without rotating its content.
-    final wide =
-        _media.orientation == Orientation.landscape &&
-        _panelRegion.width > _panelRegion.height;
-    final budget = contentConstraints(
-      available.size,
-      maxWidth: wide
-          ? StyleConstants.mapPickerWideMaxWidth
-          : StyleConstants.mapPickerMaxWidth,
-    );
+    final budget = contentConstraints(available.size);
     final preferredHeight = (size.height * 0.62).clamp(
       StyleConstants.mapPickerMinHeight,
       StyleConstants.mapPickerMaxHeight,
     );
     final height = math.min(budget.maxHeight, preferredHeight);
-    return Rect.fromLTWH(
-      available.center.dx - budget.maxWidth / 2,
-      available.bottom - height,
-      budget.maxWidth,
-      height,
+    return Alignment.bottomCenter.inscribe(
+      Size(budget.maxWidth, height),
+      available,
     );
   }
 
@@ -451,17 +488,22 @@ class AppLayout {
   }
 
   EdgeInsets get primaryControlsInsets {
-    if (_usesRegions) {
-      return EdgeInsets.fromLTRB(
-        controlRegion.left + 24,
-        0,
-        size.width - controlRegion.right + 24,
-        size.height - controlRegion.bottom + 22,
-      );
-    }
-    final side =
-        math.max(_media.viewPadding.left, _media.viewPadding.right) + 24;
-    return EdgeInsets.fromLTRB(side, 0, side, primaryControlBottomInset);
+    final side = _usesRegions ? 24.0 : _horizontalSafeInset + 24;
+    final region = _usesRegions ? controlRegion : Offset.zero & size;
+    final width = contentConstraints(
+      region.size,
+      padding: EdgeInsets.symmetric(horizontal: side),
+      maxWidth: StyleConstants.timelineControlsMaxWidth,
+    ).maxWidth;
+    final left = region.center.dx - width / 2;
+    return EdgeInsets.fromLTRB(
+      left,
+      0,
+      size.width - left - width,
+      _usesRegions
+          ? size.height - region.bottom + 22
+          : primaryControlBottomInset,
+    );
   }
 
   Rect toolbarBoundsFor(double minimumHeight) => _usesRegions
@@ -480,47 +522,25 @@ class AppLayout {
   Rect get headerBounds =>
       _usesRegions ? regionFor(safeBounds.topLeft) : Offset.zero & size;
   double get headerTopInset => _usesRegions ? 0 : _media.padding.top * .8;
-  MediaQueryData headerMedia(MediaQueryData media) => _usesRegions
-      ? media.removePadding(removeLeft: true, removeRight: true)
-      : media;
+  EdgeInsets get headerContentInsets => EdgeInsets.fromLTRB(
+    (_usesRegions ? 0 : _media.padding.left) +
+        StyleConstants.overlayBarHorizontalInset,
+    headerTopInset,
+    (_usesRegions ? 0 : _media.padding.right) +
+        StyleConstants.overlayBarHorizontalInset,
+    StyleConstants.overlayBarBottomInset,
+  );
   bool get backPrecedesEdgeGesture => detachedBackBounds == null;
 
-  EdgeInsets get recordingIndicatorMargin => _usesRegions
-      ? EdgeInsets.fromLTRB(
-          controlRegion.left + 18 - _media.viewPadding.left,
-          controlRegion.top + 8 - _media.viewPadding.top,
-          0,
-          0,
+  /// Follow the top-left header region independently of recording actions.
+  /// Mirror a bottom safe inset when a side status bar leaves no top inset,
+  /// keeping the badge clear of the rounded top corner.
+  Offset get recordingIndicatorOffset => _usesRegions
+      ? Offset(
+          headerBounds.left + 18,
+          math.max(headerBounds.top, _media.viewPadding.bottom) + 8,
         )
-      : const EdgeInsets.fromLTRB(18, 8, 0, 0);
-  double recordingLeadingSpace(double totalWidth, double primaryWidth) =>
-      _usesRegions ? (totalWidth - primaryWidth) / 2 : 0;
-
-  EdgeInsets get toastInsets {
-    final region = _usesRegions
-        ? regionFor(safeBounds.topLeft)
-        : Offset.zero & _media.size;
-    return EdgeInsets.fromLTRB(
-      region.left + 16,
-      region.top + region.height / 6,
-      size.width - region.right + 16,
-      0,
-    );
-  }
-
-  /// Fixed single-viewport metrics are a compatibility policy. Clear-region
-  /// controls can grow for text, but must fit the available region.
-  BoxConstraints controlConstraints({double? width, double? height}) {
-    if (!_usesRegions) {
-      return BoxConstraints.tightFor(width: width, height: height);
-    }
-    return BoxConstraints(
-      minWidth: math.min(width ?? 0, controlRegion.width),
-      maxWidth: controlRegion.width,
-      minHeight: math.min(height ?? 0, controlRegion.height),
-      maxHeight: controlRegion.height,
-    );
-  }
+      : Offset(_media.padding.left + 18, _media.padding.top + 8);
 
   /// Every map fits against the existing panel's measured footprint.
   EdgeInsets mapFitPaddingForOverlay(Rect occupied) =>
@@ -599,22 +619,30 @@ class AppLayout {
       ),
     );
     if (!enabled) {
+      final horizontalInset = math.max(padding.left, padding.right);
+      // Match navigation's symmetric safe area so a one-sided cutout cannot
+      // shift cards away from the window center. Duo keeps its native panes.
+      final panelRegion = _inset(
+        safe,
+        EdgeInsets.only(
+          left: horizontalInset - padding.left,
+          right: horizontalInset - padding.right,
+        ),
+      );
       final bottom = StyleConstants.navBarBottomInsetForMedia(
         navigationMedia,
         platform,
       );
       final naturalWidth = math.max(0.0, media.size.width - 48);
-      final availableWidth = math.max(
-        0.0,
-        size.width - 2 * math.max(padding.left, padding.right),
-      );
+      final availableWidth = math.max(0.0, size.width - 2 * horizontalInset);
       final scale = naturalWidth == 0
           ? 1.0
           : math.min(1.0, availableWidth / naturalWidth);
-      final navigationSize = Size(
-        naturalWidth * scale,
-        StyleConstants.navBarHeight * scale,
-      );
+      // Preserve the existing safe-area scale before capping visible width;
+      // a narrower bar must not change its height or icon sizes.
+      final navigationSize = contentConstraints(
+        Size(naturalWidth * scale, StyleConstants.navBarHeight * scale),
+      ).biggest;
       return AppLayout._(
         usesRegions: false,
         media: media,
@@ -631,13 +659,17 @@ class AppLayout {
                 navigationSize.height,
               )
             : Rect.zero,
+        navigationContentSize: Size(
+          scale == 0 ? naturalWidth : navigationSize.width / scale,
+          StyleConstants.navBarHeight,
+        ),
         navigationAxis: Axis.horizontal,
         regions: [safe],
         controlRegion: safe,
         panelRegion: Rect.fromLTRB(
-          safe.left,
+          panelRegion.left,
           safe.top,
-          safe.right,
+          panelRegion.right,
           navigationVisible
               ? math.max(
                   safe.top,
@@ -758,13 +790,16 @@ class AppLayout {
                 );
         }
       } else {
-        final width = math.max(0.0, free.width - 48);
+        final width = contentConstraints(
+          free.size,
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+        ).maxWidth;
         final height = math.min(
           StyleConstants.navBarHeight,
           math.max(0.0, free.height - 24),
         );
         navigation = Rect.fromLTWH(
-          free.left + 24,
+          free.center.dx - width / 2,
           free.bottom - height - 12,
           width,
           height,
@@ -800,6 +835,7 @@ class AppLayout {
       safeBounds: safe,
       contentBounds: content,
       navigationBounds: navigation,
+      navigationContentSize: navigation.size,
       navigationAxis: axis,
       regions: regions,
       controlRegion: controls,
@@ -888,8 +924,11 @@ class AppLayoutScope extends InheritedWidget {
   static AppLayout? maybeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<AppLayoutScope>()?.layout;
 
-  static AppLayout of(BuildContext context) =>
-      maybeOf(context) ?? AppLayout.fromContext(context);
+  static AppLayout of(BuildContext context) {
+    final layout = maybeOf(context);
+    assert(layout != null, 'Place this content inside AppLayoutBuilder.');
+    return layout!;
+  }
 
   @override
   bool updateShouldNotify(AppLayoutScope oldWidget) =>
@@ -933,20 +972,32 @@ class AppModalRegion extends StatelessWidget {
     super.key,
     required this.child,
     this.useSafeArea = true,
-  });
+  }) : alignment = null;
+
+  /// Fits an overlay notice using the same outer budget as a Wolt dialog.
+  /// It remains an overlay, so the host route can keep handling navigation.
+  const AppModalRegion.dialog({
+    super.key,
+    required this.child,
+    this.alignment = Alignment.center,
+  }) : useSafeArea = true;
 
   final Widget child;
 
   /// Keep the caller's safe-area policy in a single viewport. Reserved native
   /// space is always excluded before content reaches the modal.
   final bool useSafeArea;
+  final Alignment? alignment;
 
   @override
   Widget build(BuildContext context) {
     final layout = AppLayout.fromContext(context);
     // Own safe-area consumption so a late native reading can change geometry
     // without leaving a route-created legacy SafeArea around the dialog.
-    return SafeArea(
+    final viewport = SafeArea(
+      minimum: useSafeArea && !layout._usesRegions
+          ? EdgeInsets.symmetric(horizontal: layout._horizontalSafeInset)
+          : EdgeInsets.zero,
       left: useSafeArea && !layout._usesRegions,
       right: useSafeArea && !layout._usesRegions,
       top: useSafeArea && !layout._usesRegions,
@@ -954,9 +1005,12 @@ class AppModalRegion extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final media = MediaQuery.of(context);
-          final bounds = layout._usesRegions
+          final region = layout._usesRegions
               ? layout.controlRegion
               : Offset.zero & constraints.biggest;
+          final bounds = alignment != null && !layout._usesRegions
+              ? AppLayout._inset(region, media.viewInsets)
+              : region;
           return Padding(
             padding: EdgeInsets.fromLTRB(
               bounds.left,
@@ -973,11 +1027,22 @@ class AppModalRegion extends StatelessWidget {
                       viewInsets: EdgeInsets.zero,
                     )
                   : media,
-              child: child,
+              child: alignment == null
+                  ? child
+                  : Align(
+                      alignment: alignment!,
+                      child: ConstrainedBox(
+                        constraints: AppLayout.dialogConstraints(bounds.size),
+                        child: child,
+                      ),
+                    ),
             ),
           );
         },
       ),
     );
+    return alignment == null
+        ? viewport
+        : DisplayFeatureSubScreen(child: viewport);
   }
 }

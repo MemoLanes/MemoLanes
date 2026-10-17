@@ -229,13 +229,10 @@ class AchievementCardTitleRow extends StatelessWidget {
         ),
         const SizedBox(width: 4),
         AppMenu(
-          menuBuilder: (context) => ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 260),
-            child: Text(
-              info,
-              style: AppTypography.supporting.copyWith(
-                color: context.appColors.inkColor,
-              ),
+          menuBuilder: (context) => Text(
+            info,
+            style: AppTypography.supporting.copyWith(
+              color: context.appColors.inkColor,
             ),
           ),
           position: AppMenuPosition.top,

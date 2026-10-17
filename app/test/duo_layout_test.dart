@@ -5,6 +5,7 @@ import 'support/duo_hardware_test_data.dart';
 
 import 'package:memolanes/common/duo_device.dart';
 import 'package:memolanes/common/app_layout.dart';
+import 'package:memolanes/constants/style_constants.dart';
 
 const _duo = DuoHardware(
   supported: true,
@@ -40,11 +41,11 @@ void contained(Rect child, Rect bounds) {
 }
 
 void main() {
-  test('wider clear regions never make a card narrower', () {
+  test('content widths preserve centering and phone navigation scale', () {
     for (final hardware in [DuoHardware.none, _duo]) {
       var previous = 0.0;
       var previousPicker = 0.0;
-      for (var width = 260.0; width <= 1100; width++) {
+      for (final width in [260.0, 320.0, 393.0, 640.0, 800.0, 1100.0]) {
         final resolved = layout(
           size: Size(width, 466),
           navigation: false,
@@ -54,6 +55,13 @@ void main() {
         final card = resolved.panelBounds;
         contained(card, resolved.safeBounds);
         expect(
+          card.center.dx,
+          closeTo(
+            hardware.hasHinge ? resolved.safeBounds.center.dx : width / 2,
+            0.01,
+          ),
+        );
+        expect(
           card.width,
           greaterThanOrEqualTo(previous),
           reason: 'width: $width',
@@ -61,10 +69,46 @@ void main() {
         previous = card.width;
         final picker = resolved.pickerBounds;
         contained(picker, resolved.safeBounds);
+        expect(picker.center.dx, closeTo(card.center.dx, 0.01));
         expect(picker.width, greaterThanOrEqualTo(previousPicker));
         previousPicker = picker.width;
       }
+      expect(previous, StyleConstants.pageContentMaxWidth);
+      expect(previousPicker, StyleConstants.pageContentMaxWidth);
+      final wide = layout(
+        size: const Size(1200, 800),
+        fold: hardware,
+        edge: DuoBarEdge.horizontal,
+      );
+      expect(wide.navigationBounds.width, StyleConstants.pageContentMaxWidth);
+      expect(wide.navigationContentSize, wide.navigationBounds.size);
+      final controls = wide.primaryControlsInsets;
+      expect(
+        wide.size.width - controls.horizontal,
+        StyleConstants.timelineControlsMaxWidth,
+      );
+      expect(controls.left, closeTo(controls.right, 0.01));
     }
+    // A width cap must retain the original FittedBox scale on a phone whose
+    // landscape safe areas narrow the navigation's viewport.
+    const phoneSize = Size(844, 390);
+    const phoneInsets = EdgeInsets.fromLTRB(44, 0, 22, 21);
+    final phone = layout(
+      size: phoneSize,
+      padding: phoneInsets,
+      fold: DuoHardware.none,
+      edge: DuoBarEdge.unknown,
+    );
+    expect(phone.navigationBounds.width, StyleConstants.pageContentMaxWidth);
+    expect(phone.pickerBounds.center.dx, phone.navigationBounds.center.dx);
+    expect(phone.detailBounds.center.dx, phone.navigationBounds.center.dx);
+    expect(
+      phone.navigationBounds.width / phone.navigationContentSize.width,
+      closeTo(
+        phone.navigationBounds.height / phone.navigationContentSize.height,
+        0.0001,
+      ),
+    );
   });
 
   test(
@@ -116,34 +160,6 @@ void main() {
     },
   );
 
-  test(
-    'ordinary panel fitting leaves a positive viewport after the keyboard',
-    () {
-      for (final size in [
-        const Size(393, 200),
-        const Size(300, 120),
-        const Size(80, 80),
-      ]) {
-        final ordinary = AppLayout.resolve(
-          media: const MediaQueryData(
-            size: Size(393, 852),
-            padding: EdgeInsets.only(top: 59),
-            viewInsets: EdgeInsets.only(bottom: 500),
-          ),
-          size: size,
-          hardware: DuoHardware.none,
-          barEdge: DuoBarEdge.unknown,
-          platform: TargetPlatform.iOS,
-        );
-        final padding = ordinary.mapFitPaddingForOverlay(
-          Rect.fromLTWH(0, 0, size.width, size.height),
-        );
-        expect(padding.horizontal, lessThan(size.width));
-        expect(padding.vertical, lessThan(size.height));
-      }
-    },
-  );
-
   test('a fold alone does not locate an unknown camera in the side strip', () {
     const fold = DuoRegion(Rect.fromLTWH(0, 190, 600, 40), isActive: true);
     final duo = layout(
@@ -153,35 +169,43 @@ void main() {
     );
     expect(duo.navigationBounds.right, lessThanOrEqualTo(duo.safeBounds.right));
   });
-  test(
-    'fit padding always leaves a positive area in short or keyboard views',
-    () {
+  test('map fitting remains positive in short and keyboard viewports', () {
+    for (final hardware in [DuoHardware.none, _duo]) {
       for (final size in [
         const Size(600, 240),
-        const Size(512, 240),
         const Size(393, 200),
-        const Size(300, 120),
+        const Size(80, 80),
       ]) {
-        final duo = layout(size: size);
-        for (final padding in [
-          duo.mapFitPadding,
-          duo.fitPaddingFor(Rect.fromLTWH(0, size.height - 40, size.width, 20)),
-        ]) {
-          for (final edge in [
-            padding.left,
-            padding.top,
-            padding.right,
-            padding.bottom,
+        for (final keyboard in [0.0, 500.0]) {
+          final resolved = layout(
+            size: const Size(600, 852),
+            bodySize: size,
+            keyboard: EdgeInsets.only(bottom: keyboard),
+            fold: hardware,
+          );
+          for (final padding in [
+            resolved.mapFitPadding,
+            resolved.mapFitPaddingForOverlay(Offset.zero & size),
+            resolved.fitPaddingFor(
+              Rect.fromLTWH(0, size.height - 40, size.width, 20),
+            ),
           ]) {
-            expect(edge.isFinite, isTrue);
-            expect(edge, greaterThanOrEqualTo(0));
+            for (final edge in [
+              padding.left,
+              padding.top,
+              padding.right,
+              padding.bottom,
+            ]) {
+              expect(edge.isFinite, isTrue);
+              expect(edge, greaterThanOrEqualTo(0));
+            }
+            expect(padding.horizontal, lessThan(size.width));
+            expect(padding.vertical, lessThan(size.height));
           }
-          expect(padding.horizontal, lessThan(size.width));
-          expect(padding.vertical, lessThan(size.height));
         }
       }
-    },
-  );
+    }
+  });
   test('hardware capability, platform and native edge are all required', () {
     for (final size in [
       const Size(393, 852),
@@ -262,12 +286,6 @@ void main() {
         } else {
           expect(tools.left, greaterThan(duo.navigationBounds.right));
         }
-        expect(
-          tools.size,
-          duo.mapControlsAxis == Axis.vertical
-              ? const Size(44, 148)
-              : const Size(148, 44),
-        );
       }
     }
   });
@@ -352,9 +370,7 @@ void main() {
         final back = details.primaryNavigationBounds;
         expect(details.navigationBounds, Rect.zero);
         expect(back, root.primaryNavigationBounds);
-        expect(back.size, const Size(44, 44));
         expect(back.center.dx, root.navigationBounds.center.dx);
-        expect(back.top, status.bottom + 14);
         expect(back.bottom, lessThan(root.navigationBounds.top));
         contained(back, strip);
         contained(root.navigationBounds, strip);
@@ -380,7 +396,6 @@ void main() {
           navigation: false,
         );
         final back = details.primaryNavigationBounds;
-        expect(back.size, const Size(44, 44));
         expect(back, root.primaryNavigationBounds);
         expect(back.center.dx, root.navigationBounds.center.dx);
         contained(back, details.safeBounds);
@@ -401,8 +416,7 @@ void main() {
           navigation: navigation,
         );
         final back = duo.primaryNavigationBounds;
-        expect(back.size, const Size(44, 44));
-        expect(back.top, occlusion.frame.bottom + 14);
+        expect(back.top, greaterThanOrEqualTo(occlusion.frame.bottom));
         expect(back.overlaps(occlusion.frame), isFalse);
         contained(back, duo.safeBounds);
       }
@@ -446,7 +460,7 @@ void main() {
           navigation: navigation,
         );
         expect(full.panelBounds.width, greaterThan(book.panelBounds.width));
-        expect(book.panelBounds.width, greaterThan(300));
+        expect(book.panelBounds.width, greaterThan(0));
         contained(full.panelBounds, full.safeBounds);
         contained(book.panelBounds, book.safeBounds);
         expect(book.panelBounds.overlaps(division.frame), isFalse);

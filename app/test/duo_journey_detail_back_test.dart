@@ -196,6 +196,10 @@ Future<JourneyFlowController> _openDetail(
     await tester.pump(const Duration(seconds: 1));
   });
   await tester.pumpAndSettle();
+  final card = tester.getRect(
+    find.byKey(const ValueKey('journey-detail-card')),
+  );
+  expect(card.center.dx, closeTo(layout.safeBounds.center.dx, 0.01));
   return flow;
 }
 

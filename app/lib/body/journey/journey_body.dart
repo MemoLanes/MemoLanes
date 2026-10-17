@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:memolanes/theme/app_colors.dart';
 
@@ -73,35 +72,46 @@ class _JourneyBodyState extends State<JourneyBody> {
     if (mounted) setState(() {});
   }
 
-  Widget _buildJourneyHeaderList() {
-    if (!_controller.hasFilteredJourneys) {
-      return JourneyListEmptyState(
-        type: JourneyListEmptyType.filtered,
-        topAligned: true,
-        onShowAll: _showAllJourneyKinds,
-        compact: true,
+  Widget _buildJourneySliver() {
+    if (_controller.firstDate == null) {
+      return const SliverFillRemaining(
+        hasScrollBody: false,
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(14, 12, 14, 24),
+          child: JourneyListEmptyState(type: JourneyListEmptyType.all),
+        ),
       );
     }
-    if (!_controller.hasJourneyOnSelectedDate) {
-      return JourneyListEmptyState(
-        type: JourneyListEmptyType.month,
-        topAligned: true,
-        onShowAll: _controller.selectedJourneyKinds.length == 1
-            ? _showAllJourneyKinds
-            : null,
-        compact: true,
+    if (!_controller.hasFilteredJourneys ||
+        !_controller.hasJourneyOnSelectedDate) {
+      return SliverToBoxAdapter(
+        child: JourneyListEmptyState(
+          type: _controller.hasFilteredJourneys
+              ? JourneyListEmptyType.month
+              : JourneyListEmptyType.filtered,
+          topAligned: true,
+          onShowAll:
+              !_controller.hasFilteredJourneys ||
+                  _controller.selectedJourneyKinds.length == 1
+              ? _showAllJourneyKinds
+              : null,
+          compact: true,
+        ),
       );
     }
 
     final timeFormat = DateFormat('HH:mm:ss');
-    final journeyList = ListView.builder(
-      controller: _journeyListScrollController,
+    return SliverPadding(
       padding: const EdgeInsets.only(right: 12, bottom: 20),
-      itemCount: _controller.journeyHeaders.length,
-      itemBuilder: (context, index) =>
-          _buildJourneyRow(context, index, timeFormat),
+      sliver: SliverList.builder(
+        itemCount: _controller.journeyHeaders.length,
+        itemBuilder: (context, index) =>
+            _buildJourneyRow(context, index, timeFormat),
+      ),
     );
+  }
 
+  Widget _buildJourneyScrollView({Widget? header}) {
     return ScrollbarTheme(
       data: ScrollbarThemeData(
         thumbColor: WidgetStatePropertyAll(
@@ -120,7 +130,13 @@ class _JourneyBodyState extends State<JourneyBody> {
         thickness: 6,
         radius: const Radius.circular(99),
         scrollbarOrientation: ScrollbarOrientation.right,
-        child: journeyList,
+        child: CustomScrollView(
+          controller: _journeyListScrollController,
+          slivers: [
+            if (header != null) SliverToBoxAdapter(child: header),
+            _buildJourneySliver(),
+          ],
+        ),
       ),
     );
   }
@@ -169,18 +185,21 @@ class _JourneyBodyState extends State<JourneyBody> {
     ),
   );
 
-  List<Widget> _portraitHeader(SimpleDate firstDate) => [
-    _calendar(firstDate),
-    const SizedBox(height: 10),
-    Text(
-      context.tr('journey.records_title'),
-      style: AppTypography.itemTitle.copyWith(
-        color: context.appColors.inkColor,
-        fontWeight: FontWeight.w700,
+  Widget _stackedHeader(SimpleDate firstDate) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      _calendar(firstDate),
+      const SizedBox(height: 10),
+      Text(
+        context.tr('journey.records_title'),
+        style: AppTypography.itemTitle.copyWith(
+          color: context.appColors.inkColor,
+          fontWeight: FontWeight.w700,
+        ),
       ),
-    ),
-    const SizedBox(height: 6),
-  ];
+      const SizedBox(height: 6),
+    ],
+  );
 
   void _showAllJourneyKinds() {
     unawaited(
@@ -197,64 +216,35 @@ class _JourneyBodyState extends State<JourneyBody> {
     }
 
     final firstDate = _controller.firstDate;
-    if (firstDate == null) {
-      return const Padding(
-        padding: EdgeInsets.fromLTRB(14, 12, 14, 24),
-        child: JourneyListEmptyState(type: JourneyListEmptyType.all),
-      );
-    }
+    if (firstDate == null) return _buildJourneyScrollView();
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        // A calendar and a useful list column must both fit this card.
-        if (constraints.maxWidth > constraints.maxHeight &&
-            constraints.maxWidth >= 320 + 240 + 16 + 32) {
-          final calendarWidth = (constraints.maxWidth - 48 - 240).clamp(
-            320.0,
-            360.0,
-          );
+        const widePadding = EdgeInsets.all(16);
+        // Use the card's clear width, including on portrait inner screens.
+        if (constraints.maxWidth - widePadding.horizontal >= 560) {
           return Padding(
-            padding: const EdgeInsets.all(16),
+            padding: widePadding,
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                SizedBox(
-                  width: calendarWidth,
-                  child: SingleChildScrollView(child: _calendar(firstDate)),
+                Expanded(
+                  flex: 11,
+                  child: SingleChildScrollView(
+                    primary: false,
+                    child: _calendar(firstDate),
+                  ),
                 ),
                 const SizedBox(width: 16),
-                Expanded(child: _buildJourneyHeaderList()),
+                Expanded(flex: 9, child: _buildJourneyScrollView()),
               ],
             ),
           );
         }
-        const padding = EdgeInsets.fromLTRB(12, 10, 12, 0);
         return Padding(
-          padding: padding,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              ConstrainedBox(
-                // Keep the natural calendar height and a reachable list row.
-                // Only the header scrolls if the local viewport is too short.
-                constraints: BoxConstraints(
-                  maxHeight: math.max(
-                    0,
-                    constraints.maxHeight -
-                        padding.vertical -
-                        kMinInteractiveDimension,
-                  ),
-                ),
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: _portraitHeader(firstDate),
-                  ),
-                ),
-              ),
-              Expanded(child: _buildJourneyHeaderList()),
-            ],
-          ),
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+          // The calendar can leave the viewport instead of squeezing the list.
+          child: _buildJourneyScrollView(header: _stackedHeader(firstDate)),
         );
       },
     );
@@ -268,7 +258,8 @@ class _CalendarSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
+    return Container(
+      padding: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
         color: context.appColors.surfaceColor,
         borderRadius: BorderRadius.circular(22),

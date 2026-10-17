@@ -20,7 +20,7 @@ class CapsuleBarConstants {
 }
 
 /// Capsule-style bar content: back button, optional title pill, optional more button.
-/// Handles horizontal safe area; vertical safe area belongs to the outer bar.
+/// The outer bar owns sizing, design margins and safe-area consumption.
 class CapsuleBarContent extends StatelessWidget {
   const CapsuleBarContent({
     super.key,
@@ -168,62 +168,55 @@ class CapsuleBarContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final safeAreaPadding = MediaQuery.paddingOf(context);
     return SizedBox(
       height: CapsuleBarConstants.barContentHeight,
-      child: Padding(
-        padding: EdgeInsets.only(
-          left: safeAreaPadding.left + 8.0,
-          right: safeAreaPadding.right + 8.0,
-        ),
-        child: Row(
-          children: [
-            if (showBackButton)
-              buildBackButton(context)
+      child: Row(
+        children: [
+          if (showBackButton)
+            buildBackButton(context)
+          else
+            SizedBox(
+              width: surfaceStyle == CapsuleBarSurfaceStyle.mapGlass
+                  ? 42
+                  : CapsuleBarConstants.iconButtonSize,
+            ),
+          if (!showOnlyBackButton) ...[
+            const SizedBox(width: 12),
+            Expanded(child: Center(child: _titlePill(context))),
+            const SizedBox(width: 12),
+            if (moreMenuContent != null)
+              AppMenu(
+                menuBuilder: (_) => moreMenuContent!,
+                position: AppMenuPosition.bottom,
+                surfaceBuilder: (context, child) => AppMenuSurface(
+                  radius: StyleConstants.overlayFloatingRadius,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  backgroundColor: _pill(context),
+                  child: child,
+                ),
+                child: _pillButton(
+                  context,
+                  moreIcon ?? const Icon(Icons.more_horiz, size: 24),
+                  null,
+                ),
+              )
+            else if (onMoreTap != null)
+              _pillButton(
+                context,
+                moreIcon ?? const Icon(Icons.more_horiz, size: 24),
+                onMoreTap,
+              )
             else
               SizedBox(
                 width: surfaceStyle == CapsuleBarSurfaceStyle.mapGlass
                     ? 42
                     : CapsuleBarConstants.iconButtonSize,
               ),
-            if (!showOnlyBackButton) ...[
-              const SizedBox(width: 12),
-              Expanded(child: Center(child: _titlePill(context))),
-              const SizedBox(width: 12),
-              if (moreMenuContent != null)
-                AppMenu(
-                  menuBuilder: (_) => moreMenuContent!,
-                  position: AppMenuPosition.bottom,
-                  surfaceBuilder: (context, child) => AppMenuSurface(
-                    radius: StyleConstants.overlayFloatingRadius,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    backgroundColor: _pill(context),
-                    child: child,
-                  ),
-                  child: _pillButton(
-                    context,
-                    moreIcon ?? const Icon(Icons.more_horiz, size: 24),
-                    null,
-                  ),
-                )
-              else if (onMoreTap != null)
-                _pillButton(
-                  context,
-                  moreIcon ?? const Icon(Icons.more_horiz, size: 24),
-                  onMoreTap,
-                )
-              else
-                SizedBox(
-                  width: surfaceStyle == CapsuleBarSurfaceStyle.mapGlass
-                      ? 42
-                      : CapsuleBarConstants.iconButtonSize,
-                ),
-            ],
           ],
-        ),
+        ],
       ),
     );
   }

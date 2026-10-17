@@ -117,8 +117,6 @@ class _JourneyInfoFormState extends State<JourneyInfoForm> {
       context,
       surfaceBuilder: (child) =>
           AppDialogSurface(style: AppDialogSurfaceStyle.glass, child: child),
-
-      insetPadding: const EdgeInsets.symmetric(horizontal: 42),
       barrierColor: context.appColors.shadowColor.withValues(
         alpha: context.appColors.pickerBarrierAlpha,
       ),

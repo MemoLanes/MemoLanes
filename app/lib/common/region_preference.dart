@@ -136,7 +136,6 @@ Future<achievement.Worldview?> showWorldviewPicker(
 }) {
   return showAppDialog<achievement.Worldview>(
     context,
-    size: AppDialogSize.content,
     builder: (_) => _RegionPickerSheet(selectedWorldview: selectedWorldview),
   );
 }

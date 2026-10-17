@@ -109,30 +109,18 @@ class ShareHandlerUtil {
               alpha: lerpDouble(0.22, 0.58, context.appColors.darkProgress)!,
             ),
           ),
-          AppModalRegion(
-            useSafeArea: false,
-            child: Dialog(
-              elevation: 0,
-              backgroundColor: Colors.transparent,
-              insetPadding: const EdgeInsets.all(24),
-              child: PointerInterceptor(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 420),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: AppDialogSurface(
-                      child: CommonDialog(
-                        title: context.tr('import.shared_file.busy_title'),
-                        content: context.tr('import.shared_file.busy_message'),
-                        buttons: [
-                          DialogButton(
-                            text: context.tr('common.ok'),
-                            onPressed: _dismissBusyNotice,
-                          ),
-                        ],
-                      ),
+          AppModalRegion.dialog(
+            child: PointerInterceptor(
+              child: AppDialogSurface(
+                child: CommonDialog(
+                  title: context.tr('import.shared_file.busy_title'),
+                  content: context.tr('import.shared_file.busy_message'),
+                  buttons: [
+                    DialogButton(
+                      text: context.tr('common.ok'),
+                      onPressed: _dismissBusyNotice,
                     ),
-                  ),
+                  ],
                 ),
               ),
             ),

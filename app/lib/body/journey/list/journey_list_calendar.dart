@@ -147,6 +147,7 @@ class _JourneyListCalendarState extends State<JourneyListCalendar> {
       semanticsDictionary: yearFirstCalendarModePickerSemantics(context),
       calendarType: CalendarDatePicker2Type.single,
       selectedDayHighlightColor: context.appColors.primaryGreen,
+      daySplashColor: Colors.transparent,
       controlsHeight: widget.fitLabels
           ? math.max(
               compact ? 44.0 : 52.0,

@@ -174,7 +174,6 @@ void _showOptionPicker<T>(
 }) {
   showAppDialog(
     context,
-    size: AppDialogSize.content,
     builder: (dialogContext) => AppDialogContent(
       contentPadding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
       child: Column(

@@ -4,7 +4,6 @@ import 'package:memolanes/theme/app_colors.dart';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:memolanes/common/app_layout.dart';
 import 'package:memolanes/common/component/app_menu.dart';
 import 'package:memolanes/body/time_machine/time_machine_glass_surface.dart';
 import 'package:memolanes/common/app_haptics.dart';
@@ -182,11 +181,11 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
 
   @override
   Widget build(BuildContext context) {
-    final layout = AppLayoutScope.of(context);
     final scaler = MediaQuery.textScalerOf(context);
-    final blockHeight = layout
-        .controlConstraints(height: _kPickerBlockHeight)
-        .constrainHeight(scaler.scale(11) * 1.2 + scaler.scale(12) * 2.4 + 14);
+    final blockHeight = math.max(
+      _kPickerBlockHeight,
+      scaler.scale(11) * 1.2 + scaler.scale(12) * 2.4 + 14,
+    );
     final rulerChild = _viewMode != TimeMachineViewMode.custom
         ? TimeRuler(
             rulerMode: _rulerMode,
@@ -240,14 +239,17 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
               TimeMachineGlassSurface(padding: _modeMenuPadding, child: child),
           menuBuilder: (_) => _buildModeMenu(),
           child: PointerInterceptor(
-            child: TimeRangeControllerBall(
-              key: ValueKey('ball-$_displayYear-$_displayMonth-$_displayDay'),
-              viewMode: _viewMode,
-              rulerMode: _rulerMode,
-              selectedDate: _viewMode == TimeMachineViewMode.custom
-                  ? _toDate
-                  : _displayDate,
-              loading: widget.loading,
+            child: SizedBox.square(
+              dimension: blockHeight,
+              child: TimeRangeControllerBall(
+                key: ValueKey('ball-$_displayYear-$_displayMonth-$_displayDay'),
+                viewMode: _viewMode,
+                rulerMode: _rulerMode,
+                selectedDate: _viewMode == TimeMachineViewMode.custom
+                    ? _toDate
+                    : _displayDate,
+                loading: widget.loading,
+              ),
             ),
           ),
         ),
@@ -548,13 +550,7 @@ class TimeRangeControllerBall extends StatelessWidget {
     required this.loading,
   });
 
-  static const double _buttonSize = 60;
   static const double _borderRadius = 12;
-  TextStyle _contentStyle(BuildContext context) =>
-      AppTypography.sectionLabel.copyWith(
-        color: context.appColors.deepGreen,
-        fontWeight: FontWeight.w700,
-      );
 
   @override
   Widget build(BuildContext context) {
@@ -592,44 +588,24 @@ class TimeRangeControllerBall extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
           ),
-        Text(mainText, style: _contentStyle(context)),
+        Text(
+          mainText,
+          style: AppTypography.sectionLabel.copyWith(
+            color: context.appColors.deepGreen,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
       ],
     );
 
-    final constraints = AppLayoutScope.of(context)
-        .controlConstraints(width: _buttonSize, height: _buttonSize);
-    var buttonSize = constraints
-        .constrain(const Size.square(_buttonSize))
-        .shortestSide;
-    if (!constraints.isTight) {
-      final painter = TextPainter(
-        text: TextSpan(
-          text: mainText,
-          style: DefaultTextStyle.of(context).style
-              .merge(_contentStyle(context)),
-        ),
-        textScaler: MediaQuery.textScalerOf(context),
-        textDirection: Directionality.of(context),
-      )..layout();
-      final measured = math.max(
-        painter.width + 12,
-        painter.height + MediaQuery.textScalerOf(context).scale(11) * 1.2 + 14,
-      );
-      buttonSize = constraints.constrain(Size.square(measured)).shortestSide;
-      painter.dispose();
-    }
     return TimeMachineGlassSurface(
       borderRadius: BorderRadius.circular(_borderRadius),
-      child: SizedBox(
-        width: buttonSize,
-        height: buttonSize,
-        child: Center(
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 6),
-              child: content,
-            ),
+      child: Center(
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            child: content,
           ),
         ),
       ),

@@ -6,7 +6,6 @@ import 'package:memolanes/common/app_haptics.dart';
 import 'package:memolanes/common/component/app_button.dart';
 import 'package:memolanes/common/component/liquid_glass_surface.dart';
 import 'package:memolanes/common/gps_manager.dart';
-import 'package:memolanes/common/app_layout.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/constants/app_typography.dart';
 import 'package:memolanes/theme/app_colors.dart';
@@ -59,49 +58,44 @@ class _RecordingButtonsState extends State<RecordingButtons> {
     final gpsManager = context.read<GpsManager>();
 
     return PointerInterceptor(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(
-          maxWidth: RecordingButtons.maximumWidth,
-        ),
-        child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 280),
-          switchInCurve: Curves.easeOutBack,
-          switchOutCurve: Curves.easeInCubic,
-          transitionBuilder: (child, animation) => FadeTransition(
-            opacity: animation,
-            child: ScaleTransition(
-              scale: Tween<double>(begin: 0.94, end: 1).animate(animation),
-              child: child,
-            ),
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 280),
+        switchInCurve: Curves.easeOutBack,
+        switchOutCurve: Curves.easeInCubic,
+        transitionBuilder: (child, animation) => FadeTransition(
+          opacity: animation,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.94, end: 1).animate(animation),
+            child: child,
           ),
-          child: switch (status) {
-            GpsRecordingStatus.none => _StartJourneyButton(
-              key: const ValueKey('record-start'),
-              onPressed: () {
-                AppHaptics.heavy();
-                gpsManager.changeRecordingState(GpsRecordingStatus.recording);
-              },
-            ),
-            GpsRecordingStatus.recording => _ActiveJourneyControls(
-              key: const ValueKey('record-active'),
-              isPaused: false,
-              onPrimaryPressed: () {
-                AppHaptics.medium();
-                gpsManager.changeRecordingState(GpsRecordingStatus.paused);
-              },
-              onEndPressed: _showEndJourneyDialog,
-            ),
-            GpsRecordingStatus.paused => _ActiveJourneyControls(
-              key: const ValueKey('record-paused'),
-              isPaused: true,
-              onPrimaryPressed: () {
-                AppHaptics.medium();
-                gpsManager.changeRecordingState(GpsRecordingStatus.recording);
-              },
-              onEndPressed: _showEndJourneyDialog,
-            ),
-          },
         ),
+        child: switch (status) {
+          GpsRecordingStatus.none => _StartJourneyButton(
+            key: const ValueKey('record-start'),
+            onPressed: () {
+              AppHaptics.heavy();
+              gpsManager.changeRecordingState(GpsRecordingStatus.recording);
+            },
+          ),
+          GpsRecordingStatus.recording => _ActiveJourneyControls(
+            key: const ValueKey('record-active'),
+            isPaused: false,
+            onPrimaryPressed: () {
+              AppHaptics.medium();
+              gpsManager.changeRecordingState(GpsRecordingStatus.paused);
+            },
+            onEndPressed: _showEndJourneyDialog,
+          ),
+          GpsRecordingStatus.paused => _ActiveJourneyControls(
+            key: const ValueKey('record-paused'),
+            isPaused: true,
+            onPrimaryPressed: () {
+              AppHaptics.medium();
+              gpsManager.changeRecordingState(GpsRecordingStatus.recording);
+            },
+            onEndPressed: _showEndJourneyDialog,
+          ),
+        },
       ),
     );
   }
@@ -198,10 +192,6 @@ class _ActiveJourneyControls extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            SizedBox(
-              width: AppLayoutScope.of(context)
-                  .recordingLeadingSpace(_recordingControlWidth, _primaryWidth),
-            ),
             SizedBox(
               width: _primaryWidth,
               height: 42,

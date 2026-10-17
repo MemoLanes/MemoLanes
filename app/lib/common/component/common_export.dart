@@ -223,7 +223,6 @@ Future<bool> showCommonExport(
 
     final action = await showAppDialog<_PreparedExportAction>(
       context,
-      size: AppDialogSize.content,
       builder: (dialogContext) => AppDialogContent(
         title: context.tr('common.export'),
         contentPadding: const EdgeInsets.fromLTRB(12, 12, 12, 12),

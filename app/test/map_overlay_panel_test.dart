@@ -2,13 +2,14 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:memolanes/common/app_layout.dart';
 import 'package:memolanes/common/component/map_overlay_panel.dart';
+import 'package:memolanes/common/component/page_content_layout.dart';
 import 'package:memolanes/common/duo_device.dart';
 
 import 'support/duo_hardware_test_data.dart';
 
 void main() {
   testWidgets(
-    'map fitting follows the measured card through resizing and folds',
+    'cards stay centered and map fitting avoids them through resizing and folds',
     (tester) async {
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetDevicePixelRatio);
@@ -84,7 +85,13 @@ void main() {
                     children: [
                       MapOverlayPanel.detail(
                         key: panel,
-                        child: SizedBox(key: const Key('card'), height: height),
+                        child: PageContentInsets(
+                          maintainViewPadding: true,
+                          child: SizedBox(
+                            key: const Key('card'),
+                            height: height,
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -94,6 +101,14 @@ void main() {
           ),
         );
         final occupied = tester.getRect(find.byKey(const Key('card')));
+        expect(
+          MediaQuery.paddingOf(tester.element(find.byKey(const Key('card')))),
+          EdgeInsets.zero,
+        );
+        expect(
+          occupied.center.dx,
+          closeTo(layout.regionFor(occupied.center).center.dx, 0.01),
+        );
         final visible = panel.currentState!.mapFitPadding.deflateRect(
           Offset.zero & size,
         );

@@ -2,6 +2,7 @@ import 'package:memolanes/theme/app_colors.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:memolanes/common/component/capsule_style_bar_content.dart';
 import 'package:memolanes/common/app_layout.dart';
+import 'package:memolanes/constants/style_constants.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 
 /// Capsule-style app bar: circular back button, center title pill (title + optional subtitle), circular more button.
@@ -70,11 +71,20 @@ class CapsuleStyleAppBar extends StatelessWidget
           ),
         ),
         child: Padding(
-          padding: EdgeInsets.only(
-            top: topInset,
-            bottom: CapsuleBarConstants.barBottomInset,
+          padding: EdgeInsets.fromLTRB(
+            padding.left + StyleConstants.overlayBarHorizontalInset,
+            topInset,
+            padding.right + StyleConstants.overlayBarHorizontalInset,
+            CapsuleBarConstants.barBottomInset,
           ),
-          child: content,
+          child: MediaQuery.removePadding(
+            context: context,
+            removeLeft: true,
+            removeTop: true,
+            removeRight: true,
+            removeBottom: true,
+            child: content,
+          ),
         ),
       ),
     );

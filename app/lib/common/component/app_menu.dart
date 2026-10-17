@@ -3,6 +3,7 @@ import 'dart:ui' show lerpDouble;
 
 import 'package:material_ui/material_ui.dart';
 import 'package:memolanes/common/app_layout.dart';
+import 'package:memolanes/constants/style_constants.dart';
 import 'package:memolanes/theme/app_colors.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 
@@ -130,13 +131,10 @@ class _AppMenuState extends State<AppMenu> {
 
   @override
   Widget build(BuildContext context) {
-    final media = MediaQuery.of(context);
-    // Scaffold consumes the keyboard inset for its body; the menu lives in
-    // the full Navigator overlay and must still exclude that keyboard area.
-    final menuMedia = media.copyWith(
-      viewInsets: MediaQuery.viewInsetsOf(Overlay.of(context).context),
-    );
-    final size = _overlaySize ?? media.size;
+    // Anchors can live inside an inset card or modal. Menu positions use the
+    // root overlay's coordinates, so window insets must come from it too.
+    final menuMedia = MediaQuery.of(Overlay.of(context).context);
+    final size = _overlaySize ?? menuMedia.size;
     final layout = AppLayout.fromContext(
       context,
       media: menuMedia,
@@ -225,6 +223,9 @@ class _AppMenuState extends State<AppMenu> {
         backgroundColor: const WidgetStatePropertyAll(Colors.transparent),
         surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
         elevation: const WidgetStatePropertyAll(0),
+        maximumSize: const WidgetStatePropertyAll(
+          Size(StyleConstants.dialogMaxWidth, double.infinity),
+        ),
       ).merge(widget.style),
       onOpen: _opened,
       onClose: _closed,

@@ -11,6 +11,7 @@ import 'package:memolanes/common/component/map_controls/map_popup_surface.dart';
 import 'package:memolanes/common/component/liquid_glass_surface.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/constants/app_typography.dart';
+import 'package:memolanes/constants/style_constants.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:provider/provider.dart';
 
@@ -19,34 +20,30 @@ class AccuracyDisplay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 44,
-      height: 44,
-      child: Consumer<GpsManager>(
-        builder: (context, gpsState, child) {
-          final position = gpsState.latestPosition;
-          final accuracy = position?.accuracy ?? 0.0;
-          final hasData = position != null;
-          final accuracyLevel = getAccuracyLevel(accuracy);
-          final button = PointerInterceptor(
-            child: _AccuracyButton(
-              hasData: hasData,
-              accuracy: accuracy,
-              accuracyLevel: accuracyLevel,
-            ),
-          );
+    return Consumer<GpsManager>(
+      builder: (context, gpsState, child) {
+        final position = gpsState.latestPosition;
+        final accuracy = position?.accuracy ?? 0.0;
+        final hasData = position != null;
+        final accuracyLevel = getAccuracyLevel(accuracy);
+        final button = PointerInterceptor(
+          child: _AccuracyButton(
+            hasData: hasData,
+            accuracy: accuracy,
+            accuracyLevel: accuracyLevel,
+          ),
+        );
 
-          if (!hasData) return button;
+        if (!hasData) return button;
 
-          return AppMenu(
-            menuBuilder: (_) => const _AccuracyPopupContent(),
-            position: AppMenuPosition.side,
-            offset: const Offset(16, 0),
-            surfaceBuilder: (_, child) => MapPopupSurface(child: child),
-            child: button,
-          );
-        },
-      ),
+        return AppMenu(
+          menuBuilder: (_) => const _AccuracyPopupContent(),
+          position: AppMenuPosition.side,
+          offset: const Offset(16, 0),
+          surfaceBuilder: (_, child) => MapPopupSurface(child: child),
+          child: button,
+        );
+      },
     );
   }
 }
@@ -108,37 +105,33 @@ class _AccuracyButton extends StatelessWidget {
     return LiquidGlassSurface(
       circular: true,
       backgroundAlpha: hasData ? 0.36 : 0.32,
-      child: SizedBox(
-        width: 44,
-        height: 44,
-        child: Material(
-          color: Colors.transparent,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              Center(
-                child: Text(
-                  hasData ? '${accuracy.round()}m\nACC' : 'NO\nGPS',
-                  textAlign: TextAlign.center,
-                  style: AppTypography.micro.copyWith(
-                    color: context.appColors.mutedInkColor,
-                    height: 1.1,
-                  ),
+      child: Material(
+        color: Colors.transparent,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Center(
+              child: Text(
+                hasData ? '${accuracy.round()}m\nACC' : 'NO\nGPS',
+                textAlign: TextAlign.center,
+                style: AppTypography.micro.copyWith(
+                  color: context.appColors.mutedInkColor,
+                  height: 1.1,
                 ),
               ),
-              if (hasData)
-                CustomPaint(
-                  size: const ui.Size(44, 44),
-                  painter: AccuracyTicksPainter(
-                    inactiveColor: context.appColors.mutedInkColor.withValues(
-                      alpha: 0.52,
-                    ),
-                    filledTicks: accuracyLevel.filledTicks,
-                    color: getStatusColor(context.appColors, accuracyLevel),
+            ),
+            if (hasData)
+              CustomPaint(
+                size: const ui.Size.square(StyleConstants.mapControlSize),
+                painter: AccuracyTicksPainter(
+                  inactiveColor: context.appColors.mutedInkColor.withValues(
+                    alpha: 0.52,
                   ),
+                  filledTicks: accuracyLevel.filledTicks,
+                  color: getStatusColor(context.appColors, accuracyLevel),
                 ),
-            ],
-          ),
+              ),
+          ],
         ),
       ),
     );

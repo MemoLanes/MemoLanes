@@ -12,8 +12,6 @@ Future<TimeOfDay?> showCompactJourneyTimeDialog(
   required TimeOfDay initialTime,
 }) => showAppDialog<TimeOfDay>(
   context,
-
-  insetPadding: const EdgeInsets.symmetric(horizontal: 24),
   barrierColor: context.appColors.shadowColor.withValues(
     alpha: context.appColors.pickerBarrierAlpha,
   ),
@@ -217,33 +215,26 @@ class _CompactJourneyTimeDialogState extends State<CompactJourneyTimeDialog> {
               ),
             ),
             const SizedBox(height: 6),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
+            OverflowBar(
+              alignment: MainAxisAlignment.end,
+              spacing: 8,
+              overflowSpacing: 8,
               children: [
-                SizedBox(
-                  width: 112,
-                  child: AppButton(
-                    size: AppButtonSize.compact,
-                    expand: true,
-                    icon: Icons.close_rounded,
-                    label: localizations.cancelButtonLabel,
-                    variant: AppButtonVariant.secondary,
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
+                AppButton(
+                  size: AppButtonSize.compact,
+                  icon: Icons.close_rounded,
+                  label: localizations.cancelButtonLabel,
+                  variant: AppButtonVariant.secondary,
+                  onPressed: () => Navigator.of(context).pop(),
                 ),
-                const SizedBox(width: 8),
-                SizedBox(
-                  width: 112,
-                  child: AppButton(
-                    size: AppButtonSize.compact,
-                    expand: true,
-                    icon: Icons.check_rounded,
-                    label: localizations.okButtonLabel,
-                    variant: AppButtonVariant.primary,
-                    onPressed: () =>
-                        Navigator.of(context)
-                            .pop(TimeOfDay(hour: _hour, minute: _minute)),
-                  ),
+                AppButton(
+                  size: AppButtonSize.compact,
+                  icon: Icons.check_rounded,
+                  label: localizations.okButtonLabel,
+                  variant: AppButtonVariant.primary,
+                  onPressed: () =>
+                      Navigator.of(context)
+                          .pop(TimeOfDay(hour: _hour, minute: _minute)),
                 ),
               ],
             ),

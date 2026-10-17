@@ -10,7 +10,6 @@ Future<void> showAppearancePicker(BuildContext context) {
 
   return showAppDialog<void>(
     context,
-    size: AppDialogSize.content,
     builder: (dialogContext) => AppDialogContent(
       title: context.tr('general.appearance.title'),
       contentPadding: const EdgeInsets.fromLTRB(12, 12, 12, 12),

@@ -358,8 +358,7 @@ class _DrawModeMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 156,
+    return IntrinsicWidth(
       child: LiquidGlassSurface(
         borderRadius: BorderRadius.circular(18),
         backgroundAlpha: 0.52,

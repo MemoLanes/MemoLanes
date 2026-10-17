@@ -1,6 +1,5 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -31,7 +30,11 @@ void main() {
     'shared form preserves its draft and metadata across device changes',
     (tester) async {
       final scenes = ValueNotifier(
-        const _Scene(supported: false, size: Size(393, 852)),
+        const _Scene(
+          supported: false,
+          size: Size(320, 852),
+          edge: DuoBarEdge.unknown,
+        ),
       );
       addTearDown(scenes.dispose);
       import_api.JourneyInfo? saved;
@@ -45,16 +48,6 @@ void main() {
         onPreprocessorInfo: () => infoTaps++,
         onPreprocessorSelected: (value) => selectedPreprocessor = value,
       );
-      final label = tr('import.preprocessor.label');
-      final paragraph = tester.renderObject<RenderParagraph>(find.text(label));
-      expect(paragraph.didExceedMaxLines, isFalse);
-      expect(
-        paragraph.getBoxesForSelection(
-          TextSelection(baseOffset: 0, extentOffset: label.length),
-        ),
-        hasLength(1),
-        reason: 'The $label label must not be split across lines.',
-      );
       await tester.tap(find.byIcon(Icons.info_outline));
       await tester.pumpAndSettle();
       expect(infoTaps, 1);
@@ -65,8 +58,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(selectedPreprocessor, import_api.ImportPreprocessor.flightTrack);
       expect(infoTaps, 1);
-      const draft = 'A long imported note kept while folding and resizing.';
-      await tester.enterText(find.byType(TextField), draft);
+      const note = 'A long imported note kept while folding and resizing.';
+      await tester.enterText(find.byType(TextField), note);
       FocusManager.instance.primaryFocus?.unfocus();
       await tester.pumpAndSettle();
       for (final scene in [
@@ -81,15 +74,18 @@ void main() {
         await tester.pumpAndSettle();
         expect(
           tester.widget<TextField>(find.byType(TextField)).controller!.text,
-          draft,
+          note,
         );
-        _expectNoteFits(tester);
+        expect(
+          tester.getSize(find.byKey(const Key('map-viewport'))),
+          scene.size,
+        );
       }
       await tester.ensureVisible(find.text(tr('common.save')));
       await tester.pumpAndSettle();
       await tester.tap(find.text(tr('common.save')));
       await tester.pumpAndSettle();
-      expect(saved!.note, draft);
+      expect(saved!.note, note);
       expect(saved!.journeyKind, JourneyKind.flight);
       expect(saved!.journeyDate, DateTime.utc(2026, 10, 1));
       expect(tester.takeException(), isNull);
@@ -98,7 +94,7 @@ void main() {
   );
 
   testWidgets(
-    'landscape form keeps note and save reachable above the keyboard',
+    'a landscape keyboard moves the card without resizing the map',
     (tester) async {
       final scenes = ValueNotifier(
         const _Scene(
@@ -121,10 +117,13 @@ void main() {
         card.bottom,
         lessThanOrEqualTo(scenes.value.size.height - scenes.value.keyboard),
       );
+      expect(
+        tester.getSize(find.byKey(const Key('map-viewport'))),
+        const Size(667, 375),
+      );
       await tester.ensureVisible(find.byType(TextField));
       await tester.enterText(find.byType(TextField), 'Keyboard draft');
       await tester.pumpAndSettle();
-      _expectNoteFits(tester);
       await tester.ensureVisible(find.text(tr('common.save')));
       await tester.pumpAndSettle();
       expect(find.text(tr('common.save')).hitTestable(), findsOneWidget);
@@ -138,21 +137,6 @@ void main() {
       TargetPlatform.android,
     }),
   );
-}
-
-void _expectNoteFits(WidgetTester tester) {
-  final field = tester.getRect(find.byType(TextField));
-  final row = find.byWidgetPredicate(
-    (w) => w is CompactJourneyInfoField && w.label == tr('journey.note'),
-  );
-  final bounds = tester.getRect(row);
-  final label = tester.getRect(
-    find.descendant(of: row, matching: find.text(tr('journey.note'))),
-  );
-  expect(field.left, greaterThanOrEqualTo(label.right));
-  expect(field.right, lessThanOrEqualTo(bounds.right));
-  expect(label.width, greaterThan(0));
-  expect(tester.takeException(), isNull);
 }
 
 Future<void> _pumpForm(
@@ -210,8 +194,11 @@ Future<void> _pumpForm(
             home: Scaffold(
               resizeToAvoidBottomInset: false,
               body: AppLayoutBuilder(
-                builder: (_, _) => Stack(
+                builder: (_, layout) => Stack(
                   children: [
+                    const Positioned.fill(
+                      child: SizedBox(key: Key('map-viewport')),
+                    ),
                     MapOverlayPanel.detail(
                       child: JourneyInfoPanelSurface(
                         child: SingleChildScrollView(

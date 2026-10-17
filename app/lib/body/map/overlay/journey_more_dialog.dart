@@ -12,8 +12,6 @@ Future<JourneyMoreAction?> showJourneyMoreDialog(BuildContext context) {
     context,
     surfaceBuilder: (child) =>
         AppDialogSurface(style: AppDialogSurfaceStyle.glass, child: child),
-
-    insetPadding: const EdgeInsets.symmetric(horizontal: 38, vertical: 24),
     builder: (dialogContext) {
       return AppDialogContent(
         title: dialogContext.tr('common.more'),

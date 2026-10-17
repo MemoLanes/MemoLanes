@@ -199,8 +199,6 @@ class _JourneyDetailOverlayState extends State<JourneyDetailOverlay> {
       context,
       surfaceBuilder: (child) =>
           AppDialogSurface(style: AppDialogSurfaceStyle.glass, child: child),
-
-      insetPadding: const EdgeInsets.symmetric(horizontal: 38),
       barrierColor: context.appColors.shadowColor.withValues(
         alpha: context.appColors.pickerBarrierAlpha,
       ),

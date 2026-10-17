@@ -15,7 +15,6 @@ typedef AppNavigationBodyBuilder = Widget Function({
 typedef AppNavigationBuilder = Widget Function(
   BuildContext context, {
   required Axis axis,
-  required bool allowOverflow,
 });
 
 /// Places the app's existing content and navigation in one stable layout tree.
@@ -30,7 +29,7 @@ class AppNavigationShell extends StatelessWidget {
     this.bottomTrailingOverlay,
   });
 
-  /// Scroll-content offsets for the existing menu pages on ordinary devices.
+  /// Scroll-content offsets resolved by the shared layout on every device.
   final AppNavigationBodyBuilder bodyBuilder;
   final AppNavigationBuilder navigationBuilder;
   final bool navigationVisible;
@@ -80,7 +79,6 @@ class AppNavigationShell extends StatelessWidget {
                       child: navigationBuilder(
                         context,
                         axis: layout.navigationAxis,
-                        allowOverflow: layout.navigationAllowsOverflow,
                       ),
                     ),
                   ),

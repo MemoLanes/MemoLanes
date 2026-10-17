@@ -7,6 +7,7 @@ import 'package:memolanes/common/component/rec_indicator.dart';
 import 'package:memolanes/common/component/recording_buttons.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/app_layout.dart';
+import 'package:memolanes/constants/style_constants.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:provider/provider.dart';
 
@@ -26,14 +27,20 @@ class NormalMapOverlay extends StatelessWidget {
         direction: axis,
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.end,
-        spacing: 8,
+        spacing: StyleConstants.mapControlSpacing,
         children: [
-          TrackingButton(
-            trackingMode: trackingMode,
-            onPressed: onTrackingPressed,
-          ),
-          const AccuracyDisplay(),
-          const LayerButton(),
+          for (final child in [
+            TrackingButton(
+              trackingMode: trackingMode,
+              onPressed: onTrackingPressed,
+            ),
+            const AccuracyDisplay(),
+            const LayerButton(),
+          ])
+            SizedBox.square(
+              dimension: StyleConstants.mapControlSize,
+              child: child,
+            ),
         ],
       ),
     );
@@ -64,9 +71,10 @@ class NormalMapOverlay extends StatelessWidget {
           rect: layout.mapControlsBounds,
           child: _buildMapControls(layout.mapControlsAxis),
         ),
-        RecIndicator(
-          isRecording: isRecording,
-          margin: layout.recordingIndicatorMargin,
+        Positioned(
+          left: layout.recordingIndicatorOffset.dx,
+          top: layout.recordingIndicatorOffset.dy,
+          child: RecIndicator(isRecording: isRecording),
         ),
       ],
     );

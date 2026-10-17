@@ -23,7 +23,6 @@ Future<void> showPermissionRequestSheet(BuildContext context) async {
   unawaited(permissions.logPermissionState('sheet_open'));
   await showAppDialog<void>(
     context,
-    size: AppDialogSize.content,
     builder: (_) => _PermissionRequestSheetContent(),
   );
   await permissions.logPermissionState('sheet_close');

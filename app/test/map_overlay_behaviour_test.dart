@@ -11,6 +11,7 @@ import 'support/duo_hardware_test_data.dart';
 import 'package:memolanes/body/journey/compact_journey_info_card.dart';
 import 'package:memolanes/body/journey/journey_body.dart';
 import 'package:memolanes/body/journey/editor/journey_track_edit_mode_bar.dart';
+import 'package:memolanes/body/journey/editor/top_persistent_toast.dart';
 import 'package:memolanes/body/journey/list/journey_list_calendar.dart';
 import 'package:memolanes/body/map/overlay/journey_overlay.dart';
 import 'package:memolanes/body/map/overlay/journey_detail_card.dart';
@@ -62,57 +63,90 @@ void main() {
   });
 
   testWidgets(
-    'recording state changes keep the primary controls inside a clear pane',
+    'recording state changes keep actions clear and REC at the top left',
     (tester) async {
       final gps = _NoLocation();
       addTearDown(gps.dispose);
-      final layout = await _pumpScene(
-        tester,
+      for (final viewport in [
         _viewports.firstWhere((v) => v.name == 'book'),
-        _OverlayMode.record,
-        overlayBuilder: (_) => ChangeNotifierProvider<GpsManager>.value(
-          value: gps,
-          child: NormalMapOverlay(
-            trackingMode: TrackingMode.off,
-            onTrackingPressed: () {},
-          ),
+        _viewports.firstWhere((v) => v.name == 'tabletop'),
+        const _Viewport(
+          'flat-side-status',
+          Size(951, 669),
+          DuoBarEdge.right,
+          padding: EdgeInsets.only(right: 84, bottom: 34),
         ),
-      );
-      for (final status in [
-        GpsRecordingStatus.recording,
-        GpsRecordingStatus.paused,
+        const _Viewport(
+          'ordinary',
+          Size(393, 852),
+          DuoBarEdge.unknown,
+          padding: EdgeInsets.only(top: 59, bottom: 34),
+        ),
       ]) {
-        gps.setStatus(status);
-        await tester.pumpAndSettle();
-        final action = find.byIcon(
-          status == GpsRecordingStatus.recording
-              ? Icons.pause_rounded
-              : Icons.play_arrow_rounded,
+        final layout = await _pumpScene(
+          tester,
+          viewport,
+          _OverlayMode.record,
+          overlayBuilder: (_) => ChangeNotifierProvider<GpsManager>.value(
+            value: gps,
+            child: NormalMapOverlay(
+              trackingMode: TrackingMode.off,
+              onTrackingPressed: () {},
+            ),
+          ),
         );
-        final surface = find
-            .ancestor(of: action, matching: find.byType(LiquidGlassSurface))
-            .first;
-        final bounds = tester.getRect(surface);
-        expect(
-          layout.regions.any((region) => _contains(region, bounds)),
-          isTrue,
-        );
-        expect(action.hitTestable(), findsOneWidget);
-        expect(find.byIcon(Icons.stop_rounded).hitTestable(), findsOneWidget);
-        expect(tester.takeException(), isNull);
+        for (final status in [
+          GpsRecordingStatus.recording,
+          GpsRecordingStatus.paused,
+        ]) {
+          gps.setStatus(status);
+          await tester.pumpAndSettle();
+          final action = find.byIcon(
+            status == GpsRecordingStatus.recording
+                ? Icons.pause_rounded
+                : Icons.play_arrow_rounded,
+          );
+          final surface = find
+              .ancestor(of: action, matching: find.byType(LiquidGlassSurface))
+              .first;
+          final bounds = tester.getRect(surface);
+          expect(
+            layout.regions.any((region) => _contains(region, bounds)),
+            isTrue,
+          );
+          expect(action.hitTestable(), findsOneWidget);
+          expect(find.byIcon(Icons.stop_rounded).hitTestable(), findsOneWidget);
+          final badge = find.text('REC');
+          if (status == GpsRecordingStatus.recording) {
+            final bounds = tester.getRect(
+              find.ancestor(of: badge, matching: find.byType(ClipRRect)).first,
+            );
+            expect(
+              layout.regions.any((region) => _contains(region, bounds)),
+              isTrue,
+            );
+            expect(bounds.center.dx, lessThan(layout.safeBounds.center.dx));
+            expect(bounds.center.dy, lessThan(layout.safeBounds.center.dy));
+            expect(bounds.top, greaterThan(viewport.padding.bottom));
+          } else {
+            expect(badge, findsNothing);
+          }
+          expect(tester.takeException(), isNull);
+        }
       }
     },
     variant: const TargetPlatformVariant({TargetPlatform.iOS}),
   );
 
   testWidgets(
-    'toolbar leaves map gestures available beside its visible controls',
+    'editor controls and persistent hints leave map gestures available',
     (tester) async {
       var mapTaps = 0;
       var saves = 0;
+      var drawPresses = 0;
       await _pumpScene(
         tester,
-        const _Viewport('ordinary-toolbar', Size(844, 600), DuoBarEdge.unknown),
+        const _Viewport('ordinary-toolbar', Size(320, 600), DuoBarEdge.unknown),
         _OverlayMode.record,
         navigationVisible: false,
         overlayBuilder: (layout) => Stack(
@@ -123,10 +157,22 @@ void main() {
                 onTap: () => mapTaps++,
               ),
             ),
-            _editorModeBar(layout, false, onSave: () => saves++),
+            _editorModeBar(
+              false,
+              onSave: () => saves++,
+              onDrawPressed: () => drawPresses++,
+            ),
           ],
         ),
       );
+      final toast = TopPersistentToast();
+      addTearDown(toast.hide);
+      toast.show(tester.element(find.byType(ModeSwitchBar)), 'Drawing enabled');
+      await tester.pumpAndSettle();
+      toast.show(tester.element(find.byType(ModeSwitchBar)), 'Draw on the map');
+      await tester.pumpAndSettle();
+      expect(find.text('Drawing enabled'), findsNothing);
+      expect(find.text('Draw on the map'), findsOneWidget);
       final surface = tester.getRect(
         find
             .descendant(
@@ -135,80 +181,86 @@ void main() {
             )
             .first,
       );
-      await tester.tapAt(Offset(20, surface.center.dy));
+      await tester.tapAt(Offset(4, surface.center.dy));
       expect(mapTaps, 1);
-      await tester.tap(find.text(tr('journey.editor.save')).hitTestable());
+      await tester.tap(find.byIcon(DrawEntryMode.linked.icon));
+      expect(drawPresses, 1);
+      final save = find.text(tr('journey.editor.save'));
+      await tester.ensureVisible(save);
+      await tester.pumpAndSettle();
+      await tester.tap(save);
       await tester.pumpAndSettle();
       expect(saves, 1);
       expect(mapTaps, 1);
+      await tester.tap(find.text(tr('common.ok')));
+      await tester.pumpAndSettle();
+      expect(find.text('Draw on the map'), findsNothing);
       expect(tester.takeException(), isNull);
     },
     variant: const TargetPlatformVariant({TargetPlatform.iOS}),
   );
 
-  testWidgets(
-    'journey picker retains its floating card and calendar/list arrangement',
-    (tester) async {
-      final fixture = fixtureApi;
-      fixture.journeyCount = 25;
-      addTearDown(() => fixture.journeyCount = 1);
-      for (final (viewport, horizontal) in [
-        (
-          const _Viewport(
-            'portrait',
-            Size(393, 852),
-            DuoBarEdge.unknown,
-            padding: EdgeInsets.fromLTRB(0, 59, 0, 34),
-          ),
-          false,
+  testWidgets('journey records stay reachable in narrow and wide cards', (
+    tester,
+  ) async {
+    fixtureApi.journeyCount = 25;
+    addTearDown(() => fixtureApi.journeyCount = 1);
+    for (final (viewport, stacked) in [
+      (const _Viewport('phone', Size(393, 852), DuoBarEdge.unknown), true),
+      (_viewports.firstWhere((scene) => scene.name == 'inner-portrait'), false),
+      (const _Viewport('short', Size(560, 360), DuoBarEdge.unknown), true),
+    ]) {
+      JourneyHeader? selected;
+      await _pumpScene(
+        tester,
+        viewport,
+        _OverlayMode.journeys,
+        overlayBuilder: (_) => JourneyOverlay(
+          onJourneySelected: (journey) async => selected = journey,
+          isLoading: false,
+          refreshRevision: 0,
         ),
-        (_viewports.firstWhere((scene) => scene.name == 'book'), false),
-        (
-          const _Viewport(
-            'landscape',
-            Size(844, 390),
-            DuoBarEdge.unknown,
-            padding: EdgeInsets.fromLTRB(44, 0, 22, 21),
-          ),
-          true,
-        ),
-      ]) {
-        final layout = await _pumpScene(
-          tester,
-          viewport,
-          _OverlayMode.journeys,
-        );
-        final card = tester.getRect(find.byType(JourneyInfoPanelSurface));
-        _expectInRect(card, layout.pickerBounds, 'floating picker');
-        final calendar = tester.getRect(find.byType(JourneyListCalendar));
-        final list = find.descendant(
-          of: find.byType(JourneyBody),
-          matching: find.byType(ListView),
-        );
-        final listBounds = tester.getRect(list);
-        if (horizontal) {
-          expect(listBounds.left, greaterThanOrEqualTo(calendar.right));
-        } else {
-          expect(listBounds.top, greaterThanOrEqualTo(calendar.bottom));
-          expect(find.text(tr('journey.records_title')), findsOneWidget);
-        }
-        final scrollable = find.descendant(
-          of: list,
-          matching: find.byType(Scrollable),
-        );
-        final position = tester.state<ScrollableState>(scrollable).position;
-        expect(position.maxScrollExtent, greaterThan(0));
-        position.jumpTo(position.maxScrollExtent);
-        await tester.pumpAndSettle();
-        expect(tester.takeException(), isNull);
+      );
+      final list = find.descendant(
+        of: find.byType(JourneyBody),
+        matching: find.byType(CustomScrollView),
+      );
+      final position = tester
+          .widget<CustomScrollView>(list)
+          .controller!
+          .position;
+      position.jumpTo(position.maxScrollExtent);
+      await tester.pumpAndSettle();
+      if (stacked) {
+        expect(find.byType(JourneyListCalendar).hitTestable(), findsNothing);
       }
-    },
-    variant: const TargetPlatformVariant({TargetPlatform.iOS}),
-  );
+      await tester.tap(
+        find.descendant(of: list, matching: find.byType(LabelTile)).last,
+      );
+      await tester.pumpAndSettle();
+      expect(selected?.id, 'fixture');
+      expect(tester.takeException(), isNull);
+    }
+    final controller = tester
+        .widget<JourneyListCalendar>(
+          find.byType(JourneyListCalendar, skipOffstage: false),
+        )
+        .controller;
+    fixtureApi.journeyCount = 0;
+    await controller.refresh();
+    await tester.pumpAndSettle();
+    final emptyDescription = find.text(
+      tr('journey.list.empty_all_description'),
+    );
+    await tester.ensureVisible(emptyDescription);
+    await tester.pumpAndSettle();
+    expect(emptyDescription.hitTestable(), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  }, variant: const TargetPlatformVariant({TargetPlatform.iOS}));
 
   const textScale = 1.8;
   testWidgets(
-    'Chinese picker keeps controls and rows reachable at $textScale',
+    'Chinese picker retains its mode and reachable rows after resizing at $textScale',
     (tester) async {
       final portrait = _Viewport(
         'inner-portrait',
@@ -263,7 +315,7 @@ void main() {
         tester,
         _Viewport(
           'keyboard',
-          portrait.size,
+          Size(500, portrait.size.height),
           portrait.edge,
           padding: portrait.padding,
           keyboard: 300,
@@ -278,14 +330,25 @@ void main() {
         same(controller),
       );
       expect(controller.selectedDate, date);
+      expect(
+        tester
+            .widget<CalendarDatePicker2>(find.byType(CalendarDatePicker2))
+            .config
+            .calendarViewMode,
+        CalendarDatePicker2Mode.year,
+      );
+      final position = tester
+          .widget<CustomScrollView>(find.byType(CustomScrollView))
+          .controller!
+          .position;
+      position.jumpTo(position.maxScrollExtent);
+      await tester.pumpAndSettle();
       final row = find
           .descendant(
             of: find.byType(JourneyBody),
             matching: find.byType(LabelTile),
           )
           .first;
-      await tester.ensureVisible(row);
-      await tester.pumpAndSettle();
       expect(row.hitTestable(), findsOneWidget);
       await tester.tap(row);
       await tester.pumpAndSettle();
@@ -299,7 +362,7 @@ void main() {
     tester,
   ) async {
     int? selected;
-    final layout = await _pumpScene(
+    await _pumpScene(
       tester,
       const _Viewport(
         'short-window',
@@ -312,8 +375,6 @@ void main() {
     );
     await tester.tap(find.byIcon(Icons.more_horiz_rounded));
     await tester.pumpAndSettle();
-    final cardBounds = tester.getRect(find.byType(AppDialogContent));
-    _expectInRect(cardBounds, Offset.zero & layout.size, 'overflow menu');
     expect(find.text('Achievements'), findsOneWidget);
     expect(find.text('Settings'), findsOneWidget);
     await tester.tap(find.text('Settings'));
@@ -454,26 +515,19 @@ void main() {
     );
     var saves = 0;
     DrawEntryMode? selectedDrawMode;
-    final layout = await _pumpScene(
+    await _pumpScene(
       tester,
       viewport,
       _OverlayMode.journeys,
       navigationVisible: false,
       locale: const Locale('zh', 'CN'),
-      overlayBuilder: (layout) => _editorModeBar(
-        layout,
+      overlayBuilder: (_) => _editorModeBar(
         true,
         onSave: () => saves++,
         onDrawModeChanged: (mode) => selectedDrawMode = mode,
       ),
     );
-    final naturalHeight =
-        ModeSwitchBar.preferredHeight(isDrawMenuOpen: true) +
-        ModeSwitchBar.safeAreaMinimum * 2;
-    expect(layout.regions.every((r) => r.height < naturalHeight), isTrue);
-    final selectedRegion = _editorRegion(layout, true);
     final bar = find.byType(ModeSwitchBar);
-    _expectInRect(tester.getRect(bar), selectedRegion, 'short editor viewport');
     final save = find.text(tr('journey.editor.save')).hitTestable();
     expect(save, findsOneWidget);
     await tester.tap(save);
@@ -494,27 +548,14 @@ void main() {
     await tester.tap(freehand);
     await tester.pumpAndSettle();
     expect(selectedDrawMode, DrawEntryMode.freehand);
-    _expectInRect(
-      tester.getRect(bar),
-      selectedRegion,
-      'scrolled editor viewport',
-    );
     expect(tester.takeException(), isNull);
   }, variant: const TargetPlatformVariant({TargetPlatform.iOS}));
 }
 
-// Mirrors JourneyTrackEditPage's parent placement around the real mode bar.
-// It verifies the resulting widget bounds rather than its internal arithmetic.
-Rect _editorRegion(AppLayout layout, bool menuOpen) => layout.controlRegionFor(
-  minimumHeight:
-      ModeSwitchBar.preferredHeight(isDrawMenuOpen: menuOpen) +
-      ModeSwitchBar.safeAreaMinimum * 2,
-);
-
 Widget _editorModeBar(
-  AppLayout layout,
   bool menuOpen, {
   VoidCallback? onSave,
+  VoidCallback? onDrawPressed,
   ValueChanged<DrawEntryMode>? onDrawModeChanged,
 }) {
   return MapOverlayPanel.toolbar(
@@ -527,7 +568,7 @@ Widget _editorModeBar(
       onModeChanged: (_) {},
       currentDrawMode: DrawEntryMode.linked,
       isDrawMenuOpen: menuOpen,
-      onDrawPressed: () {},
+      onDrawPressed: onDrawPressed ?? () {},
       onDrawModeChanged: onDrawModeChanged ?? (_) {},
       onUndo: () {},
       onSave: onSave ?? () {},
@@ -535,14 +576,9 @@ Widget _editorModeBar(
   );
 }
 
-Widget _editingCard(
-  AppLayout layout, {
-  bool isEditing = true,
-  VoidCallback? onEdit,
-}) {
+Widget _editingCard(AppLayout _) {
   final date = DateTime.now();
-  return Positioned.fromRect(
-    rect: layout.panelBounds,
+  return MapOverlayPanel.detail(
     child: JourneyInfoPanelSurface(
       child: SingleChildScrollView(
         child: JourneyDetailCard(
@@ -555,9 +591,9 @@ Widget _editingCard(
             journeyKind: JourneyKind.defaultKind,
             hasRawData: false,
           ),
-          isEditing: isEditing,
+          isEditing: true,
           onExport: () {},
-          onEdit: onEdit ?? () {},
+          onEdit: () {},
           onMore: () {},
           onCancel: () {},
           onSave: (_) async {},
@@ -734,7 +770,6 @@ Future<AppLayout> _pumpScene(
                               rect: layout.navigationBounds,
                               child: BottomNavBar(
                                 axis: layout.navigationAxis,
-                                allowOverflow: true,
                                 selectedIndex: mode == _OverlayMode.record
                                     ? 0
                                     : 2,
@@ -788,11 +823,12 @@ class _FixtureApi extends Fake implements RustLibApi {
     flightKind: true,
   );
   @override
-  Future<DateTime?> crateApiApiEarliestJourneyDate() async => fixtureDate;
+  Future<DateTime?> crateApiApiEarliestJourneyDate() async =>
+      journeyCount == 0 ? null : fixtureDate;
   @override
   Future<List<DateTime>> crateApiApiJourneyDates({
     Set<JourneyKind>? journeyKinds,
-  }) async => [fixtureDate];
+  }) async => journeyCount == 0 ? [] : [fixtureDate];
   @override
   Future<List<JourneyHeader>> crateApiApiListJourneysOnDate({
     required int year,

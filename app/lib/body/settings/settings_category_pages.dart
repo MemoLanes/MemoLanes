@@ -191,7 +191,6 @@ class _AppearanceSettingsPageState extends State<AppearanceSettingsPage> {
   Future<void> _selectLanguage() async {
     final selected = await showAppDialog<String>(
       context,
-      size: AppDialogSize.content,
       builder: (dialogContext) => AppDialogContent(
         title: context.tr('settings.language.title'),
         contentPadding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
@@ -532,7 +531,6 @@ class _DataManagementSettingsPageState
   Future<void> _showImportDataCard(BuildContext context) async {
     final shouldSelectFile = await showAppDialog<bool>(
       context,
-      size: AppDialogSize.content,
       builder: (dialogContext) => AppDialogContent(
         title: context.tr('data.import_data.title'),
         contentPadding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
