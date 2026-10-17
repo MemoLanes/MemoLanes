@@ -26,7 +26,7 @@ bitvec = "1.1"
 lz4_flex = "0.14"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-zstd = "0.13"
+zstd = "0.14"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 console_log = "1"

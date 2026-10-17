@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:easy_localization/easy_localization.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:json_annotation/json_annotation.dart';
 import 'package:memolanes/body/map/overlay/journey_overlay.dart';
 import 'package:memolanes/body/map/journey_flow_controller.dart';

@@ -4,7 +4,7 @@ import 'package:memolanes/theme/app_colors.dart';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:memolanes/body/journey/journey_export.dart';
 import 'package:memolanes/body/journey/journey_track_edit_page.dart';
 import 'package:memolanes/common/component/app_button.dart';

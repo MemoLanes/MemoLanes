@@ -2,7 +2,7 @@ import 'package:wolt_modal_sheet/wolt_modal_sheet.dart';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:calendar_date_picker2/calendar_date_picker2.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -688,7 +688,10 @@ Future<AppLayout> _pumpScene(
         child: Builder(
           builder: (context) => MaterialApp(
             theme: AppTheme.light,
-            localizationsDelegates: context.localizationDelegates,
+            localizationsDelegates: [
+              ...GlobalMaterialLocalizations.delegates,
+              ...context.localizationDelegates,
+            ],
             supportedLocales: context.supportedLocales,
             locale: context.locale,
             builder: (context, child) => MediaQuery(

@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:memolanes/body/journey/editor/journey_track_edit_mode_bar.dart';
 import 'package:memolanes/common/app_haptics.dart';
 import 'package:memolanes/common/app_translation_loader.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:memolanes/common/component/app_button.dart';
 import 'package:memolanes/common/component/app_dialog.dart';
@@ -273,7 +273,10 @@ Future<void> _pumpLocalContent(
         child: Builder(
           builder: (context) => MaterialApp(
             theme: AppTheme.light,
-            localizationsDelegates: context.localizationDelegates,
+            localizationsDelegates: [
+              ...GlobalMaterialLocalizations.delegates,
+              ...context.localizationDelegates,
+            ],
             supportedLocales: context.supportedLocales,
             locale: context.locale,
             home: Scaffold(

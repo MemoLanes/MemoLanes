@@ -3,7 +3,7 @@ import 'dart:ui' show DisplayFeature, DisplayFeatureState, DisplayFeatureType;
 import 'package:duo_dynamic_sizing/duo_dynamic_sizing.dart'
     as native
     show DuoBridge, DuoHardware, DuoHardwareScope;
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:memolanes/common/component/app_dialog.dart';

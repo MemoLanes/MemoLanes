@@ -2,7 +2,7 @@ import 'dart:ui';
 
 import 'package:badges/badges.dart' as badges;
 import 'package:easy_localization/easy_localization.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:memolanes/common/app_haptics.dart';
 import 'package:memolanes/common/component/liquid_glass_surface.dart';
 import 'package:memolanes/common/component/app_dialog.dart';

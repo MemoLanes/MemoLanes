@@ -1,5 +1,5 @@
 import 'package:easy_localization/easy_localization.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -166,7 +166,10 @@ Future<JourneyFlowController> _openDetail(
           builder: (context) => MaterialApp(
             theme: AppTheme.light.copyWith(platform: TargetPlatform.iOS),
             locale: context.locale,
-            localizationsDelegates: context.localizationDelegates,
+            localizationsDelegates: [
+              ...GlobalMaterialLocalizations.delegates,
+              ...context.localizationDelegates,
+            ],
             supportedLocales: context.supportedLocales,
             home: MediaQuery(
               data: media,

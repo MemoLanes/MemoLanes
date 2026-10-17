@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:memolanes/common/component/cards/option_card.dart';
 import 'package:memolanes/common/component/page_content_layout.dart';
 import 'package:memolanes/common/component/tiles/label_tile.dart';

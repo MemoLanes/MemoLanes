@@ -1,7 +1,7 @@
 import 'package:memolanes/theme/app_colors.dart';
 
 import 'package:easy_localization/easy_localization.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:memolanes/common/component/map_overlay_panel.dart';
 import 'package:memolanes/constants/app_typography.dart';
 import 'package:memolanes/body/journey/journey_body.dart';

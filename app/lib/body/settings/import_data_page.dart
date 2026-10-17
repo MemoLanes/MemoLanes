@@ -1,6 +1,6 @@
 import 'package:memolanes/theme/app_colors.dart';
 import 'package:easy_localization/easy_localization.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:fpdart/fpdart.dart' as f;
 import 'package:memolanes/body/journey/journey_info_form.dart';

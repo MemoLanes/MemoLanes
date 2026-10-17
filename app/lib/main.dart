@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:memolanes/theme/app_theme.dart';
 
 import 'package:easy_localization/easy_localization.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:memolanes/app_bootstrap.dart';
@@ -136,15 +136,23 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       title: "MemoLanes",
       onGenerateTitle: (context) => context.tr('common.memolanes'),
       supportedLocales: context.supportedLocales,
-      localizationsDelegates: context.localizationDelegates,
+      localizationsDelegates: [
+        ...GlobalMaterialLocalizations.delegates,
+        ...context.localizationDelegates,
+      ],
       locale: context.locale,
       navigatorKey: navigatorKey,
       builder: (context, child) {
         return AnnotatedRegion<SystemUiOverlayStyle>(
           value: Theme.of(context).appBarTheme.systemOverlayStyle!,
-          child: DuoDeviceProvider(
-            child: GlobalLoadingOverlay(
-              child: child ?? const SizedBox.shrink(),
+          // Bridge the theme for dependencies such as flutter_markdown_plus
+          // that still use the SDK Material library.
+          // ignore: deprecated_member_use
+          child: MaterialUiCompatibilityBridge(
+            child: DuoDeviceProvider(
+              child: GlobalLoadingOverlay(
+                child: child ?? const SizedBox.shrink(),
+              ),
             ),
           ),
         );

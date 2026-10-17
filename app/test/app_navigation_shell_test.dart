@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:memolanes/common/component/app_navigation_shell.dart';
 import 'package:memolanes/common/component/page_content_layout.dart';

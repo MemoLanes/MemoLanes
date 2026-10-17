@@ -5,7 +5,7 @@ import 'dart:ui' as ui;
 import 'package:memolanes/theme/app_colors.dart';
 
 import 'package:easy_localization/easy_localization.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:memolanes/common/component/app_menu.dart';
 import 'package:memolanes/common/component/map_controls/map_popup_surface.dart';
 import 'package:memolanes/common/component/liquid_glass_surface.dart';

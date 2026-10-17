@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Insets explicitly consumed by a page container, inherited by its children.
 /// Design margins are separate from the platform's safe-area padding.
