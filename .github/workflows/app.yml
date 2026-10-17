@@ -53,7 +53,7 @@ jobs:
           flutter-version: 3.47
           cache: true
 
-      - uses: dtolnay/rust-toolchain@1.98.0
+      - uses: dtolnay/rust-toolchain@1.99.1
         with:
           components: rustfmt, clippy
 
@@ -138,7 +138,7 @@ jobs:
         
       - uses: actions/setup-node@v5
         with:
-          node-version: '24'
+          node-version-file: 'app/journey_kernel/.nvmrc'
           cache: 'yarn'
           cache-dependency-path: 'app/journey_kernel/yarn.lock'
           

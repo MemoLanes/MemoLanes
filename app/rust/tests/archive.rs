@@ -147,7 +147,7 @@ fn write_single_journey_archive() -> (Vec<u8>, JourneyHeader, JourneyData) {
 fn metadata_entry_name(bytes: &[u8]) -> String {
     let mut zip = zip::ZipArchive::new(Cursor::new(bytes.to_vec())).unwrap();
     for index in 0..zip.len() {
-        let name = zip.by_index(index).unwrap().name().to_owned();
+        let name = zip.by_index(index).unwrap().name().unwrap().into_owned();
         if name.starts_with("metadata.") {
             return name;
         }
@@ -158,7 +158,7 @@ fn metadata_entry_name(bytes: &[u8]) -> String {
 fn section_entry_name(bytes: &[u8]) -> String {
     let mut zip = zip::ZipArchive::new(Cursor::new(bytes.to_vec())).unwrap();
     for index in 0..zip.len() {
-        let name = zip.by_index(index).unwrap().name().to_owned();
+        let name = zip.by_index(index).unwrap().name().unwrap().into_owned();
         if !name.starts_with("metadata.") {
             return name;
         }
@@ -187,10 +187,10 @@ fn rewrite_metadata_entry_name(bytes: Vec<u8>, metadata_name: &str) -> Vec<u8> {
 
     for index in 0..input_zip.len() {
         let mut input_file = input_zip.by_index(index).unwrap();
-        let name = if input_file.name().starts_with("metadata.") {
+        let name = if input_file.name().unwrap().starts_with("metadata.") {
             metadata_name.to_owned()
         } else {
-            input_file.name().to_owned()
+            input_file.name().unwrap().into_owned()
         };
 
         output_zip.start_file(name, options).unwrap();
@@ -323,7 +323,7 @@ fn extension_fields_preserve_following_records_on_read_and_import() {
         zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
     for index in 0..input.len() {
         let mut entry = input.by_index(index).unwrap();
-        output.start_file(entry.name(), options).unwrap();
+        output.start_file(entry.name().unwrap(), options).unwrap();
         let mut bytes = Vec::new();
         entry.read_to_end(&mut bytes).unwrap();
         if bytes.starts_with(b"MLS") {

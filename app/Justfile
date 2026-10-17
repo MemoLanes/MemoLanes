@@ -61,13 +61,13 @@ geo-rasterizer-fmt:
 [group: 'utils']
 flutter-fmt:
     @echo "🛠️  Formatting code"
-    @dart format .
+    @dart format lib test hook
     @echo "✅ Code formatting completed"
 
 [group: 'utils']
 flutter-check:
     @echo "🔍 Analyzing Flutter code"
-    @dart format --output=none --set-exit-if-changed .
+    @dart format --output=none --set-exit-if-changed lib test hook
     @flutter analyze
     @echo "✅ Flutter code analysis completed"
 
