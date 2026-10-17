@@ -401,13 +401,22 @@ fn get_map_renderer_proxy_for_journey_data_internal(
     ))
 }
 
-pub fn get_map_renderer_proxy_for_journey(
+/// Reads the header and track together, then builds the map after releasing the database lock.
+pub fn get_journey_detail(
     journey_id: &str,
-) -> Result<(MapRendererProxy, Option<MapBounds>)> {
-    let journey_data = get()
-        .storage
-        .with_db_txn(|txn| txn.get_journey_data(journey_id))?;
-    get_map_renderer_proxy_for_journey_data_internal(journey_data)
+) -> Result<Option<(JourneyHeader, MapRendererProxy, Option<MapBounds>)>> {
+    let journey = get().storage.with_db_txn(|txn| {
+        let Some(header) = txn.get_journey_header(journey_id)? else {
+            return Ok(None);
+        };
+        Ok(Some((header, txn.get_journey_data(journey_id)?)))
+    })?;
+    journey
+        .map(|(header, data)| {
+            let (renderer, bounds) = get_map_renderer_proxy_for_journey_data_internal(data)?;
+            Ok((header, renderer, bounds))
+        })
+        .transpose()
 }
 
 pub fn get_map_renderer_proxy_for_journey_data(
@@ -607,34 +616,29 @@ pub fn generate_full_archive(
     include_raw_data: bool,
 ) -> Result<ExportResult> {
     info!("generating full archive");
-    if !has_journeys()? {
-        Ok(ExportResult::DataIsEmpty)
-    } else {
+    get().storage.with_db_txn(|txn| {
+        if !txn.has_journeys()? {
+            return Ok(ExportResult::DataIsEmpty);
+        }
         export_data::write_export_file(&target_filepath, |file| {
-            get().storage.with_db_txn(|txn| {
-                archive::export_all_journeys_as_mldx(txn, file, include_raw_data)
-            })
+            archive::export_all_journeys_as_mldx(txn, file, include_raw_data)
         })?;
         Ok(ExportResult::Succeed)
-    }
+    })
 }
 
 pub fn export_all_journeys_as_fwss(target_filepath: String) -> Result<ExportResult> {
     info!("exporting all journeys as FWSS");
-    if !has_journeys()? {
+    let journey_bitmap = get()
+        .storage
+        .get_latest_bitmap_for_main_map_renderer(&Some(LayerKind::All), false)?;
+    if journey_bitmap.is_empty() {
         Ok(ExportResult::DataIsEmpty)
     } else {
-        let journey_bitmap = get()
-            .storage
-            .get_latest_bitmap_for_main_map_renderer(&Some(LayerKind::All), false)?;
-        if journey_bitmap.is_empty() {
-            Ok(ExportResult::DataIsEmpty)
-        } else {
-            export_data::write_export_file(&target_filepath, |file| {
-                export_data::fow::journey_bitmap_to_fwss_file(&journey_bitmap, file)
-            })?;
-            Ok(ExportResult::Succeed)
-        }
+        export_data::write_export_file(&target_filepath, |file| {
+            export_data::fow::journey_bitmap_to_fwss_file(&journey_bitmap, file)
+        })?;
+        Ok(ExportResult::Succeed)
     }
 }
 
@@ -796,23 +800,9 @@ pub fn journey_has_raw_data(journey_id: String) -> Result<bool> {
         .with_db_txn(|txn| txn.has_journey_raw_data(&journey_id))
 }
 
-/// Whether a finalized journey has any raw GPS points available for export.
+/// Whether a finalized journey has a raw-data attachment, even without GPS points.
 pub fn has_journeys_raw_data() -> Result<bool> {
-    for header in list_all_journeys()? {
-        if !header.has_raw_data {
-            continue;
-        }
-        let serialized = get()
-            .storage
-            .with_db_txn(|txn| txn.get_journey_raw_data(&header.id))?;
-        // Release the database lock before inspecting the compressed attachment.
-        if let Some(data) = serialized {
-            if data.has_points()? {
-                return Ok(true);
-            }
-        }
-    }
-    Ok(false)
+    get().storage.with_db_txn(|txn| txn.has_journeys_raw_data())
 }
 
 pub fn delete_journey_raw_data(journey_id: String) -> Result<bool> {

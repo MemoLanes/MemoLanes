@@ -4,7 +4,8 @@ use std::io::BufWriter;
 use anyhow::{anyhow, Result};
 
 use crate::journey_data::JourneyData;
-use crate::journey_header::{JourneyHeader, JourneyType};
+use crate::journey_header::JourneyType;
+use crate::main_db::Txn;
 use crate::raw_data::JourneyRawData;
 use crate::storage::Storage;
 
@@ -27,14 +28,15 @@ pub(crate) fn export_all_vector_journeys(
     export_journeys(
         storage,
         target_filepath,
-        |header| {
+        |txn, journey_id| {
+            let Some(header) = txn.get_journey_header(journey_id)? else {
+                return Ok(None);
+            };
             if header.journey_type != JourneyType::Vector {
                 return Ok(None);
             }
-            let JourneyData::Vector(vector) =
-                storage.with_db_txn(|txn| txn.get_journey_data(&header.id))?
-            else {
-                return Err(anyhow!("Journey {} is not vector data", header.id));
+            let JourneyData::Vector(vector) = txn.get_journey_data(journey_id)? else {
+                return Err(anyhow!("Journey {journey_id} is not vector data"));
             };
             let journey = JourneyExport::from_header(header, vector);
             Ok((!journey.is_empty()).then_some(journey))
@@ -78,7 +80,16 @@ pub(crate) fn export_all_raw_journeys(
     export_journeys(
         storage,
         target_filepath,
-        |header| Ok(load_journey_raw_data(storage, &header.id)?.map(|data| (header, data))),
+        |txn, journey_id| {
+            let Some(header) = txn.get_journey_header(journey_id)? else {
+                return Ok(None);
+            };
+            let Some(serialized) = txn.get_journey_raw_data(journey_id)? else {
+                return Ok(None);
+            };
+            let data = serialized.deserialize()?;
+            Ok((!data.is_empty()).then_some((header, data)))
+        },
         |file, journeys| match format {
             RawDataExportType::CSV => {
                 let mut writer = csv::Writer::from_writer(file);
@@ -115,27 +126,23 @@ pub(crate) fn export_all_raw_journeys(
     )
 }
 
-/// Shares traversal, empty-export handling and buffering across export formats.
-/// Only one journey's decoded points are retained at a time.
+/// Streams a consistent snapshot, retaining only one journey's decoded points.
 fn export_journeys<J>(
     storage: &Storage,
     target_filepath: &str,
-    mut load_journey: impl FnMut(JourneyHeader) -> Result<Option<J>>,
+    mut load_journey: impl FnMut(&Txn, &str) -> Result<Option<J>>,
     write: impl FnOnce(&mut BufWriter<File>, &mut dyn Iterator<Item = Result<J>>) -> Result<()>,
 ) -> Result<bool> {
-    // Queries return newest first. Export oldest first so raw-data reimports
-    // can partition dates and filter GPS points without time going backwards.
-    let headers = storage
-        .with_db_txn(|txn| txn.query_journeys(None, None, None))?
-        .into_iter()
-        .rev();
-    let mut journeys = headers.filter_map(|header| load_journey(header).transpose());
-    let Some(first) = journeys.next().transpose()? else {
-        return Ok(false);
-    };
+    storage.with_db_txn(|txn| {
+        let ids = txn.query_journey_ids_for_export()?.into_iter();
+        let mut journeys = ids.filter_map(|id| load_journey(txn, &id).transpose());
+        let Some(first) = journeys.next().transpose()? else {
+            return Ok(false);
+        };
 
-    write_export_file(target_filepath, |file| {
-        write(file, &mut std::iter::once(Ok(first)).chain(journeys))
-    })?;
-    Ok(true)
+        write_export_file(target_filepath, |file| {
+            write(file, &mut std::iter::once(Ok(first)).chain(journeys))
+        })?;
+        Ok(true)
+    })
 }

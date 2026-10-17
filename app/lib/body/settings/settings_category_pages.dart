@@ -435,11 +435,10 @@ class _DataManagementSettingsPageState
       }
       return;
     }
-    // Point availability controls raw-data formats only. MLDX can also preserve
-    // attachments with just a header.
-    var hasRawPoints = true;
+    // Check attachment presence here; exports handle records without GPS points.
+    var hasRawData = true;
     try {
-      hasRawPoints = await api.hasJourneysRawData();
+      hasRawData = await api.hasJourneysRawData();
     } catch (error, stackTrace) {
       log.error('Failed to check journey raw data: $error', stackTrace);
     }
@@ -457,7 +456,7 @@ class _DataManagementSettingsPageState
             CommonExportFormat.gpx,
           ],
         ),
-        if (hasRawPoints)
+        if (hasRawData)
           CommonExportFormatGroup.rawData(
             context,
             description: context.tr('data.export_data.raw_data_group_desc'),

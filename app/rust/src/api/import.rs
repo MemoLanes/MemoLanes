@@ -308,23 +308,31 @@ impl OpaqueMldxReader {
         })
     }
 
-    pub fn analyze(&self) -> Result<Vec<(JourneyHeader, MldxJourneyImportAnalyzeResult)>> {
+    /// Includes the local header used to classify each conflict, from the same snapshot.
+    pub fn analyze(
+        &self,
+    ) -> Result<
+        Vec<(
+            JourneyHeader,
+            MldxJourneyImportAnalyzeResult,
+            Option<JourneyHeader>,
+        )>,
+    > {
         let mldx_reader = self.reader.lock().unwrap();
 
         get().storage.with_db_txn(|txn| {
             let mut result = Vec::new();
             for journey_header in mldx_reader.iter_journey_headers() {
-                let import_type = match txn.get_journey_header(&journey_header.id)? {
-                    Some(existing) => {
-                        if existing.revision == journey_header.revision {
-                            MldxJourneyImportAnalyzeResult::Unchanged
-                        } else {
-                            MldxJourneyImportAnalyzeResult::Conflict
-                        }
+                let (import_type, local_header) = match txn
+                    .get_journey_header(&journey_header.id)?
+                {
+                    Some(existing) if existing.revision == journey_header.revision => {
+                        (MldxJourneyImportAnalyzeResult::Unchanged, None)
                     }
-                    None => MldxJourneyImportAnalyzeResult::New,
+                    Some(existing) => (MldxJourneyImportAnalyzeResult::Conflict, Some(existing)),
+                    None => (MldxJourneyImportAnalyzeResult::New, None),
                 };
-                result.push((journey_header.clone(), import_type));
+                result.push((journey_header.clone(), import_type, local_header));
             }
             Ok(result)
         })

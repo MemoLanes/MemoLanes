@@ -198,6 +198,7 @@ Future<void> showCommonExportWithFormatPicker({
   try {
     exportResult = await GlobalLoadingManager.instance.runWithLoading(
       () => exportFile(selection),
+      blockNavigation: true,
     );
   } catch (error, stack) {
     log.error('[export] Export failed: $error', stack);

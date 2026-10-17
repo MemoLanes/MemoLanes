@@ -783,9 +783,9 @@ class _JourneyListApi extends Fake implements RustLibApi {
   Completer<void>? pendingDelete;
 
   @override
-  Future<(api.MapRendererProxy, MapBounds?)>
-  crateApiApiGetMapRendererProxyForJourney({required String journeyId}) async =>
-      (_TestMapRenderer(), null);
+  Future<(JourneyHeader, api.MapRendererProxy, MapBounds?)?>
+  crateApiApiGetJourneyDetail({required String journeyId}) async =>
+      (journey, _TestMapRenderer(), null);
 
   @override
   Future<void> crateApiApiDeleteJourney({required String journeyId}) async {
