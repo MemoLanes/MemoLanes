@@ -1,5 +1,5 @@
 import 'package:easy_localization/easy_localization.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:memolanes/common/component/app_option_tile.dart';
 import 'package:memolanes/common/component/setup_bottom_sheet.dart';
