@@ -86,19 +86,33 @@ void main() {
       }
 
       Future<void> openPicker(bool? available) async {
-        backend.hasRawData = available;
+        backend.hasRawPoints = available;
         await tap('data.export_data.export_all');
-        for (final key in ['raw_data_group', 'include_raw_data']) {
-          expect(
-            find.text(tr('data.export_data.$key')),
-            available == false ? findsNothing : findsOneWidget,
-          );
-        }
+        expect(
+          find.text(tr('data.export_data.raw_data_group')),
+          available == false ? findsNothing : findsOneWidget,
+        );
+        expect(
+          find.text(tr('data.export_data.include_raw_data')),
+          findsOneWidget,
+        );
         expect(find.text(tr('data.export_data.format_mldx')), findsOneWidget);
       }
 
-      await openPicker(false);
-      await tap('common.cancel');
+      // Header-only attachments have no GPS points; preserve them by default
+      // in MLDX, while still allowing users to opt out explicitly.
+      for (final includeRawData in [true, false]) {
+        await openPicker(false);
+        if (!includeRawData) {
+          await tester.ensureVisible(find.byType(Switch));
+          await tester.pumpAndSettle();
+          await tester.tap(find.byType(Switch));
+          await tester.pumpAndSettle();
+        }
+        await tap('common.export');
+        expect(backend.archivedRawData, includeRawData);
+        await tap('common.ok');
+      }
       for (final format in RawDataExportType.values) {
         await openPicker(true);
         await tap('data.export_data.raw_data_group');
@@ -126,7 +140,7 @@ void main() {
 }
 
 class _ExportApi extends Fake implements RustLibApi {
-  bool? hasRawData = false;
+  bool? hasRawPoints = false;
   RawDataExportType? exportedFormat;
   bool? archivedRawData;
 
@@ -135,7 +149,7 @@ class _ExportApi extends Fake implements RustLibApi {
 
   @override
   Future<bool> crateApiApiHasJourneysRawData() async =>
-      hasRawData ?? (throw StateError('Raw-data inspection failed'));
+      hasRawPoints ?? (throw StateError('Raw-data inspection failed'));
 
   @override
   Future<api.ExportResult> crateApiApiExportAllJourneysRawData({

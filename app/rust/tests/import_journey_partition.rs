@@ -1,15 +1,12 @@
 use chrono::{Local, NaiveDate, TimeZone};
 use memolanes_core::{
     api::import::{
-        analyze_vector_data_parts, import_vector_data_by_parts, is_journey_data_empty,
-        load_vector_data, process_vector_data, process_vector_data_for_part, ImportPreprocessor,
+        analyze_vector_data_by_date, import_vector_data_by_date, is_journey_data_empty,
+        load_vector_data, process_vector_data, process_vector_data_for_date, ImportPreprocessor,
         RawVectorData,
     },
     gps::{Point, RawGPSPoint},
-    import_data::{
-        csv,
-        journey_partition::{group_by_date, summarize},
-    },
+    import_data::journey_partition::{group_by_date, summarize},
     journey_header::JourneyKind,
 };
 
@@ -37,15 +34,13 @@ fn local_timestamp(year: i32, month: u32, day: u32, hour: u32, minute: u32, seco
 fn load_csv_vector_data(
     name: &str,
     rows: &str,
-    journey_ids: bool,
 ) -> (tempdir::TempDir, RawVectorData, ImportPreprocessor) {
     let temp_dir = tempdir::TempDir::new(name).unwrap();
     let csv_path = temp_dir.path().join("data.csv");
-    let id_column = if journey_ids { ",journey_id" } else { "" };
     std::fs::write(
         &csv_path,
         format!(
-            "timestamp_ms,received_timestamp_ms,latitude,longitude,accuracy,altitude,speed{id_column}\n{rows}"
+            "timestamp_ms,received_timestamp_ms,latitude,longitude,accuracy,altitude,speed\n{rows}"
         ),
     )
     .unwrap();
@@ -122,8 +117,8 @@ fn missing_timestamps_are_preserved() {
 #[test]
 fn fully_untimed_data_cannot_be_grouped() {
     assert!(group_by_date(&[vec![point(None, 1.0)]]).is_empty());
-    let (_temp, data, _) = load_csv_vector_data("untimed-preview", ",0,0,1,,,\n", false);
-    assert!(analyze_vector_data_parts(&data).is_empty());
+    let (_temp, data, _) = load_csv_vector_data("untimed-preview", ",0,0,1,,,\n");
+    assert!(analyze_vector_data_by_date(&data).is_empty());
     let preview = process_vector_data(&data, ImportPreprocessor::None).unwrap();
     assert!(!is_journey_data_empty(&preview));
 }
@@ -141,12 +136,10 @@ fn api_uses_partitioned_data() {
              ,{timestamp_one},0,2,,,\n\
              {timestamp_two},{timestamp_two},0,3,,,\n"
         ),
-        false,
     );
-    let parts = analyze_vector_data_parts(&vector_data);
+    let parts = analyze_vector_data_by_date(&vector_data);
 
     assert_eq!(parts.len(), 2);
-    assert!(parts.iter().all(|part| !part.is_explicit_journey));
     assert_eq!(parts[0].journey_date, day_one.to_string());
     assert_eq!(
         parts[0].start_time.unwrap().timestamp_millis(),
@@ -166,52 +159,9 @@ fn api_uses_partitioned_data() {
 
     for date in [day_one, day_two] {
         let journey_data =
-            process_vector_data_for_part(&vector_data, date.to_string(), preprocessor).unwrap();
+            process_vector_data_for_date(&vector_data, date.to_string(), preprocessor).unwrap();
         assert!(!is_journey_data_empty(&journey_data));
     }
-
-    // Explicit IDs survive same-date grouping, interleaving and missing GPS times.
-    let timestamp = local_timestamp(2026, 8, 11, 12, 0, 0);
-    let (temp, vector_data, preprocessor) = load_csv_vector_data(
-        "vector-import-by-id",
-        &format!(
-            "{timestamp},{timestamp},0,1,,,,A\n\
-             {timestamp},{timestamp},0,10,,,,B\n\
-             {next},{next},0,11,,,,B\n\
-             {last},{last},0,2,,,,A\n\
-             ,{timestamp},0,20,100,,,C\n\
-             ,{timestamp},0,21,100,,,C\n",
-            next = timestamp + 60_000,
-            last = timestamp + 120_000,
-        ),
-        true,
-    );
-    let (parsed, _) = csv::load_csv(temp.path().join("data.csv").to_str().unwrap()).unwrap();
-    assert_eq!(parsed.groups()[0].segments.len(), 2);
-    assert_eq!(parsed.groups()[1].segments.len(), 1);
-    let parts = analyze_vector_data_parts(&vector_data);
-    assert_eq!(parts.len(), 3);
-    assert!(parts
-        .iter()
-        .all(|part| part.is_explicit_journey && part.point_count == 2));
-    assert_eq!(parts[0].journey_date, parts[1].journey_date);
-    assert_ne!(parts[0].part_key, parts[1].part_key);
-    assert_eq!(parts[2].missing_timestamp_count, 2);
-    assert_eq!(parts[2].start_time, None);
-    assert_eq!(parts[2].end_time, None);
-    for part in &parts {
-        let data = process_vector_data_for_part(
-            &vector_data,
-            part.part_key.clone(),
-            ImportPreprocessor::None,
-        )
-        .unwrap();
-        assert!(!is_journey_data_empty(&data));
-    }
-    let filtered =
-        process_vector_data_for_part(&vector_data, parts[2].part_key.clone(), preprocessor)
-            .unwrap();
-    assert!(is_journey_data_empty(&filtered));
 }
 
 #[test]
@@ -220,9 +170,8 @@ fn api_rejects_unknown_dates() {
     let (_temp, vector_data, preprocessor) = load_csv_vector_data(
         "vector-import-invalid-date",
         &format!("{timestamp},{timestamp},0,1,,,\n"),
-        false,
     );
-    let error = import_vector_data_by_parts(
+    let error = import_vector_data_by_date(
         &vector_data,
         vec!["2026-08-12".to_owned()],
         preprocessor,
@@ -231,5 +180,5 @@ fn api_rejects_unknown_dates() {
     )
     .unwrap_err();
 
-    assert!(format!("{error:#}").contains("No vector data for parts: [\"2026-08-12\"]"));
+    assert!(format!("{error:#}").contains("No vector data for dates: [2026-08-12]"));
 }

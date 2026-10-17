@@ -1,33 +1,36 @@
 use crate::main_db::NewJourney;
 use std::collections::HashSet;
 use std::fs::File;
-use std::path::Path;
 use std::sync::{Mutex, OnceLock};
+use std::{ffi::OsStr, path::Path};
 
 use anyhow::{Context, Result};
 use auto_context::auto_context;
-use chrono::{DateTime, FixedOffset, Local, Utc};
+use chrono::{DateTime, FixedOffset, Local, NaiveDate, Utc};
 use flutter_rust_bridge::frb;
 
 use super::api;
 use crate::api::api::{get, OpaqueJourneyData};
 use crate::archive::MldxReader;
+use crate::gps_processor::SegmentGapRule;
 pub use crate::import_data::ImportPreprocessor;
 use crate::journey_header::JourneyHeader;
 pub use crate::journey_header::JourneyInfo;
-use crate::{import_data, journey_data::JourneyData, journey_header::JourneyKind};
+use crate::journey_vector::JourneyVector;
+use crate::{
+    flight_track_processor, gps::RawGPSPoint, import_data, journey_data::JourneyData,
+    journey_header::JourneyKind,
+};
 
 #[frb(opaque)]
 pub struct RawVectorData {
-    parsed: import_data::ParsedVectorData,
-    parts: OnceLock<Vec<import_data::ImportPart>>,
+    data: Vec<Vec<RawGPSPoint>>,
+    partition: OnceLock<import_data::journey_partition::PartitionByDate>,
 }
 
 #[derive(Debug)]
 #[frb(non_opaque)]
 pub struct VectorImportPartSummary {
-    pub part_key: String,
-    pub is_explicit_journey: bool,
     pub journey_date: String,
     pub start_time: Option<DateTime<Utc>>,
     pub end_time: Option<DateTime<Utc>>,
@@ -90,13 +93,23 @@ pub fn load_fow_data(file_path: String) -> Result<(JourneyInfo, OpaqueJourneyDat
 pub fn load_vector_data(
     file_path: String,
 ) -> Result<(JourneyInfo, RawVectorData, ImportPreprocessor)> {
-    let (journey_info, parsed, import_preprocessor) = import_data::load_vector_file(&file_path)?;
+    let (raw_vector_data, import_preprocessor) = match Path::new(&file_path)
+        .extension()
+        .and_then(OsStr::to_str)
+        .map(|x| x.to_lowercase())
+        .as_deref()
+    {
+        Some("gpx") => import_data::gpx::load_gpx(&file_path)?,
+        Some("kml") => import_data::kml::load_kml(&file_path)?,
+        Some("csv") => import_data::csv::load_csv(&file_path)?,
+        extension => return Err(anyhow!("Unknown extension: {extension:?}")),
+    };
 
     Ok((
-        journey_info,
+        import_data::conversion::journey_info_from_raw_vector_data(&raw_vector_data),
         RawVectorData {
-            parsed,
-            parts: OnceLock::new(),
+            data: raw_vector_data,
+            partition: OnceLock::new(),
         },
         import_preprocessor,
     ))
@@ -123,59 +136,143 @@ pub fn import_journey_data(
 }
 
 impl RawVectorData {
-    fn parts(&self) -> &[import_data::ImportPart] {
-        self.parts.get_or_init(|| self.parsed.build_parts())
+    fn partition(&self) -> &import_data::journey_partition::PartitionByDate {
+        self.partition
+            .get_or_init(|| import_data::journey_partition::partition_by_date(&self.data))
     }
 }
 
-pub fn analyze_vector_data_parts(vector_data: &RawVectorData) -> Vec<VectorImportPartSummary> {
+fn data_for_date(vector_data: &RawVectorData, journey_date: &str) -> Result<Vec<Vec<RawGPSPoint>>> {
+    let journey_date = NaiveDate::parse_from_str(journey_date, "%Y-%m-%d")?;
+    let slices = vector_data
+        .partition()
+        .index
+        .get(&journey_date)
+        .with_context(|| format!("No vector data for date {journey_date}"))?;
+    Ok(import_data::journey_partition::materialize_partition(
+        &vector_data.data,
+        slices,
+    ))
+}
+
+pub fn analyze_vector_data_by_date(vector_data: &RawVectorData) -> Vec<VectorImportPartSummary> {
     vector_data
-        .parts()
+        .partition()
+        .summaries
         .iter()
-        .map(|part| VectorImportPartSummary {
-            part_key: part.key.clone(),
-            is_explicit_journey: vector_data.parsed.grouping()
-                != import_data::ImportGrouping::ByDate,
-            journey_date: part.date.format("%Y-%m-%d").to_string(),
-            start_time: part.start,
-            end_time: part.end,
-            point_count: part.point_count,
-            missing_timestamp_count: part.missing_timestamp_count,
+        .map(|(journey_date, summary)| VectorImportPartSummary {
+            journey_date: journey_date.format("%Y-%m-%d").to_string(),
+            start_time: summary.start_time,
+            end_time: summary.end_time,
+            point_count: summary.point_count,
+            missing_timestamp_count: summary.missing_timestamp_count,
         })
         .collect()
 }
 
 #[auto_context]
-pub fn process_vector_data_for_part(
+pub fn process_vector_data_for_date(
     vector_data: &RawVectorData,
-    part_key: String,
+    journey_date: String,
     import_processor: ImportPreprocessor,
 ) -> Result<OpaqueJourneyData> {
-    Ok(OpaqueJourneyData::new(import_data::process_part(
-        &vector_data.parsed,
-        vector_data.parts(),
-        &part_key,
-        import_processor,
-    )?))
+    let data = data_for_date(vector_data, &journey_date)?;
+    Ok(process_raw_vector_data(&data, import_processor))
 }
 
 #[auto_context]
-pub fn import_vector_data_by_parts(
+pub fn import_vector_data_by_date(
     vector_data: &RawVectorData,
-    part_keys: Vec<String>,
+    journey_dates: Vec<String>,
     import_processor: ImportPreprocessor,
     journey_kind: JourneyKind,
     note: Option<String>,
 ) -> Result<u64> {
-    let selected = import_data::select_parts(vector_data.parts(), part_keys)?;
-    import_data::import_selected_parts(
-        &api::get().storage,
-        &vector_data.parsed,
-        selected,
-        import_processor,
-        journey_kind,
-        note,
-    )
+    let selected_dates = journey_dates
+        .into_iter()
+        .map(|date| NaiveDate::parse_from_str(&date, "%Y-%m-%d"))
+        .collect::<Result<HashSet<_>, _>>()?;
+    let partition = vector_data.partition();
+    let mut missing_dates = selected_dates
+        .iter()
+        .filter(|date| !partition.index.contains_key(date))
+        .copied()
+        .collect::<Vec<_>>();
+    if !missing_dates.is_empty() {
+        missing_dates.sort_unstable();
+        bail!("No vector data for dates: {missing_dates:?}");
+    }
+    let mut parts = Vec::new();
+
+    for (journey_date, slices) in &partition.index {
+        if !selected_dates.contains(journey_date) {
+            continue;
+        }
+        let summary = partition
+            .summaries
+            .get(journey_date)
+            .expect("partition index and summaries are built together");
+        let raw_data =
+            import_data::journey_partition::materialize_partition(&vector_data.data, slices);
+        let journey_data = process_raw_vector_data(&raw_data, import_processor).into_inner();
+        if !journey_data.is_empty() {
+            parts.push((
+                *journey_date,
+                summary.start_time,
+                summary.end_time,
+                journey_data,
+            ));
+        }
+    }
+
+    let imported_count = parts.len() as u64;
+    api::get().storage.with_db_txn(|txn| {
+        for (journey_date, start_time, end_time, journey_data) in parts {
+            txn.create_and_insert_journey(NewJourney {
+                journey_date,
+                start: start_time,
+                end: end_time,
+                created_at: None,
+                journey_kind,
+                note: note.clone(),
+                journey_data,
+                raw_data: None,
+            })?;
+        }
+        Ok(())
+    })?;
+    Ok(imported_count)
+}
+
+fn process_raw_vector_data(
+    raw_data: &[Vec<RawGPSPoint>],
+    import_processor: ImportPreprocessor,
+) -> OpaqueJourneyData {
+    let journey_vector_opt = match import_processor {
+        ImportPreprocessor::None => {
+            import_data::conversion::journey_vector_from_raw_data_with_gps_preprocessor(
+                raw_data, None,
+            )
+        }
+        ImportPreprocessor::Generic => {
+            import_data::conversion::journey_vector_from_raw_data_with_gps_preprocessor(
+                raw_data,
+                Some(SegmentGapRule::Default),
+            )
+        }
+        ImportPreprocessor::FlightTrack => flight_track_processor::process(raw_data),
+        ImportPreprocessor::Spare => {
+            import_data::conversion::journey_vector_from_raw_data_with_gps_preprocessor(
+                raw_data,
+                Some(SegmentGapRule::Spare),
+            )
+        }
+    };
+
+    let journey_vector = journey_vector_opt.unwrap_or_else(|| JourneyVector {
+        track_segments: vec![],
+    });
+    OpaqueJourneyData::new(JourneyData::Vector(journey_vector))
 }
 
 #[auto_context]
@@ -183,12 +280,7 @@ pub fn process_vector_data(
     vector_data: &RawVectorData,
     import_processor: ImportPreprocessor,
 ) -> Result<OpaqueJourneyData> {
-    Ok(OpaqueJourneyData::new(
-        import_data::conversion::process_vector_data(
-            vector_data.parsed.segments(),
-            import_processor,
-        ),
-    ))
+    Ok(process_raw_vector_data(&vector_data.data, import_processor))
 }
 
 #[auto_context]

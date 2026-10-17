@@ -30,7 +30,7 @@ class VectorMultiImportPage extends StatefulWidget {
 }
 
 class _VectorMultiImportPageState extends State<VectorMultiImportPage> {
-  late Set<String> _selectedKeys;
+  late Set<SimpleDate> _selectedDates;
   late ImportPreprocessor _preprocessor;
   JourneyKind _journeyKind = JourneyKind.defaultKind;
   final TextEditingController _noteController = TextEditingController();
@@ -41,7 +41,7 @@ class _VectorMultiImportPageState extends State<VectorMultiImportPage> {
   void initState() {
     super.initState();
     _preprocessor = widget.initialPreprocessor;
-    _selectedKeys = widget.parts.map((part) => part.partKey).toSet();
+    _selectedDates = widget.parts.map(_dateKey).toSet();
   }
 
   @override
@@ -50,8 +50,11 @@ class _VectorMultiImportPageState extends State<VectorMultiImportPage> {
     super.dispose();
   }
 
-  import_api.VectorImportPartSummary _partForKey(String key) =>
-      widget.parts.firstWhere((part) => part.partKey == key);
+  SimpleDate _dateKey(import_api.VectorImportPartSummary part) =>
+      SimpleDate.parse(part.journeyDate);
+
+  import_api.VectorImportPartSummary _partForKey(SimpleDate key) =>
+      widget.parts.firstWhere((part) => _dateKey(part) == key);
 
   String _description(import_api.VectorImportPartSummary part) {
     final timeRange = part.startTime != null && part.endTime != null
@@ -71,13 +74,13 @@ class _VectorMultiImportPageState extends State<VectorMultiImportPage> {
   }
 
   Future<void> _openPreview(String key) async {
-    final part = _partForKey(key);
-    final date = SimpleDate.parse(part.journeyDate);
+    final date = SimpleDate.parse(key);
+    final part = _partForKey(date);
     try {
       final journeyData = await showLoadingDialog(
-        asyncTask: import_api.processVectorDataForPart(
+        asyncTask: import_api.processVectorDataForDate(
           vectorData: widget.vectorData,
-          partKey: key,
+          journeyDate: key,
           importProcessor: _preprocessor,
         ),
       );
@@ -112,7 +115,7 @@ class _VectorMultiImportPageState extends State<VectorMultiImportPage> {
   Future<void> _confirmImport() async {
     if (_isImporting) return;
 
-    if (_selectedKeys.isEmpty) {
+    if (_selectedDates.isEmpty) {
       await showCommonDialog(
         context,
         context.tr('import.journey_selection.select_at_least_one'),
@@ -123,12 +126,14 @@ class _VectorMultiImportPageState extends State<VectorMultiImportPage> {
     setState(() => _isImporting = true);
     try {
       final selectedParts = widget.parts
-          .where((part) => _selectedKeys.contains(part.partKey))
+          .where((part) => _selectedDates.contains(_dateKey(part)))
           .toList();
       final count = await showLoadingDialog(
-        asyncTask: import_api.importVectorDataByParts(
+        asyncTask: import_api.importVectorDataByDate(
           vectorData: widget.vectorData,
-          partKeys: selectedParts.map((part) => part.partKey).toList(),
+          journeyDates: selectedParts
+              .map((part) => _dateKey(part).toString())
+              .toList(),
           importProcessor: _preprocessor,
           journeyKind: _journeyKind,
           note: _noteController.text,
@@ -162,8 +167,8 @@ class _VectorMultiImportPageState extends State<VectorMultiImportPage> {
     final items = widget.parts
         .map(
           (part) => MultiJourneyImportListItem(
-            keyValue: part.partKey,
-            label: part.journeyDate,
+            keyValue: _dateKey(part).toString(),
+            label: _dateKey(part).toString(),
             description: _description(part),
           ),
         )
@@ -172,7 +177,7 @@ class _VectorMultiImportPageState extends State<VectorMultiImportPage> {
     return MultiJourneyImportPage(
       title: context.tr('import.vector_multi.title'),
       items: items,
-      selectedKeys: _selectedKeys,
+      selectedKeys: _selectedDates.map((date) => date.toString()).toSet(),
       listSectionTitle: context.tr(
         'import.journey_selection.list_section_title',
         args: ['${widget.parts.length}'],
@@ -181,18 +186,19 @@ class _VectorMultiImportPageState extends State<VectorMultiImportPage> {
       deselectAllLabel: context.tr('import.journey_selection.deselect_all'),
       confirmLabel: context.tr(
         'import.journey_selection.confirm_import',
-        args: ['${_selectedKeys.length}'],
+        args: ['${_selectedDates.length}'],
       ),
       onToggleItem: (key, selected) async {
+        final date = SimpleDate.parse(key);
         setState(() {
-          selected ? _selectedKeys.add(key) : _selectedKeys.remove(key);
+          selected ? _selectedDates.add(date) : _selectedDates.remove(date);
         });
       },
       onToggleAll: (selectAll) async {
         setState(() {
-          _selectedKeys = selectAll
-              ? widget.parts.map((part) => part.partKey).toSet()
-              : <String>{};
+          _selectedDates = selectAll
+              ? widget.parts.map(_dateKey).toSet()
+              : <SimpleDate>{};
         });
       },
       onPreview: _openPreview,

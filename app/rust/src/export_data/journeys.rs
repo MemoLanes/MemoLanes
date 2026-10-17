@@ -9,7 +9,7 @@ use crate::raw_data::JourneyRawData;
 use crate::storage::Storage;
 
 use super::{
-    csv::write_raw_data_csv, gpx::GpxJourneyWriter, kml::KmlJourneyWriter, write_export_file,
+    gpx::GpxJourneyWriter, kml::KmlJourneyWriter, raw_csv::write_raw_data_csv, write_export_file,
     JourneyExport, RawDataExportType, RAW_DATA_LABEL,
 };
 
@@ -83,8 +83,8 @@ pub(crate) fn export_all_raw_journeys(
             RawDataExportType::CSV => {
                 let mut writer = csv::Writer::from_writer(file);
                 for journey in journeys {
-                    let (header, data) = journey?;
-                    write_raw_data_csv(&mut writer, &data, Some(&header.id))?;
+                    let (_, data) = journey?;
+                    write_raw_data_csv(&mut writer, &data)?;
                 }
                 writer.flush()?;
                 Ok(())

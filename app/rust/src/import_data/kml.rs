@@ -1,6 +1,5 @@
 use crate::gps::{Point, RawGPSPoint};
-use crate::import_data::preprocessor::{detect_preprocessor, TrackFileFormat};
-use crate::import_data::{ImportGrouping, ImportPreprocessor, ImportedJourney, ParsedVectorData};
+use crate::import_data::{detect_preprocessor, ImportPreprocessor, TrackFileFormat};
 use anyhow::{Context, Result};
 use auto_context::auto_context;
 use chrono::{DateTime, Utc};
@@ -9,33 +8,26 @@ use kml::Kml::Placemark;
 use kml::{Kml, KmlReader};
 use quick_xml::events::Event;
 use quick_xml::{Reader, Writer};
+use std::cell::RefCell;
 use std::fs;
 use std::io::Cursor;
 
-/// Parses KML geometry, retaining LineString and Track segment boundaries.
+/// Load and parse KML safely, skipping invalid <description> blocks.
 #[auto_context]
-pub fn load_kml(file_path: &str) -> Result<(ParsedVectorData, ImportPreprocessor)> {
+pub fn load_kml(file_path: &str) -> Result<(Vec<Vec<RawGPSPoint>>, ImportPreprocessor)> {
     let xml = fs::read_to_string(file_path)?;
     let preprocessor = detect_preprocessor(&xml, TrackFileFormat::Kml);
-    let (cleaned_xml, _) = read_kml_description_and_remove(&xml)?;
+    let (cleaned_xml, _descriptions) = read_kml_description_and_remove(&xml)?;
     let mut kml_reader = KmlReader::<_, f64>::from_reader(Cursor::new(cleaned_xml));
     let kml_data = kml_reader.read()?;
-    let elements = flatten_kml(kml_data);
-    // Prefer Tracks across the whole file. Only fall back to other geometry
-    // when there are no non-empty Tracks, regardless of the exporting app.
-    let mut segments = read_track(&elements)?;
-    if segments.is_empty() {
-        segments = read_line_string(&elements)?;
+    let flatten_data = flatten_kml(kml_data);
+    // Prefer non-empty Tracks across the whole file before other geometry.
+    let mut raw_vector_data = read_track(&flatten_data)?;
+    if raw_vector_data.is_empty() {
+        raw_vector_data = read_line_string(&flatten_data)?
     }
-    let groups = if segments.is_empty() {
-        Vec::new()
-    } else {
-        vec![ImportedJourney::generic(segments)]
-    };
-    Ok((
-        ParsedVectorData::new(ImportGrouping::ByDate, groups),
-        preprocessor,
-    ))
+
+    Ok((raw_vector_data, preprocessor))
 }
 
 /// 2bulu generated KML contains HTML tags in <description>, which breaks the KML parser.
@@ -174,9 +166,9 @@ fn read_line_string(flatten_data: &[Kml]) -> Result<Vec<Vec<RawGPSPoint>>> {
             .and_then(|when_element| when_element.content.clone())
     };
 
-    let mut raw_vector_data_segment = Vec::new();
+    let raw_vector_data_segment: RefCell<Vec<RawGPSPoint>> = RefCell::new(Vec::new());
 
-    for k in flatten_data {
+    flatten_data.iter().for_each(|k| {
         if let Placemark(p) = k {
             if let Some(geometry) = &p.geometry {
                 match geometry {
@@ -187,7 +179,7 @@ fn read_line_string(flatten_data: &[Kml]) -> Result<Vec<Vec<RawGPSPoint>>> {
                                 .find(|e| e.name == "TimeStamp")
                                 .and_then(extract_time_from_children),
                         );
-                        raw_vector_data_segment.push(RawGPSPoint {
+                        raw_vector_data_segment.borrow_mut().push(RawGPSPoint {
                             point: Point {
                                 latitude: point.coord.y,
                                 longitude: point.coord.x,
@@ -200,7 +192,7 @@ fn read_line_string(flatten_data: &[Kml]) -> Result<Vec<Vec<RawGPSPoint>>> {
                     }
                     Geometry::LineString(line_string) => {
                         line_string.coords.iter().for_each(|coord| {
-                            raw_vector_data_segment.push(RawGPSPoint {
+                            raw_vector_data_segment.borrow_mut().push(RawGPSPoint {
                                 point: Point {
                                     latitude: coord.y,
                                     longitude: coord.x,
@@ -213,17 +205,17 @@ fn read_line_string(flatten_data: &[Kml]) -> Result<Vec<Vec<RawGPSPoint>>> {
                         });
 
                         // we treat different `LineString` as different segments
-                        if !raw_vector_data_segment.is_empty() {
-                            raw_vector_data.push(std::mem::take(&mut raw_vector_data_segment));
+                        if !raw_vector_data_segment.borrow().is_empty() {
+                            raw_vector_data.push(raw_vector_data_segment.replace(Vec::new()));
                         }
                     }
                     _ => (),
                 }
             }
         }
-    }
-    if !raw_vector_data_segment.is_empty() {
-        raw_vector_data.push(raw_vector_data_segment);
+    });
+    if !raw_vector_data_segment.borrow().is_empty() {
+        raw_vector_data.push(raw_vector_data_segment.into_inner());
     }
     Ok(raw_vector_data)
 }

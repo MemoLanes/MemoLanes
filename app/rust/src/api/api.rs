@@ -831,7 +831,9 @@ pub fn export_journey_raw_data(
     };
 
     export_data::write_export_file(&target_filepath, |file| match export_type {
-        RawDataExportType::CSV => export_data::csv::journey_raw_data_to_csv_file(&raw_data, file),
+        RawDataExportType::CSV => {
+            export_data::raw_csv::journey_raw_data_to_csv_file(&raw_data, file)
+        }
         RawDataExportType::GPX => export_data::gpx::journey_raw_data_to_gpx_file(&raw_data, file),
         RawDataExportType::KML => export_data::kml::journey_raw_data_to_kml_file(&raw_data, file),
     })?;

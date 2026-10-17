@@ -4,10 +4,10 @@ use std::sync::{Arc, Mutex};
 
 use anyhow::{bail, Context, Result};
 use clap::Parser;
-use memolanes_core::api::import::ImportPreprocessor;
 use memolanes_core::archive::MldxReader;
 use memolanes_core::gps_processor::SegmentGapRule;
 use memolanes_core::import_data;
+use memolanes_core::import_data::ImportPreprocessor;
 use memolanes_core::journey_bitmap::JourneyBitmap;
 use memolanes_core::journey_data;
 use memolanes_core::renderer::MapRenderer;
@@ -47,12 +47,11 @@ fn process_gpx_or_kml(file_path: &str) -> Result<JourneyBitmap> {
         .and_then(|s| s.to_str())
         .map(|s| s.to_ascii_lowercase());
 
-    let (parsed, preprocessor) = match ext.as_deref() {
+    let (raw_data, preprocessor) = match ext.as_deref() {
         Some("gpx") => import_data::gpx::load_gpx(file_path)?,
         Some("kml") => import_data::kml::load_kml(file_path)?,
         _ => bail!("Unsupported file extension: {ext:?}"),
     };
-    let raw_data = parsed.flatten();
 
     let gap_rule = match preprocessor {
         ImportPreprocessor::None => None,

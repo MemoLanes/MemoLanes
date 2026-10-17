@@ -3,14 +3,9 @@ pub mod csv;
 pub mod fow;
 pub mod gpx;
 pub mod journey_partition;
-mod journeys;
 pub mod kml;
-pub(crate) mod preprocessor;
 
-use crate::gps::RawGPSPoint;
-pub(crate) use journeys::{
-    import_selected_parts, load_vector_file, process_part, select_parts, ImportPart,
-};
+use crate::export_data::{JOURNEY_LABEL, RAW_DATA_LABEL};
 
 #[derive(Clone, Copy, Debug)]
 pub enum ImportPreprocessor {
@@ -20,34 +15,35 @@ pub enum ImportPreprocessor {
     Spare,
 }
 
-/// A group of source segments, optionally grouped by CSV journey ID.
-#[derive(Clone, Debug, PartialEq)]
-pub struct ImportedJourney {
-    pub segments: Vec<Vec<RawGPSPoint>>,
+#[derive(Clone, Copy)]
+pub(crate) enum TrackFileFormat {
+    Gpx,
+    Kml,
 }
 
-impl ImportedJourney {
-    pub fn generic(segments: Vec<Vec<RawGPSPoint>>) -> Self {
-        Self { segments }
+/// Select a default processor from the file header. This is only a hint:
+/// parsing, partitioning and importing use the same paths for every source.
+pub(crate) fn detect_preprocessor(xml: &str, format: TrackFileFormat) -> ImportPreprocessor {
+    const PROBE_LIMIT: usize = 8 * 1024;
+    let head = xml
+        .chars()
+        .take(PROBE_LIMIT)
+        .collect::<String>()
+        .to_ascii_lowercase();
+
+    // Preserve the existing GPX heuristics for 一生足迹 and 灵感足迹.
+    if matches!(format, TrackFileFormat::Gpx)
+        && (head.contains("stepofmyworld") || head.contains("yourapp"))
+    {
+        return ImportPreprocessor::Spare;
     }
-}
 
-/// GPX/KML and ordinary CSV use date-based grouping; CSV with journey IDs
-/// retains its explicit groups.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum ImportGrouping {
-    ByDate,
-    ByJourney,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct ParsedVectorData {
-    groups: Vec<ImportedJourney>,
-    grouping: ImportGrouping,
-}
-
-impl ParsedVectorData {
-    pub(crate) fn new(grouping: ImportGrouping, groups: Vec<ImportedJourney>) -> Self {
-        Self { groups, grouping }
+    // Both writers name processed tracks "MemoLanes Journey". The creator
+    // alone is insufficient: raw exports still need normal preprocessing.
+    let has_raw_data = head.contains(&RAW_DATA_LABEL.to_ascii_lowercase());
+    if head.contains(&JOURNEY_LABEL.to_ascii_lowercase()) && !has_raw_data {
+        ImportPreprocessor::None
+    } else {
+        ImportPreprocessor::Generic
     }
 }

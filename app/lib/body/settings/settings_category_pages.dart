@@ -435,10 +435,11 @@ class _DataManagementSettingsPageState
       }
       return;
     }
-    // Hide raw-data options only when the check confirms there are no points.
-    var hasRawData = true;
+    // Point availability controls raw-data formats only. MLDX can also preserve
+    // attachments with just a header.
+    var hasRawPoints = true;
     try {
-      hasRawData = await api.hasJourneysRawData();
+      hasRawPoints = await api.hasJourneysRawData();
     } catch (error, stackTrace) {
       log.error('Failed to check journey raw data: $error', stackTrace);
     }
@@ -446,7 +447,6 @@ class _DataManagementSettingsPageState
     await showCommonExportWithFormatPicker(
       context: context,
       title: context.tr('data.export_data.export_all_title'),
-      canIncludeRawData: hasRawData,
       formatGroups: [
         CommonExportFormatGroup(
           label: context.tr('data.export_data.journey_data_group'),
@@ -457,7 +457,7 @@ class _DataManagementSettingsPageState
             CommonExportFormat.gpx,
           ],
         ),
-        if (hasRawData)
+        if (hasRawPoints)
           CommonExportFormatGroup.rawData(
             context,
             description: context.tr('data.export_data.raw_data_group_desc'),

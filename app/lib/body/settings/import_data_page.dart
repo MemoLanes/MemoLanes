@@ -66,8 +66,8 @@ class _ImportDataPage extends State<ImportDataPage> {
         () => _loadFile(widget.path),
       );
       if (!mounted) return;
-      var importSeparately = _vectorParts.any((part) => part.isExplicitJourney);
-      if (!importSeparately && _vectorParts.length > 1) {
+      var importSeparately = false;
+      if (_vectorParts.length > 1) {
         importSeparately = await showCommonDialog(
           context,
           context.tr(
@@ -142,7 +142,7 @@ class _ImportDataPage extends State<ImportDataPage> {
       case ImportType.vector:
         var (journeyInfo, rawVectorData, detectedProcessor) = await import_api
             .loadVectorData(filePath: path);
-        final parts = await import_api.analyzeVectorDataParts(
+        final parts = await import_api.analyzeVectorDataByDate(
           vectorData: rawVectorData,
         );
         setState(() {

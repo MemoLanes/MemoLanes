@@ -178,7 +178,7 @@ fn journey_raw_data_csv_preserves_fields() {
     };
 
     let mut csv = Vec::new();
-    export_data::csv::journey_raw_data_to_csv_file(&raw_data, &mut csv).unwrap();
+    export_data::raw_csv::journey_raw_data_to_csv_file(&raw_data, &mut csv).unwrap();
     let mut csv = csv::Reader::from_reader(csv.as_slice());
     assert_eq!(
         csv.headers().unwrap().iter().collect::<Vec<_>>(),

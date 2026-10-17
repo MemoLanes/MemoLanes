@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fs::File, io::Read};
+use std::{fs::File, io::Read};
 
 use anyhow::{Context, Result};
 use csv::{Reader, ReaderBuilder, StringRecord, Trim};
@@ -6,7 +6,7 @@ use serde::Deserialize;
 
 use crate::{
     gps::{Point, RawGPSPoint},
-    import_data::{ImportGrouping, ImportPreprocessor, ImportedJourney, ParsedVectorData},
+    import_data::ImportPreprocessor,
 };
 
 // CSV exported by 人生点点
@@ -81,8 +81,6 @@ struct StepRow {
 
 #[derive(Deserialize)]
 struct MemoLanesRow {
-    #[serde(default)]
-    journey_id: Option<String>,
     timestamp_ms: Option<i64>,
     #[allow(dead_code)]
     received_timestamp_ms: i64,
@@ -103,9 +101,6 @@ fn is_step_format(headers: &StringRecord) -> bool {
 
 fn is_memolanes_format(headers: &StringRecord) -> bool {
     headers.iter().eq(MEMOLANES_HEADERS.iter().copied())
-        || headers
-            .iter()
-            .eq(MEMOLANES_HEADERS.iter().copied().chain(["journey_id"]))
 }
 
 fn parse_dol_rows<R: Read>(reader: &mut Reader<R>) -> Result<Vec<RawGPSPoint>> {
@@ -148,43 +143,24 @@ fn parse_step_rows<R: Read>(reader: &mut Reader<R>) -> Result<Vec<RawGPSPoint>> 
     Ok(raw_data)
 }
 
-fn parse_memolanes_rows<R: Read>(reader: &mut Reader<R>) -> Result<ParsedVectorData> {
-    let mut groups = Vec::new();
-    let mut journey_indices = HashMap::new();
-    let mut previous_index = None;
+fn parse_memolanes_rows<R: Read>(reader: &mut Reader<R>) -> Result<Vec<RawGPSPoint>> {
+    let mut raw_data = Vec::new();
 
     for (index, result) in reader.deserialize::<MemoLanesRow>().enumerate() {
         let row_number = index + 2;
         let row = result.with_context(|| format!("failed to parse CSV row {row_number}"))?;
-        let index = *journey_indices.entry(row.journey_id).or_insert_with(|| {
-            groups.push(ImportedJourney::generic(Vec::new()));
-            groups.len() - 1
-        });
-        let group = &mut groups[index];
-        if previous_index != Some(index) {
-            group.segments.push(Vec::new());
-        }
-        previous_index = Some(index);
-        group
-            .segments
-            .last_mut()
-            .unwrap()
-            .push(raw_data_from_millisecond_values(
-                row.timestamp_ms,
-                row.longitude,
-                row.latitude,
-                row.accuracy,
-                row.altitude,
-                row.speed,
-                row_number,
-            )?);
+        raw_data.push(raw_data_from_millisecond_values(
+            row.timestamp_ms,
+            row.longitude,
+            row.latitude,
+            row.accuracy,
+            row.altitude,
+            row.speed,
+            row_number,
+        )?);
     }
-    let grouping = if journey_indices.keys().any(Option::is_some) {
-        ImportGrouping::ByJourney
-    } else {
-        ImportGrouping::ByDate
-    };
-    Ok(ParsedVectorData::new(grouping, groups))
+
+    Ok(raw_data)
 }
 
 fn raw_data_from_values(
@@ -247,7 +223,7 @@ fn non_negative_finite(value: Option<f32>) -> Option<f32> {
     finite(value).filter(|value| *value >= 0.0)
 }
 
-pub fn load_csv(file_path: &str) -> Result<(ParsedVectorData, ImportPreprocessor)> {
+pub fn load_csv(file_path: &str) -> Result<(Vec<Vec<RawGPSPoint>>, ImportPreprocessor)> {
     let file =
         File::open(file_path).with_context(|| format!("failed to open CSV file: {file_path}"))?;
     let mut reader = ReaderBuilder::new().trim(Trim::All).from_reader(file);
@@ -256,24 +232,14 @@ pub fn load_csv(file_path: &str) -> Result<(ParsedVectorData, ImportPreprocessor
         .with_context(|| format!("failed to read CSV headers: {file_path}"))?
         .clone();
 
-    let (parsed, preprocessor) = if is_dol_format(&headers) {
+    let (raw_data, preprocessor) = if is_dol_format(&headers) {
         (
-            ParsedVectorData::new(
-                ImportGrouping::ByDate,
-                vec![ImportedJourney::generic(vec![
-                    parse_dol_rows(&mut reader).context("failed to parse DoL CSV")?
-                ])],
-            ),
+            parse_dol_rows(&mut reader).context("failed to parse DoL CSV")?,
             ImportPreprocessor::Spare,
         )
     } else if is_step_format(&headers) {
         (
-            ParsedVectorData::new(
-                ImportGrouping::ByDate,
-                vec![ImportedJourney::generic(vec![
-                    parse_step_rows(&mut reader).context("failed to parse Step CSV")?
-                ])],
-            ),
+            parse_step_rows(&mut reader).context("failed to parse Step CSV")?,
             ImportPreprocessor::Spare,
         )
     } else if is_memolanes_format(&headers) {
@@ -288,14 +254,9 @@ pub fn load_csv(file_path: &str) -> Result<(ParsedVectorData, ImportPreprocessor
         );
     };
 
-    if parsed
-        .groups()
-        .iter()
-        .flat_map(|group| &group.segments)
-        .all(Vec::is_empty)
-    {
+    if raw_data.is_empty() {
         anyhow::bail!("CSV file contains no data rows");
     }
 
-    Ok((parsed, preprocessor))
+    Ok((vec![raw_data], preprocessor))
 }
