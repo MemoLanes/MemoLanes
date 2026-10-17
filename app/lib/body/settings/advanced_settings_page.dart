@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:easy_localization/easy_localization.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:memolanes/body/settings/render_diagnostics.dart';
 import 'package:memolanes/body/settings/settings_section.dart';
 import 'package:memolanes/common/component/app_button.dart';

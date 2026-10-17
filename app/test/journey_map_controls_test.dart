@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:easy_localization/easy_localization.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:memolanes/body/journey/list/journey_list_calendar.dart';
@@ -57,7 +57,10 @@ void main() {
           child: Builder(
             builder: (context) => MaterialApp(
               theme: AppTheme.light.copyWith(platform: platform),
-              localizationsDelegates: context.localizationDelegates,
+              localizationsDelegates: [
+                ...GlobalMaterialLocalizations.delegates,
+                ...context.localizationDelegates,
+              ],
               supportedLocales: context.supportedLocales,
               locale: context.locale,
               home: home,

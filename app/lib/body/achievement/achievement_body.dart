@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:memolanes/theme/app_colors.dart';
 
 import 'package:easy_localization/easy_localization.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:memolanes/body/achievement/cards/achievement_coming_soon_card.dart';
 import 'package:memolanes/body/achievement/cards/achievement_countries_card.dart';
 import 'package:memolanes/body/achievement/cards/achievement_source_card.dart';

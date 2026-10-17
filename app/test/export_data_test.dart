@@ -10,7 +10,7 @@ import 'package:memolanes/src/rust/frb_generated.dart';
 import 'package:memolanes/src/rust/legacy_raw_data.dart';
 import 'package:provider/provider.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:memolanes/theme/app_theme.dart';
 
@@ -62,7 +62,10 @@ void main() {
             child: Builder(
               builder: (context) => MaterialApp(
                 theme: AppTheme.light,
-                localizationsDelegates: context.localizationDelegates,
+                localizationsDelegates: [
+                  ...GlobalMaterialLocalizations.delegates,
+                  ...context.localizationDelegates,
+                ],
                 supportedLocales: context.supportedLocales,
                 locale: context.locale,
                 home: ChangeNotifierProvider<GpsManager>.value(
