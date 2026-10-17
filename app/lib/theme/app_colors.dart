@@ -1,6 +1,6 @@
 import 'dart:ui' show lerpDouble;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Shared semantic colors and surface effects. Map fog is a separate preference.
 /// Component-only effects belong with their widgets and interpolate using

@@ -23,6 +23,7 @@
 
 pub mod test_utils;
 
+use memolanes_core::main_db::NewJourney;
 use std::collections::{BTreeSet, HashMap};
 use std::fs;
 
@@ -163,15 +164,16 @@ fn patch_journey(tile: TileKey, block: BlockKey) -> JourneyBitmap {
 fn insert(storage: &Storage, day: u32, kind: JourneyKind, bm: JourneyBitmap) {
     storage
         .with_db_txn(|txn| {
-            txn.create_and_insert_journey(
-                NaiveDate::from_ymd_opt(2025, 1, day).unwrap(),
-                None,
-                None,
-                None,
-                kind,
-                None,
-                JourneyData::Bitmap(bm),
-            )
+            txn.create_and_insert_journey(NewJourney {
+                journey_date: NaiveDate::from_ymd_opt(2025, 1, day).unwrap(),
+                start: None,
+                end: None,
+                created_at: None,
+                journey_kind: kind,
+                note: None,
+                journey_data: JourneyData::Bitmap(bm),
+                raw_data: None,
+            })
         })
         .unwrap();
 }

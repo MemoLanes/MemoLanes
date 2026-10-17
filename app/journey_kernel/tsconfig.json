@@ -19,6 +19,7 @@
       "skipLibCheck": true,
       
       // Output settings
+      "rootDir": "./static",
       "sourceMap": true,
       "declaration": true,
       "declarationMap": true,

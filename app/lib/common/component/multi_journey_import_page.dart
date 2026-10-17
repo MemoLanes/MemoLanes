@@ -1,5 +1,5 @@
 import 'package:memolanes/theme/app_colors.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:memolanes/common/component/app_button.dart';
 import 'package:memolanes/common/component/app_checkbox.dart';
 import 'package:memolanes/common/component/capsule_style_app_bar.dart';
@@ -209,11 +209,14 @@ class MultiJourneyImportPage extends StatelessWidget {
     return LabelTile(
       label: item.label,
       desc: item.description,
-      prefix: AppCheckbox(
-        value: selected,
-        onChanged: (value) {
-          onToggleItem(item.keyValue, value);
-        },
+      prefix: Padding(
+        padding: const EdgeInsets.only(right: 12),
+        child: AppCheckbox(
+          value: selected,
+          onChanged: (value) {
+            onToggleItem(item.keyValue, value);
+          },
+        ),
       ),
       trailing: item.trailing ?? const LabelTileContent(showArrow: true),
       onTap: () => onPreview(item.keyValue),

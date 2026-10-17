@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:easy_localization/easy_localization.dart';
-import 'package:flutter/cupertino.dart';
+import 'package:cupertino_ui/cupertino_ui.dart';
 import 'package:flutter/foundation.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:memolanes/body/first_launch_setup.dart';
@@ -112,7 +112,12 @@ class AppBootstrap {
   }
 
   static Future<Locale> applyInitialLocale(BuildContext context) async {
-    final locale = selectInitialLocale(context.deviceLocale);
+    final saved = MMKVUtil.getStringOpt(MMKVKey.localePreference);
+    final locale = saved == 'zh-CN'
+        ? const Locale('zh', 'CN')
+        : saved == 'en-US'
+        ? const Locale('en', 'US')
+        : selectInitialLocale(context.deviceLocale);
     await context.setLocale(locale);
     return locale;
   }

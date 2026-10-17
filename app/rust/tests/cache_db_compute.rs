@@ -12,6 +12,7 @@
 pub mod test_utils;
 
 use chrono::{NaiveDate, Utc};
+use memolanes_core::main_db::NewJourney;
 use memolanes_core::{
     cache_db::{self, CacheDb, CacheEntry, LayerKind},
     journey_bitmap::JourneyBitmap,
@@ -41,15 +42,16 @@ fn basic() {
 
     main_db
         .with_txn(|txn| {
-            txn.create_and_insert_journey(
-                Utc::now().date_naive(),
-                None,
-                None,
-                None,
+            txn.create_and_insert_journey(NewJourney {
+                journey_date: Utc::now().date_naive(),
+                start: None,
+                end: None,
+                created_at: None,
                 journey_kind,
-                None,
-                JourneyData::Bitmap(journey_bitmap.clone()),
-            )
+                note: None,
+                journey_data: JourneyData::Bitmap(journey_bitmap.clone()),
+                raw_data: None,
+            })
         })
         .unwrap();
 
@@ -58,15 +60,16 @@ fn basic() {
 
     main_db
         .with_txn(|txn| {
-            txn.create_and_insert_journey(
-                Utc::now().date_naive(),
-                None,
-                None,
-                None,
-                journey_kind_flight,
-                None,
-                JourneyData::Bitmap(journey_bitmap_flight.clone()),
-            )
+            txn.create_and_insert_journey(NewJourney {
+                journey_date: Utc::now().date_naive(),
+                start: None,
+                end: None,
+                created_at: None,
+                journey_kind: journey_kind_flight,
+                note: None,
+                journey_data: JourneyData::Bitmap(journey_bitmap_flight.clone()),
+                raw_data: None,
+            })
         })
         .unwrap();
 

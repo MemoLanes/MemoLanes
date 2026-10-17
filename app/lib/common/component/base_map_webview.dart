@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/log.dart';
@@ -613,6 +613,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
         InAppWebView(
           key: const ValueKey('map_webview'),
           initialSettings: InAppWebViewSettings(
+            topScrollEdgeEffectHidden: true,
             javaScriptEnabled: true,
             useShouldOverrideUrlLoading: true,
             allowFileAccessFromFileURLs: true,

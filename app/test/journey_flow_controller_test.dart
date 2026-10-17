@@ -3,19 +3,30 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:memolanes/body/map/journey_flow_controller.dart';
 import 'package:memolanes/common/component/base_map_webview.dart';
+import 'package:memolanes/common/loading_manager.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/frb_generated.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 void main() {
   final backend = _JourneyApi();
-  setUpAll(() => RustLib.initMock(api: backend));
-  tearDownAll(RustLib.dispose);
+  final originalWakelockPlatform = wakelockPlusPlatformInstance;
+  setUpAll(() {
+    wakelockPlusPlatformInstance = _TestWakelockPlatform();
+    RustLib.initMock(api: backend);
+  });
+  tearDownAll(() {
+    RustLib.dispose();
+    wakelockPlusPlatformInstance = originalWakelockPlatform;
+  });
 
   late JourneyFlowController flow;
   setUp(() {
     backend.requests.clear();
     backend.header = null;
+    backend.pendingRawDataDelete = null;
+    backend.rawDataDeleteCalls = 0;
     flow = JourneyFlowController();
   });
   tearDown(() => flow.dispose());
@@ -27,6 +38,7 @@ void main() {
     createdAt: DateTime.utc(2024),
     journeyType: JourneyType.vector,
     journeyKind: JourneyKind.defaultKind,
+    hasRawData: false,
   );
   const view = (lng: 113.0, lat: 22.0, zoom: 10.0);
 
@@ -131,6 +143,53 @@ void main() {
     expect(disposedFlow.session, isNull);
   });
 
+  test('raw-data deletion blocks duplicate actions, permits retry and retains the track and camera', () async {
+    JourneyHeader header(bool hasRawData) => JourneyHeader(
+      id: journey.id,
+      revision: hasRawData ? journey.revision : '${journey.revision}*',
+      journeyDate: journey.journeyDate,
+      createdAt: journey.createdAt,
+      journeyType: journey.journeyType,
+      journeyKind: journey.journeyKind,
+      hasRawData: hasRawData,
+    );
+    final opening = flow.open(header(true), readMapView: () async => view);
+    await startLoad();
+    backend.requests.single.complete((_MapRenderer(), null));
+    await opening;
+    final session = flow.session!;
+    backend.header = header(false);
+    final pending = Completer<void>();
+    backend.pendingRawDataDelete = pending;
+
+    final deletion = flow.deleteRawData();
+    final failure = expectLater(deletion, throwsStateError);
+    await startLoad();
+    expect(flow.requestBack(), JourneyBackResult.blocked);
+    expect(flow.leave(), isFalse);
+    expect(GlobalLoadingManager.instance.isNavigationBlocked, isTrue);
+    await flow.deleteRawData();
+    expect(backend.rawDataDeleteCalls, 1);
+
+    pending.completeError(StateError('Storage unavailable'));
+    await failure;
+    expect(flow.phase, JourneyPhase.viewing);
+    expect(flow.session, same(session));
+    expect(GlobalLoadingManager.instance.isNavigationBlocked, isFalse);
+
+    backend.pendingRawDataDelete = null;
+    await flow.deleteRawData();
+    expect(backend.rawDataDeleteCalls, 2);
+    expect(flow.phase, JourneyPhase.viewing);
+    expect(flow.session!.journey, same(backend.header));
+    expect(flow.session!.journey.hasRawData, isFalse);
+    expect(flow.session!.mapData, same(session.mapData));
+    expect(flow.session!.returnView, view);
+    expect(flow.pickerRevision, 0);
+    expect(backend.requests, hasLength(1));
+    expect(GlobalLoadingManager.instance.isNavigationBlocked, isFalse);
+  });
+
   test('track refresh publishes header and map together and retains the return camera', () async {
     final opening = flow.open(journey, readMapView: () async => view);
     await startLoad();
@@ -145,6 +204,7 @@ void main() {
       journeyType: journey.journeyType,
       journeyKind: journey.journeyKind,
       note: 'Updated track',
+      hasRawData: journey.hasRawData,
     );
     backend.header = updated;
     final refreshing = flow.refreshTrack();
@@ -204,6 +264,17 @@ void main() {
 class _JourneyApi extends Fake implements RustLibApi {
   final requests = <Completer<(api.MapRendererProxy, MapBounds?)>>[];
   JourneyHeader? header;
+  Completer<void>? pendingRawDataDelete;
+  int rawDataDeleteCalls = 0;
+
+  @override
+  Future<bool> crateApiApiDeleteJourneyRawData({
+    required String journeyId,
+  }) async {
+    rawDataDeleteCalls++;
+    await pendingRawDataDelete?.future;
+    return true;
+  }
 
   @override
   Future<JourneyHeader?> crateApiApiGetJourneyHeader({
@@ -220,3 +291,11 @@ class _JourneyApi extends Fake implements RustLibApi {
 }
 
 class _MapRenderer extends Fake implements api.MapRendererProxy {}
+
+class _TestWakelockPlatform extends WakelockPlusMacOSPlugin {
+  @override
+  Future<void> toggle({required bool enable}) async {}
+
+  @override
+  Future<bool> get enabled async => false;
+}

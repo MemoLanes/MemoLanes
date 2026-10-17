@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:memolanes/theme/app_colors.dart';
 
 import 'package:easy_localization/easy_localization.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:memolanes/common/component/app_button.dart';
 import 'package:memolanes/common/component/app_checkbox.dart';
 import 'package:memolanes/common/component/setup_bottom_sheet.dart';
@@ -130,7 +130,7 @@ class _FirstLaunchSetupSheetState extends State<FirstLaunchSetupSheet> {
     Navigator.of(context).pop(_FirstLaunchAccepted(_selectedWorldview));
   }
 
-  void _onDisagree() {
+  void _onExit() {
     Navigator.of(context).pop();
   }
 
@@ -141,9 +141,8 @@ class _FirstLaunchSetupSheetState extends State<FirstLaunchSetupSheet> {
       maxHeightFactor: 0.75,
       actions: [
         AppButton(
-          label: context.tr("privacy.disagree_and_exit"),
-          labelMaxLines: 2,
-          onPressed: _onDisagree,
+          label: context.tr("privacy.exit"),
+          onPressed: _onExit,
           variant: AppButtonVariant.secondary,
         ),
         AppButton(

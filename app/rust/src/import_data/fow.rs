@@ -85,14 +85,18 @@ pub fn load_fow_sync_data(mldx_file_path: &str) -> Result<(JourneyBitmap, Option
     let mut warnings: Vec<String> = Vec::new();
 
     let mut zip = zip::ZipArchive::new(File::open(mldx_file_path)?)?;
-    let has_sync_folder = zip
-        .file_names()
-        .any(|name| name.to_lowercase().contains("sync/"));
+    let mut has_sync_folder = false;
+    for name in zip.file_names() {
+        if name?.to_lowercase().contains("sync/") {
+            has_sync_folder = true;
+            break;
+        }
+    }
 
     let mut journey_bitmap = JourneyBitmap::new();
     for i in 0..zip.len() {
         let file = zip.by_index(i)?;
-        let filename = file.name().to_lowercase();
+        let filename = file.name()?.to_lowercase();
         // the check below are just best effort.
         // if there is a sync folder, skip all other files
         if has_sync_folder && !filename.contains("sync/") {
@@ -131,7 +135,7 @@ pub fn load_fow_snapshot_data(fwss_file_path: &str) -> Result<(JourneyBitmap, Op
     let mut journey_bitmap = JourneyBitmap::new();
     for i in 0..zip.len() {
         let file = zip.by_index(i)?;
-        let fwss_subfilename = file.name().to_lowercase();
+        let fwss_subfilename = file.name()?.to_lowercase();
 
         if !fwss_subfilename.contains("model/*/") {
             continue;

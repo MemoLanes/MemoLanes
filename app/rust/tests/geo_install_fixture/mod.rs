@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 
+use memolanes_core::main_db::NewJourney;
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
@@ -94,15 +95,16 @@ pub fn insert_border_journey(storage: &Storage, day: u32, bits: u32) -> anyhow::
         .get_tile_mut_or_insert_empty(&BORDER_TILE)
         .set(&fr_block(), block);
     storage.with_db_txn(|txn| {
-        txn.create_and_insert_journey(
-            NaiveDate::from_ymd_opt(2025, 1, day).unwrap(),
-            None,
-            None,
-            None,
-            JourneyKind::DefaultKind,
-            None,
-            JourneyData::Bitmap(bitmap),
-        )
+        txn.create_and_insert_journey(NewJourney {
+            journey_date: NaiveDate::from_ymd_opt(2025, 1, day).unwrap(),
+            start: None,
+            end: None,
+            created_at: None,
+            journey_kind: JourneyKind::DefaultKind,
+            note: None,
+            journey_data: JourneyData::Bitmap(bitmap),
+            raw_data: None,
+        })
     })
 }
 

@@ -1,5 +1,5 @@
 import 'package:memolanes/theme/app_colors.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:memolanes/common/component/app_dialog.dart';
 import 'package:memolanes/constants/app_typography.dart';
 

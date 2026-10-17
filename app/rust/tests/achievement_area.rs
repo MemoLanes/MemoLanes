@@ -1,6 +1,7 @@
 pub mod test_utils;
 use crate::test_utils::{draw_line1, draw_line2};
 use chrono::NaiveDate;
+use memolanes_core::main_db::NewJourney;
 use memolanes_core::{
     achievement::layer::AchievementLayer, achievement::on_demand::explored_areas_from_snapshot,
     journey_area_utils::journey_bitmap_area_m2_rounded, journey_bitmap::JourneyBitmap,
@@ -70,28 +71,30 @@ fn explored_areas_match_direct_fold() {
 
         storage
             .with_db_txn(|txn| {
-                txn.create_and_insert_journey(
-                    NaiveDate::from_ymd_opt(2025, 1, 1).unwrap(),
-                    None,
-                    None,
-                    None,
-                    JourneyKind::DefaultKind,
-                    None,
-                    JourneyData::Bitmap(default_bitmap.clone()),
-                )
+                txn.create_and_insert_journey(NewJourney {
+                    journey_date: NaiveDate::from_ymd_opt(2025, 1, 1).unwrap(),
+                    start: None,
+                    end: None,
+                    created_at: None,
+                    journey_kind: JourneyKind::DefaultKind,
+                    note: None,
+                    journey_data: JourneyData::Bitmap(default_bitmap.clone()),
+                    raw_data: None,
+                })
             })
             .unwrap();
         storage
             .with_db_txn(|txn| {
-                txn.create_and_insert_journey(
-                    NaiveDate::from_ymd_opt(2025, 1, 2).unwrap(),
-                    None,
-                    None,
-                    None,
-                    JourneyKind::Flight,
-                    None,
-                    JourneyData::Bitmap(flight_bitmap.clone()),
-                )
+                txn.create_and_insert_journey(NewJourney {
+                    journey_date: NaiveDate::from_ymd_opt(2025, 1, 2).unwrap(),
+                    start: None,
+                    end: None,
+                    created_at: None,
+                    journey_kind: JourneyKind::Flight,
+                    note: None,
+                    journey_data: JourneyData::Bitmap(flight_bitmap.clone()),
+                    raw_data: None,
+                })
             })
             .unwrap();
 

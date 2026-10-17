@@ -1,6 +1,13 @@
-import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
+
+String journeyKindLabel(BuildContext context, JourneyKind value) =>
+    switch (value) {
+      JourneyKind.defaultKind => context.tr('journey_kind.default'),
+      JourneyKind.flight => context.tr('journey_kind.flight'),
+    };
 
 /// Keeps journey-layer iconography consistent across map filters, lists, and
 /// editing controls.

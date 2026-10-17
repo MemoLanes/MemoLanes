@@ -5,7 +5,7 @@ import 'dart:ui' as ui;
 import 'package:memolanes/theme/app_colors.dart';
 
 import 'package:easy_localization/easy_localization.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:memolanes/common/component/custom_popup.dart';
 import 'package:memolanes/common/component/liquid_glass_surface.dart';
 import 'package:memolanes/common/gps_manager.dart';
@@ -177,7 +177,16 @@ class _AccuracyPopupContent extends StatelessWidget {
     return Consumer<GpsManager>(
       builder: (context, gpsState, child) {
         final position = gpsState.latestPosition;
-        if (position == null) return const SizedBox.shrink();
+        if (position == null) {
+          final route = ModalRoute.of(context);
+          // Close this popup after the build, preserving any dialog above it.
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (context.mounted && route != null && route.isActive) {
+              route.navigator?.removeRoute(route);
+            }
+          });
+          return const SizedBox.shrink();
+        }
 
         final accuracyLevel = getAccuracyLevel(position.accuracy);
         final statusColor = getStatusColor(context.appColors, accuracyLevel);

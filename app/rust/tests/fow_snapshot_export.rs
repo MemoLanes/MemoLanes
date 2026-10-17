@@ -34,14 +34,14 @@ fn export_source_snapshot() -> Vec<u8> {
 fn zip_entry_names_from_path(path: &str) -> BTreeSet<String> {
     let mut zip = zip::ZipArchive::new(File::open(path).unwrap()).unwrap();
     (0..zip.len())
-        .map(|i| zip.by_index(i).unwrap().name().to_string())
+        .map(|i| zip.by_index(i).unwrap().name().unwrap().into_owned())
         .collect()
 }
 
 fn zip_entry_names_from_bytes(fwss: &[u8]) -> BTreeSet<String> {
     let mut zip = zip::ZipArchive::new(Cursor::new(fwss)).unwrap();
     (0..zip.len())
-        .map(|i| zip.by_index(i).unwrap().name().to_string())
+        .map(|i| zip.by_index(i).unwrap().name().unwrap().into_owned())
         .collect()
 }
 

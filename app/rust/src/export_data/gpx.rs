@@ -1,19 +1,18 @@
 use crate::journey_vector::JourneyVector;
-use crate::storage::RawCsvRow;
+use crate::raw_data::JourneyRawData;
 use anyhow::{Context, Ok, Result};
 use auto_context::auto_context;
-use csv::Reader;
 use geo_types::Point;
 use gpx::{Gpx, GpxVersion, Metadata, Track, TrackSegment, Waypoint};
 use std::io::{Seek, Write};
-use time::{Duration, OffsetDateTime};
+use time::OffsetDateTime;
 
 // TODO: Pull in more metadata to the exported files, e.g. timestamp, note, etc
 // For most things, we could put them as custom attributes. The timestamp is a
 // bit annoying. Ideally I don't want to fake data (e.g. generating timestamps
 // for all points based on begin and end time). So maybe also treat them as
 // custom attributes or just add timestamp for the first and last point if possible.
-fn write_gpx_with_segments<T: Write + Seek>(
+pub(crate) fn write_gpx_with_segments<T: Write + Seek>(
     segments: Vec<TrackSegment>,
     name: Option<&str>,
     writer: &mut T,
@@ -50,7 +49,7 @@ fn write_gpx_with_segments<T: Write + Seek>(
 }
 
 pub const JOURNEY_TYPE_NAME: &str = "MemoLanes Journey";
-pub const RAWDATA_TYPE_NAME: &str = "MemoLanes RawData";
+pub const RAW_DATA_TYPE_NAME: &str = "MemoLanes RawData";
 
 #[auto_context]
 pub fn journey_vector_to_gpx_file<T: Write + Seek>(
@@ -70,33 +69,44 @@ pub fn journey_vector_to_gpx_file<T: Write + Seek>(
 }
 
 #[auto_context]
-pub fn raw_data_csv_to_gpx_file<R: std::io::Read, W: Write + Seek>(
-    csv_reader: &mut Reader<R>,
+pub fn journey_raw_data_to_gpx_file<W: Write + Seek>(
+    raw_data: &JourneyRawData,
     writer: &mut W,
 ) -> Result<()> {
-    let mut segment = TrackSegment { points: Vec::new() };
+    let points = raw_data
+        .points
+        .iter()
+        .map(|point| {
+            let raw = &point.raw_gps_point;
+            raw_data_waypoint(
+                raw.point.latitude,
+                raw.point.longitude,
+                raw.timestamp_ms.or(Some(point.received_timestamp_ms)),
+                raw.altitude,
+                raw.accuracy,
+            )
+        })
+        .collect::<Result<Vec<_>>>()?;
+    write_gpx_with_segments(
+        vec![TrackSegment { points }],
+        Some(RAW_DATA_TYPE_NAME),
+        writer,
+    )
+}
 
-    for result in csv_reader.deserialize::<RawCsvRow>() {
-        let raw: RawCsvRow = result?;
-
-        let mut wp = Waypoint::new(Point::new(raw.longitude, raw.latitude));
-
-        if let Some(ts) = raw.timestamp_ms {
-            if ts > 0 {
-                let dt = OffsetDateTime::UNIX_EPOCH + Duration::milliseconds(ts);
-                wp.time = Some(dt.into());
-            }
-        }
-
-        if let Some(alt) = raw.altitude {
-            wp.elevation = Some(alt as f64);
-        }
-
-        if let Some(acc) = raw.accuracy {
-            wp.hdop = Some(acc as f64);
-        }
-
-        segment.points.push(wp);
+pub(crate) fn raw_data_waypoint(
+    latitude: f64,
+    longitude: f64,
+    timestamp_ms: Option<i64>,
+    altitude: Option<f32>,
+    accuracy: Option<f32>,
+) -> Result<Waypoint> {
+    let mut waypoint = Waypoint::new(Point::new(longitude, latitude));
+    if let Some(timestamp_ms) = timestamp_ms.filter(|timestamp_ms| *timestamp_ms > 0) {
+        let time = OffsetDateTime::from_unix_timestamp_nanos(i128::from(timestamp_ms) * 1_000_000)?;
+        waypoint.time = Some(time.into());
     }
-    write_gpx_with_segments(vec![segment], Some(RAWDATA_TYPE_NAME), writer)
+    waypoint.elevation = altitude.map(f64::from);
+    waypoint.hdop = accuracy.map(f64::from);
+    Ok(waypoint)
 }

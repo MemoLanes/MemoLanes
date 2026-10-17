@@ -9,7 +9,7 @@ serde = { version = "1", features = ["derive"] }
 bitcode = { version = "=0.6.9", default-features = false, features = ["std", "serde"] }
 sha2 = "0.11"
 anyhow = "1"
-zstd = "0.13"
+zstd = "0.14"
 
 [dev-dependencies]
 proptest = "1"

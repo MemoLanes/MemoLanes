@@ -175,6 +175,25 @@ class JourneyFlowController extends ChangeNotifier {
     }
   }
 
+  /// Remove attached samples while retaining the track and map viewport.
+  Future<void> deleteRawData() async {
+    if (_disposed || _phase != JourneyPhase.viewing) return;
+    final id = _session!.journey.id;
+    _phase = JourneyPhase.deleting;
+    notifyListeners();
+    try {
+      await GlobalLoadingManager.instance.runWithLoading(() async {
+        await api.deleteJourneyRawData(journeyId: id);
+        await _refreshJourney(refreshMap: false);
+      }, blockNavigation: true);
+    } finally {
+      if (!_disposed && _phase == JourneyPhase.deleting) {
+        _phase = JourneyPhase.viewing;
+        notifyListeners();
+      }
+    }
+  }
+
   Future<void> refreshTrack() async {
     if (_disposed || _phase != JourneyPhase.viewing) return;
     final token = _loadToken.begin();

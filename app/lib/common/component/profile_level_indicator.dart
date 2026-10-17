@@ -3,7 +3,7 @@ import 'dart:ui' as ui;
 
 import 'package:memolanes/theme/app_colors.dart';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:memolanes/constants/app_typography.dart';
 
 class ProfileLevelIndicator extends StatelessWidget {
