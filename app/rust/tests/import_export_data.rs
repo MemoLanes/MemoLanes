@@ -3,7 +3,7 @@ extern crate assert_float_eq;
 
 pub mod test_utils;
 
-use chrono::{DateTime, NaiveDate, Utc};
+use chrono::{DateTime, Local, NaiveDate, TimeZone, Utc};
 use memolanes_core::api::api::{
     delete_journey_raw_data, export_all_journeys_as_gpx, export_all_journeys_as_kml,
     export_all_journeys_raw_data, export_journey, export_journey_raw_data, generate_full_archive,
@@ -23,6 +23,7 @@ use memolanes_core::journey_vector::{JourneyVector, TrackPoint, TrackSegment};
 use memolanes_core::main_db::{MainDb, NewJourney};
 use memolanes_core::raw_data::{JourneyRawData, SerializedJourneyRawData};
 use memolanes_core::{export_data, import_data};
+use std::collections::BTreeMap;
 use std::fs::{self, File};
 use std::path::Path;
 
@@ -511,25 +512,23 @@ fn export_test_vector(offset: f64) -> JourneyData {
     })
 }
 
-fn export_test_raw_data(latitude: f64) -> JourneyRawData {
-    let points = [Some(1_700_000_000_000), None]
-        .into_iter()
-        .enumerate()
-        .map(|(index, timestamp_ms)| ExtendedRawGPSPoint {
+fn export_test_raw_data(latitude: f64, start: DateTime<Utc>) -> JourneyRawData {
+    let points = (0..3)
+        .map(|index| ExtendedRawGPSPoint {
             raw_gps_point: RawGPSPoint {
                 point: Point {
-                    latitude: latitude + index as f64 * 0.001,
+                    latitude: latitude + index as f64 * 0.0001,
                     longitude: 121.473701,
                 },
-                timestamp_ms,
+                timestamp_ms: Some(start.timestamp_millis() + index * 10_000),
                 accuracy: None,
                 altitude: None,
                 speed: None,
             },
-            received_timestamp_ms: 1_700_000_001_234 + index as i64,
+            received_timestamp_ms: start.timestamp_millis() + index * 10_000 + 1234,
         })
         .collect();
-    JourneyRawData::new(points, 1_700_000_000_000)
+    JourneyRawData::new(points, start.timestamp_millis())
 }
 
 #[test]
@@ -761,8 +760,67 @@ fn check_vector_exports(temp: &Path, db: &mut MainDb) {
     }
 }
 
+fn check_raw_reimport(path: &Path, db: &mut MainDb, expected: &BTreeMap<NaiveDate, JourneyVector>) {
+    let (_, raw, processor) =
+        import_api::load_vector_data(path.to_string_lossy().into_owned()).unwrap();
+    assert!(matches!(processor, ImportPreprocessor::Generic));
+    let parts = import_api::analyze_vector_data_by_date(&raw);
+    assert_eq!(
+        parts
+            .iter()
+            .map(|part| (part.journey_date.clone(), part.point_count))
+            .collect::<Vec<_>>(),
+        expected
+            .iter()
+            .map(|(date, vector)| (
+                date.to_string(),
+                vector
+                    .track_segments
+                    .iter()
+                    .map(|segment| segment.track_points.len() as u64)
+                    .sum::<u64>(),
+            ))
+            .collect::<Vec<_>>()
+    );
+    let original_headers = db
+        .with_txn(|txn| txn.query_journeys(None, None, None))
+        .unwrap();
+    assert_eq!(
+        import_api::import_vector_data_by_date(
+            &raw,
+            parts.iter().map(|part| part.journey_date.clone()).collect(),
+            processor,
+            JourneyKind::DefaultKind,
+            None,
+        )
+        .unwrap(),
+        expected.len() as u64
+    );
+    db.with_txn(|txn| {
+        let headers = txn.query_journeys(None, None, None)?;
+        assert_eq!(headers.len(), original_headers.len() + expected.len());
+        for header in &original_headers {
+            assert_eq!(txn.get_journey_header(&header.id)?, Some(header.clone()));
+        }
+        for header in headers
+            .iter()
+            .filter(|header| !original_headers.iter().any(|old| old.id == header.id))
+        {
+            assert!(!header.has_raw_data);
+            let JourneyData::Vector(vector) = txn.get_journey_data(&header.id)? else {
+                panic!("{} import is not vector data", path.display());
+            };
+            assert_eq!(&vector, &expected[&header.journey_date]);
+            txn.delete_journey(&header.id)?;
+        }
+        Ok(())
+    })
+    .unwrap();
+}
+
 fn check_raw_exports(temp: &Path, support: &str, db: &mut MainDb) {
     let first_date = NaiveDate::from_ymd_opt(2026, 9, 11).unwrap();
+    let second_date = first_date.succ_opt().unwrap();
     // Raw exports include only non-empty v2 attachments, even without vector data.
     let raw_formats = [
         (RawDataExportType::CSV, "csv"),
@@ -791,11 +849,11 @@ fn check_raw_exports(temp: &Path, support: &str, db: &mut MainDb) {
         format!("{support}/raw_data/2024-01.csv"),
     )
     .unwrap();
-    let insert_raw = |db: &mut MainDb, date, raw_data: SerializedJourneyRawData| {
+    let insert_raw = |db: &mut MainDb, date, start, raw_data: SerializedJourneyRawData| {
         db.with_txn(|txn| {
             txn.create_and_insert_journey(NewJourney {
                 journey_date: date,
-                start: None,
+                start,
                 end: None,
                 created_at: None,
                 journey_kind: JourneyKind::DefaultKind,
@@ -807,7 +865,7 @@ fn check_raw_exports(temp: &Path, support: &str, db: &mut MainDb) {
         .unwrap()
     };
     let empty_raw_data = JourneyRawData::new(Vec::new(), 1234).serialize().unwrap();
-    let empty_raw_id = insert_raw(db, first_date, empty_raw_data.clone());
+    let empty_raw_id = insert_raw(db, first_date, None, empty_raw_data.clone());
     assert_empty_raw();
 
     // MLDX preserves header-only attachments, even when raw format exports are empty.
@@ -827,15 +885,55 @@ fn check_raw_exports(temp: &Path, support: &str, db: &mut MainDb) {
     assert_eq!(header, expected_header);
     assert_eq!(raw_data, Some(empty_raw_data));
 
-    let latitudes = [31.230416, 32.230416];
-    let ids = latitudes
+    // Two recordings on one day catch CSV timestamp reversal; the next day
+    // also catches GPX/KML being assigned to a single date on reimport.
+    let recordings = [
+        (first_date, 9, 31.230416),
+        (first_date, 11, 32.230416),
+        (second_date, 9, 33.230416),
+    ]
+    .map(|(date, hour, latitude)| {
+        let start = Local
+            .from_local_datetime(&date.and_hms_opt(hour, 0, 0).unwrap())
+            .single()
+            .unwrap()
+            .with_timezone(&Utc);
+        (date, start, export_test_raw_data(latitude, start))
+    });
+    let mut ids = Vec::new();
+    // Expected geometry comes directly from the input recordings, without
+    // running the production preprocessor to generate the test's oracle.
+    let mut expected = BTreeMap::<NaiveDate, JourneyVector>::new();
+    for (date, start, data) in &recordings {
+        ids.push(insert_raw(
+            db,
+            *date,
+            Some(*start),
+            data.serialize().unwrap(),
+        ));
+        expected
+            .entry(*date)
+            .or_insert_with(|| JourneyVector {
+                track_segments: Vec::new(),
+            })
+            .track_segments
+            .push(TrackSegment {
+                track_points: data
+                    .points
+                    .iter()
+                    .map(|point| TrackPoint {
+                        latitude: point.raw_gps_point.point.latitude,
+                        longitude: point.raw_gps_point.point.longitude,
+                    })
+                    .collect(),
+            });
+    }
+    let expected_points = recordings
         .iter()
-        .map(|latitude| {
-            insert_raw(
-                db,
-                first_date,
-                export_test_raw_data(*latitude).serialize().unwrap(),
-            )
+        .flat_map(|(_, _, data)| &data.points)
+        .map(|point| {
+            let raw = &point.raw_gps_point;
+            (raw.timestamp_ms, raw.point.latitude, raw.point.longitude)
         })
         .collect::<Vec<_>>();
     assert!(has_journeys_raw_data().unwrap());
@@ -863,94 +961,37 @@ fn check_raw_exports(temp: &Path, support: &str, db: &mut MainDb) {
                 ]
             );
             let rows = reader.records().collect::<Result<Vec<_>, _>>().unwrap();
-            assert_eq!(rows.len(), 4);
+            assert_eq!(rows.len(), 9);
         } else {
-            for index in 1..=2 {
-                assert!(text.contains(&format!("MemoLanes Raw Data {first_date} #{index}")));
+            for (index, (date, _, _)) in recordings.iter().enumerate() {
+                assert!(text.contains(&format!("MemoLanes Raw Data {date} #{}", index + 1)));
             }
         }
         let segments = parsed;
         assert_eq!(
             segments.iter().map(Vec::len).collect::<Vec<_>>(),
-            if is_csv { vec![4] } else { vec![2, 2] }
+            if is_csv { vec![9] } else { vec![3, 3, 3] }
         );
-        let mut exported_latitudes = segments
-            .iter()
-            .flatten()
-            .map(|point| point.point.latitude)
-            .collect::<Vec<_>>();
-        exported_latitudes.sort_by(f64::total_cmp);
-        let expected_latitudes = latitudes
-            .iter()
-            .flat_map(|latitude| [*latitude, *latitude + 0.001])
-            .collect::<Vec<_>>();
-        assert_eq!(exported_latitudes, expected_latitudes);
-
-        // All formats use ordinary date grouping. Importing twice adds copies.
-        let (_, raw, processor) =
-            import_api::load_vector_data(path.to_string_lossy().into_owned()).unwrap();
-        assert!(matches!(processor, ImportPreprocessor::Generic));
-        let parts = import_api::analyze_vector_data_by_date(&raw);
-        assert_eq!(parts.len(), 1);
-        assert_eq!(parts[0].point_count, 4);
-        // Reimport uses the ordinary processor, including its filtering of
-        // repeated timestamps across the original attachment boundaries.
-        let expected_vector =
-            import_data::conversion::journey_vector_from_raw_data_with_gps_preprocessor(
-                &segments,
-                Some(memolanes_core::gps_processor::SegmentGapRule::Default),
-            )
-            .unwrap();
-        let original_headers = db
-            .with_txn(|txn| txn.query_journeys(None, None, None))
-            .unwrap();
-        for note in [Some("raw import".to_owned()), None] {
-            assert_eq!(
-                import_api::import_vector_data_by_date(
-                    &raw,
-                    parts.iter().map(|part| part.journey_date.clone()).collect(),
-                    processor,
-                    JourneyKind::DefaultKind,
-                    note,
-                )
-                .unwrap(),
-                parts.len() as u64
-            );
-        }
-        db.with_txn(|txn| {
-            let headers = txn.query_journeys(None, None, None)?;
-            assert_eq!(headers.len(), original_headers.len() + 2 * parts.len());
-            for header in &original_headers {
-                assert_eq!(txn.get_journey_header(&header.id)?, Some(header.clone()));
-            }
-            let imported = headers
+        assert_eq!(
+            segments
                 .iter()
-                .filter(|header| !original_headers.iter().any(|old| old.id == header.id))
-                .collect::<Vec<_>>();
-            assert_eq!(
-                imported
-                    .iter()
-                    .filter(|header| header.note.as_deref() == Some("raw import"))
-                    .count(),
-                parts.len()
-            );
-            for header in imported {
-                assert!(!header.has_raw_data);
-                let JourneyData::Vector(vector) = txn.get_journey_data(&header.id)? else {
-                    panic!("{extension} import is not vector data");
-                };
-                assert_eq!(vector, expected_vector);
-                txn.delete_journey(&header.id)?;
-            }
-            Ok(())
-        })
-        .unwrap();
+                .flatten()
+                .map(|point| (
+                    point.timestamp_ms,
+                    point.point.latitude,
+                    point.point.longitude,
+                ))
+                .collect::<Vec<_>>(),
+            expected_points
+        );
+        check_raw_reimport(&path, db, &expected);
     }
 
     // Fail after writing valid journeys, remove partial files, then refresh availability.
     let corrupt_id = insert_raw(
         db,
-        first_date.pred_opt().unwrap(),
+        second_date.succ_opt().unwrap(),
+        None,
         SerializedJourneyRawData::from_bytes(b"invalid".to_vec()),
     );
     for (format, extension) in raw_formats {
@@ -959,9 +1000,9 @@ fn check_raw_exports(temp: &Path, support: &str, db: &mut MainDb) {
         assert!(!path.exists());
     }
     // Single exports must also remove files when a writer rejects a GPS timestamp.
-    let mut invalid_raw = export_test_raw_data(31.0);
+    let mut invalid_raw = export_test_raw_data(31.0, recordings[0].1);
     invalid_raw.points[1].raw_gps_point.timestamp_ms = Some(i64::MAX);
-    let invalid_id = insert_raw(db, first_date, invalid_raw.serialize().unwrap());
+    let invalid_id = insert_raw(db, first_date, None, invalid_raw.serialize().unwrap());
     for (format, extension) in &raw_formats[1..] {
         let path = temp.join(format!("single-raw.{extension}"));
         assert!(export_journey_raw_data(

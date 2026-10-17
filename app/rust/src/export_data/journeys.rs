@@ -123,9 +123,12 @@ fn export_journeys<J>(
     mut load_journey: impl FnMut(JourneyHeader) -> Result<Option<J>>,
     write: impl FnOnce(&mut BufWriter<File>, &mut dyn Iterator<Item = Result<J>>) -> Result<()>,
 ) -> Result<bool> {
+    // Queries return newest first. Export oldest first so raw-data reimports
+    // can partition dates and filter GPS points without time going backwards.
     let headers = storage
         .with_db_txn(|txn| txn.query_journeys(None, None, None))?
-        .into_iter();
+        .into_iter()
+        .rev();
     let mut journeys = headers.filter_map(|header| load_journey(header).transpose());
     let Some(first) = journeys.next().transpose()? else {
         return Ok(false);
