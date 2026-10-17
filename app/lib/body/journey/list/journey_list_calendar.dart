@@ -4,7 +4,7 @@ import 'package:memolanes/theme/app_colors.dart';
 
 import 'package:calendar_date_picker2/calendar_date_picker2.dart';
 import 'package:easy_localization/easy_localization.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:memolanes/body/journey/list/journey_layer_filter_menu.dart';
 import 'package:memolanes/body/journey/list/journey_list_controller.dart';
 import 'package:memolanes/common/app_haptics.dart';
