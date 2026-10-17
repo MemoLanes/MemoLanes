@@ -7,7 +7,12 @@ use crate::{
 //
 // Original points are always preserved. Interpolated points are inserted at
 // `STEP_LENGTH` boundaries along the cumulative distance of each segment.
-pub fn process(raw_data: &[Vec<RawGPSPoint>]) -> Option<JourneyVector> {
+pub fn process<'a, Segment>(
+    raw_data: impl IntoIterator<Item = &'a Segment>,
+) -> Option<JourneyVector>
+where
+    Segment: AsRef<[RawGPSPoint]> + ?Sized + 'a,
+{
     const STEP_LENGTH: f64 = 1000.;
 
     let mut track_segments = Vec::new();
@@ -15,6 +20,7 @@ pub fn process(raw_data: &[Vec<RawGPSPoint>]) -> Option<JourneyVector> {
     for raw_data_segment in raw_data {
         // get points
         let points: Vec<Point> = raw_data_segment
+            .as_ref()
             .iter()
             .map(|data| data.point.clone())
             .collect();

@@ -185,7 +185,7 @@ pub fn process_vector_data(
 ) -> Result<OpaqueJourneyData> {
     Ok(OpaqueJourneyData::new(
         import_data::conversion::process_vector_data(
-            &vector_data.parsed.flatten(),
+            vector_data.parsed.segments(),
             import_processor,
         ),
     ))

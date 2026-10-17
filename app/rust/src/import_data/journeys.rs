@@ -25,11 +25,16 @@ impl ParsedVectorData {
         self.grouping
     }
 
-    pub fn flatten(&self) -> Vec<Vec<RawGPSPoint>> {
+    /// Borrows every segment in source order without copying its points.
+    pub fn segments(&self) -> impl Iterator<Item = &[RawGPSPoint]> {
         self.groups
             .iter()
-            .flat_map(|group| group.segments.iter().cloned())
-            .collect()
+            .flat_map(|group| group.segments.iter().map(Vec::as_slice))
+    }
+
+    /// Clones every segment for callers that need owned data.
+    pub fn flatten(&self) -> Vec<Vec<RawGPSPoint>> {
+        self.segments().map(<[RawGPSPoint]>::to_vec).collect()
     }
 
     pub(crate) fn build_parts(&self) -> Vec<ImportPart> {
@@ -103,7 +108,7 @@ pub(crate) fn load_vector_file(
         extension => bail!("Unknown extension: {extension:?}"),
     };
 
-    let journey_info = conversion::journey_info_from_raw_vector_data(&parsed.flatten());
+    let journey_info = conversion::journey_info_from_raw_vector_data(parsed.segments());
     Ok((journey_info, parsed, preprocessor))
 }
 
