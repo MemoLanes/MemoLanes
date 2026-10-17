@@ -25,6 +25,7 @@ use memolanes_core::{
     gps::{ExtendedRawGPSPoint, RawGPSPoint},
     import_data,
     journey_header::JourneyKind,
+    main_db::FinalizeJourneyResult,
 };
 use std::fs;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -47,7 +48,11 @@ fn import_gpx_as_journey(path: &str) {
             received_timestamp_ms,
         });
     }
-    assert!(api::finalize_ongoing_journey().unwrap(), "finalize {path}");
+    assert_eq!(
+        api::finalize_ongoing_journey(true).unwrap(),
+        FinalizeJourneyResult::Saved,
+        "finalize {path}"
+    );
 }
 
 fn areas() -> HashMap<AchievementLayer, u64> {

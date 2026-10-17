@@ -3,6 +3,7 @@ use memolanes_core::{
     api::api,
     gps::{ExtendedRawGPSPoint, RawGPSPoint},
     import_data,
+    main_db::FinalizeJourneyResult,
 };
 use std::fs;
 use tempdir::TempDir;
@@ -41,7 +42,10 @@ fn basic() {
         });
         if i == 1000 {
             assert!(api::has_ongoing_journey().unwrap());
-            assert!(api::finalize_ongoing_journey().unwrap());
+            assert_eq!(
+                api::finalize_ongoing_journey(true).unwrap(),
+                FinalizeJourneyResult::Saved
+            );
         }
     }
 
@@ -61,9 +65,42 @@ fn basic() {
     }
 
     assert!(api::has_ongoing_journey().unwrap());
-    assert!(api::finalize_ongoing_journey().unwrap());
+    assert_eq!(
+        api::finalize_ongoing_journey(true).unwrap(),
+        FinalizeJourneyResult::Saved
+    );
     assert!(!api::has_ongoing_journey().unwrap());
-    assert!(!api::finalize_ongoing_journey().unwrap());
+    assert_eq!(
+        api::finalize_ongoing_journey(true).unwrap(),
+        FinalizeJourneyResult::Noop
+    );
+
+    // A stationary point already covered by finalized ground data is consumed
+    // without creating another journey.
+    let covered_point = first_elements[0].clone();
+    api::on_location_update(ExtendedRawGPSPoint {
+        received_timestamp_ms: covered_point.timestamp_ms.unwrap(),
+        raw_gps_point: covered_point.clone(),
+    });
+    assert!(api::has_ongoing_journey().unwrap());
+    assert_eq!(
+        api::finalize_ongoing_journey(true).unwrap(),
+        FinalizeJourneyResult::Discarded
+    );
+    assert!(!api::has_ongoing_journey().unwrap());
+
+    // Reusing the same sample is accepted only if discarding reset the GPS
+    // preprocessor; otherwise its timestamp would be rejected as stale.
+    api::on_location_update(ExtendedRawGPSPoint {
+        received_timestamp_ms: covered_point.timestamp_ms.unwrap(),
+        raw_gps_point: covered_point,
+    });
+    assert!(api::has_ongoing_journey().unwrap());
+    assert_eq!(
+        api::finalize_ongoing_journey(true).unwrap(),
+        FinalizeJourneyResult::Discarded
+    );
+    assert!(!api::has_ongoing_journey().unwrap());
 
     for raw_data in remaining_elements {
         api::on_location_update(ExtendedRawGPSPoint {

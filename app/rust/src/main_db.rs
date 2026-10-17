@@ -52,6 +52,27 @@ pub struct NewJourney {
     pub raw_data: Option<raw_data::SerializedJourneyRawData>,
 }
 
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum FinalizeJourneyResult {
+    #[default]
+    Noop,
+    Discarded,
+    Saved,
+}
+
+impl FinalizeJourneyResult {
+    pub fn journey_saved(self) -> bool {
+        matches!(self, FinalizeJourneyResult::Saved)
+    }
+
+    pub fn ongoing_cleared(self) -> bool {
+        matches!(
+            self,
+            FinalizeJourneyResult::Discarded | FinalizeJourneyResult::Saved
+        )
+    }
+}
+
 #[derive(PartialEq, Debug, Clone)]
 pub enum Action {
     /// `MergeOne` is aimed to optimize the most common case: end the current ongoing journey and update the internal state.
@@ -301,6 +322,28 @@ impl Txn<'_> {
 
     #[auto_context]
     pub fn create_and_insert_journey(&mut self, journey: NewJourney) -> Result<String> {
+        let (journey_data, postprocessor_algo) = match journey.journey_data {
+            JourneyData::Vector(vector) => (
+                JourneyData::Vector(GpsPostprocessor::process(vector)),
+                Some(GpsPostprocessor::current_algo()),
+            ),
+            JourneyData::Bitmap(bitmap) => (JourneyData::Bitmap(bitmap), None),
+        };
+        self.create_and_insert_prepared_journey(
+            NewJourney {
+                journey_data,
+                ..journey
+            },
+            postprocessor_algo,
+        )
+    }
+
+    #[auto_context]
+    fn create_and_insert_prepared_journey(
+        &mut self,
+        journey: NewJourney,
+        postprocessor_algo: Option<String>,
+    ) -> Result<String> {
         let NewJourney {
             journey_date,
             start,
@@ -311,14 +354,6 @@ impl Txn<'_> {
             journey_data,
             raw_data,
         } = journey;
-        let (journey_data, postprocessor_algo) = match journey_data {
-            JourneyData::Vector(journey_vector) => (
-                JourneyData::Vector(GpsPostprocessor::process(journey_vector)),
-                Some(GpsPostprocessor::current_algo()),
-            ),
-            JourneyData::Bitmap(bitmap) => (JourneyData::Bitmap(bitmap), None),
-        };
-
         let id = Uuid::new_v4().as_hyphenated().to_string();
         let journey_type = journey_data.type_();
         // create new journey
@@ -447,60 +482,80 @@ impl Txn<'_> {
         Ok(())
     }
 
-    /// When `retain_raw_data` is false, discard pending raw points while
-    /// finalizing the processed journey normally.
+    /// Finalize processed and raw points together, optionally rejecting the
+    /// processed coverage before serializing its raw attachment.
     #[auto_context]
-    pub fn finalize_ongoing_journey(&mut self, retain_raw_data: bool) -> Result<bool> {
+    pub(crate) fn finalize_ongoing_journey_with<F>(
+        &mut self,
+        retain_raw_data: bool,
+        should_discard: F,
+    ) -> Result<FinalizeJourneyResult>
+    where
+        F: FnOnce(&Txn, &JourneyData) -> Result<bool>,
+    {
         let mut journey_date_picker = JourneyDatePicker::new();
-        let new_journey_added = match self.get_ongoing_journey(Some(&mut journey_date_picker))? {
-            None => false,
-            Some(journey_vector) => {
-                // TODO: allow user to set this when recording?
-                let journey_kind = JourneyKind::DefaultKind;
-
+        let mut journey_saved = false;
+        if let Some(vector) = self.get_ongoing_journey(Some(&mut journey_date_picker))? {
+            let journey_data = JourneyData::Vector(GpsPostprocessor::process(vector));
+            if !should_discard(self, &journey_data)? {
                 let serialized_raw_data = if retain_raw_data {
-                    let ongoing_journey_raw_data = self.get_ongoing_journey_raw_data()?;
-                    if ongoing_journey_raw_data.is_empty() {
+                    let raw_data = self.get_ongoing_journey_raw_data()?;
+                    if raw_data.is_empty() {
                         None
                     } else {
-                        Some(ongoing_journey_raw_data.serialize()?)
+                        Some(raw_data.serialize()?)
                     }
                 } else {
                     None
                 };
-
-                self.create_and_insert_journey(NewJourney {
-                    // In practice, `end` could never be none but just in case ...
-                    // TODO: Maybe we want better journey date strategy
-                    journey_date: journey_date_picker
-                        .pick_journey_date()
-                        .unwrap_or_else(|| Local::now().date_naive()),
-                    start: journey_date_picker.min_time(),
-                    end: journey_date_picker.max_time(),
-                    created_at: None,
-                    journey_kind,
-                    note: None,
-                    journey_data: JourneyData::Vector(journey_vector),
-                    raw_data: serialized_raw_data,
-                })?;
-                true
+                self.create_and_insert_prepared_journey(
+                    NewJourney {
+                        journey_date: journey_date_picker
+                            .pick_journey_date()
+                            .unwrap_or_else(|| Local::now().date_naive()),
+                        start: journey_date_picker.min_time(),
+                        end: journey_date_picker.max_time(),
+                        created_at: None,
+                        journey_kind: JourneyKind::DefaultKind,
+                        note: None,
+                        journey_data,
+                        raw_data: serialized_raw_data,
+                    },
+                    Some(GpsPostprocessor::current_algo()),
+                )?;
+                journey_saved = true;
             }
-        };
+        }
 
-        self.db_txn.execute("DELETE FROM ongoing_journey;", ())?;
+        let processed_cleared = self.db_txn.execute("DELETE FROM ongoing_journey;", ())? > 0;
         self.db_txn.execute(
             "DELETE FROM sqlite_sequence WHERE name='ongoing_journey';",
             (),
         )?;
-        self.db_txn
-            .execute("DELETE FROM ongoing_journey_raw_data;", ())?;
+        let raw_cleared = self
+            .db_txn
+            .execute("DELETE FROM ongoing_journey_raw_data;", ())?
+            > 0;
         self.db_txn.execute(
             "DELETE FROM sqlite_sequence WHERE name='ongoing_journey_raw_data';",
             (),
         )?;
+        let ongoing_cleared = processed_cleared || raw_cleared;
+        info!("Ongoing journey finalized: journey_saved={journey_saved}, ongoing_cleared={ongoing_cleared}");
+        Ok(if journey_saved {
+            FinalizeJourneyResult::Saved
+        } else if ongoing_cleared {
+            FinalizeJourneyResult::Discarded
+        } else {
+            FinalizeJourneyResult::Noop
+        })
+    }
 
-        info!("Ongoing journey finalized: new_journey_added={new_journey_added}");
-        Ok(new_journey_added)
+    #[auto_context]
+    pub fn finalize_ongoing_journey(&mut self, retain_raw_data: bool) -> Result<bool> {
+        Ok(self
+            .finalize_ongoing_journey_with(retain_raw_data, |_, _| Ok(false))?
+            .journey_saved())
     }
 
     // TODO: we should consider disallow unbounded queries. Keeping all
@@ -728,7 +783,7 @@ impl Txn<'_> {
 
     // TODO: consider moving this to `storage.rs`
     #[auto_context]
-    pub fn try_auto_finalize_journey(&mut self, retain_raw_data: bool) -> Result<bool> {
+    pub fn should_auto_finalize_journey(&self) -> Result<bool> {
         match self.get_ongoing_journey_timestamp_range()? {
             None => Ok(false),
             Some((start, end)) => {
@@ -746,12 +801,17 @@ impl Txn<'_> {
                 info!(
                     "Auto finalize ongoing journey: recording_length_hours={recording_length_hours}, gap_mins={gap_mins}, required_gap_mins={required_gap_mins}, try_finalize={try_finalize}"
                 );
-                if try_finalize {
-                    self.finalize_ongoing_journey(retain_raw_data)
-                } else {
-                    Ok(false)
-                }
+                Ok(try_finalize)
             }
+        }
+    }
+
+    #[auto_context]
+    pub fn try_auto_finalize_journey(&mut self, retain_raw_data: bool) -> Result<bool> {
+        if self.should_auto_finalize_journey()? {
+            self.finalize_ongoing_journey(retain_raw_data)
+        } else {
+            Ok(false)
         }
     }
 
