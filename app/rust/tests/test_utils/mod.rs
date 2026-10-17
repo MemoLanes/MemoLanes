@@ -262,3 +262,13 @@ pub fn geo_asset(worldview_id: &str) -> std::path::PathBuf {
     );
     path
 }
+
+/// Supply stable metadata while exercising the same writer as journey exports.
+pub fn vector_export(
+    vector: memolanes_core::journey_vector::JourneyVector,
+) -> memolanes_core::export_data::JourneyExport {
+    memolanes_core::export_data::JourneyExport {
+        journey_date: NaiveDate::from_ymd_opt(2026, 9, 11).unwrap(),
+        vector,
+    }
+}

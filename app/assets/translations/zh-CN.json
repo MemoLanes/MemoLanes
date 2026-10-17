@@ -361,6 +361,7 @@
       "export_journey_title": "导出旅途",
       "error": {
         "no_journeys_to_export": "暂无可导出的旅途",
+        "no_raw_data_to_export": "暂无可导出的原始定位数据",
         "no_track_data_for_selected_format": "暂无可导出为所选格式的轨迹数据",
         "unexpected": "导出时遇到意外错误"
       },
@@ -368,6 +369,7 @@
       "format_section_title": "导出格式",
       "journey_data_group": "旅途数据",
       "raw_data_group": "原始定位数据",
+      "raw_data_group_desc": "仅导出旅途中已保存的原始数据，不含原始数据的旅途会自动跳过。",
       "include_raw_data": "保留原始定位数据",
       "include_raw_data_desc": "关闭后仅导出旅途数据，原始数据将被丢弃",
       "format_mldx": "迹忆标准格式（*.mldx）",
@@ -378,7 +380,8 @@
       "format_kml_desc": "用于地图软件和轨迹工具。",
       "format_gpx": "GPX 轨迹 (*.gpx)",
       "format_gpx_desc": "用于运动、导航和轨迹工具。",
-      "lossy_format_warning": "此格式会丢失部分旅途数据。完整备份请使用迹忆标准格式（*.mldx）"
+      "lossy_format_warning": "此格式会丢失部分旅途数据。完整备份请使用迹忆标准格式（*.mldx）",
+      "vector_format_warning": "GPX/KML 不包含从世界迷雾导入的旅途，且会丢失部分数据。完整备份请使用 *.mldx。"
     }
   },
   "settings": {
