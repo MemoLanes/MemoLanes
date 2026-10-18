@@ -15,7 +15,6 @@ import 'package:memolanes/common/app_translation_loader.dart';
 import 'package:memolanes/common/component/app_button.dart';
 import 'package:memolanes/common/component/common_dialog.dart';
 import 'package:memolanes/common/simple_date_utils.dart';
-import 'package:memolanes/src/rust/api/import.dart';
 import 'package:memolanes/src/rust/frb_generated.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
 import 'package:memolanes/theme/app_theme.dart';
@@ -784,9 +783,9 @@ class _JourneyListApi extends Fake implements RustLibApi {
   Completer<void>? pendingDelete;
 
   @override
-  Future<(api.MapRendererProxy, MapBounds?)>
-  crateApiApiGetMapRendererProxyForJourney({required String journeyId}) async =>
-      (_TestMapRenderer(), null);
+  Future<(JourneyHeader, api.MapRendererProxy, MapBounds?)?>
+  crateApiApiGetJourneyDetail({required String journeyId}) async =>
+      (journey, _TestMapRenderer(), null);
 
   @override
   Future<void> crateApiApiDeleteJourney({required String journeyId}) async {

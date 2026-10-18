@@ -6,7 +6,7 @@ use memolanes_core::{export_data, import_data};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 use std::fs::{self, File};
-use std::io::{Cursor, Write};
+use std::io::Write;
 use std::path::Path;
 
 fn raw_data(longitude: f64) -> RawGPSPoint {
@@ -78,6 +78,7 @@ fn preserves_single_and_repeated_source_points() {
 
 #[test]
 fn run_tests() {
+    let temp = tempdir::TempDir::new("flight-track-export").unwrap();
     for name in &[
         "CHH7867_XIAN_HANGZHOU",
         "interpolate_cross_180",
@@ -99,8 +100,27 @@ fn run_tests() {
             output_point_count >= input_point_count,
             "{name}: flight track interpolation removed points ({input_point_count} -> {output_point_count})"
         );
-        let mut gpx = Vec::new();
-        export_data::gpx::journey_vector_to_gpx_file(&result, &mut Cursor::new(&mut gpx)).unwrap();
+        let path = temp.path().join(format!("{name}.gpx"));
+        export_data::gpx::journeys_to_gpx_file(
+            &[test_utils::vector_export(result.clone())],
+            &mut File::create(&path).unwrap(),
+        )
+        .unwrap();
+        let segments = import_data::gpx::load_gpx(path.to_str().unwrap())
+            .unwrap()
+            .0;
+        assert_eq!(segments.len(), result.track_segments.len());
+        for (exported, source) in segments.iter().zip(&result.track_segments) {
+            assert_eq!(exported.len(), source.track_points.len());
+            for (exported, source) in exported.iter().zip(&source.track_points) {
+                assert_eq!(exported.point.latitude, source.latitude);
+                assert!((-180.0..180.0).contains(&exported.point.longitude));
+                // +180 endpoints must stay on the eastern side, with only
+                // floating-point rounding needed for GPX's exclusive bound.
+                assert!((exported.point.longitude - source.longitude).abs() < 1e-12);
+            }
+        }
+        let gpx = fs::read(path).unwrap();
         verify_gpx(name, &gpx);
         if GENERATE_RESULT_GPX_FOR_INSPECTION {
             let mut file = File::create(format!(

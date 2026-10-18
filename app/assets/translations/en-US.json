@@ -315,7 +315,7 @@
       "title": "Advanced settings",
       "export_logs": "Export Logs",
       "raw_data_mode": "Raw Data Mode",
-      "raw_data_mode_description": "When enabled, all raw GPS data received during recording is preserved, including location, time, accuracy, altitude, and speed, for export and analysis. When disabled, only the processed journey track is kept.",
+      "raw_data_mode_description": "This feature is off by default.\nJourneys recorded while it is off retain only the processed track.\nWhen it is on, all raw GPS data received during recording is also saved, including location, timestamps, accuracy, altitude, and speed. Saving raw data uses more storage space.",
       "raw_data_files": "Raw Data Files (Deprecated)",
       "no_raw_data_files": "No raw data files",
       "raw_data_export_csv": "Export as CSV",
@@ -361,6 +361,7 @@
       "export_journey_title": "Export Journey",
       "error": {
         "no_journeys_to_export": "There are no journeys to export yet.",
+        "no_raw_data_to_export": "There is no raw location data to export.",
         "no_track_data_for_selected_format": "There is no track data to export in the selected format.",
         "unexpected": "Unexpected error occurred during exporting"
       },
@@ -368,6 +369,7 @@
       "format_section_title": "Export format",
       "journey_data_group": "Journey data",
       "raw_data_group": "Raw location data",
+      "raw_data_group_desc": "Only raw data saved with journeys is exported. Journeys without raw data are skipped automatically.",
       "include_raw_data": "Preserve raw location data",
       "include_raw_data_desc": "When disabled, only journey data will be exported; raw data will be discarded.",
       "format_mldx": "MemoLanes standard format (*.mldx)",
@@ -378,7 +380,8 @@
       "format_kml_desc": "For map apps and track tools.",
       "format_gpx": "GPX track (*.gpx)",
       "format_gpx_desc": "For fitness, navigation, and track tools.",
-      "lossy_format_warning": "This format may lose some journey data. Use MemoLanes standard format (*.mldx) for a complete backup."
+      "lossy_format_warning": "This format may lose some journey data. Use MemoLanes standard format (*.mldx) for a complete backup.",
+      "vector_format_warning": "GPX/KML exclude journeys imported from Fog of World and may lose some data. Use *.mldx for a complete backup."
     }
   },
   "settings": {

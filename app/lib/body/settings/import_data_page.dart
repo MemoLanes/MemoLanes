@@ -16,6 +16,8 @@ import 'package:memolanes/common/simple_date_utils.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/api/import.dart' as import_api;
+import 'package:memolanes/src/rust/import_data.dart';
+import 'package:memolanes/src/rust/journey_header.dart';
 import 'package:memolanes/theme/app_theme.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:sliding_up_panel/sliding_up_panel.dart';
@@ -41,12 +43,12 @@ class ImportDataPage extends StatefulWidget {
 enum ImportType { fow, vector }
 
 class _ImportDataPage extends State<ImportDataPage> {
-  import_api.JourneyInfo? journeyInfo;
+  JourneyInfo? journeyInfo;
   late final f.Either<api.OpaqueJourneyData, import_api.RawVectorData>
   journeyDataMaybeRaw;
   api.MapRendererProxy? _mapRendererProxy;
   MapBounds? _initialMapBounds;
-  late import_api.ImportPreprocessor _preprocessor;
+  late ImportPreprocessor _preprocessor;
   List<import_api.VectorImportPartSummary> _vectorParts = const [];
   bool _isInitializing = true;
 
@@ -133,7 +135,7 @@ class _ImportDataPage extends State<ImportDataPage> {
         setState(() {
           this.journeyInfo = journeyInfo;
           journeyDataMaybeRaw = f.Either.left(journeyData);
-          _preprocessor = import_api.ImportPreprocessor.generic;
+          _preprocessor = ImportPreprocessor.generic;
         });
         break;
 
@@ -153,7 +155,7 @@ class _ImportDataPage extends State<ImportDataPage> {
     }
   }
 
-  Future<void> _previewData(import_api.ImportPreprocessor preprocessor) async {
+  Future<void> _previewData(ImportPreprocessor preprocessor) async {
     if (preprocessor == _preprocessor) return;
 
     setState(() {
@@ -191,8 +193,8 @@ class _ImportDataPage extends State<ImportDataPage> {
   }
 
   Future<void> _saveData(
-    import_api.JourneyInfo journeyInfo,
-    import_api.ImportPreprocessor processor,
+    JourneyInfo journeyInfo,
+    ImportPreprocessor processor,
   ) async {
     final success = await showLoadingDialog<bool>(
       asyncTask: (() async {

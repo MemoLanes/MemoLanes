@@ -5,8 +5,8 @@ use csv::{Reader, ReaderBuilder, StringRecord, Trim};
 use serde::Deserialize;
 
 use crate::{
-    api::import::ImportPreprocessor,
     gps::{Point, RawGPSPoint},
+    import_data::ImportPreprocessor,
 };
 
 // CSV exported by 人生点点

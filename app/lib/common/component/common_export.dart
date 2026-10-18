@@ -3,8 +3,8 @@ import 'dart:io';
 import 'package:memolanes/theme/app_colors.dart';
 
 import 'package:easy_localization/easy_localization.dart';
+import 'package:file_saver/file_saver.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter_file_saver/flutter_file_saver.dart';
 import 'package:memolanes/common/component/app_button.dart';
 import 'package:memolanes/common/component/app_dialog.dart';
 import 'package:memolanes/common/component/app_option_tile.dart';
@@ -14,6 +14,7 @@ import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/constants/app_typography.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
+import 'package:memolanes/src/rust/export_data.dart';
 import 'package:path/path.dart' as p;
 import 'package:share_plus/share_plus.dart';
 
@@ -93,6 +94,13 @@ enum CommonExportFormat {
 
   String get extension => option.extension;
 
+  RawDataExportType get rawDataExportType => switch (this) {
+    CommonExportFormat.rawDataCsv => RawDataExportType.csv,
+    CommonExportFormat.rawDataGpx => RawDataExportType.gpx,
+    CommonExportFormat.rawDataKml => RawDataExportType.kml,
+    _ => throw UnsupportedError('Unsupported raw-data export format: $this'),
+  };
+
   bool get isRawData => switch (this) {
     CommonExportFormat.rawDataCsv ||
     CommonExportFormat.rawDataGpx ||
@@ -108,11 +116,29 @@ class CommonExportFormatGroup {
   const CommonExportFormatGroup({
     required this.label,
     required this.formats,
+    this.description,
     this.lossyFormatWarning,
   }) : assert(formats.length > 0);
 
+  factory CommonExportFormatGroup.rawData(
+    BuildContext context, {
+    String? description,
+  }) {
+    return CommonExportFormatGroup(
+      label: context.tr('data.export_data.raw_data_group'),
+      description: description,
+      formats: const [
+        CommonExportFormat.rawDataCsv,
+        CommonExportFormat.rawDataGpx,
+        CommonExportFormat.rawDataKml,
+      ],
+      lossyFormatWarning: context.tr('journey.raw_data_lossy_format_warning'),
+    );
+  }
+
   final String label;
   final List<CommonExportFormat> formats;
+  final String? description;
   final String? lossyFormatWarning;
 }
 
@@ -172,6 +198,7 @@ Future<void> showCommonExportWithFormatPicker({
   try {
     exportResult = await GlobalLoadingManager.instance.runWithLoading(
       () => exportFile(selection),
+      blockNavigation: true,
     );
   } catch (error, stack) {
     log.error('[export] Export failed: $error', stack);
@@ -202,7 +229,9 @@ Future<void> showCommonExportWithFormatPicker({
           await showCommonDialog(
             context,
             context.tr(
-              'data.export_data.error.no_track_data_for_selected_format',
+              selection.format.isRawData
+                  ? 'data.export_data.error.no_raw_data_to_export'
+                  : 'data.export_data.error.no_track_data_for_selected_format',
             ),
           );
         }
@@ -231,12 +260,20 @@ Future<bool> showCommonExport(
     if (action == null || !context.mounted) return false;
     switch (action) {
       case _PreparedExportAction.save:
-        await _saveFile(filePath);
-        return true;
+        return await _saveFile(filePath);
       case _PreparedExportAction.share:
         await _shareFile(filePath, computeSharePositionOrigin(context));
         return true;
     }
+  } catch (error, stack) {
+    log.error('[export] Save or share failed: $error', stack);
+    if (context.mounted) {
+      await showCommonDialog(
+        context,
+        context.tr('data.export_data.error.unexpected'),
+      );
+    }
+    return false;
   } finally {
     if (deleteFile) {
       await _deleteExportFile(filePath);
@@ -262,14 +299,16 @@ Future<void> _shareFile(String filePath, Rect sharePositionOrigin) {
   );
 }
 
-Future<void> _saveFile(String filePath) async {
-  final file = File(filePath);
-  // TODO: This is pretty inefficient, but I don't think `FlutterFileSaver`
-  // provides other API.
-  await FlutterFileSaver().writeFileAsBytes(
-    fileName: p.basename(filePath),
-    bytes: await file.readAsBytes(),
-  );
+Future<bool> _saveFile(String filePath) {
+  return GlobalLoadingManager.instance.runWithLoading(() async {
+    final savedPath = await FileSaver.instance.saveAs(
+      name: p.basenameWithoutExtension(filePath),
+      filePath: filePath,
+      fileExtension: p.extension(filePath).replaceFirst('.', ''),
+      mimeType: MimeType.other,
+    );
+    return savedPath != null;
+  }, blockNavigation: true);
 }
 
 Future<void> _deleteExportFile(String filePath) async {
@@ -357,10 +396,18 @@ class _ExportFormatDialogState extends State<_ExportFormatDialog> {
     );
   }
 
-  Widget _buildLossyWarning() {
-    if (_selectedFormat.option.keepsCompleteData) {
-      return const SizedBox.shrink();
-    }
+  Widget _buildExportNotice() {
+    final messages = [
+      if (_selectedGroup.description != null) _selectedGroup.description!,
+      if (!_selectedFormat.option.keepsCompleteData)
+        _selectedGroup.lossyFormatWarning ??
+            context.tr(switch (_selectedFormat) {
+              CommonExportFormat.kml || CommonExportFormat.gpx =>
+                'data.export_data.vector_format_warning',
+              _ => 'data.export_data.lossy_format_warning',
+            }),
+    ];
+    if (messages.isEmpty) return const SizedBox.shrink();
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 180),
@@ -381,10 +428,15 @@ class _ExportFormatDialogState extends State<_ExportFormatDialog> {
           ),
           const SizedBox(width: 8.0),
           Expanded(
-            child: Text(
-              _selectedGroup.lossyFormatWarning ??
-                  context.tr('data.export_data.lossy_format_warning'),
-              style: AppTypography.supporting,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (var i = 0; i < messages.length; i++) ...[
+                  if (i > 0) const SizedBox(height: 8.0),
+                  Text(messages[i], style: AppTypography.supporting),
+                ],
+              ],
             ),
           ),
         ],
@@ -547,7 +599,7 @@ class _ExportFormatDialogState extends State<_ExportFormatDialog> {
                 ],
               ),
               _buildRawDataToggle(),
-              _buildLossyWarning(),
+              _buildExportNotice(),
             ],
           ),
         ),

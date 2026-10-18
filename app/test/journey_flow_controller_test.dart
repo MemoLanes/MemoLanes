@@ -22,15 +22,6 @@ void main() {
   });
 
   late JourneyFlowController flow;
-  setUp(() {
-    backend.requests.clear();
-    backend.header = null;
-    backend.pendingRawDataDelete = null;
-    backend.rawDataDeleteCalls = 0;
-    flow = JourneyFlowController();
-  });
-  tearDown(() => flow.dispose());
-
   final journey = JourneyHeader(
     id: 'journey',
     revision: 'initial',
@@ -42,9 +33,28 @@ void main() {
   );
   const view = (lng: 113.0, lat: 22.0, zoom: 10.0);
 
+  setUp(() {
+    backend.requests.clear();
+    backend.header = journey;
+    backend.headerReads = 0;
+    backend.pendingRawDataDelete = null;
+    backend.rawDataDeleteCalls = 0;
+    flow = JourneyFlowController();
+  });
+  tearDown(() => flow.dispose());
+
   Future<void> startLoad() async {
     // Let the camera read finish so the backend request has started.
     await Future<void>.delayed(Duration.zero);
+  }
+
+  Future<_MapRenderer> openDetail() async {
+    final opening = flow.open(journey, readMapView: () async => view);
+    await startLoad();
+    final map = _MapRenderer();
+    backend.requests.last.complete((map, null));
+    await opening;
+    return map;
   }
 
   test('leaving during the camera read prevents a journey request', () async {
@@ -114,10 +124,7 @@ void main() {
   );
 
   test('closing consumes one session and restores its original view', () async {
-    final opening = flow.open(journey, readMapView: () async => view);
-    await startLoad();
-    backend.requests.single.complete((_MapRenderer(), null));
-    await opening;
+    await openDetail();
     flow.editInformation();
     expect(flow.requestBack(), JourneyBackResult.handled);
     expect(flow.phase, JourneyPhase.viewing);
@@ -153,11 +160,12 @@ void main() {
       journeyKind: journey.journeyKind,
       hasRawData: hasRawData,
     );
-    final opening = flow.open(header(true), readMapView: () async => view);
-    await startLoad();
-    backend.requests.single.complete((_MapRenderer(), null));
-    await opening;
+    final attached = header(true);
+    backend.header = attached;
+    // The list's stale header must be replaced by the detail snapshot.
+    await openDetail();
     final session = flow.session!;
+    expect(session.journey, same(attached));
     backend.header = header(false);
     final pending = Completer<void>();
     backend.pendingRawDataDelete = pending;
@@ -187,15 +195,12 @@ void main() {
     expect(flow.session!.returnView, view);
     expect(flow.pickerRevision, 0);
     expect(backend.requests, hasLength(1));
+    expect(backend.headerReads, 1);
     expect(GlobalLoadingManager.instance.isNavigationBlocked, isFalse);
   });
 
   test('track refresh publishes header and map together and retains the return camera', () async {
-    final opening = flow.open(journey, readMapView: () async => view);
-    await startLoad();
-    final oldMap = _MapRenderer();
-    backend.requests.single.complete((oldMap, null));
-    await opening;
+    final oldMap = await openDetail();
     final updated = JourneyHeader(
       id: journey.id,
       revision: 'updated',
@@ -215,33 +220,49 @@ void main() {
     expect(flow.session!.journey, same(journey));
     expect(flow.session!.mapData.$1, same(oldMap));
     final updatedMap = _MapRenderer();
+    // A later header must not replace the one belonging to this map request.
+    backend.header = journey;
     backend.requests.last.complete((updatedMap, null));
     await refreshing;
     expect(flow.session!.journey, same(updated));
     expect(flow.session!.mapData.$1, same(updatedMap));
     expect(flow.phase, JourneyPhase.viewing);
+    expect(backend.headerReads, 0);
     flow.requestBack();
     expect(flow.returnToView, view);
+  });
+
+  test('missing journeys return to the picker on open and refresh', () async {
+    for (final refreshing in [false, true]) {
+      if (refreshing) {
+        backend.header = journey;
+        await openDetail();
+      }
+      backend.header = null;
+      final loading = refreshing
+          ? flow.refreshTrack()
+          : flow.open(journey, readMapView: () async => view);
+      await startLoad();
+      backend.requests.last.complete((_MapRenderer(), null));
+      await loading;
+      expect(flow.session, isNull);
+      expect(flow.phase, JourneyPhase.picker);
+      expect(flow.appChromeVisible, isTrue);
+    }
   });
 
   for (final fail in [false, true]) {
     test(
       'a dismissed track refresh cannot finish a newer refresh (${fail ? 'error' : 'success'})',
       () async {
-        final opening = flow.open(journey, readMapView: () async => view);
-        await startLoad();
-        backend.requests.single.complete((_MapRenderer(), null));
-        await opening;
+        await openDetail();
         backend.header = journey;
         final oldRefresh = flow.refreshTrack();
         await startLoad();
         final oldRequest = backend.requests.last;
         expect(flow.requestBack(), JourneyBackResult.handled);
 
-        final reopening = flow.open(journey, readMapView: () async => view);
-        await startLoad();
-        backend.requests.last.complete((_MapRenderer(), null));
-        await reopening;
+        await openDetail();
         final newRefresh = flow.refreshTrack();
         await startLoad();
         if (fail) {
@@ -264,6 +285,7 @@ void main() {
 class _JourneyApi extends Fake implements RustLibApi {
   final requests = <Completer<(api.MapRendererProxy, MapBounds?)>>[];
   JourneyHeader? header;
+  int headerReads = 0;
   Completer<void>? pendingRawDataDelete;
   int rawDataDeleteCalls = 0;
 
@@ -279,14 +301,19 @@ class _JourneyApi extends Fake implements RustLibApi {
   @override
   Future<JourneyHeader?> crateApiApiGetJourneyHeader({
     required String journeyId,
-  }) async => header;
+  }) async {
+    headerReads++;
+    return header;
+  }
 
   @override
-  Future<(api.MapRendererProxy, MapBounds?)>
-  crateApiApiGetMapRendererProxyForJourney({required String journeyId}) {
+  Future<(JourneyHeader, api.MapRendererProxy, MapBounds?)?>
+  crateApiApiGetJourneyDetail({required String journeyId}) async {
+    final snapshotHeader = header;
     final request = Completer<(api.MapRendererProxy, MapBounds?)>();
     requests.add(request);
-    return request.future;
+    final map = await request.future;
+    return snapshotHeader == null ? null : (snapshotHeader, map.$1, map.$2);
   }
 }
 

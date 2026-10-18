@@ -13,22 +13,14 @@ use super::api;
 use crate::api::api::{get, OpaqueJourneyData};
 use crate::archive::MldxReader;
 use crate::gps_processor::SegmentGapRule;
+pub use crate::import_data::ImportPreprocessor;
 use crate::journey_header::JourneyHeader;
+pub use crate::journey_header::JourneyInfo;
 use crate::journey_vector::JourneyVector;
 use crate::{
     flight_track_processor, gps::RawGPSPoint, import_data, journey_data::JourneyData,
     journey_header::JourneyKind,
 };
-
-#[derive(Debug)]
-#[frb(non_opaque)]
-pub struct JourneyInfo {
-    pub journey_date: NaiveDate,
-    pub start_time: Option<DateTime<Utc>>,
-    pub end_time: Option<DateTime<Utc>>,
-    pub journey_kind: JourneyKind,
-    pub note: Option<String>,
-}
 
 #[frb(opaque)]
 pub struct RawVectorData {
@@ -141,14 +133,6 @@ pub fn import_journey_data(
         })
     })?;
     Ok(())
-}
-
-#[derive(Clone, Copy)]
-pub enum ImportPreprocessor {
-    None,
-    Generic,
-    FlightTrack,
-    Spare,
 }
 
 impl RawVectorData {
@@ -311,6 +295,16 @@ pub enum MldxJourneyImportAnalyzeResult {
     Unchanged = 2,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+#[frb(non_opaque)]
+pub struct MldxJourneyAnalysis {
+    pub imported_header: JourneyHeader,
+    pub status: MldxJourneyImportAnalyzeResult,
+    /// The local header from the same snapshot, provided only for conflicts.
+    /// Both new and unchanged journeys have `None` here.
+    pub local_header: Option<JourneyHeader>,
+}
+
 #[frb(opaque)]
 pub struct OpaqueMldxReader {
     reader: Mutex<MldxReader<File>>,
@@ -324,23 +318,25 @@ impl OpaqueMldxReader {
         })
     }
 
-    pub fn analyze(&self) -> Result<Vec<(JourneyHeader, MldxJourneyImportAnalyzeResult)>> {
+    /// Includes the local header used to classify each conflict, from the same snapshot.
+    pub fn analyze(&self) -> Result<Vec<MldxJourneyAnalysis>> {
         let mldx_reader = self.reader.lock().unwrap();
 
         get().storage.with_db_txn(|txn| {
             let mut result = Vec::new();
             for journey_header in mldx_reader.iter_journey_headers() {
-                let import_type = match txn.get_journey_header(&journey_header.id)? {
-                    Some(existing) => {
-                        if existing.revision == journey_header.revision {
-                            MldxJourneyImportAnalyzeResult::Unchanged
-                        } else {
-                            MldxJourneyImportAnalyzeResult::Conflict
-                        }
+                let (status, local_header) = match txn.get_journey_header(&journey_header.id)? {
+                    Some(existing) if existing.revision == journey_header.revision => {
+                        (MldxJourneyImportAnalyzeResult::Unchanged, None)
                     }
-                    None => MldxJourneyImportAnalyzeResult::New,
+                    Some(existing) => (MldxJourneyImportAnalyzeResult::Conflict, Some(existing)),
+                    None => (MldxJourneyImportAnalyzeResult::New, None),
                 };
-                result.push((journey_header.clone(), import_type));
+                result.push(MldxJourneyAnalysis {
+                    imported_header: journey_header.clone(),
+                    status,
+                    local_header,
+                });
             }
             Ok(result)
         })

@@ -20,18 +20,10 @@ Future<CommonExportResult> _generateJourneyExport(
   );
 
   if (format.isRawData) {
-    final exportType = switch (format) {
-      CommonExportFormat.rawDataCsv => api.RawDataExportType.csv,
-      CommonExportFormat.rawDataGpx => api.RawDataExportType.gpx,
-      CommonExportFormat.rawDataKml => api.RawDataExportType.kml,
-      _ => throw UnsupportedError(
-        'Unsupported raw-data export format: $format',
-      ),
-    };
     final result = await api.exportJourneyRawData(
       targetFilepath: outputPath,
       journeyId: journey.id,
-      exportType: exportType,
+      exportType: format.rawDataExportType,
     );
     return CommonExportResult.create(result, outputPath);
   }
@@ -75,18 +67,7 @@ Future<void> showJourneyExportPicker(
           if (supportsVector) CommonExportFormat.gpx,
         ],
       ),
-      if (journey.hasRawData)
-        CommonExportFormatGroup(
-          label: context.tr('data.export_data.raw_data_group'),
-          formats: const [
-            CommonExportFormat.rawDataCsv,
-            CommonExportFormat.rawDataGpx,
-            CommonExportFormat.rawDataKml,
-          ],
-          lossyFormatWarning: context.tr(
-            'journey.raw_data_lossy_format_warning',
-          ),
-        ),
+      if (journey.hasRawData) CommonExportFormatGroup.rawData(context),
     ],
     exportFile: (selection) => _generateJourneyExport(journey, selection),
   );

@@ -10,6 +10,7 @@ import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/simple_date_utils.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/import.dart' as import_api;
+import 'package:memolanes/src/rust/import_data.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
 
 class VectorMultiImportPage extends StatefulWidget {
@@ -22,7 +23,7 @@ class VectorMultiImportPage extends StatefulWidget {
 
   final import_api.RawVectorData vectorData;
   final List<import_api.VectorImportPartSummary> parts;
-  final import_api.ImportPreprocessor initialPreprocessor;
+  final ImportPreprocessor initialPreprocessor;
 
   @override
   State<VectorMultiImportPage> createState() => _VectorMultiImportPageState();
@@ -30,7 +31,7 @@ class VectorMultiImportPage extends StatefulWidget {
 
 class _VectorMultiImportPageState extends State<VectorMultiImportPage> {
   late Set<SimpleDate> _selectedDates;
-  late import_api.ImportPreprocessor _preprocessor;
+  late ImportPreprocessor _preprocessor;
   JourneyKind _journeyKind = JourneyKind.defaultKind;
   final TextEditingController _noteController = TextEditingController();
   final DateFormat _timeFormat = DateFormat('HH:mm');

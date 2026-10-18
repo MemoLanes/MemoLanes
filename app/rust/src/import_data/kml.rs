@@ -1,5 +1,5 @@
-use crate::api::import::ImportPreprocessor;
 use crate::gps::{Point, RawGPSPoint};
+use crate::import_data::{detect_preprocessor, ImportPreprocessor, TrackFileFormat};
 use anyhow::{Context, Result};
 use auto_context::auto_context;
 use chrono::{DateTime, Utc};
@@ -16,18 +16,18 @@ use std::io::Cursor;
 #[auto_context]
 pub fn load_kml(file_path: &str) -> Result<(Vec<Vec<RawGPSPoint>>, ImportPreprocessor)> {
     let xml = fs::read_to_string(file_path)?;
+    let preprocessor = detect_preprocessor(&xml, TrackFileFormat::Kml);
     let (cleaned_xml, _descriptions) = read_kml_description_and_remove(&xml)?;
-    // TODO: pass _descriptions to journey_info if needed later
     let mut kml_reader = KmlReader::<_, f64>::from_reader(Cursor::new(cleaned_xml));
     let kml_data = kml_reader.read()?;
     let flatten_data = flatten_kml(kml_data);
+    // Prefer non-empty Tracks across the whole file before other geometry.
     let mut raw_vector_data = read_track(&flatten_data)?;
     if raw_vector_data.is_empty() {
         raw_vector_data = read_line_string(&flatten_data)?
     }
 
-    // TODO: we currently do not have preprocessor detection for KML
-    Ok((raw_vector_data, ImportPreprocessor::Generic))
+    Ok((raw_vector_data, preprocessor))
 }
 
 /// 2bulu generated KML contains HTML tags in <description>, which breaks the KML parser.

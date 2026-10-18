@@ -33,6 +33,19 @@ impl JourneyRawDataCsvRow {
     }
 }
 
+pub(super) fn write_raw_data_csv<W: Write>(
+    writer: &mut csv::Writer<W>,
+    raw_data: &JourneyRawData,
+) -> Result<()> {
+    for point in &raw_data.points {
+        writer.serialize(JourneyRawDataCsvRow::new(
+            &point.raw_gps_point,
+            point.received_timestamp_ms,
+        ))?;
+    }
+    Ok(())
+}
+
 #[auto_context]
 pub fn journey_raw_data_to_csv_file<W: Write>(
     raw_data: &JourneyRawData,
@@ -41,12 +54,7 @@ pub fn journey_raw_data_to_csv_file<W: Write>(
     let mut writer = csv::WriterBuilder::new()
         .has_headers(true)
         .from_writer(writer);
-    for point in &raw_data.points {
-        writer.serialize(JourneyRawDataCsvRow::new(
-            &point.raw_gps_point,
-            point.received_timestamp_ms,
-        ))?;
-    }
+    write_raw_data_csv(&mut writer, raw_data)?;
     writer.flush()?;
     Ok(())
 }

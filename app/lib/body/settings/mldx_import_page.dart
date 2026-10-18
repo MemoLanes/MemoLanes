@@ -7,7 +7,6 @@ import 'package:memolanes/common/component/tiles/label_tile_content.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/simple_date_utils.dart';
 import 'package:memolanes/common/utils.dart';
-import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/api/import.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
 
@@ -18,7 +17,7 @@ class MldxImportPage extends StatefulWidget {
     required this.mldxReader,
   });
 
-  final List<(JourneyHeader, MldxJourneyImportAnalyzeResult)> journeys;
+  final List<MldxJourneyAnalysis> journeys;
   final OpaqueMldxReader mldxReader;
 
   @override
@@ -27,9 +26,7 @@ class MldxImportPage extends StatefulWidget {
 
 class _MldxImportPageState extends State<MldxImportPage> {
   late Set<String> _selectedIds;
-  late final List<(JourneyHeader, MldxJourneyImportAnalyzeResult)>
-  _sortedJourneyWithoutIgnored;
-  final Map<String, JourneyHeader> _localHeadersById = {};
+  late final List<MldxJourneyAnalysis> _sortedJourneyWithoutIgnored;
   static final _lastModifiedFormat = DateFormat('yyyy-MM-dd');
   late final int _unchangedCount;
   late final int _conflictCount;
@@ -39,63 +36,35 @@ class _MldxImportPageState extends State<MldxImportPage> {
     super.initState();
     // Conflict items are unchecked by default
     _unchangedCount = widget.journeys
-        .where((j) => j.$2 == MldxJourneyImportAnalyzeResult.unchanged)
+        .where((j) => j.status == MldxJourneyImportAnalyzeResult.unchanged)
         .length;
     _conflictCount = widget.journeys
-        .where((j) => j.$2 == MldxJourneyImportAnalyzeResult.conflict)
+        .where((j) => j.status == MldxJourneyImportAnalyzeResult.conflict)
         .length;
     _selectedIds = widget.journeys
-        .where((j) => j.$2 == MldxJourneyImportAnalyzeResult.new_)
-        .map((j) => j.$1.id)
+        .where((j) => j.status == MldxJourneyImportAnalyzeResult.new_)
+        .map((j) => j.importedHeader.id)
         .toSet();
     _sortedJourneyWithoutIgnored = _sortJourneys(
       widget.journeys
-          .where((j) => j.$2 != MldxJourneyImportAnalyzeResult.unchanged)
+          .where((j) => j.status != MldxJourneyImportAnalyzeResult.unchanged)
           .toList(),
     );
-    _loadLocalHeadersForConflicts();
   }
 
-  static List<(JourneyHeader, MldxJourneyImportAnalyzeResult)> _sortJourneys(
-    List<(JourneyHeader, MldxJourneyImportAnalyzeResult)> list,
+  static List<MldxJourneyAnalysis> _sortJourneys(
+    List<MldxJourneyAnalysis> list,
   ) {
-    final result = List<(JourneyHeader, MldxJourneyImportAnalyzeResult)>.from(
-      list,
-    );
+    final result = list.toList();
     result.sort((a, b) {
-      final aConflict = a.$2 == MldxJourneyImportAnalyzeResult.conflict;
-      final bConflict = b.$2 == MldxJourneyImportAnalyzeResult.conflict;
+      final aConflict = a.status == MldxJourneyImportAnalyzeResult.conflict;
+      final bConflict = b.status == MldxJourneyImportAnalyzeResult.conflict;
       if (aConflict != bConflict) return aConflict ? -1 : 1;
-      final aStr = a.$1.journeyDate.toSimpleDate().toString();
-      final bStr = b.$1.journeyDate.toSimpleDate().toString();
+      final aStr = a.importedHeader.journeyDate.toSimpleDate().toString();
+      final bStr = b.importedHeader.journeyDate.toSimpleDate().toString();
       return aStr.compareTo(bStr);
     });
     return result;
-  }
-
-  Future<void> _loadLocalHeadersForConflicts() async {
-    final conflictIds = _sortedJourneyWithoutIgnored
-        .where((j) => j.$2 == MldxJourneyImportAnalyzeResult.conflict)
-        .map((j) => j.$1.id)
-        .toSet();
-    if (conflictIds.isEmpty) return;
-
-    final futures = conflictIds.map((id) async {
-      try {
-        final local = await api.getJourneyHeader(journeyId: id);
-        return MapEntry(id, local);
-      } catch (e) {
-        return MapEntry<String, JourneyHeader?>(id, null);
-      }
-    });
-    final results = await Future.wait(futures);
-    if (!mounted) return;
-    final updates = <String, JourneyHeader>{};
-    for (final entry in results) {
-      if (entry.value != null) updates[entry.key] = entry.value!;
-    }
-    if (updates.isEmpty) return;
-    setState(() => _localHeadersById.addAll(updates));
   }
 
   String _journeyDateLabel(JourneyHeader h) {
@@ -116,7 +85,7 @@ class _MldxImportPageState extends State<MldxImportPage> {
       return;
     }
     final hasConflict = _sortedJourneyWithoutIgnored.any(
-      (j) => j.$2 == MldxJourneyImportAnalyzeResult.conflict,
+      (j) => j.status == MldxJourneyImportAnalyzeResult.conflict,
     );
     if (hasConflict) {
       final ok = await showCommonDialog(
@@ -129,37 +98,38 @@ class _MldxImportPageState extends State<MldxImportPage> {
       if (!ok || !mounted) return;
     }
     setState(() {
-      _selectedIds = _sortedJourneyWithoutIgnored.map((j) => j.$1.id).toSet();
+      _selectedIds = _sortedJourneyWithoutIgnored
+          .map((j) => j.importedHeader.id)
+          .toSet();
     });
   }
 
-  (JourneyHeader, MldxJourneyImportAnalyzeResult) _journeyForId(String id) =>
-      _sortedJourneyWithoutIgnored.firstWhere((journey) => journey.$1.id == id);
+  MldxJourneyAnalysis _journeyForId(String id) => _sortedJourneyWithoutIgnored
+      .firstWhere((journey) => journey.importedHeader.id == id);
 
-  String _itemDesc(JourneyHeader importHeader, bool isConflict) {
+  String _itemDesc(MldxJourneyAnalysis journey) {
+    final importHeader = journey.importedHeader;
     final importLastModified = _lastModifiedLabel(importHeader);
-    if (!isConflict) {
+    if (journey.status != MldxJourneyImportAnalyzeResult.conflict) {
       return context.tr(
         'import.mldx_preview.last_modified',
         args: [importLastModified],
       );
     }
 
-    final localHeader = _localHeadersById[importHeader.id];
-    return () {
-      if (localHeader == null) {
-        return context.tr('import.mldx_preview.conflict_desc_unknown');
-      }
-      final localT = _lastModifiedTime(localHeader);
-      final importT = _lastModifiedTime(importHeader);
-      if (importT.isAfter(localT)) {
-        return context.tr('import.mldx_preview.conflict_desc_import_newer');
-      }
-      if (localT.isAfter(importT)) {
-        return context.tr('import.mldx_preview.conflict_desc_local_newer');
-      }
-      return context.tr('import.mldx_preview.conflict_desc_same_time');
-    }();
+    final localHeader = journey.localHeader;
+    if (localHeader == null) {
+      return context.tr('import.mldx_preview.conflict_desc_unknown');
+    }
+    final localT = _lastModifiedTime(localHeader);
+    final importT = _lastModifiedTime(importHeader);
+    if (importT.isAfter(localT)) {
+      return context.tr('import.mldx_preview.conflict_desc_import_newer');
+    }
+    if (localT.isAfter(importT)) {
+      return context.tr('import.mldx_preview.conflict_desc_local_newer');
+    }
+    return context.tr('import.mldx_preview.conflict_desc_same_time');
   }
 
   String _conflictHintText(BuildContext context, int conflictCount) {
@@ -169,12 +139,12 @@ class _MldxImportPageState extends State<MldxImportPage> {
     );
   }
 
-  Future<void> _openJourneyPreview(
-    (JourneyHeader, MldxJourneyImportAnalyzeResult) j,
-  ) async {
+  Future<void> _openJourneyPreview(MldxJourneyAnalysis j) async {
     try {
       final loaded = await showLoadingDialog(
-        asyncTask: widget.mldxReader.loadSingleJourney(journeyId: j.$1.id),
+        asyncTask: widget.mldxReader.loadSingleJourney(
+          journeyId: j.importedHeader.id,
+        ),
       );
       if (!mounted) return;
       if (loaded == null) {
@@ -199,11 +169,8 @@ class _MldxImportPageState extends State<MldxImportPage> {
     }
   }
 
-  Future<void> _onToggleItem(
-    (JourneyHeader, MldxJourneyImportAnalyzeResult) j,
-    bool newValue,
-  ) async {
-    final isConflict = j.$2 == MldxJourneyImportAnalyzeResult.conflict;
+  Future<void> _onToggleItem(MldxJourneyAnalysis j, bool newValue) async {
+    final isConflict = j.status == MldxJourneyImportAnalyzeResult.conflict;
     if (newValue && isConflict) {
       final ok = await showCommonDialog(
         context,
@@ -216,9 +183,9 @@ class _MldxImportPageState extends State<MldxImportPage> {
     }
     setState(() {
       if (newValue) {
-        _selectedIds.add(j.$1.id);
+        _selectedIds.add(j.importedHeader.id);
       } else {
-        _selectedIds.remove(j.$1.id);
+        _selectedIds.remove(j.importedHeader.id);
       }
     });
   }
@@ -234,12 +201,12 @@ class _MldxImportPageState extends State<MldxImportPage> {
       return;
     }
     final selected = _sortedJourneyWithoutIgnored
-        .where((j) => _selectedIds.contains(j.$1.id))
+        .where((j) => _selectedIds.contains(j.importedHeader.id))
         .toList();
     try {
       await showLoadingDialog(
         asyncTask: widget.mldxReader.importJourneys(
-          journeyIds: selected.map((j) => j.$1.id).toSet(),
+          journeyIds: selected.map((j) => j.importedHeader.id).toSet(),
         ),
       );
       if (mounted) {
@@ -262,12 +229,12 @@ class _MldxImportPageState extends State<MldxImportPage> {
     return MultiJourneyImportPage(
       title: context.tr('import.mldx_preview.title'),
       items: journey.map((j) {
-        final header = j.$1;
-        final isConflict = j.$2 == MldxJourneyImportAnalyzeResult.conflict;
+        final header = j.importedHeader;
+        final isConflict = j.status == MldxJourneyImportAnalyzeResult.conflict;
         return MultiJourneyImportListItem(
           keyValue: header.id,
           label: _journeyDateLabel(header),
-          description: _itemDesc(header, isConflict),
+          description: _itemDesc(j),
           trailing: isConflict
               ? Row(
                   mainAxisSize: MainAxisSize.min,

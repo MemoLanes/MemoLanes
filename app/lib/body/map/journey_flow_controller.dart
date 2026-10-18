@@ -3,7 +3,6 @@ import 'package:memolanes/common/async_load_token.dart';
 import 'package:memolanes/common/component/base_map_webview.dart';
 import 'package:memolanes/common/loading_manager.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
-import 'package:memolanes/src/rust/api/import.dart' show JourneyInfo;
 import 'package:memolanes/src/rust/journey_header.dart';
 
 enum JourneyPhase {
@@ -62,13 +61,16 @@ class JourneyFlowController extends ChangeNotifier {
     try {
       final returnView = await readMapView();
       if (!_loadToken.isActive(token)) return;
-      final mapData = await api.getMapRendererProxyForJourney(
-        journeyId: journey.id,
-      );
+      final detail = await api.getJourneyDetail(journeyId: journey.id);
       if (!_loadToken.isActive(token)) return;
+      if (detail == null) {
+        _pickerRevision++;
+        _phase = JourneyPhase.picker;
+        return;
+      }
       _session = JourneyDetailSession(
-        journey: journey,
-        mapData: mapData,
+        journey: detail.$1,
+        mapData: (detail.$2, detail.$3),
         returnView: returnView,
       );
       _returnToView = null;
@@ -217,16 +219,20 @@ class JourneyFlowController extends ChangeNotifier {
   Future<void> _refreshJourney({required bool refreshMap}) async {
     final session = _session;
     if (_disposed || session == null) return;
-    final latest = await api.getJourneyHeader(journeyId: session.journey.id);
+    JourneyHeader? latest;
+    var mapData = session.mapData;
+    if (refreshMap) {
+      final detail = await api.getJourneyDetail(journeyId: session.journey.id);
+      latest = detail?.$1;
+      if (detail != null) mapData = (detail.$2, detail.$3);
+    } else {
+      latest = await api.getJourneyHeader(journeyId: session.journey.id);
+    }
     if (_disposed || !identical(_session, session)) return;
     if (latest == null) {
       _closeDetail();
       return;
     }
-    final mapData = refreshMap
-        ? await api.getMapRendererProxyForJourney(journeyId: latest.id)
-        : session.mapData;
-    if (_disposed || !identical(_session, session)) return;
     _session = JourneyDetailSession(
       journey: latest,
       mapData: mapData,

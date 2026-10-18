@@ -4,10 +4,10 @@ use std::sync::{Arc, Mutex};
 
 use anyhow::{bail, Context, Result};
 use clap::Parser;
-use memolanes_core::api::import::ImportPreprocessor;
 use memolanes_core::archive::MldxReader;
 use memolanes_core::gps_processor::SegmentGapRule;
 use memolanes_core::import_data;
+use memolanes_core::import_data::ImportPreprocessor;
 use memolanes_core::journey_bitmap::JourneyBitmap;
 use memolanes_core::journey_data;
 use memolanes_core::renderer::MapRenderer;

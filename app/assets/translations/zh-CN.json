@@ -315,7 +315,7 @@
       "title": "高级设置",
       "export_logs": "导出日志",
       "raw_data_mode": "原始数据模式",
-      "raw_data_mode_description": "开启时，会完整保留录制时收到的 GPS 原始数据，包括位置、时间、精度、海拔和速度，便于导出和分析。关闭时，仅保留处理后的旅程轨迹。",
+      "raw_data_mode_description": "此功能默认关闭。\n关闭时记录的旅程，仅保留处理后的轨迹。\n开启后，会额外保存录制时收到的完整 GPS 原始数据，包括位置、时间戳、精度、海拔和速度。保存原始数据会占用更多存储空间。",
       "raw_data_files": "原始数据列表（弃用）",
       "no_raw_data_files": "暂无原始数据文件",
       "raw_data_export_csv": "导出为 CSV",
@@ -361,6 +361,7 @@
       "export_journey_title": "导出旅途",
       "error": {
         "no_journeys_to_export": "暂无可导出的旅途",
+        "no_raw_data_to_export": "暂无可导出的原始定位数据",
         "no_track_data_for_selected_format": "暂无可导出为所选格式的轨迹数据",
         "unexpected": "导出时遇到意外错误"
       },
@@ -368,6 +369,7 @@
       "format_section_title": "导出格式",
       "journey_data_group": "旅途数据",
       "raw_data_group": "原始定位数据",
+      "raw_data_group_desc": "仅导出旅途中已保存的原始数据，不含原始数据的旅途会自动跳过。",
       "include_raw_data": "保留原始定位数据",
       "include_raw_data_desc": "关闭后仅导出旅途数据，原始数据将被丢弃",
       "format_mldx": "迹忆标准格式（*.mldx）",
@@ -378,7 +380,8 @@
       "format_kml_desc": "用于地图软件和轨迹工具。",
       "format_gpx": "GPX 轨迹 (*.gpx)",
       "format_gpx_desc": "用于运动、导航和轨迹工具。",
-      "lossy_format_warning": "此格式会丢失部分旅途数据。完整备份请使用迹忆标准格式（*.mldx）"
+      "lossy_format_warning": "此格式会丢失部分旅途数据。完整备份请使用迹忆标准格式（*.mldx）",
+      "vector_format_warning": "GPX/KML 不包含从世界迷雾导入的旅途，且会丢失部分数据。完整备份请使用 *.mldx。"
     }
   },
   "settings": {
