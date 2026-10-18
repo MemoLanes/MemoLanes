@@ -2,7 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:memolanes/common/component/app_dialog.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
-import 'package:memolanes/common/app_layout.dart';
+import 'package:memolanes/common/component/app_modal_region.dart';
 
 class TopPersistentToast {
   TopPersistentToast._internal();

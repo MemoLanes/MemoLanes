@@ -5,6 +5,8 @@ import 'package:flutter/widgets.dart';
 import 'package:duo_dynamic_sizing/duo_dynamic_sizing.dart'
     show DuoHardware, DuoHingeStatus, DuoRegion;
 import 'package:memolanes/common/duo_device.dart';
+import 'package:memolanes/common/layout_geometry.dart' as geometry;
+import 'package:memolanes/common/map_viewport.dart' as map_viewport;
 import 'package:memolanes/constants/style_constants.dart';
 
 /// Local placement geometry; the map and the existing cards stay mounted.
@@ -84,7 +86,7 @@ class AppLayout {
     final fitting = _primaryNavigationRegions
         .where((r) => r.width >= 44 && r.height >= 44)
         .toList();
-    final region = _nearest(
+    final region = geometry.nearestRegion(
       fitting.isEmpty ? _primaryNavigationRegions : fitting,
       _barEdge == DuoBarEdge.right ? safeBounds.topRight : safeBounds.topLeft,
     );
@@ -108,59 +110,11 @@ class AppLayout {
   }
 
   /// Fits selected tracks in the space beside/above the occupied detail card.
-  EdgeInsets get mapFitPadding => _mapFitPaddingAround(panelBounds);
-
-  EdgeInsets _mapFitPaddingAround(Rect occupied) {
-    final clear = [
-      for (final region in regions) ..._subtract(region, occupied.inflate(16)),
-    ];
-    final fitting = clear.where(
-      (r) =>
-          r.width >= StyleConstants.minimumMapExtent &&
-          r.height >= StyleConstants.minimumMapExtent,
-    );
-    // Prefer a spacious viewport, but keep a short remaining area ahead of
-    // fitting behind the card when the keyboard or a small window leaves less.
-    var visible = (fitting.isNotEmpty ? fitting : clear).fold(
-      Rect.zero,
-      (a, b) => b.width * b.height > a.width * a.height ? b : a,
-    );
-    // Only a completely covered window needs the full-region fallback.
-    if (visible.isEmpty) {
-      visible = regions.reduce(
-        (a, b) => a.width * a.height > b.width * b.height ? a : b,
-      );
-    }
-    return fitPaddingFor(visible);
-  }
+  EdgeInsets get mapFitPadding => mapFitPaddingForOverlay(panelBounds);
 
   /// Keeps MapLibre's fit area positive even when a short window is covered.
-  EdgeInsets fitPaddingFor(Rect visible) {
-    final viewport = Offset.zero & size;
-    final intersection = visible.intersect(viewport);
-    final area = intersection.isEmpty ? viewport : intersection;
-    final horizontalGap = math.max(0.0, (area.width - 1) / 2);
-    final verticalGap = math.max(0.0, (area.height - 1) / 2);
-    // Shrink margins inside the chosen area; never enlarge it across a card
-    // or hinge just to keep a minimum camera viewport.
-    return insetsFor(
-      _inset(
-        area,
-        EdgeInsets.fromLTRB(
-          math.min(horizontalGap, math.max(16.0, 28 - area.left)),
-          math.min(verticalGap, math.max(16.0, 28 - area.top)),
-          math.min(
-            horizontalGap,
-            math.max(16.0, 28 - (size.width - area.right)),
-          ),
-          math.min(
-            verticalGap,
-            math.max(16.0, 28 - (size.height - area.bottom)),
-          ),
-        ),
-      ),
-    );
-  }
+  EdgeInsets fitPaddingFor(Rect visible) =>
+      map_viewport.fitPaddingForRegion(size, visible);
 
   // Keep auxiliary map tools opposite the physical vertical navigation bar,
   // selecting a clear pane without moving the recording controls' region.
@@ -177,7 +131,7 @@ class AppLayout {
                       32,
         )
         .toList();
-    return _nearest(
+    return geometry.nearestRegion(
       fitting.isEmpty ? [controlRegion] : fitting,
       _barEdge == DuoBarEdge.right
           ? contentBounds.bottomLeft
@@ -193,7 +147,7 @@ class AppLayout {
     final horizontal = mapControlsAxis == Axis.horizontal;
     final sideNavigation = navigationAxis == Axis.vertical;
     final landscape = _media.orientation == Orientation.landscape;
-    final available = _inset(
+    final available = geometry.insetRect(
       region,
       EdgeInsets.symmetric(
         horizontal: sideNavigation ? 16 : (landscape ? 32 : 18),
@@ -237,7 +191,7 @@ class AppLayout {
 
   /// Popups stay in the region containing their anchor; unanchored modals use
   /// the same interaction region as the primary controls.
-  Rect regionFor(Offset anchor) => _nearest(regions, anchor);
+  Rect regionFor(Offset anchor) => geometry.nearestRegion(regions, anchor);
 
   /// Center the primary recording capsule on the window unless its footprint
   /// would cross real reserved space. A fold then uses the nearest clear pane.
@@ -409,8 +363,10 @@ class AppLayout {
               Offset.zero & (overlaySize ?? _media.size),
             ),
           );
-    return _nearest(
-      _clearRegions(bounds, [navigationBounds ?? this.navigationBounds]),
+    return geometry.nearestRegion(
+      geometry.clearRegions(bounds, [
+        navigationBounds ?? this.navigationBounds,
+      ]),
       anchor,
     );
   }
@@ -426,6 +382,13 @@ class AppLayout {
       math.max(0.0, availableSize.width - padding.horizontal),
     ),
     maxHeight: math.max(0.0, availableSize.height - padding.vertical),
+  );
+
+  /// Resolved modals consume their region's insets; other modals use
+  /// their local viewport and symmetric system safe-area minimum.
+  ({Rect? region, EdgeInsets safeAreaMinimum}) get modalGeometry => (
+    region: _usesRegions ? controlRegion : null,
+    safeAreaMinimum: EdgeInsets.symmetric(horizontal: _horizontalSafeInset),
   );
 
   /// Shared outer budget for Wolt dialogs and notices without a modal route.
@@ -445,7 +408,10 @@ class AppLayout {
   /// A card stays centered in its clear pane. Its width budget leaves map
   /// space as the pane widens without changing the card's alignment.
   Rect get panelBounds {
-    final available = _inset(_panelRegion, const EdgeInsets.all(16));
+    final available = geometry.insetRect(
+      _panelRegion,
+      const EdgeInsets.all(16),
+    );
     const mapGap = 16.0;
     // Give excess horizontal space to the map gradually. Increasing the pane
     // width must never make a card narrower at a layout breakpoint.
@@ -461,7 +427,10 @@ class AppLayout {
 
   /// Browsing cards share the page width while leaving map space vertically.
   Rect get pickerBounds {
-    final available = _inset(_panelRegion, const EdgeInsets.all(16));
+    final available = geometry.insetRect(
+      _panelRegion,
+      const EdgeInsets.all(16),
+    );
     final budget = contentConstraints(available.size);
     final preferredHeight = (size.height * 0.62).clamp(
       StyleConstants.mapPickerMinHeight,
@@ -548,7 +517,11 @@ class AppLayout {
 
   /// Every map fits against the existing panel's measured footprint.
   EdgeInsets mapFitPaddingForOverlay(Rect occupied) =>
-      _mapFitPaddingAround(occupied);
+      map_viewport.fitPaddingAroundOverlay(
+        viewportSize: size,
+        regions: regions,
+        occupied: occupied,
+      );
 
   EdgeInsets editorMapFitPadding({
     required double toolbarHeight,
@@ -617,7 +590,7 @@ class AppLayout {
             barEdge == DuoBarEdge.right) &&
         barEdge != DuoBarEdge.unknown;
     final padding = media.viewPadding;
-    final safe = _inset(
+    final safe = geometry.insetRect(
       viewport,
       EdgeInsets.fromLTRB(
         padding.left,
@@ -630,7 +603,7 @@ class AppLayout {
       final horizontalInset = math.max(padding.left, padding.right);
       // Match navigation's symmetric safe area so a one-sided cutout cannot
       // shift cards away from the window center. Duo keeps its native panes.
-      final panelRegion = _inset(
+      final panelRegion = geometry.insetRect(
         safe,
         EdgeInsets.only(
           left: horizontalInset - padding.left,
@@ -733,11 +706,11 @@ class AppLayout {
         band = strip;
       }
     }
-    final clear = _clearRegions(band, reserved);
+    final clear = geometry.clearRegions(band, reserved);
     final fitting = clear
         .where((r) => r.width >= 68 && r.height >= 68)
         .toList();
-    final free = _nearest(
+    final free = geometry.nearestRegion(
       fitting.isEmpty ? clear : fitting,
       vertical
           ? (barEdge == DuoBarEdge.left ? band.bottomLeft : band.bottomRight)
@@ -767,7 +740,7 @@ class AppLayout {
     // Restrict Back to the tab column before subtraction so a fragment beside
     // an occlusion cannot put it next to the status cluster.
     final primaryNavigationRegions = vertical
-        ? _clearRegions(primaryBand, reserved)
+        ? geometry.clearRegions(primaryBand, reserved)
         : clear;
     Rect navigation = Rect.zero;
     Rect content = safe;
@@ -821,7 +794,7 @@ class AppLayout {
         );
       }
     }
-    final regions = _clearRegions(content, reserved);
+    final regions = geometry.clearRegions(content, reserved);
     final controls = _controlRegionFor(regions, content);
     Rect panelRegion = controls;
     final sideways = folds.any(
@@ -830,7 +803,7 @@ class AppLayout {
           r.frame.height >= content.height * 0.75,
     );
     if (sideways) {
-      panelRegion = _nearest(
+      panelRegion = geometry.nearestRegion(
         regions,
         barEdge == DuoBarEdge.left ? content.bottomRight : content.bottomLeft,
       );
@@ -869,61 +842,8 @@ class AppLayout {
         ? regions.reduce(
             (a, b) => a.width * a.height > b.width * b.height ? a : b,
           )
-        : _nearest(fitting, content.bottomRight);
+        : geometry.nearestRegion(fitting, content.bottomRight);
   }
-
-  static Rect _inset(Rect rect, EdgeInsets padding) => Rect.fromLTRB(
-    math.min(rect.right, rect.left + padding.left),
-    math.min(rect.bottom, rect.top + padding.top),
-    math.max(
-      rect.left + math.min(rect.width, padding.left),
-      rect.right - padding.right,
-    ),
-    math.max(
-      rect.top + math.min(rect.height, padding.top),
-      rect.bottom - padding.bottom,
-    ),
-  );
-
-  static List<Rect> _clearRegions(Rect bounds, List<Rect> reserved) {
-    var result = <Rect>[bounds];
-    for (final obstacle in reserved) {
-      result = [for (final rect in result) ..._subtract(rect, obstacle)];
-    }
-    return result.isEmpty
-        ? [Rect.fromLTWH(bounds.left, bounds.top, 0, 0)]
-        : result;
-  }
-
-  static Iterable<Rect> _subtract(Rect rect, Rect obstacle) sync* {
-    if (!rect.overlaps(obstacle)) {
-      yield rect;
-      return;
-    }
-    final cut = rect.intersect(obstacle);
-    final options = [
-      Rect.fromLTRB(rect.left, rect.top, rect.right, cut.top),
-      Rect.fromLTRB(rect.left, cut.bottom, rect.right, rect.bottom),
-      Rect.fromLTRB(rect.left, cut.top, cut.left, cut.bottom),
-      Rect.fromLTRB(cut.right, cut.top, rect.right, cut.bottom),
-    ];
-    yield* options.where((r) => r.width > 0 && r.height > 0);
-  }
-
-  static Rect _nearest(List<Rect> regions, Offset anchor) =>
-      regions.reduce((a, b) {
-        double distance(Rect r) =>
-            (Offset(
-                      anchor.dx.clamp(r.left, r.right),
-                      anchor.dy.clamp(r.top, r.bottom),
-                    ) -
-                    anchor)
-                .distanceSquared;
-        final da = distance(a), db = distance(b);
-        return db < da || (db == da && b.width * b.height > a.width * a.height)
-            ? b
-            : a;
-      });
 }
 
 class AppLayoutScope extends InheritedWidget {
@@ -974,85 +894,4 @@ class AppLayoutBuilder extends StatelessWidget {
       );
     },
   );
-}
-
-/// Places modal content inside one clear native region, consuming insets once.
-class AppModalRegion extends StatelessWidget {
-  const AppModalRegion({
-    super.key,
-    required this.child,
-    this.useSafeArea = true,
-  }) : alignment = null;
-
-  /// Fits an overlay notice using the same outer budget as a Wolt dialog.
-  /// It remains an overlay, so the host route can keep handling navigation.
-  const AppModalRegion.dialog({
-    super.key,
-    required this.child,
-    this.alignment = Alignment.center,
-  }) : useSafeArea = true;
-
-  final Widget child;
-
-  /// Keep the caller's safe-area policy in a single viewport. Reserved native
-  /// space is always excluded before content reaches the modal.
-  final bool useSafeArea;
-  final Alignment? alignment;
-
-  @override
-  Widget build(BuildContext context) {
-    final layout = AppLayout.fromContext(context);
-    // Own safe-area consumption so a late native reading can change geometry
-    // without leaving a route-created legacy SafeArea around the dialog.
-    final viewport = SafeArea(
-      minimum: useSafeArea && !layout._usesRegions
-          ? EdgeInsets.symmetric(horizontal: layout._horizontalSafeInset)
-          : EdgeInsets.zero,
-      left: useSafeArea && !layout._usesRegions,
-      right: useSafeArea && !layout._usesRegions,
-      top: useSafeArea && !layout._usesRegions,
-      bottom: useSafeArea && !layout._usesRegions,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final media = MediaQuery.of(context);
-          final region = layout._usesRegions
-              ? layout.controlRegion
-              : Offset.zero & constraints.biggest;
-          final bounds = alignment != null && !layout._usesRegions
-              ? AppLayout._inset(region, media.viewInsets)
-              : region;
-          return Padding(
-            padding: EdgeInsets.fromLTRB(
-              bounds.left,
-              bounds.top,
-              constraints.maxWidth - bounds.right,
-              constraints.maxHeight - bounds.bottom,
-            ),
-            child: MediaQuery(
-              data: layout._usesRegions
-                  ? media.copyWith(
-                      size: bounds.size,
-                      padding: EdgeInsets.zero,
-                      viewPadding: EdgeInsets.zero,
-                      viewInsets: EdgeInsets.zero,
-                    )
-                  : media,
-              child: alignment == null
-                  ? child
-                  : Align(
-                      alignment: alignment!,
-                      child: ConstrainedBox(
-                        constraints: AppLayout.dialogConstraints(bounds.size),
-                        child: child,
-                      ),
-                    ),
-            ),
-          );
-        },
-      ),
-    );
-    return alignment == null
-        ? viewport
-        : DisplayFeatureSubScreen(child: viewport);
-  }
 }

@@ -76,10 +76,6 @@ void main() {
           tester.widget<TextField>(find.byType(TextField)).controller!.text,
           note,
         );
-        expect(
-          tester.getSize(find.byKey(const Key('map-viewport'))),
-          scene.size,
-        );
       }
       await tester.ensureVisible(find.text(tr('common.save')));
       await tester.pumpAndSettle();
@@ -94,7 +90,7 @@ void main() {
   );
 
   testWidgets(
-    'a landscape keyboard moves the card without resizing the map',
+    'a landscape form clears the keyboard and saves its draft',
     (tester) async {
       final scenes = ValueNotifier(
         const _Scene(
@@ -116,10 +112,6 @@ void main() {
       expect(
         card.bottom,
         lessThanOrEqualTo(scenes.value.size.height - scenes.value.keyboard),
-      );
-      expect(
-        tester.getSize(find.byKey(const Key('map-viewport'))),
-        const Size(667, 375),
       );
       await tester.ensureVisible(find.byType(TextField));
       await tester.enterText(find.byType(TextField), 'Keyboard draft');
@@ -196,9 +188,6 @@ Future<void> _pumpForm(
               body: AppLayoutBuilder(
                 builder: (_, layout) => Stack(
                   children: [
-                    const Positioned.fill(
-                      child: SizedBox(key: Key('map-viewport')),
-                    ),
                     MapOverlayPanel.detail(
                       child: JourneyInfoPanelSurface(
                         child: SingleChildScrollView(

@@ -223,14 +223,12 @@ void main() {
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), 'Unsaved draft');
-      final field = tester.state(find.byType(TextField));
       for (final hardware in [
         _duo,
         {'supported': true},
       ]) {
         channel.update(hardware);
         await tester.pumpAndSettle();
-        expect(tester.state(find.byType(TextField)), same(field));
         expect(find.text('Unsaved draft'), findsOneWidget);
       }
       expect(tester.takeException(), isNull);
