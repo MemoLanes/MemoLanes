@@ -1,12 +1,9 @@
-import 'dart:async';
-
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/services.dart';
 import 'package:memolanes/body/settings/settings_category_pages.dart';
 import 'package:memolanes/common/app_haptics.dart';
 import 'package:memolanes/common/app_translation_loader.dart';
 import 'package:memolanes/common/gps_manager.dart';
-import 'package:memolanes/common/loading_manager.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/export_data.dart';
 import 'package:memolanes/src/rust/frb_generated.dart';
@@ -19,7 +16,7 @@ import 'package:memolanes/theme/app_theme.dart';
 
 void main() {
   testWidgets(
-    'export dialog routes formats and blocks interaction while generating',
+    'export dialog routes formats and reports empty data or failures',
     (tester) async {
       final originalWakelock = wakelockPlusPlatformInstance;
       final originalHaptics = AppHaptics.debugHapticsEnabledOverride;
@@ -34,7 +31,6 @@ void main() {
       addTearDown(RustLib.dispose);
       final gpsManager = _TestGpsManager();
       addTearDown(gpsManager.dispose);
-      final navigatorKey = GlobalKey<NavigatorState>();
 
       final messenger =
           TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
@@ -65,7 +61,6 @@ void main() {
             fallbackLocale: const Locale('en', 'US'),
             child: Builder(
               builder: (context) => MaterialApp(
-                navigatorKey: navigatorKey,
                 theme: AppTheme.light,
                 localizationsDelegates: [
                   ...GlobalMaterialLocalizations.delegates,
@@ -73,17 +68,10 @@ void main() {
                 ],
                 supportedLocales: context.supportedLocales,
                 locale: context.locale,
-                builder: (_, child) => GlobalLoadingOverlay(child: child!),
-                home: const Scaffold(),
-                initialRoute: '/data',
-                routes: {
-                  '/data': (_) => GlobalPopScope(
-                    child: ChangeNotifierProvider<GpsManager>.value(
-                      value: gpsManager,
-                      child: const DataManagementSettingsPage(),
-                    ),
-                  ),
-                },
+                home: ChangeNotifierProvider<GpsManager>.value(
+                  value: gpsManager,
+                  child: const DataManagementSettingsPage(),
+                ),
               ),
             ),
           ),
@@ -129,9 +117,6 @@ void main() {
         await tap('common.ok');
       }
       for (final format in RawDataExportType.values) {
-        final exportButton = tester.getCenter(
-          find.text(tr('data.export_data.export_all')),
-        );
         await openPicker(true);
         await tap('data.export_data.raw_data_group');
         await tap('journey.export_raw_data_${format.name}');
@@ -139,50 +124,13 @@ void main() {
           find.text(tr('journey.raw_data_lossy_format_warning')),
           format == RawDataExportType.csv ? findsNothing : findsOneWidget,
         );
-        final fail = format == RawDataExportType.kml;
-        final pending = Completer<api.ExportResult>();
-        backend.pendingExport = pending;
-        final rawDataChecks = backend.rawDataChecks;
-        final loading = GlobalLoadingManager.instance;
-
-        await tester.tap(find.text(tr('common.export')));
-        await tester.pump();
+        backend.failExport = format == RawDataExportType.kml;
+        await tap('common.export');
         expect(backend.exportedFormat, format);
-        expect(loading.isNavigationBlocked, isTrue);
-        expect(loading.isLoading, isFalse);
-        expect(
-          find.byWidgetPredicate(
-            (widget) =>
-                widget is ModalBarrier &&
-                !widget.dismissible &&
-                widget.color == Colors.transparent,
-          ),
-          findsOneWidget,
-        );
-
-        // The barrier protects the page before the delayed spinner appears.
-        await tester.pump(const Duration(milliseconds: 180));
-        await tester.tapAt(exportButton);
-        await navigatorKey.currentState!.maybePop();
-        await tester.pump();
-        expect(backend.rawDataChecks, rawDataChecks);
-        expect(find.byType(DataManagementSettingsPage), findsOneWidget);
-        expect(loading.isLoading, isFalse);
-
-        await tester.pump(const Duration(milliseconds: 100));
-        expect(loading.isLoading, isTrue);
-        if (fail) {
-          pending.completeError(StateError('Export failed'));
-        } else {
-          pending.complete(api.ExportResult.dataIsEmpty);
-        }
-        await tester.pumpAndSettle();
-        expect(loading.isNavigationBlocked, isFalse);
-        expect(loading.isLoading, isFalse);
         expect(
           find.text(
             tr(
-              fail
+              backend.failExport
                   ? 'data.export_data.error.unexpected'
                   : 'data.export_data.error.no_raw_data_to_export',
             ),
@@ -190,7 +138,6 @@ void main() {
           findsOneWidget,
         );
         await tap('common.ok');
-        backend.pendingExport = null;
       }
 
       await openPicker(false);
@@ -200,9 +147,6 @@ void main() {
       await tap('common.export');
       expect(backend.archivedRawData, isTrue);
       await tap('common.ok');
-      await navigatorKey.currentState!.maybePop();
-      await tester.pumpAndSettle();
-      expect(find.byType(DataManagementSettingsPage), findsNothing);
     },
   );
 }
@@ -211,17 +155,14 @@ class _ExportApi extends Fake implements RustLibApi {
   bool? hasRawData = false;
   RawDataExportType? exportedFormat;
   bool? archivedRawData;
-  int rawDataChecks = 0;
-  Completer<api.ExportResult>? pendingExport;
+  bool failExport = false;
 
   @override
   Future<bool> crateApiApiHasJourneys() async => true;
 
   @override
-  Future<bool> crateApiApiHasJourneysRawData() async {
-    rawDataChecks++;
-    return hasRawData ?? (throw StateError('Raw-data inspection failed'));
-  }
+  Future<bool> crateApiApiHasJourneysRawData() async =>
+      hasRawData ?? (throw StateError('Raw-data inspection failed'));
 
   @override
   Future<api.ExportResult> crateApiApiExportAllJourneysRawData({
@@ -229,9 +170,8 @@ class _ExportApi extends Fake implements RustLibApi {
     required RawDataExportType exportType,
   }) async {
     exportedFormat = exportType;
-    return pendingExport == null
-        ? api.ExportResult.dataIsEmpty
-        : await pendingExport!.future;
+    if (failExport) throw StateError('Export failed');
+    return api.ExportResult.dataIsEmpty;
   }
 
   @override

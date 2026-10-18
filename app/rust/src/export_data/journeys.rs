@@ -133,6 +133,8 @@ fn export_journeys<J>(
     mut load_journey: impl FnMut(&Txn, &str) -> Result<Option<J>>,
     write: impl FnOnce(&mut BufWriter<File>, &mut dyn Iterator<Item = Result<J>>) -> Result<()>,
 ) -> Result<bool> {
+    // TODO: Use a dedicated read-only connection and a WAL read transaction to
+    // keep a consistent snapshot without holding Storage's mutex during export.
     storage.with_db_txn(|txn| {
         let ids = txn.query_journey_ids_for_export()?.into_iter();
         let mut journeys = ids.filter_map(|id| load_journey(txn, &id).transpose());

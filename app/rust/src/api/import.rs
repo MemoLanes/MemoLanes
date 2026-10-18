@@ -295,6 +295,16 @@ pub enum MldxJourneyImportAnalyzeResult {
     Unchanged = 2,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+#[frb(non_opaque)]
+pub struct MldxJourneyAnalysis {
+    pub imported_header: JourneyHeader,
+    pub status: MldxJourneyImportAnalyzeResult,
+    /// The local header from the same snapshot, provided only for conflicts.
+    /// Both new and unchanged journeys have `None` here.
+    pub local_header: Option<JourneyHeader>,
+}
+
 #[frb(opaque)]
 pub struct OpaqueMldxReader {
     reader: Mutex<MldxReader<File>>,
@@ -309,30 +319,24 @@ impl OpaqueMldxReader {
     }
 
     /// Includes the local header used to classify each conflict, from the same snapshot.
-    pub fn analyze(
-        &self,
-    ) -> Result<
-        Vec<(
-            JourneyHeader,
-            MldxJourneyImportAnalyzeResult,
-            Option<JourneyHeader>,
-        )>,
-    > {
+    pub fn analyze(&self) -> Result<Vec<MldxJourneyAnalysis>> {
         let mldx_reader = self.reader.lock().unwrap();
 
         get().storage.with_db_txn(|txn| {
             let mut result = Vec::new();
             for journey_header in mldx_reader.iter_journey_headers() {
-                let (import_type, local_header) = match txn
-                    .get_journey_header(&journey_header.id)?
-                {
+                let (status, local_header) = match txn.get_journey_header(&journey_header.id)? {
                     Some(existing) if existing.revision == journey_header.revision => {
                         (MldxJourneyImportAnalyzeResult::Unchanged, None)
                     }
                     Some(existing) => (MldxJourneyImportAnalyzeResult::Conflict, Some(existing)),
                     None => (MldxJourneyImportAnalyzeResult::New, None),
                 };
-                result.push((journey_header.clone(), import_type, local_header));
+                result.push(MldxJourneyAnalysis {
+                    imported_header: journey_header.clone(),
+                    status,
+                    local_header,
+                });
             }
             Ok(result)
         })

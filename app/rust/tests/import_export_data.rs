@@ -567,14 +567,22 @@ fn bulk_export_preserves_geometry_and_reimports_as_ordinary_data() {
 }
 
 fn check_journey_detail_and_mldx_analysis(path: &Path, db: &mut MainDb) {
+    use import_api::MldxJourneyAnalysis;
     use import_api::MldxJourneyImportAnalyzeResult::{Conflict, New, Unchanged};
 
     // The single-journey archive was exported before any local metadata edits.
     let reader = import_api::OpaqueMldxReader::open(path.to_string_lossy().into_owned()).unwrap();
     let initial = reader.analyze().unwrap();
     assert_eq!(initial.len(), 1);
-    let archived_header = initial[0].0.clone();
-    assert_eq!(initial, [(archived_header.clone(), Unchanged, None)]);
+    let archived_header = initial[0].imported_header.clone();
+    assert_eq!(
+        initial,
+        [MldxJourneyAnalysis {
+            imported_header: archived_header.clone(),
+            status: Unchanged,
+            local_header: None,
+        }]
+    );
 
     let local_header = db
         .with_txn(|txn| {
@@ -591,11 +599,11 @@ fn check_journey_detail_and_mldx_analysis(path: &Path, db: &mut MainDb) {
         .unwrap();
     assert_eq!(
         reader.analyze().unwrap(),
-        [(
-            archived_header.clone(),
-            Conflict,
-            Some(local_header.clone())
-        )]
+        [MldxJourneyAnalysis {
+            imported_header: archived_header.clone(),
+            status: Conflict,
+            local_header: Some(local_header.clone()),
+        }]
     );
     let (header, renderer, bounds) = get_journey_detail(&archived_header.id).unwrap().unwrap();
     assert_eq!(header, local_header);
@@ -615,7 +623,11 @@ fn check_journey_detail_and_mldx_analysis(path: &Path, db: &mut MainDb) {
     assert!(get_journey_detail(&archived_header.id).unwrap().is_none());
     assert_eq!(
         reader.analyze().unwrap(),
-        [(archived_header.clone(), New, None)]
+        [MldxJourneyAnalysis {
+            imported_header: archived_header.clone(),
+            status: New,
+            local_header: None,
+        }]
     );
     db.with_txn(|txn| txn.insert_journey(archived_header, export_test_vector(1.0)))
         .unwrap();
