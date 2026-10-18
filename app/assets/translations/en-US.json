@@ -315,7 +315,7 @@
       "title": "Advanced settings",
       "export_logs": "Export Logs",
       "raw_data_mode": "Raw Data Mode",
-      "raw_data_mode_description": "When enabled, all raw GPS data received during recording is preserved, including location, time, accuracy, altitude, and speed, for export and analysis. When disabled, only the processed journey track is kept.",
+      "raw_data_mode_description": "This feature is off by default.\nJourneys recorded while it is off retain only the processed track.\nWhen it is on, all raw GPS data received during recording is also saved, including location, timestamps, accuracy, altitude, and speed. Saving raw data uses more storage space.",
       "raw_data_files": "Raw Data Files (Deprecated)",
       "no_raw_data_files": "No raw data files",
       "raw_data_export_csv": "Export as CSV",

@@ -315,7 +315,7 @@
       "title": "高级设置",
       "export_logs": "导出日志",
       "raw_data_mode": "原始数据模式",
-      "raw_data_mode_description": "开启时，会完整保留录制时收到的 GPS 原始数据，包括位置、时间、精度、海拔和速度，便于导出和分析。关闭时，仅保留处理后的旅程轨迹。",
+      "raw_data_mode_description": "此功能默认关闭。\n关闭时记录的旅程，仅保留处理后的轨迹。\n开启后，会额外保存录制时收到的完整 GPS 原始数据，包括位置、时间戳、精度、海拔和速度。保存原始数据会占用更多存储空间。",
       "raw_data_files": "原始数据列表（弃用）",
       "no_raw_data_files": "暂无原始数据文件",
       "raw_data_export_csv": "导出为 CSV",
