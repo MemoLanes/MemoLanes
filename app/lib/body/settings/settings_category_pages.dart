@@ -438,6 +438,13 @@ class _DataManagementSettingsPageState
       }
       return;
     }
+    // Check attachment presence here; exports handle records without GPS points.
+    var hasRawData = true;
+    try {
+      hasRawData = await api.hasJourneysRawData();
+    } catch (error, stackTrace) {
+      log.error('Failed to check journey raw data: $error', stackTrace);
+    }
     if (!context.mounted) return;
     await showCommonExportWithFormatPicker(
       context: context,
@@ -445,16 +452,27 @@ class _DataManagementSettingsPageState
       formatGroups: [
         CommonExportFormatGroup(
           label: context.tr('data.export_data.journey_data_group'),
-          formats: const [CommonExportFormat.mldx, CommonExportFormat.fwss],
+          formats: const [
+            CommonExportFormat.mldx,
+            CommonExportFormat.fwss,
+            CommonExportFormat.kml,
+            CommonExportFormat.gpx,
+          ],
         ),
+        if (hasRawData)
+          CommonExportFormatGroup.rawData(
+            context,
+            description: context.tr('data.export_data.raw_data_group_desc'),
+          ),
       ],
       exportFile: (selection) async {
         final format = selection.format;
         final tmpDir = await getTemporaryDirectory();
         final timestamp = DateFormat('yyyy-MM-dd-HH-mm-ss')
             .format(DateTime.now());
+        final prefix = format.isRawData ? 'all-raw-data' : 'all-journeys';
         final filepath =
-            '${tmpDir.path}/all-journeys-$timestamp.${format.extension}';
+            '${tmpDir.path}/$prefix-$timestamp.${format.extension}';
         final result = switch (format) {
           CommonExportFormat.mldx => await api.generateFullArchive(
             targetFilepath: filepath,
@@ -463,7 +481,18 @@ class _DataManagementSettingsPageState
           CommonExportFormat.fwss => await api.exportAllJourneysAsFwss(
             targetFilepath: filepath,
           ),
-          _ => throw UnsupportedError('Unsupported export format: $format'),
+          CommonExportFormat.kml => await api.exportAllJourneysAsKml(
+            targetFilepath: filepath,
+          ),
+          CommonExportFormat.gpx => await api.exportAllJourneysAsGpx(
+            targetFilepath: filepath,
+          ),
+          CommonExportFormat.rawDataCsv ||
+          CommonExportFormat.rawDataGpx ||
+          CommonExportFormat.rawDataKml => await api.exportAllJourneysRawData(
+            targetFilepath: filepath,
+            exportType: format.rawDataExportType,
+          ),
         };
         return CommonExportResult.create(result, filepath);
       },

@@ -6,17 +6,17 @@
 
 use std::{
     fs::{remove_file, File},
-    io::{BufReader, BufWriter, Read, Seek, Write},
+    io::{BufReader, Read, Write},
     path::Path,
 };
 
 use anyhow::{Context, Result};
 use auto_context::auto_context;
 use csv::Reader;
-use gpx::TrackSegment;
 use serde::Deserialize;
 
-use crate::export_data::gpx::{raw_data_waypoint, write_gpx_with_segments, RAW_DATA_TYPE_NAME};
+use crate::export_data::{gpx::GpxJourneyWriter, write_export_file};
+use crate::gps::{ExtendedRawGPSPoint, Point, RawGPSPoint};
 
 const LEGACY_RAW_DATA_DIR_NAME: &str = "raw_data";
 
@@ -46,7 +46,6 @@ struct LegacyRawDataCsvRow {
     longitude: f64,
     accuracy: Option<f32>,
     altitude: Option<f32>,
-    #[allow(dead_code)]
     speed: Option<f32>,
 }
 
@@ -82,23 +81,31 @@ pub fn list_all_legacy_raw_data(support_dir: &str) -> Result<Vec<LegacyRawDataFi
     Ok(result)
 }
 
+// TODO: Retained for RawDataPage's legacy CSV-to-GPX export (raw_data_page.dart).
 #[auto_context]
-pub fn legacy_raw_data_csv_to_gpx_file<R: Read, W: Write + Seek>(
+pub fn legacy_raw_data_csv_to_gpx_file<R: Read, W: Write>(
     csv_reader: &mut Reader<R>,
     writer: &mut W,
 ) -> Result<()> {
-    let mut segment = TrackSegment { points: Vec::new() };
-    for result in csv_reader.deserialize::<LegacyRawDataCsvRow>() {
-        let raw = result?;
-        segment.points.push(raw_data_waypoint(
-            raw.latitude,
-            raw.longitude,
-            raw.timestamp_ms.or(Some(raw.received_timestamp_ms)),
-            raw.altitude,
-            raw.accuracy,
-        )?);
-    }
-    write_gpx_with_segments(vec![segment], Some(RAW_DATA_TYPE_NAME), writer)
+    let points = csv_reader.deserialize::<LegacyRawDataCsvRow>().map(|row| {
+        let raw = row?;
+        Ok(ExtendedRawGPSPoint {
+            raw_gps_point: RawGPSPoint {
+                point: Point {
+                    latitude: raw.latitude,
+                    longitude: raw.longitude,
+                },
+                timestamp_ms: raw.timestamp_ms,
+                altitude: raw.altitude,
+                accuracy: raw.accuracy,
+                speed: raw.speed,
+            },
+            received_timestamp_ms: raw.received_timestamp_ms,
+        })
+    });
+    let mut writer = GpxJourneyWriter::new_raw_data(writer)?;
+    writer.write_raw_data_points(points, "MemoLanes Track")?;
+    writer.finish()
 }
 
 #[auto_context]
@@ -123,11 +130,9 @@ pub fn export_legacy_raw_data_gpx_file(csv_filepath: &str, cache_dir: &str) -> R
     let csv_file = File::open(csv_path)
         .with_context(|| format!("Failed to open legacy CSV file: {csv_filepath}"))?;
     let mut reader = Reader::from_reader(BufReader::new(csv_file));
-    let gpx_file = File::create(&gpx_path)
-        .with_context(|| format!("Failed to create legacy GPX file: {gpx_path_string}"))?;
-    let mut writer = BufWriter::new(gpx_file);
-
-    legacy_raw_data_csv_to_gpx_file(&mut reader, &mut writer)
-        .with_context(|| format!("Failed to convert legacy CSV to GPX: {csv_filepath}"))?;
+    write_export_file(&gpx_path, |writer| {
+        legacy_raw_data_csv_to_gpx_file(&mut reader, writer)
+            .with_context(|| format!("Failed to convert legacy CSV to GPX: {csv_filepath}"))
+    })?;
     Ok(gpx_path_string)
 }

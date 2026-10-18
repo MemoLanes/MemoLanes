@@ -6,7 +6,6 @@ import 'package:memolanes/common/app_haptics.dart';
 import 'package:memolanes/common/component/app_button.dart';
 import 'package:memolanes/common/journey_kind_visuals.dart';
 import 'package:memolanes/common/simple_date_utils.dart';
-import 'package:memolanes/src/rust/api/import.dart' show JourneyInfo;
 import 'package:memolanes/src/rust/journey_header.dart';
 
 import 'package:memolanes/body/journey/journey_info_form.dart';

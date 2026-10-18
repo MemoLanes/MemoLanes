@@ -15,6 +15,7 @@ import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/duo_device.dart';
 import 'package:memolanes/theme/app_theme.dart';
 import 'package:memolanes/src/rust/api/import.dart' as import_api;
+import 'package:memolanes/src/rust/import_data.dart';
 
 const _duo = DuoHardware(
   supported: true,
@@ -208,7 +209,7 @@ Widget _vectorApp(ValueNotifier<_Scene> scenes) => EasyLocalization(
       ),
       home: VectorMultiImportPage(
         vectorData: _UnusedVectorData(),
-        initialPreprocessor: import_api.ImportPreprocessor.generic,
+        initialPreprocessor: ImportPreprocessor.generic,
         parts: [
           for (var i = 1; i <= 18; i++)
             import_api.VectorImportPartSummary(

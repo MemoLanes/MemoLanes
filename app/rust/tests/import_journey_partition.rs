@@ -2,7 +2,8 @@ use chrono::{Local, NaiveDate, TimeZone};
 use memolanes_core::{
     api::import::{
         analyze_vector_data_by_date, import_vector_data_by_date, is_journey_data_empty,
-        load_vector_data, process_vector_data_for_date, ImportPreprocessor, RawVectorData,
+        load_vector_data, process_vector_data, process_vector_data_for_date, ImportPreprocessor,
+        RawVectorData,
     },
     gps::{Point, RawGPSPoint},
     import_data::journey_partition::{group_by_date, summarize},
@@ -30,7 +31,10 @@ fn local_timestamp(year: i32, month: u32, day: u32, hour: u32, minute: u32, seco
         .timestamp_millis()
 }
 
-fn load_csv_vector_data(name: &str, rows: &str) -> (RawVectorData, ImportPreprocessor) {
+fn load_csv_vector_data(
+    name: &str,
+    rows: &str,
+) -> (tempdir::TempDir, RawVectorData, ImportPreprocessor) {
     let temp_dir = tempdir::TempDir::new(name).unwrap();
     let csv_path = temp_dir.path().join("data.csv");
     std::fs::write(
@@ -42,7 +46,7 @@ fn load_csv_vector_data(name: &str, rows: &str) -> (RawVectorData, ImportPreproc
     .unwrap();
     let (_, vector_data, preprocessor) =
         load_vector_data(csv_path.to_string_lossy().into_owned()).unwrap();
-    (vector_data, preprocessor)
+    (temp_dir, vector_data, preprocessor)
 }
 
 #[test]
@@ -113,6 +117,10 @@ fn missing_timestamps_are_preserved() {
 #[test]
 fn fully_untimed_data_cannot_be_grouped() {
     assert!(group_by_date(&[vec![point(None, 1.0)]]).is_empty());
+    let (_temp, data, _) = load_csv_vector_data("untimed-preview", ",0,0,1,,,\n");
+    assert!(analyze_vector_data_by_date(&data).is_empty());
+    let preview = process_vector_data(&data, ImportPreprocessor::None).unwrap();
+    assert!(!is_journey_data_empty(&preview));
 }
 
 #[test]
@@ -121,7 +129,7 @@ fn api_uses_partitioned_data() {
     let day_two = NaiveDate::from_ymd_opt(2026, 8, 12).unwrap();
     let timestamp_one = local_timestamp(2026, 8, 11, 23, 59, 59);
     let timestamp_two = local_timestamp(2026, 8, 12, 0, 30, 0);
-    let (vector_data, preprocessor) = load_csv_vector_data(
+    let (_temp, vector_data, preprocessor) = load_csv_vector_data(
         "vector-import-by-date",
         &format!(
             "{timestamp_one},{timestamp_one},0,1,,,\n\
@@ -159,7 +167,7 @@ fn api_uses_partitioned_data() {
 #[test]
 fn api_rejects_unknown_dates() {
     let timestamp = local_timestamp(2026, 8, 11, 12, 0, 0);
-    let (vector_data, preprocessor) = load_csv_vector_data(
+    let (_temp, vector_data, preprocessor) = load_csv_vector_data(
         "vector-import-invalid-date",
         &format!("{timestamp},{timestamp},0,1,,,\n"),
     );

@@ -8,7 +8,7 @@ import 'support/duo_hardware_test_data.dart';
 import 'package:memolanes/body/journey/journey_info_form.dart';
 import 'package:memolanes/body/journey/journey_info_fields.dart';
 import 'package:memolanes/body/journey/compact_journey_info_card.dart';
-import 'package:memolanes/src/rust/api/import.dart' as import_api;
+import 'package:memolanes/src/rust/import_data.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
 import 'package:memolanes/common/app_translation_loader.dart';
 import 'package:memolanes/common/duo_device.dart';
@@ -37,8 +37,8 @@ void main() {
         ),
       );
       addTearDown(scenes.dispose);
-      import_api.JourneyInfo? saved;
-      import_api.ImportPreprocessor? selectedPreprocessor;
+      JourneyInfo? saved;
+      ImportPreprocessor? selectedPreprocessor;
       var infoTaps = 0;
       await _pumpForm(
         tester,
@@ -56,7 +56,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text(tr('import.preprocessor.flight_track')));
       await tester.pumpAndSettle();
-      expect(selectedPreprocessor, import_api.ImportPreprocessor.flightTrack);
+      expect(selectedPreprocessor, ImportPreprocessor.flightTrack);
       expect(infoTaps, 1);
       const note = 'A long imported note kept while folding and resizing.';
       await tester.enterText(find.byType(TextField), note);
@@ -105,7 +105,7 @@ void main() {
         ),
       );
       addTearDown(scenes.dispose);
-      import_api.JourneyInfo? saved;
+      JourneyInfo? saved;
       await _pumpForm(
         tester,
         scenes,
@@ -143,9 +143,9 @@ Future<void> _pumpForm(
   WidgetTester tester,
   ValueNotifier<_Scene> scenes,
   String note, {
-  required ValueChanged<import_api.JourneyInfo> onSave,
+  required ValueChanged<JourneyInfo> onSave,
   VoidCallback? onPreprocessorInfo,
-  ValueChanged<import_api.ImportPreprocessor>? onPreprocessorSelected,
+  ValueChanged<ImportPreprocessor>? onPreprocessorSelected,
 }) async {
   tester.view.devicePixelRatio = 1;
   tester.view.physicalSize = scenes.value.size;
@@ -212,7 +212,7 @@ Future<void> _pumpForm(
                             journeyKind: JourneyKind.flight,
                             extraFields: ImportPreprocessorTile(
                               compact: true,
-                              value: import_api.ImportPreprocessor.generic,
+                              value: ImportPreprocessor.generic,
                               onInfoTap: onPreprocessorInfo ?? () {},
                               onSelected: onPreprocessorSelected ?? (_) {},
                             ),

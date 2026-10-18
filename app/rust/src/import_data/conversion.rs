@@ -1,10 +1,10 @@
-use crate::api::import::JourneyInfo;
 use crate::flight_track_processor;
 use crate::gps::RawGPSPoint;
 use crate::gps_processor::{
     self, GpsPreprocessor, PreprocessedData, ProcessResult, SegmentGapRule,
 };
 use crate::journey_date_picker::JourneyDatePicker;
+use crate::journey_header::JourneyInfo;
 use crate::journey_header::JourneyKind;
 use crate::journey_vector::{JourneyVector, TrackPoint};
 use chrono::{Local, TimeZone, Utc};

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="MemoLanes" xmlns="http://www.topografix.com/GPX/1/1"
+     xmlns:ml="https://app.memolanes.com/ns/journey/1" xmlns:custom="https://example.com/extension">
+  <trk>
+    <extensions>
+      <ml:journey date="2026-09-11"/>
+      <custom:trkseg><trkpt lat="9" lon="8"/></custom:trkseg>
+    </extensions>
+    <trkseg>
+      <trkpt lat="1" lon="2"><extensions>
+        <custom:trkpt lat="9" lon="8"/>
+        <custom:trkpt lat="9" lon="8"></custom:trkpt>
+        <custom:trkseg/>
+        <custom:trkseg></custom:trkseg>
+        <custom:trk/>
+        <custom:trk></custom:trk>
+        <trkpt lat="9" lon="8"/><trkseg/><trk></trk>
+      </extensions></trkpt>
+      <trkpt lat="1.1" lon="2.1"/>
+    </trkseg>
+    <trkseg><trkpt lat="3" lon="4"/><trkpt lat="3.1" lon="4.1"/></trkseg>
+  </trk>
+  <extensions>
+    <custom:trk><extensions><ml:journey date="2000-01-01"/></extensions><trkseg><trkpt lat="9" lon="8"/></trkseg></custom:trk>
+    <custom:rte/>
+  </extensions>
+</gpx>

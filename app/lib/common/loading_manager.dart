@@ -26,9 +26,9 @@ class GlobalLoadingManager extends ChangeNotifier {
   /// Manages the loading lifecycle for async tasks in a unified way.
   ///
   /// - Supports parallel/nested tasks (reference counting).
-  /// - Set [blockNavigation] for mutations that must finish before leaving the
-  ///   current route. This takes effect immediately, before the delayed loading
-  ///   overlay becomes visible.
+  /// - Set [blockNavigation] for tasks that must finish before leaving the
+  ///   current route. Navigation and pointer input are blocked immediately,
+  ///   before the delayed loading indicator becomes visible.
   Future<T> runWithLoading<T>(
     Future<T> Function() task, {
     bool blockNavigation = false,
@@ -135,30 +135,34 @@ class GlobalLoadingOverlay extends StatelessWidget {
       animation: manager,
       builder: (context, _) {
         final isLoading = manager.isLoading;
+        final isBlocking = isLoading || manager.isNavigationBlocked;
 
         return PopScope(
-          canPop: !isLoading && !manager.isNavigationBlocked,
+          canPop: !isBlocking,
           child: Stack(
             alignment: Alignment.topLeft,
             children: [
               child,
-              if (isLoading)
+              if (isBlocking)
                 Positioned.fill(
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
                       ModalBarrier(
                         dismissible: false,
-                        color: Color.lerp(
-                          AppColors.light.shadowColor.withAlpha(0x59),
-                          AppColors.dark.shadowColor.withAlpha(0xAD),
-                          context.appColors.darkProgress,
-                        )!,
+                        color: isLoading
+                            ? Color.lerp(
+                                AppColors.light.shadowColor.withAlpha(0x59),
+                                AppColors.dark.shadowColor.withAlpha(0xAD),
+                                context.appColors.darkProgress,
+                              )!
+                            : Colors.transparent,
                       ),
-                      const AppModalRegion(
-                        useSafeArea: false,
-                        child: Center(child: _DefaultLoadingCard()),
-                      ),
+                      if (isLoading)
+                        const AppModalRegion(
+                          useSafeArea: false,
+                          child: Center(child: _DefaultLoadingCard()),
+                        ),
                     ],
                   ),
                 ),

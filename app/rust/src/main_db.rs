@@ -554,6 +554,17 @@ impl Txn<'_> {
         Ok(results)
     }
 
+    /// Exports oldest first, using the display date only when timestamps are absent.
+    pub fn query_journey_ids_for_export(&self) -> Result<Vec<String>> {
+        let mut query = self.db_txn.prepare(
+            "SELECT id FROM journey ORDER BY COALESCE(timestamp_for_ordering, journey_date * 86400), id;",
+        )?;
+        let ids = query
+            .query_map((), |row| row.get(0))?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        Ok(ids)
+    }
+
     /// Returns distinct journey dates, optionally restricted to selected kinds.
     /// This query only reads indexed relational columns and never decodes a
     /// journey header.
@@ -678,6 +689,14 @@ impl Txn<'_> {
             .optional()
             .context("has_journey_raw_data")?
             .unwrap_or(false))
+    }
+
+    pub fn has_journeys_raw_data(&self) -> Result<bool> {
+        Ok(self.db_txn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM journey WHERE raw_data IS NOT NULL);",
+            (),
+            |row| row.get(0),
+        )?)
     }
 
     #[auto_context]

@@ -1,6 +1,6 @@
-use crate::api::import::ImportPreprocessor;
 use crate::gps::{Point, RawGPSPoint};
 use crate::gpx_file_utils::analyze_and_prepare_gpx;
+use crate::import_data::ImportPreprocessor;
 use anyhow::{Context, Result};
 use auto_context::auto_context;
 use chrono::{DateTime, Utc};

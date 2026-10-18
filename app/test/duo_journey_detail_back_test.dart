@@ -55,15 +55,7 @@ void main() {
       flow.requestBack();
       flow.requestBack();
       await flow.open(
-        JourneyHeader(
-          id: 'second-journey',
-          revision: 'v1',
-          journeyDate: DateTime.utc(2026, 10, 13),
-          createdAt: DateTime.utc(2026, 10, 13),
-          journeyType: JourneyType.vector,
-          journeyKind: JourneyKind.defaultKind,
-          hasRawData: false,
-        ),
+        _journey('second-journey'),
         readMapView: () async => null,
       );
       await tester.pumpAndSettle();
@@ -143,15 +135,7 @@ Future<JourneyFlowController> _openDetail(
     platform: TargetPlatform.iOS,
     navigationVisible: false,
   );
-  final journey = JourneyHeader(
-    id: 'back-hit-test',
-    revision: 'v1',
-    journeyDate: DateTime.utc(2026, 10, 12),
-    createdAt: DateTime.utc(2026, 10, 12),
-    journeyType: JourneyType.vector,
-    journeyKind: JourneyKind.defaultKind,
-    hasRawData: false,
-  );
+  final journey = _journey('back-hit-test');
   final flow = JourneyFlowController();
   addTearDown(flow.dispose);
   await flow.open(journey, readMapView: () async => null);
@@ -203,11 +187,21 @@ Future<JourneyFlowController> _openDetail(
   return flow;
 }
 
+JourneyHeader _journey(String id) => JourneyHeader(
+  id: id,
+  revision: 'v1',
+  journeyDate: DateTime.utc(2026, 10, 12),
+  createdAt: DateTime.utc(2026, 10, 12),
+  journeyType: JourneyType.vector,
+  journeyKind: JourneyKind.defaultKind,
+  hasRawData: false,
+);
+
 class _MapApi extends Fake implements RustLibApi {
   @override
-  Future<(api.MapRendererProxy, MapBounds?)>
-  crateApiApiGetMapRendererProxyForJourney({required String journeyId}) async =>
-      (_MapProxy(), null);
+  Future<(JourneyHeader, api.MapRendererProxy, MapBounds?)?>
+  crateApiApiGetJourneyDetail({required String journeyId}) async =>
+      (_journey(journeyId), _MapProxy(), null);
 }
 
 class _MapProxy extends Fake implements api.MapRendererProxy {}
