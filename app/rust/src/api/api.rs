@@ -703,6 +703,9 @@ pub fn export_journey(
     include_raw_data: bool,
 ) -> Result<ExportResult> {
     let data_for_export = get().storage.with_db_txn(|txn| {
+        let journey_header = txn
+            .get_journey_header(&journey_id)?
+            .ok_or_else(|| anyhow!("Journey {journey_id} does not exist"))?;
         let journey_data = txn.get_journey_data(&journey_id)?;
 
         if export_type != ExportType::MLDX {
@@ -715,42 +718,27 @@ pub fn export_journey(
         }
 
         match export_type {
-            ExportType::MLDX => {
-                let journey_header = txn
-                    .get_journey_header(&journey_id)?
-                    .expect("header must exist because we already got the data.");
-                Ok(Some(InternalDataForExport::Mldx(
-                    journey_header,
-                    journey_data,
-                    if include_raw_data {
-                        txn.get_journey_raw_data(&journey_id)?
-                    } else {
-                        None
-                    },
-                )))
-            }
+            ExportType::MLDX => Ok(Some(InternalDataForExport::Mldx(
+                journey_header,
+                journey_data,
+                if include_raw_data {
+                    txn.get_journey_raw_data(&journey_id)?
+                } else {
+                    None
+                },
+            ))),
             ExportType::FWSS => Ok(Some(InternalDataForExport::Fwss(journey_data))),
             ExportType::GPX => match journey_data {
                 JourneyData::Bitmap(_) => Err(anyhow!("cannot export bitmap data as gpx")),
-                JourneyData::Vector(vector) => {
-                    let header = txn
-                        .get_journey_header(&journey_id)?
-                        .expect("header must exist");
-                    Ok(Some(InternalDataForExport::Gpx(
-                        export_data::JourneyExport::from_header(header, vector),
-                    )))
-                }
+                JourneyData::Vector(vector) => Ok(Some(InternalDataForExport::Gpx(
+                    export_data::JourneyExport::from_header(journey_header, vector),
+                ))),
             },
             ExportType::KML => match journey_data {
                 JourneyData::Bitmap(_) => Err(anyhow!("cannot export bitmap data as kml")),
-                JourneyData::Vector(vector) => {
-                    let header = txn
-                        .get_journey_header(&journey_id)?
-                        .expect("header must exist");
-                    Ok(Some(InternalDataForExport::Kml(
-                        export_data::JourneyExport::from_header(header, vector),
-                    )))
-                }
+                JourneyData::Vector(vector) => Ok(Some(InternalDataForExport::Kml(
+                    export_data::JourneyExport::from_header(journey_header, vector),
+                ))),
             },
         }
     })?;

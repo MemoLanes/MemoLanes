@@ -621,6 +621,27 @@ fn check_journey_detail_and_mldx_analysis(path: &Path, db: &mut MainDb) {
     db.with_txn(|txn| txn.delete_journey(&archived_header.id))
         .unwrap();
     assert!(get_journey_detail(&archived_header.id).unwrap().is_none());
+    // Invalid and stale IDs must return errors before truncating an existing file.
+    let original_archive = fs::read(path).unwrap();
+    for id in ["missing-journey", archived_header.id.as_str()] {
+        for format in [
+            ExportType::MLDX,
+            ExportType::FWSS,
+            ExportType::GPX,
+            ExportType::KML,
+        ] {
+            let error = export_journey(
+                path.to_string_lossy().into_owned(),
+                id.to_owned(),
+                format,
+                true,
+            )
+            .err()
+            .expect("Missing journeys must return an error");
+            assert!(format!("{error:#}").contains(id));
+        }
+    }
+    assert_eq!(fs::read(path).unwrap(), original_archive);
     assert_eq!(
         reader.analyze().unwrap(),
         [MldxJourneyAnalysis {
