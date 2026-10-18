@@ -1,12 +1,16 @@
+import 'dart:async';
 import 'dart:ui' show DisplayFeature, DisplayFeatureState, DisplayFeatureType;
 
 import 'package:duo_dynamic_sizing/duo_dynamic_sizing.dart'
     as native
     show DuoHardware;
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:memolanes/common/component/app_dialog.dart';
+import 'package:memolanes/common/component/app_navigation_shell.dart';
+import 'package:memolanes/common/component/map_overlay_panel.dart';
 import 'package:memolanes/common/duo_device.dart';
 import 'package:memolanes/common/app_layout.dart';
 import 'package:memolanes/theme/app_theme.dart';
@@ -41,9 +45,8 @@ void main() {
   Future<void> pumpProvider(
     WidgetTester tester,
     Widget home,
-    _HardwareChannel channel, {
-    List<DisplayFeature> engineFeatures = _engineFeatures,
-  }) async {
+    _HardwareChannel channel,
+  ) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(960, 640);
     addTearDown(tester.view.resetDevicePixelRatio);
@@ -57,7 +60,7 @@ void main() {
           textDirection: TextDirection.ltr,
           child: MediaQuery(
             data: MediaQuery.of(context)
-                .copyWith(displayFeatures: engineFeatures),
+                .copyWith(displayFeatures: _engineFeatures),
             child: DuoDeviceProvider(child: child!),
           ),
         ),
@@ -68,24 +71,44 @@ void main() {
   }
 
   testWidgets(
-    'actual Duo masks engine splitting and keeps native hardware above Navigator',
+    'only chrome waits for hardware and a side edge does not wait for the hinge',
     (tester) async {
-      final channel = _HardwareChannel(_duo);
-      List<DisplayFeature>? observed;
-      native.DuoHardware? hardware;
+      final response = Completer<Map<String, Object?>>();
+      final channel = _HardwareChannel(_duo, firstResponse: response.future);
+      final axes = <Axis>[];
       await pumpProvider(
         tester,
-        Builder(
-          builder: (context) {
-            observed = MediaQuery.of(context).displayFeatures;
-            hardware = native.DuoHardware.of(context);
-            return const Scaffold();
+        AppNavigationShell(
+          navigationBuilder: (_, {required axis}) {
+            axes.add(axis);
+            return const SizedBox.expand(key: Key('navigation'));
           },
+          bottomTrailingOverlay: const SizedBox(key: Key('attribution')),
+          bodyBuilder: ({required topSafeArea, required bottomSafeArea}) =>
+              Stack(
+                fit: StackFit.expand,
+                children: const [
+                  Text('Page content'),
+                  MapOverlayPanel.controls(child: Text('Map controls')),
+                ],
+              ),
         ),
         channel,
       );
-      expect(observed, isEmpty);
-      expect(hardware!.folds.single.frame, _hinge);
+      expect(find.text('Page content'), findsOneWidget);
+      expect(find.byKey(const Key('navigation')), findsNothing);
+      expect(find.byKey(const Key('attribution')), findsNothing);
+      expect(find.text('Map controls'), findsNothing);
+      expect(axes, isEmpty);
+      response.complete({..._duo, 'hinge': false});
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('navigation')), findsOneWidget);
+      expect(find.byKey(const Key('attribution')), findsOneWidget);
+      expect(find.text('Map controls'), findsOneWidget);
+      expect(axes, everyElement(Axis.vertical));
+      final context = tester.element(find.text('Page content'));
+      expect(MediaQuery.of(context).displayFeatures, isEmpty);
+      expect(native.DuoHardware.of(context).folds.single.frame, _hinge);
       expect(channel.snapshots, 1);
       expect(channel.listens, 1);
       await tester.pumpWidget(const SizedBox.shrink());
@@ -95,47 +118,45 @@ void main() {
     variant: const TargetPlatformVariant({TargetPlatform.iOS}),
   );
 
-  testWidgets('ordinary devices without a hinge keep engine features', (
-    tester,
-  ) async {
-    final channel = _HardwareChannel({
-      ..._duo,
-      'supported': true,
-      'hinge': false,
-    });
-    List<DisplayFeature>? observed;
-    AppLayout? layout;
-    DuoBarEdge? edge;
-    await pumpProvider(
-      tester,
-      Builder(
-        builder: (context) {
-          observed = MediaQuery.of(context).displayFeatures;
-          layout = AppLayout.fromContext(context);
-          edge = DuoBarScope.of(context);
-          return const Scaffold();
-        },
-      ),
-      channel,
-    );
-    expect(observed, _engineFeatures);
-    expect(layout!.detachedBackBounds, isNull);
-    expect(edge, DuoBarEdge.unknown);
-  }, variant: const TargetPlatformVariant({TargetPlatform.iOS}));
+  testWidgets(
+    'a failed initial read releases chrome into the ordinary layout',
+    (tester) async {
+      final response = Completer<Map<String, Object?>>();
+      final channel = _HardwareChannel({}, firstResponse: response.future);
+      AppLayout? layout;
+      await pumpProvider(
+        tester,
+        Builder(
+          builder: (context) {
+            layout = AppLayout.fromContext(context);
+            return const SizedBox.expand();
+          },
+        ),
+        channel,
+      );
+      expect(layout!.chromeReady, isFalse);
+      response.completeError(MissingPluginException());
+      await tester.pumpAndSettle();
+      expect(layout!.chromeReady, isTrue);
+      expect(layout!.navigationAxis, Axis.horizontal);
+      expect(channel.snapshots, 1);
+      expect(channel.listens, 0);
+      expect(tester.takeException(), isNull);
+    },
+    variant: const TargetPlatformVariant({TargetPlatform.iOS}),
+  );
 
   testWidgets(
-    'Android keeps ordinary features and does not subscribe to native hardware',
+    'ordinary devices keep engine features and only iOS subscribes to hardware',
     (tester) async {
-      final channel = _HardwareChannel(_duo);
+      final channel = _HardwareChannel({'supported': true, 'hinge': false});
       List<DisplayFeature>? observed;
-      native.DuoHardware? hardware;
       AppLayout? layout;
       await pumpProvider(
         tester,
         Builder(
           builder: (context) {
             observed = MediaQuery.of(context).displayFeatures;
-            hardware = native.DuoHardware.of(context);
             layout = AppLayout.fromContext(context);
             return const Scaffold();
           },
@@ -143,35 +164,16 @@ void main() {
         channel,
       );
       expect(observed, _engineFeatures);
-      expect(hardware, native.DuoHardware.none);
       expect(layout!.detachedBackBounds, isNull);
-      expect(channel.snapshots, 0);
-      expect(channel.listens, 0);
+      expect(layout!.chromeReady, isTrue);
+      final subscriptions = defaultTargetPlatform == TargetPlatform.iOS ? 1 : 0;
+      expect(channel.snapshots, subscriptions);
+      expect(channel.listens, subscriptions);
     },
-    variant: const TargetPlatformVariant({TargetPlatform.android}),
-  );
-
-  testWidgets(
-    'missing hardware detection leaves the framework fallback untouched',
-    (tester) async {
-      final channel = _HardwareChannel({'supported': true});
-      DuoBarEdge? edge;
-      List<DisplayFeature>? observed;
-      await pumpProvider(
-        tester,
-        Builder(
-          builder: (context) {
-            edge = DuoBarScope.of(context);
-            observed = MediaQuery.of(context).displayFeatures;
-            return const Scaffold();
-          },
-        ),
-        channel,
-      );
-      expect(edge, DuoBarEdge.unknown);
-      expect(observed, _engineFeatures);
-    },
-    variant: const TargetPlatformVariant({TargetPlatform.iOS}),
+    variant: const TargetPlatformVariant({
+      TargetPlatform.iOS,
+      TargetPlatform.android,
+    }),
   );
 
   testWidgets(
@@ -205,16 +207,13 @@ void main() {
     'an open modal retains its form draft when hardware detection arrives',
     (tester) async {
       final channel = _HardwareChannel({'supported': true});
-      var initializations = 0;
       await pumpProvider(
         tester,
         Builder(
           builder: (context) => Scaffold(
             body: TextButton(
-              onPressed: () => showAppDialog(
-                context,
-                builder: (_) => _DraftField(onInit: () => initializations++),
-              ),
+              onPressed: () =>
+                  showAppDialog(context, builder: (_) => const TextField()),
               child: const Text('Open'),
             ),
           ),
@@ -224,24 +223,16 @@ void main() {
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), 'Unsaved draft');
-      channel.update(_duo);
-      await tester.pumpAndSettle();
-      expect(initializations, 1);
-      expect(
-        tester.widget<TextField>(find.byType(TextField)).controller!.text,
-        'Unsaved draft',
-      );
-      expect(
-        tester.getRect(find.byType(TextField)).left,
-        greaterThanOrEqualTo(_hinge.right),
-      );
-      channel.update({'supported': true});
-      await tester.pumpAndSettle();
-      expect(initializations, 1);
-      expect(
-        tester.widget<TextField>(find.byType(TextField)).controller!.text,
-        'Unsaved draft',
-      );
+      final field = tester.state(find.byType(TextField));
+      for (final hardware in [
+        _duo,
+        {'supported': true},
+      ]) {
+        channel.update(hardware);
+        await tester.pumpAndSettle();
+        expect(tester.state(find.byType(TextField)), same(field));
+        expect(find.text('Unsaved draft'), findsOneWidget);
+      }
       expect(tester.takeException(), isNull);
     },
     variant: const TargetPlatformVariant({TargetPlatform.iOS}),
@@ -249,8 +240,9 @@ void main() {
 }
 
 class _HardwareChannel {
-  _HardwareChannel(this.data);
+  _HardwareChannel(this.data, {this.firstResponse});
   Map<String, Object?> data;
+  final Future<Map<String, Object?>>? firstResponse;
   MockStreamHandlerEventSink? _sink;
   int snapshots = 0;
   int listens = 0;
@@ -264,7 +256,7 @@ class _HardwareChannel {
     messenger.setMockMethodCallHandler(_methods, (call) async {
       expect(call.method, 'snapshot');
       snapshots++;
-      return data;
+      return firstResponse == null ? data : await firstResponse;
     });
     messenger.setMockStreamHandler(
       _events,
@@ -292,29 +284,4 @@ class _HardwareChannel {
     messenger.setMockMethodCallHandler(_methods, null);
     messenger.setMockStreamHandler(_events, null);
   }
-}
-
-class _DraftField extends StatefulWidget {
-  const _DraftField({required this.onInit});
-  final VoidCallback onInit;
-  @override
-  State<_DraftField> createState() => _DraftFieldState();
-}
-
-class _DraftFieldState extends State<_DraftField> {
-  final _controller = TextEditingController();
-  @override
-  void initState() {
-    super.initState();
-    widget.onInit();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => TextField(controller: _controller);
 }

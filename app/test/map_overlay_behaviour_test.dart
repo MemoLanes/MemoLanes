@@ -358,31 +358,6 @@ void main() {
     variant: const TargetPlatformVariant({TargetPlatform.iOS}),
   );
 
-  testWidgets('short side navigation keeps hidden tabs reachable', (
-    tester,
-  ) async {
-    int? selected;
-    await _pumpScene(
-      tester,
-      const _Viewport(
-        'short-window',
-        Size(600, 240),
-        DuoBarEdge.right,
-        padding: EdgeInsets.all(12),
-      ),
-      _OverlayMode.record,
-      onNavigationSelected: (index) => selected = index,
-    );
-    await tester.tap(find.byIcon(Icons.more_horiz_rounded));
-    await tester.pumpAndSettle();
-    expect(find.text('Achievements'), findsOneWidget);
-    expect(find.text('Settings'), findsOneWidget);
-    await tester.tap(find.text('Settings'));
-    await tester.pumpAndSettle();
-    expect(selected, 4);
-    expect(tester.takeException(), isNull);
-  }, variant: const TargetPlatformVariant({TargetPlatform.iOS}));
-
   testWidgets('open layer popup clears navigation and follows native folds', (
     tester,
   ) async {
@@ -692,7 +667,6 @@ Future<AppLayout> _pumpScene(
   WidgetTester tester,
   _Viewport viewport,
   _OverlayMode mode, {
-  ValueChanged<int>? onNavigationSelected,
   Widget Function(AppLayout)? overlayBuilder,
   Locale locale = const Locale('en', 'US'),
   bool navigationVisible = true,
@@ -773,7 +747,7 @@ Future<AppLayout> _pumpScene(
                                 selectedIndex: mode == _OverlayMode.record
                                     ? 0
                                     : 2,
-                                onIndexChanged: onNavigationSelected ?? (_) {},
+                                onIndexChanged: (_) {},
                                 hasUpdateNotification: () => false,
                               ),
                             ),

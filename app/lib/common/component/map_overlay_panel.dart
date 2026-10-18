@@ -57,6 +57,7 @@ class MapOverlayPanelState extends State<MapOverlayPanel> {
   @override
   Widget build(BuildContext context) {
     final layout = AppLayoutScope.of(context);
+    if (!layout.chromeReady) return const SizedBox.shrink();
     // The resolved panel already clears window chrome. Scrollbars, SafeArea
     // and nested content use this local viewport without consuming it again.
     final child = MediaQuery.removePadding(

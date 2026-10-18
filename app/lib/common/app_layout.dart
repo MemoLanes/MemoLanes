@@ -21,6 +21,7 @@ class AppLayout {
     required this.contentBounds,
     required this.navigationBounds,
     required this.navigationContentSize,
+    required this.chromeReady,
     required this.navigationAxis,
     required this.regions,
     required this.controlRegion,
@@ -43,6 +44,9 @@ class AppLayout {
   final Rect contentBounds;
   final Rect navigationBounds;
   final Size navigationContentSize;
+
+  /// Navigation and dependent overlays wait for the first hardware response.
+  final bool chromeReady;
   final Axis navigationAxis;
   final List<Rect> regions;
   final Rect controlRegion;
@@ -585,6 +589,7 @@ class AppLayout {
           Size(media.size.width, media.size.height - media.viewInsets.bottom),
       hardware: hardware,
       barEdge: DuoBarScope.of(context),
+      chromeReady: DuoBarScope.isReadyOf(context),
       platform: defaultTargetPlatform,
       navigationVisible: navigationVisible,
       navigationMedia: navigationMedia,
@@ -598,6 +603,7 @@ class AppLayout {
     required DuoBarEdge barEdge,
     required TargetPlatform platform,
     bool navigationVisible = true,
+    bool chromeReady = true,
     MediaQueryData? navigationMedia,
   }) {
     navigationMedia ??= media;
@@ -606,7 +612,9 @@ class AppLayout {
     final availableBottom = size.height - keyboardInset;
     final enabled =
         platform == TargetPlatform.iOS &&
-        hardware.hasHinge &&
+        (hardware.hasHinge ||
+            barEdge == DuoBarEdge.left ||
+            barEdge == DuoBarEdge.right) &&
         barEdge != DuoBarEdge.unknown;
     final padding = media.viewPadding;
     final safe = _inset(
@@ -663,6 +671,7 @@ class AppLayout {
           scale == 0 ? naturalWidth : navigationSize.width / scale,
           StyleConstants.navBarHeight,
         ),
+        chromeReady: chromeReady,
         navigationAxis: Axis.horizontal,
         regions: [safe],
         controlRegion: safe,
@@ -836,6 +845,7 @@ class AppLayout {
       contentBounds: content,
       navigationBounds: navigation,
       navigationContentSize: navigation.size,
+      chromeReady: chromeReady,
       navigationAxis: axis,
       regions: regions,
       controlRegion: controls,

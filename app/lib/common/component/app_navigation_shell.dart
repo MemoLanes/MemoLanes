@@ -64,7 +64,7 @@ class AppNavigationShell extends StatelessWidget {
                 bottomSafeArea: layout.menuScrollInsets.bottom,
               ),
             ),
-            if (navigationVisible)
+            if (navigationVisible && layout.chromeReady)
               Positioned.fromRect(
                 rect: layout.navigationBounds,
                 child: FittedBox(
@@ -84,7 +84,9 @@ class AppNavigationShell extends StatelessWidget {
                   ),
                 ),
               ),
-            if (navigationVisible && bottomTrailingOverlay != null)
+            if (navigationVisible &&
+                layout.chromeReady &&
+                bottomTrailingOverlay != null)
               Positioned(
                 right: layout.trailingOverlayInsets.dx,
                 bottom: layout.trailingOverlayInsets.dy,

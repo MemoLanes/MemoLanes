@@ -1,12 +1,4 @@
 {
-  "navigation": {
-    "record": "Record",
-    "timeline": "Timeline",
-    "journeys": "Journeys",
-    "achievements": "Achievements",
-    "settings": "Settings",
-    "more": "More"
-  },
   "home": {
     "start_new_journey": "Start new journey",
     "pause": "Pause",

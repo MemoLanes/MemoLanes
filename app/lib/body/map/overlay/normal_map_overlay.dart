@@ -49,6 +49,7 @@ class NormalMapOverlay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final layout = AppLayoutScope.of(context);
+    if (!layout.chromeReady) return const SizedBox.shrink();
     final isRecording = context.select<GpsManager, bool>(
       (gpsManager) =>
           gpsManager.recordingStatus == GpsRecordingStatus.recording,

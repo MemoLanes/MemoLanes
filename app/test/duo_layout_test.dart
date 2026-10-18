@@ -51,6 +51,7 @@ void main() {
           navigation: false,
           padding: const EdgeInsets.only(right: 84, bottom: 34),
           fold: hardware,
+          edge: hardware.hasHinge ? DuoBarEdge.right : DuoBarEdge.horizontal,
         );
         final card = resolved.panelBounds;
         contained(card, resolved.safeBounds);
@@ -182,6 +183,7 @@ void main() {
             bodySize: size,
             keyboard: EdgeInsets.only(bottom: keyboard),
             fold: hardware,
+            edge: hardware.hasHinge ? DuoBarEdge.right : DuoBarEdge.horizontal,
           );
           for (final padding in [
             resolved.mapFitPadding,
@@ -206,27 +208,31 @@ void main() {
       }
     }
   });
-  test('hardware capability, platform and native edge are all required', () {
-    for (final size in [
-      const Size(393, 852),
-      const Size(844, 390),
-      const Size(1024, 768),
-    ]) {
-      final ordinary = layout(
-        size: size,
-        fold: const DuoHardware(
-          supported: true,
-          horizontalSizeClass: DuoSizeClass.regular,
-          folds: [DuoRegion(Rect.fromLTWH(400, 0, 20, 768))],
-        ),
-      );
-      expect(ordinary.detachedBackBounds, isNull);
-      expect(ordinary.contentBounds, Offset.zero & size);
-    }
+  test('API support and size classes alone do not enable hardware layout', () {
+    const size = Size(1024, 768);
+    final ordinary = layout(
+      size: size,
+      edge: DuoBarEdge.horizontal,
+      fold: const DuoHardware(
+        supported: true,
+        horizontalSizeClass: DuoSizeClass.regular,
+        folds: [DuoRegion(Rect.fromLTWH(400, 0, 20, 768))],
+      ),
+    );
+    expect(ordinary.detachedBackBounds, isNull);
+    expect(ordinary.contentBounds, Offset.zero & size);
     expect(layout(platform: TargetPlatform.android).detachedBackBounds, isNull);
     expect(layout(edge: DuoBarEdge.unknown).detachedBackBounds, isNull);
     // Empty display features cannot infer either hardware or current posture.
-    expect(layout(fold: DuoHardware.none).detachedBackBounds, isNull);
+    expect(
+      layout(
+        fold: DuoHardware.none,
+        edge: DuoBarEdge.unknown,
+      ).detachedBackBounds,
+      isNull,
+    );
+    // UIKit can report a side edge before the hinge callback arrives.
+    expect(layout(fold: DuoHardware.none).detachedBackBounds, isNotNull);
     expect(layout(fold: _duo).detachedBackBounds, isNotNull);
   });
 

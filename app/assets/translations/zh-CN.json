@@ -1,12 +1,4 @@
 {
-  "navigation": {
-    "record": "记录",
-    "timeline": "时光机",
-    "journeys": "行程",
-    "achievements": "成就",
-    "settings": "设置",
-    "more": "更多"
-  },
   "home": {
     "start_new_journey": "开始新旅程",
     "pause": "暂停",
