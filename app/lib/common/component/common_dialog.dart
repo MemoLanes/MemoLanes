@@ -66,9 +66,8 @@ class CommonDialog extends StatelessWidget {
       ),
     };
 
-    return AppDialogCard(
+    return AppDialogContent(
       title: title,
-      maxHeightFactor: 0.78,
       contentPadding: const EdgeInsets.fromLTRB(20, 14, 20, 18),
       actions: buttons.isEmpty
           ? null

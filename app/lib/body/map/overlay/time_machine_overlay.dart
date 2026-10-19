@@ -1,14 +1,13 @@
 import 'dart:async';
-import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:material_ui/material_ui.dart';
 import 'package:memolanes/body/time_machine/time_range_picker.dart';
 import 'package:memolanes/common/async_load_token.dart';
+import 'package:memolanes/common/component/map_overlay_panel.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/screenshot.dart';
 import 'package:memolanes/common/simple_date_utils.dart';
-import 'package:memolanes/constants/style_constants.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/journey_header.dart';
 
@@ -153,17 +152,9 @@ class TimeMachineOverlayState extends State<TimeMachineOverlay> {
       return const SizedBox.shrink();
     }
 
-    final padding = MediaQuery.viewPaddingOf(context);
-    final horizontalSafeArea = math.max(padding.left, padding.right);
-
     return Stack(
       children: [
-        Positioned(
-          left: horizontalSafeArea + 24,
-          right: horizontalSafeArea + 24,
-          bottom: StyleConstants.mapPrimaryControlBottomInsetForContext(
-            context,
-          ),
+        MapOverlayPanel.controls(
           child: NotificationListener<ScrollNotification>(
             onNotification: (notification) {
               if (notification is ScrollStartNotification) {

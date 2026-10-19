@@ -15,35 +15,36 @@ class AchievementSourceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final compact = useCompactAchievementCardLayout(context);
-
-    return OptionCard(
-      children: [
-        Padding(
-          padding: achievementCardPadding,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              AchievementCardTitleRow(
-                title: context.tr('achievement.source.title'),
-                info: context.tr('achievement.source.overlap_note'),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                context.tr('achievement.source.description'),
-                style: AppTypography.body.copyWith(
-                  color: context.appColors.mutedInkColor,
-                  fontWeight: FontWeight.w500,
+    return OptionCard.builder(
+      contentBuilder: (context, constraints) {
+        final compact = constraints.maxWidth < 470;
+        return [
+          Padding(
+            padding: achievementCardPadding,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                AchievementCardTitleRow(
+                  title: context.tr('achievement.source.title'),
+                  info: context.tr('achievement.source.overlap_note'),
                 ),
-              ),
-              SizedBox(height: compact ? 16 : 18),
-              _TotalAreaSummary(value: stats.totalKm2, compact: compact),
-              const SizedBox(height: 18),
-              _SourceCardsRow(compact: compact, stats: stats),
-            ],
+                const SizedBox(height: 12),
+                Text(
+                  context.tr('achievement.source.description'),
+                  style: AppTypography.body.copyWith(
+                    color: context.appColors.mutedInkColor,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                SizedBox(height: compact ? 16 : 18),
+                _TotalAreaSummary(value: stats.totalKm2, compact: compact),
+                const SizedBox(height: 18),
+                _SourceCardsRow(compact: compact, stats: stats),
+              ],
+            ),
           ),
-        ),
-      ],
+        ];
+      },
     );
   }
 }
@@ -79,11 +80,13 @@ class _TotalAreaSummary extends StatelessWidget {
                 size: 16,
               ),
               const SizedBox(width: 6),
-              Text(
-                context.tr('achievement.overview.title'),
-                style: AppTypography.sectionLabel.copyWith(
-                  color: context.appColors.mutedInkColor,
-                  fontWeight: FontWeight.w700,
+              Flexible(
+                child: Text(
+                  context.tr('achievement.overview.title'),
+                  style: AppTypography.sectionLabel.copyWith(
+                    color: context.appColors.mutedInkColor,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
             ],

@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
@@ -9,7 +8,9 @@ import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/map_fog_style.dart';
 import 'package:memolanes/common/map_style.dart';
-import 'package:memolanes/common/map_webview_assets.dart';
+import 'package:memolanes/common/map_webview_resources.dart';
+import 'package:memolanes/common/component/map_overlay_panel.dart';
+import 'package:memolanes/common/app_layout.dart';
 import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/utils.dart' as rust_utils show MapBounds;
@@ -38,9 +39,11 @@ class BaseMapWebview extends StatefulWidget {
   final api.MapRendererProxy mapRendererProxy;
   final MapView? initialMapView;
   final MapBounds? initialMapBounds;
-  final EdgeInsets? initialMapBoundsPadding;
+  final EdgeInsets? boundsPadding;
+
+  /// Reuse the existing panel's current footprint when fitting map bounds.
+  final GlobalKey<MapOverlayPanelState>? overlayPanel;
   final MapBounds? flyToBounds;
-  final EdgeInsets? flyToBoundsPadding;
   final MapView? flyToView;
   final TrackingMode trackingMode;
   final bool isEditor;
@@ -54,9 +57,9 @@ class BaseMapWebview extends StatefulWidget {
     required this.mapRendererProxy,
     this.initialMapView,
     this.initialMapBounds,
-    this.initialMapBoundsPadding,
+    this.boundsPadding,
+    this.overlayPanel,
     this.flyToBounds,
-    this.flyToBoundsPadding,
     this.flyToView,
     this.trackingMode = TrackingMode.off,
     this.isEditor = false,
@@ -73,14 +76,36 @@ class BaseMapWebview extends StatefulWidget {
 class BaseMapWebviewState extends State<BaseMapWebview> {
   static const _webGlRecoveryWindow = Duration(minutes: 1);
   static const _maxWebGlRecoveryReloads = 2;
-  static const _androidApiEndpoint = 'https://memolanes.local/api';
-  static const _androidApiRequestPrefix = '$_androidApiEndpoint/';
 
   InAppWebViewController? _webViewController;
   late GpsManager _gpsManager;
   bool _readyForDisplay = false;
   bool _webGlRecoveryReloadInProgress = false;
   bool _pendingMapDataSync = false;
+  bool _mapSyncScheduled = false;
+  AppLayout? _mapLayout;
+
+  EdgeInsets get _boundsPadding =>
+      widget.overlayPanel?.currentState?.mapFitPadding ??
+      widget.boundsPadding ??
+      const EdgeInsets.all(24);
+
+  MapBounds? get _cameraBounds =>
+      widget.flyToBounds ??
+      (widget.overlayPanel != null ? widget.initialMapBounds : null);
+
+  // Bounds and panel measurements must belong to the same completed layout.
+  // Coalesce a target change and a physical viewport change into one move.
+  void _scheduleMapSync() {
+    if (_mapSyncScheduled) return;
+    _mapSyncScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _mapSyncScheduled = false;
+      if (!mounted) return;
+      unawaited(_syncMapDataAndCamera());
+    });
+  }
+
   final List<DateTime> _webGlRecoveryReloads = [];
 
   late MapStyle _selectedMapStyle;
@@ -163,21 +188,14 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
       }
     }
 
-    final paddingChanged =
-        widget.flyToBounds != null &&
-        oldWidget.flyToBoundsPadding != widget.flyToBoundsPadding;
     if (oldWidget.mapRendererProxy != widget.mapRendererProxy ||
         oldWidget.flyToBounds != widget.flyToBounds ||
+        (widget.overlayPanel != null &&
+            oldWidget.initialMapBounds != widget.initialMapBounds) ||
         oldWidget.flyToView != widget.flyToView ||
-        paddingChanged) {
-      if (paddingChanged) {
-        // fitBounds must see the WebView's new size after a rotation.
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) unawaited(_syncMapDataAndCamera());
-        });
-      } else {
-        unawaited(_syncMapDataAndCamera());
-      }
+        oldWidget.boundsPadding != widget.boundsPadding ||
+        oldWidget.overlayPanel != widget.overlayPanel) {
+      _scheduleMapSync();
     }
   }
 
@@ -190,9 +208,9 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
       return;
     }
     _pendingMapDataSync = false;
-    final bounds = widget.flyToBounds;
+    final bounds = _cameraBounds;
     final view = widget.flyToView;
-    final padding = widget.flyToBoundsPadding ?? const EdgeInsets.all(24);
+    final padding = _boundsPadding;
     final boundsJson = bounds == null
         ? 'null'
         : jsonEncode({
@@ -402,7 +420,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     if (!mounted) return;
 
     // Load the page after listeners are registered. Platform-specific asset
-    // mechanics are isolated in MapWebViewAssets.
+    // mechanics are isolated in MapWebViewResources.
     if (_devServer.isNotEmpty) {
       final pageUrl = _devServer.endsWith('/')
           ? '${_devServer}index.html'
@@ -411,7 +429,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
       await controller.loadUrl(urlRequest: URLRequest(url: WebUri(pageUrl)));
     } else {
       log.info('[base_map_webview] Loading bundled map page');
-      await MapWebViewAssets.load(controller, 'index.html');
+      await MapWebViewResources.load(controller, 'index.html');
     }
   }
 
@@ -427,18 +445,13 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     final latParam = mapView?.lat.toString() ?? 'null';
     final zoomParam = mapView?.zoom.toString() ?? 'null';
     final bounds = widget.flyToBounds ?? widget.initialMapBounds;
-    final boundsPadding =
-        widget.flyToBoundsPadding ??
-        widget.initialMapBoundsPadding ??
-        const EdgeInsets.all(24);
+    final boundsPadding = _boundsPadding;
 
     debugPrint('Injecting lng: $lngParam');
     debugPrint('Injecting lat: $latParam');
     debugPrint('Injecting zoom: $zoomParam');
 
-    final cgiEndpoint = Platform.isIOS
-        ? 'memolanes://api'
-        : _androidApiEndpoint;
+    final cgiEndpoint = MapWebViewResources.apiEndpoint;
 
     final style = _selectedMapStyle;
     final fogStyle = _selectedMapFogStyle;
@@ -609,31 +622,17 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     }
   }
 
-  /// Handle an intercepted request by forwarding path + query to the unified Rust dispatcher.
-  Future<
-    ({
-      int status,
-      Uint8List body,
-      String contentType,
-      Map<String, String> headers,
-    })
-  >
-  _handleInterceptedRequest(WebUri url) async {
-    final path = url.path.replaceFirst(RegExp(r'^/?(api/)?'), '');
-    final result = await widget.mapRendererProxy.handleRequest(
-      path: path,
-      queryParams: url.queryParameters,
-    );
-    return (
-      status: result.status,
-      body: result.body,
-      contentType: result.contentType,
-      headers: result.headers,
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
+    if (widget.overlayPanel != null) {
+      final layout = AppLayoutScope.of(context);
+      if (_mapLayout case final previous?) {
+        if (_cameraBounds != null && !layout.hasSameMapViewport(previous)) {
+          _scheduleMapSync();
+        }
+      }
+      _mapLayout = layout;
+    }
     return Stack(
       children: [
         InAppWebView(
@@ -646,51 +645,38 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
             allowUniversalAccessFromFileURLs: true,
             resourceCustomSchemes: ['memolanes'],
             // Skip the Android → Dart round trip for ordinary map resources.
-            shouldInterceptRequestUrlPrefixes: [_androidApiRequestPrefix],
-            webViewAssetLoader: MapWebViewAssets.createAssetLoader(),
+            shouldInterceptRequestUrlPrefixes: [
+              MapWebViewResources.androidApiRequestPrefix,
+            ],
+            webViewAssetLoader: MapWebViewResources.createAssetLoader(),
           ),
           onWebViewCreated: (controller) {
             _onWebViewCreated(controller);
           },
+          onContentSizeChanged: (controller, oldSize, newSize) {
+            // Native WebView resizing can finish after Flutter's layout frame.
+            // Fit again once the map can use the new content dimensions.
+            if (oldSize != newSize &&
+                _readyForDisplay &&
+                _cameraBounds != null) {
+              _scheduleMapSync();
+              WidgetsBinding.instance.ensureVisualUpdate();
+            }
+          },
           // iOS: intercept custom scheme requests (memolanes://)
           onLoadResourceWithCustomScheme: (controller, request) async {
             if (!mounted) return null;
-            final result = await _handleInterceptedRequest(request.url);
-            return CustomSchemeResponse(
-              data: result.body,
-              contentType: result.contentType,
-              contentEncoding: 'utf-8',
-              statusCode: result.status,
-              headers: {
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Expose-Headers':
-                    'X-Tile-Version, X-Not-Modified',
-                'Content-Type': result.contentType,
-                ...result.headers,
-              },
+            return MapWebViewResources.loadApiResource(
+              widget.mapRendererProxy,
+              request.url,
             );
           },
           // Android: intercept URL pattern requests (https://memolanes.local/api/)
           shouldInterceptRequest: (controller, request) async {
             if (!mounted) return null;
-            final url = request.url.toString();
-            if (!url.startsWith(_androidApiRequestPrefix)) {
-              return null;
-            }
-            final result = await _handleInterceptedRequest(request.url);
-            return WebResourceResponse(
-              contentType: result.contentType,
-              contentEncoding: 'utf-8',
-              data: result.body,
-              statusCode: result.status,
-              reasonPhrase: result.status == 200 ? 'OK' : 'Not Modified',
-              headers: {
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Expose-Headers':
-                    'X-Tile-Version, X-Not-Modified',
-                'Content-Type': result.contentType,
-                ...result.headers,
-              },
+            return MapWebViewResources.interceptApiRequest(
+              widget.mapRendererProxy,
+              request.url,
             );
           },
           shouldOverrideUrlLoading: (controller, navigationAction) async {
@@ -705,7 +691,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
             if (scheme == 'about') {
               return NavigationActionPolicy.ALLOW;
             }
-            if (MapWebViewAssets.owns(url)) {
+            if (MapWebViewResources.owns(url)) {
               return NavigationActionPolicy.ALLOW;
             }
             if (_devServer.isNotEmpty &&

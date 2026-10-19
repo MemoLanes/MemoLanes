@@ -3,13 +3,13 @@ import 'package:material_ui/material_ui.dart';
 import 'package:memolanes/common/component/app_checkbox.dart';
 import 'package:memolanes/constants/app_typography.dart';
 
-enum AppOptionTileTrailing { chevron, selection }
+enum AppOptionTileTrailing { none, chevron, selection }
 
 class AppOptionTile extends StatelessWidget {
   const AppOptionTile({
     super.key,
     required this.title,
-    required this.onTap,
+    this.onTap,
     this.icon,
     this.iconWidget,
     this.subtitle,
@@ -21,7 +21,7 @@ class AppOptionTile extends StatelessWidget {
        assert(!selected || trailing == AppOptionTileTrailing.selection);
 
   final String title;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final IconData? icon;
   final Widget? iconWidget;
   final String? subtitle;
@@ -29,8 +29,9 @@ class AppOptionTile extends StatelessWidget {
   final AppOptionTileTrailing trailing;
   final double backgroundAlpha;
 
-  Widget _buildTrailing(BuildContext context) {
+  Widget? _buildTrailing(BuildContext context) {
     return switch (trailing) {
+      AppOptionTileTrailing.none => null,
       AppOptionTileTrailing.chevron => Icon(
         Icons.chevron_right_rounded,
         color: context.appColors.mutedInkColor,
@@ -45,93 +46,91 @@ class AppOptionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      selected: trailing == AppOptionTileTrailing.selection ? selected : null,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(14),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 170),
-            curve: Curves.easeOutCubic,
-            constraints: const BoxConstraints(minHeight: 58),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              color: selected
-                  ? context.appColors.softGreen.withValues(alpha: 0.88)
-                  : context.appColors.surfaceColor.withValues(
-                      alpha: backgroundAlpha,
-                    ),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
+    final trailingWidget = _buildTrailing(context);
+    final tile = AnimatedContainer(
+      duration: const Duration(milliseconds: 170),
+      curve: Curves.easeOutCubic,
+      constraints: const BoxConstraints(minHeight: 58),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: selected
+            ? context.appColors.softGreen.withValues(alpha: 0.88)
+            : context.appColors.surfaceColor.withValues(alpha: backgroundAlpha),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: selected
+              ? context.appColors.primaryGreen
+              : context.appColors.lineColor,
+          width: selected ? 1.4 : 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          if (icon != null || iconWidget != null) ...[
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 170),
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
                 color: selected
-                    ? context.appColors.primaryGreen
-                    : context.appColors.lineColor,
-                width: selected ? 1.4 : 1,
+                    ? context.appColors.primaryGreen.withValues(alpha: 0.34)
+                    : context.appColors.softGreen,
+                borderRadius: BorderRadius.circular(11),
               ),
+              alignment: Alignment.center,
+              child:
+                  iconWidget ??
+                  Icon(icon, color: context.appColors.deepGreen, size: 20),
             ),
-            child: Row(
+            const SizedBox(width: 12),
+          ],
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (icon != null || iconWidget != null) ...[
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 170),
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: selected
-                          ? context.appColors.primaryGreen.withValues(
-                              alpha: 0.34,
-                            )
-                          : context.appColors.softGreen,
-                      borderRadius: BorderRadius.circular(11),
-                    ),
-                    alignment: Alignment.center,
-                    child:
-                        iconWidget ??
-                        Icon(
-                          icon,
-                          color: context.appColors.deepGreen,
-                          size: 20,
-                        ),
-                  ),
-                  const SizedBox(width: 12),
-                ],
-                Expanded(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppTypography.itemTitle.copyWith(
-                          color: context.appColors.inkColor,
-                        ),
-                      ),
-                      if (subtitle != null) ...[
-                        const SizedBox(height: 3),
-                        Text(
-                          subtitle!,
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppTypography.caption.copyWith(
-                            color: context.appColors.mutedInkColor,
-                          ),
-                        ),
-                      ],
-                    ],
+                Text(
+                  title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.itemTitle.copyWith(
+                    color: context.appColors.inkColor,
                   ),
                 ),
-                const SizedBox(width: 10),
-                _buildTrailing(context),
+                if (subtitle != null) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    subtitle!,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTypography.caption.copyWith(
+                      color: context.appColors.mutedInkColor,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
-        ),
+          if (trailingWidget != null) ...[
+            const SizedBox(width: 10),
+            trailingWidget,
+          ],
+        ],
       ),
+    );
+    return Semantics(
+      button: onTap != null ? true : null,
+      selected: trailing == AppOptionTileTrailing.selection ? selected : null,
+      child: onTap == null
+          ? tile
+          : Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: onTap,
+                borderRadius: BorderRadius.circular(14),
+                child: tile,
+              ),
+            ),
     );
   }
 }

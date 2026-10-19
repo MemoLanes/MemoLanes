@@ -6,7 +6,8 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:memolanes/common/component/app_button.dart';
 import 'package:memolanes/common/component/app_checkbox.dart';
-import 'package:memolanes/common/component/setup_bottom_sheet.dart';
+import 'package:memolanes/common/component/app_dialog.dart';
+import 'package:memolanes/common/component/setup_tile.dart';
 import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/common/region_preference.dart';
 import 'package:memolanes/common/utils.dart';
@@ -40,7 +41,7 @@ Future<void> _showPrivacyAndRegionSheet(
   // A little weird, but shouldn't happen.
   if (!context.mounted) return;
 
-  final accepted = await showSetupCard<_FirstLaunchAccepted>(
+  final accepted = await showAppDialog<_FirstLaunchAccepted>(
     context,
     barrierDismissible: false,
     builder: (_) =>
@@ -136,21 +137,23 @@ class _FirstLaunchSetupSheetState extends State<FirstLaunchSetupSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return SetupDialogCard(
+    return AppDialogContent(
       title: context.tr("privacy.setup_title"),
-      maxHeightFactor: 0.75,
-      actions: [
-        AppButton(
-          label: context.tr("privacy.exit"),
-          onPressed: _onExit,
-          variant: AppButtonVariant.secondary,
-        ),
-        AppButton(
-          label: context.tr("common.continue"),
-          labelMaxLines: 2,
-          onPressed: _privacyAccepted ? _onContinue : null,
-        ),
-      ],
+      actions: AppDialogActions(
+        children: [
+          AppButton(
+            label: context.tr("privacy.exit"),
+            onPressed: _onExit,
+            variant: AppButtonVariant.secondary,
+          ),
+          AppButton(
+            label: context.tr("common.continue"),
+            labelMaxLines: 2,
+            onPressed: _privacyAccepted ? _onContinue : null,
+          ),
+        ],
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

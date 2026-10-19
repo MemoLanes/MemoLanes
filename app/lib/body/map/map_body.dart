@@ -10,9 +10,10 @@ import 'package:memolanes/body/map/overlay/journey_detail_overlay.dart';
 import 'package:memolanes/body/map/overlay/normal_map_overlay.dart';
 import 'package:memolanes/body/map/overlay/time_machine_overlay.dart';
 import 'package:memolanes/common/component/base_map_webview.dart';
-import 'package:memolanes/common/component/capsule_style_overlay_app_bar.dart';
 import 'package:memolanes/common/component/map_controls/screenshot_button.dart';
+import 'package:memolanes/common/app_layout.dart';
 import 'package:memolanes/common/gps_manager.dart';
+import 'package:memolanes/common/component/map_overlay_panel.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/loading_manager.dart';
 import 'package:memolanes/common/screenshot.dart';
@@ -76,6 +77,7 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
   /// GlobalKey).
   final _mapRendererProxy = api.getMapRendererProxyForMainMap();
   MapView? _roughMapView;
+  final _detailPanelKey = GlobalKey<MapOverlayPanelState>();
   api.MapRendererProxy? _journeyMapRendererProxy;
   TrackingMode _currentTrackingMode = TrackingMode.off;
 
@@ -315,12 +317,8 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
               _journeyMapRendererProxy != null)
         ? _journeyMapRendererProxy!
         : _mapRendererProxy;
-    final detailCardPadding =
-        MediaQuery.orientationOf(context) == Orientation.landscape
-        ? 190.0
-        : 330.0;
     final journeyBounds = session?.mapData.$2;
-    final mainMap = BaseMapWebview(
+    return BaseMapWebview(
       key: _mainMapKey,
       mapRendererProxy: proxy,
       initialMapView: _roughMapView,
@@ -328,14 +326,7 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
       flyToView: widget.mode == MapMode.journeys
           ? widget.journeys.returnToView
           : null,
-      flyToBoundsPadding: journeyBounds == null
-          ? null
-          : CapsuleStyleOverlayAppBar.mapFitPaddingForBottomOverlay(
-              context,
-              edgePadding: 28,
-              bottomOverlayHeight:
-                  detailCardPadding + MediaQuery.viewPaddingOf(context).bottom,
-            ),
+      overlayPanel: widget.mode == MapMode.journeys ? _detailPanelKey : null,
       trackingMode: _effectiveTrackingMode,
       onRoughMapViewUpdate: (roughMapView) {
         _roughMapView = roughMapView;
@@ -352,8 +343,6 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
         }
       },
     );
-
-    return mainMap;
   }
 
   /// Returns the overlay for the given mode; each overlay lives in its own
@@ -381,6 +370,7 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
               : JourneyDetailOverlay(
                   key: ValueKey(session.journey.id),
                   controller: widget.journeys,
+                  panelKey: _detailPanelKey,
                 ),
         );
     }
@@ -389,7 +379,7 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final mode = widget.mode;
-    final padding = MediaQuery.viewPaddingOf(context);
+    final layout = AppLayoutScope.of(context);
     final showScreenshot =
         mode != MapMode.journeys ||
         (widget.journeys.session != null &&
@@ -398,10 +388,9 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
     final children = <Widget>[
       _buildMapLayer(),
       _buildOverlay(context, mode),
-      if (showScreenshot)
-        Positioned(
-          top: padding.top + 14,
-          right: padding.right + 16,
+      if (showScreenshot && layout.chromeReady)
+        Positioned.fromRect(
+          rect: layout.screenshotControlBounds,
           child: PointerInterceptor(
             child: MapScreenshotButton(
               key: ValueKey((mode, widget.journeys.session?.journey.id)),

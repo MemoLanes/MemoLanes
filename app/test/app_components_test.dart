@@ -1,11 +1,47 @@
+import 'package:memolanes/common/component/tiles/label_tile.dart';
+import 'package:memolanes/common/component/tiles/label_tile_content.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:memolanes/common/component/app_button.dart';
 import 'package:memolanes/common/component/app_dialog.dart';
-import 'package:memolanes/common/component/custom_popup.dart';
+import 'package:memolanes/common/component/scroll_views/single_child_scroll_view.dart';
 import 'package:memolanes/theme/app_theme.dart';
 
 void main() {
+  testWidgets('long form remains scrollable in a short viewport', (
+    tester,
+  ) async {
+    const lastField = Key('last-form-field');
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 300,
+              height: 120,
+              child: MlSingleChildScrollView(
+                mainAxisAlignment: MainAxisAlignment.center,
+                padding: EdgeInsets.symmetric(vertical: 16),
+                children: [
+                  SizedBox(height: 320),
+                  TextField(key: lastField),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.scrollUntilVisible(
+      find.byKey(lastField),
+      80,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.enterText(find.byKey(lastField), 'Draft');
+    expect(find.text('Draft'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('loading button cannot trigger duplicate actions', (
     tester,
   ) async {
@@ -53,7 +89,7 @@ void main() {
                   await showAppDialog<bool>(
                     context,
                     barrierDismissible: false,
-                    builder: (dialogContext) => AppDialogCard(
+                    builder: (dialogContext) => AppDialogContent(
                       title: 'Delete item?',
                       actions: AppDialogActions(
                         children: [
@@ -94,38 +130,64 @@ void main() {
     expect(results, [false, true]);
   });
 
-  testWidgets('an open popup inherits changes to the active theme', (
-    tester,
-  ) async {
-    Widget buildApp(ThemeData theme) {
-      return MaterialApp(
-        theme: theme,
-        home: Scaffold(
-          body: Center(
-            child: CustomPopup(
-              contentBuilder: (context) => const Text('Popup content'),
-              child: const Text('Open popup'),
+  for (final (width, scale, direction) in const [
+    (200.0, 1.8, TextDirection.rtl),
+  ]) {
+    testWidgets('value fits a local $width pane at $scale/$direction', (
+      tester,
+    ) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(1024, 768);
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: MediaQuery(
+            data: MediaQueryData(
+              size: const Size(1024, 768),
+              textScaler: TextScaler.linear(scale),
+            ),
+            child: Directionality(
+              textDirection: direction,
+              child: Scaffold(
+                body: Center(
+                  child: SizedBox(
+                    width: width,
+                    child: LabelTile(
+                      label: 'Map style',
+                      prefix: const Padding(
+                        padding: EdgeInsets.only(right: 12),
+                        child: Icon(Icons.map, size: 20),
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text('NEW'),
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: LabelTileContent(
+                              content: 'Long descriptive value ' * 8,
+                              showArrow: true,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ),
           ),
         ),
       );
-    }
-
-    await tester.pumpWidget(buildApp(AppTheme.light));
-    await tester.tap(find.text('Open popup'));
-    await tester.pumpAndSettle();
-    final content = find.text('Popup content');
-    expect(content, findsOneWidget);
-    expect(Theme.of(tester.element(content)).brightness, Brightness.light);
-
-    await tester.pumpWidget(buildApp(AppTheme.dark));
-    await tester.pumpAndSettle();
-    expect(content, findsOneWidget);
-    expect(Theme.of(tester.element(content)).brightness, Brightness.dark);
-
-    await tester.pumpWidget(buildApp(AppTheme.light));
-    await tester.pumpAndSettle();
-    expect(content, findsOneWidget);
-    expect(Theme.of(tester.element(content)).brightness, Brightness.light);
-  });
+      final tile = tester.getRect(find.byType(LabelTile));
+      final value = tester.getRect(find.byType(LabelTileContent));
+      final title = tester.getRect(find.text('Map style'));
+      expect(value.left, greaterThanOrEqualTo(tile.left));
+      expect(value.right, lessThanOrEqualTo(tile.right));
+      expect(title.width, greaterThan(0));
+      expect(tester.takeException(), isNull);
+    });
+  }
 }

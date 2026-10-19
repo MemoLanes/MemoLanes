@@ -2,7 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:memolanes/body/settings/settings_section.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:memolanes/common/component/app_button.dart';
-import 'package:memolanes/common/component/basic_dialog_card.dart';
+import 'package:memolanes/common/component/app_dialog.dart';
 import 'package:memolanes/common/component/capsule_style_app_bar.dart';
 import 'package:memolanes/common/component/app_option_tile.dart';
 import 'package:memolanes/common/component/cards/option_card.dart';
@@ -96,34 +96,41 @@ class _RawDataPage extends State<RawDataPage> {
   }
 
   void _showExportCard(BuildContext context, String filePath) {
-    showBasicCard(
+    showAppDialog(
       context,
-      title: context.tr("common.export"),
-      builder: (dialogContext) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          AppOptionTile(
-            icon: Icons.table_chart_outlined,
-            title: context.tr("general.advanced_settings.raw_data_export_csv"),
-            onTap: () {
-              Navigator.of(dialogContext).pop();
-              showCommonExport(context, filePath, deleteFile: false);
-            },
-          ),
-          const SizedBox(height: 8),
-          AppOptionTile(
-            icon: Icons.route_outlined,
-            title: context.tr("general.advanced_settings.raw_data_export_gpx"),
-            onTap: () async {
-              Navigator.of(dialogContext).pop();
-              final gpxPath = await api.exportLegacyRawDataGpxFile(
-                csvFilepath: filePath,
-              );
-              if (!context.mounted) return;
-              showCommonExport(context, gpxPath, deleteFile: true);
-            },
-          ),
-        ],
+      builder: (dialogContext) => AppDialogContent(
+        title: context.tr("common.export"),
+        contentPadding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AppOptionTile(
+              icon: Icons.table_chart_outlined,
+              title: context.tr(
+                "general.advanced_settings.raw_data_export_csv",
+              ),
+              onTap: () {
+                Navigator.of(dialogContext).pop();
+                showCommonExport(context, filePath, deleteFile: false);
+              },
+            ),
+            const SizedBox(height: 8),
+            AppOptionTile(
+              icon: Icons.route_outlined,
+              title: context.tr(
+                "general.advanced_settings.raw_data_export_gpx",
+              ),
+              onTap: () async {
+                Navigator.of(dialogContext).pop();
+                final gpxPath = await api.exportLegacyRawDataGpxFile(
+                  csvFilepath: filePath,
+                );
+                if (!context.mounted) return;
+                showCommonExport(context, gpxPath, deleteFile: true);
+              },
+            ),
+          ],
+        ),
       ),
     );
   }

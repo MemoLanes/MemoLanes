@@ -257,6 +257,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "8.1.0"
+  duo_dynamic_sizing:
+    dependency: "direct main"
+    description:
+      name: duo_dynamic_sizing
+      sha256: c40a739e267a20a5b6f4e48feebb2f2e62b369296f5b240d7092f01d05b6eca6
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.0.4"
   easy_localization:
     dependency: "direct main"
     description:
@@ -390,14 +398,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.7.0"
-  flutter_appbar:
-    dependency: "direct main"
-    description:
-      name: flutter_appbar
-      sha256: "7baf0d0acef84f698bc1a9a5fb460f20b7677427b20abe8fd546a62b76d5efc5"
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.9.0"
   flutter_fgbg:
     dependency: "direct main"
     description:
@@ -1344,14 +1344,6 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
-  sliding_up_panel:
-    dependency: "direct main"
-    description:
-      name: sliding_up_panel
-      sha256: "578e90956a6212d1e406373250b2436a0f3afece29aee3c24c8360094d6cf968"
-      url: "https://pub.dev"
-    source: hosted
-    version: "2.0.0+1"
   source_gen:
     dependency: transitive
     description:
@@ -1608,6 +1600,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.0.1"
+  wolt_modal_sheet:
+    dependency: "direct main"
+    description:
+      name: wolt_modal_sheet
+      sha256: "03e28e39dd4de44dc58a7c623877488a89ca3b41a62fc3e70bfc86b64be067d6"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.11.0"
   xdg_directories:
     dependency: transitive
     description:

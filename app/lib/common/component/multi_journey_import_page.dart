@@ -5,6 +5,7 @@ import 'package:memolanes/common/component/app_checkbox.dart';
 import 'package:memolanes/common/component/capsule_style_app_bar.dart';
 import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
+import 'package:memolanes/common/component/page_content_layout.dart';
 import 'package:memolanes/constants/app_typography.dart';
 
 class MultiJourneyImportListItem {
@@ -40,7 +41,7 @@ class MultiJourneyCollapsibleHeader {
       expandedHeight: expandedHeight,
       collapsedHeight: collapsedHeight,
       expandedChild: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+        padding: const EdgeInsets.symmetric(vertical: 8),
         child: expandedContent,
       ),
       collapsedChild: _CollapsedImportHeader(
@@ -65,7 +66,7 @@ class _CollapsedImportHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      padding: const EdgeInsets.symmetric(vertical: 6),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         decoration: BoxDecoration(
@@ -140,21 +141,23 @@ class MultiJourneyImportPage extends StatelessWidget {
     return Scaffold(
       backgroundColor: context.appColors.canvasColor,
       appBar: CapsuleStyleAppBar(title: title, showTitleBackground: false),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(child: _buildCollapsibleList(context, collapsibleHeader)),
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: AppButton(
-                onPressed: confirmEnabled ? onConfirm : null,
-                label: confirmLabel,
-                expand: true,
+      body: PageContentFrame(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(child: _buildCollapsibleList(context, collapsibleHeader)),
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: AppButton(
+                  onPressed: confirmEnabled ? onConfirm : null,
+                  label: confirmLabel,
+                  expand: true,
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -172,12 +175,9 @@ class MultiJourneyImportPage extends StatelessWidget {
         ),
         if (items.isNotEmpty)
           SliverToBoxAdapter(child: _buildListSectionHeader(context)),
-        SliverPadding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          sliver: SliverList.builder(
-            itemCount: items.length,
-            itemBuilder: (context, index) => _buildItem(index),
-          ),
+        SliverList.builder(
+          itemCount: items.length,
+          itemBuilder: (context, index) => _buildItem(index),
         ),
       ],
     );
@@ -185,11 +185,15 @@ class MultiJourneyImportPage extends StatelessWidget {
 
   Widget _buildListSectionHeader(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      padding: const EdgeInsets.only(top: 8, bottom: 4),
       child: Row(
         children: [
-          Text(listSectionTitle, style: Theme.of(context).textTheme.titleSmall),
-          const Spacer(),
+          Expanded(
+            child: Text(
+              listSectionTitle,
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
+          ),
           TextButton.icon(
             onPressed: () => onToggleAll(!_allSelected),
             icon: AppCheckbox(
