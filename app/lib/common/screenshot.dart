@@ -295,36 +295,42 @@ class _ScreenshotPreviewPageState extends State<ScreenshotPreviewPage> {
                 ),
               Padding(
                 padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: AppButton(
-                        label: context.tr('common.cancel'),
-                        variant: AppButtonVariant.secondary,
-                        onPressed: _busy
-                            ? null
-                            : () => Navigator.of(context).pop(),
+                child: IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(
+                        child: AppButton(
+                          label: context.tr('common.cancel'),
+                          labelMaxLines: 3,
+                          variant: AppButtonVariant.secondary,
+                          onPressed: _busy
+                              ? null
+                              : () => Navigator.of(context).pop(),
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: AppButton(
-                        label: context.tr('screenshot.save'),
-                        loading: _saving,
-                        onPressed: _busy ? null : _save,
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: AppButton(
+                          label: context.tr('screenshot.save'),
+                          labelMaxLines: 3,
+                          loading: _saving,
+                          onPressed: _busy ? null : _save,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: AppButton(
-                        key: _shareButtonKey,
-                        label: context.tr('common.share'),
-                        variant: AppButtonVariant.secondary,
-                        loading: _sharing,
-                        onPressed: _busy ? null : _share,
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: AppButton(
+                          key: _shareButtonKey,
+                          label: context.tr('common.share'),
+                          labelMaxLines: 3,
+                          variant: AppButtonVariant.secondary,
+                          loading: _sharing,
+                          onPressed: _busy ? null : _share,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ],

@@ -24,7 +24,6 @@ class _MapScreenshotButtonState extends State<MapScreenshotButton> {
   bool _revealed = false;
   bool _armed = false;
   bool _hovered = false;
-  bool _focused = false;
 
   void _reveal() {
     _fadeTimer?.cancel();
@@ -33,11 +32,11 @@ class _MapScreenshotButtonState extends State<MapScreenshotButton> {
 
   void _scheduleFade() {
     _fadeTimer?.cancel();
-    if (_pointers.isNotEmpty || _hovered || _focused) return;
+    if (_pointers.isNotEmpty) return;
     _fadeTimer = Timer(_revealHoldDuration, () {
       if (mounted) {
         setState(() {
-          _revealed = false;
+          _revealed = _hovered;
           _armed = false;
         });
       }
@@ -57,6 +56,16 @@ class _MapScreenshotButtonState extends State<MapScreenshotButton> {
   void _releasePointer(int pointer) {
     _pointers.remove(pointer);
     _scheduleFade();
+  }
+
+  @override
+  void didUpdateWidget(MapScreenshotButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.onPressed == null && oldWidget.onPressed != null) {
+      _fadeTimer?.cancel();
+      _armed = false;
+      _revealed = false;
+    }
   }
 
   @override
@@ -95,11 +104,14 @@ class _MapScreenshotButtonState extends State<MapScreenshotButton> {
                 customBorder: const CircleBorder(),
                 onHover: (hovered) {
                   _hovered = hovered;
-                  hovered ? _reveal() : _scheduleFade();
+                  if (hovered) _reveal();
+                  _scheduleFade();
                 },
                 onFocusChange: (focused) {
-                  _focused = focused;
-                  focused ? _reveal() : _scheduleFade();
+                  if (focused) _reveal();
+                  // Touch can also give InkWell focus. It must not keep a
+                  // confirmation armed indefinitely after the first tap.
+                  _scheduleFade();
                 },
                 child: SizedBox.square(
                   dimension: 44,

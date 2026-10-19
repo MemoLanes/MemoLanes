@@ -113,20 +113,28 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
     ui.Image? mapImage;
     ui.Image? timelineImage;
     try {
-      final mapState = _mainMapKey.currentState;
-      final box = _mainMapKey.currentContext?.findRenderObject();
-      if (mapState == null || box is! RenderBox || !box.hasSize) {
-        throw StateError('Map is unavailable');
-      }
-      final size = box.size;
-      final pixelRatio = MediaQuery.devicePixelRatioOf(context);
+      late Size size;
       await loading.runWithLoading(() async {
+        // Flush pending proxy/layout changes before freezing either layer.
+        await WidgetsBinding.instance.endOfFrame;
+        if (!mounted) throw StateError('Map was closed');
+        final mapState = _mainMapKey.currentState;
+        final box = _mainMapKey.currentContext?.findRenderObject();
+        if (mapState == null || box is! RenderBox || !box.hasSize) {
+          throw StateError('Map is unavailable');
+        }
+        size = box.size;
         if (mode == MapMode.timeMachine) {
           timelineImage = await _timelineKey.currentState!.captureScreenshot(
-            pixelRatio,
+            MediaQuery.devicePixelRatioOf(context),
           );
         }
         mapImage = await decodeScreenshot(await mapState.captureScreenshot());
+        // A rotation can resize the WebView even while pointer input is
+        // blocked. Never combine a new map aspect ratio with an old timeline.
+        if (!box.attached || box.size != size) {
+          throw StateError('Map resized during screenshot');
+        }
       }, blockNavigation: true);
       if (!mounted || widget.mode != mode) return;
       final route = MaterialPageRoute<bool>(
@@ -396,6 +404,7 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
           right: padding.right + 16,
           child: PointerInterceptor(
             child: MapScreenshotButton(
+              key: ValueKey((mode, widget.journeys.session?.journey.id)),
               onPressed: _screenshotInProgress ? null : takeScreenshot,
             ),
           ),
