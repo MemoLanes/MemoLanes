@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:easy_localization/easy_localization.dart';
@@ -113,23 +112,29 @@ void main() {
     exported.dispose();
 
     const channel = MethodChannel('com.memolanes/screenshots');
-    final saved = Completer<void>();
+    Uint8List? savedPng;
     final messenger =
         TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
     messenger.setMockMethodCallHandler(channel, (call) async {
       expect(call.method, 'saveToPhotos');
-      final image = await decodeScreenshot(call.arguments['png'] as Uint8List);
-      expect(image.width, 640);
-      expect(image.height, 1280);
-      image.dispose();
-      saved.complete();
+      savedPng = call.arguments['png'] as Uint8List;
       throw PlatformException(code: 'permission_denied');
     });
     addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
     await tester.runAsync(() async {
-      await tester.tap(actions.at(1));
-      await tester.pump();
-      await saved.future.timeout(const Duration(seconds: 10));
+      tester.widget<AppButton>(actions.at(1)).onPressed!();
+      // Rasterization/PNG encoding use the engine's real event loop; their
+      // continuations still need the widget test's fake clock to be pumped.
+      final deadline = DateTime.now().add(const Duration(seconds: 10));
+      while (savedPng == null && DateTime.now().isBefore(deadline)) {
+        await tester.pump();
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+      expect(savedPng, isNotNull);
+      final image = await decodeScreenshot(savedPng!);
+      expect(image.width, 640);
+      expect(image.height, 1280);
+      image.dispose();
     });
     await tester.pumpAndSettle();
     expect(find.text('没有保存相册的权限，请在系统设置中允许后重试'), findsOneWidget);

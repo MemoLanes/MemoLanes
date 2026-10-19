@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:memolanes/body/journey/compact_journey_info_card.dart';
 import 'package:memolanes/common/component/app_button.dart';
+import 'package:memolanes/common/component/page_content_layout.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
 import 'package:share_plus/share_plus.dart';
@@ -256,84 +257,87 @@ class _ScreenshotPreviewPageState extends State<ScreenshotPreviewPage> {
           title: Text(context.tr('screenshot.title')),
           automaticallyImplyLeading: false,
         ),
-        body: SafeArea(
-          child: Column(
-            children: [
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Center(
-                    child: FittedBox(
-                      fit: BoxFit.contain,
-                      child: IgnorePointer(child: _buildComposition()),
+        body: PageContentFrame(
+          padding: EdgeInsets.zero,
+          child: SafeArea(
+            child: Column(
+              children: [
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Center(
+                      child: FittedBox(
+                        fit: BoxFit.contain,
+                        child: IgnorePointer(child: _buildComposition()),
+                      ),
                     ),
                   ),
                 ),
-              ),
-              SwitchListTile(
-                title: Text(
-                  context.tr(
-                    _logoAtTopRight
-                        ? 'screenshot.include_logo_top_right'
-                        : 'screenshot.include_logo',
+                SwitchListTile(
+                  title: Text(
+                    context.tr(
+                      _logoAtTopRight
+                          ? 'screenshot.include_logo_top_right'
+                          : 'screenshot.include_logo',
+                    ),
                   ),
+                  subtitle: !_loadingLogo && _logo == null
+                      ? Text(context.tr('screenshot.logo_unavailable'))
+                      : null,
+                  value: _includeLogo,
+                  onChanged: _busy || _logo == null
+                      ? null
+                      : (value) {
+                          setState(() => _includeLogo = value);
+                        },
                 ),
-                subtitle: !_loadingLogo && _logo == null
-                    ? Text(context.tr('screenshot.logo_unavailable'))
-                    : null,
-                value: _includeLogo,
-                onChanged: _busy || _logo == null
-                    ? null
-                    : (value) {
-                        setState(() => _includeLogo = value);
-                      },
-              ),
-              if (_error != null)
+                if (_error != null)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Text(context.tr(_error!)),
+                  ),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Text(context.tr(_error!)),
-                ),
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: IntrinsicHeight(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Expanded(
-                        child: AppButton(
-                          label: context.tr('common.cancel'),
-                          labelMaxLines: 3,
-                          variant: AppButtonVariant.secondary,
-                          onPressed: _busy
-                              ? null
-                              : () => Navigator.of(context).pop(),
+                  padding: const EdgeInsets.all(16),
+                  child: IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(
+                          child: AppButton(
+                            label: context.tr('common.cancel'),
+                            labelMaxLines: 3,
+                            variant: AppButtonVariant.secondary,
+                            onPressed: _busy
+                                ? null
+                                : () => Navigator.of(context).pop(),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: AppButton(
-                          label: context.tr('screenshot.save'),
-                          labelMaxLines: 3,
-                          loading: _saving,
-                          onPressed: _busy ? null : _save,
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: AppButton(
+                            label: context.tr('screenshot.save'),
+                            labelMaxLines: 3,
+                            loading: _saving,
+                            onPressed: _busy ? null : _save,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: AppButton(
-                          key: _shareButtonKey,
-                          label: context.tr('common.share'),
-                          labelMaxLines: 3,
-                          variant: AppButtonVariant.secondary,
-                          loading: _sharing,
-                          onPressed: _busy ? null : _share,
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: AppButton(
+                            key: _shareButtonKey,
+                            label: context.tr('common.share'),
+                            labelMaxLines: 3,
+                            variant: AppButtonVariant.secondary,
+                            loading: _sharing,
+                            onPressed: _busy ? null : _share,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
