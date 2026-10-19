@@ -203,6 +203,25 @@ fn intersection_and_difference_produce_empty() {
 }
 
 #[test]
+fn bitmap_subset_checks_only_visited_bits() {
+    let empty = JourneyBitmap::new();
+    let mut line1 = JourneyBitmap::new();
+    draw_line1(&mut line1);
+    let mut line2 = JourneyBitmap::new();
+    draw_line2(&mut line2);
+
+    let mut both = line1.clone();
+    both.merge(line2.clone());
+
+    assert!(empty.is_subset_of(&line1));
+    assert!(line1.is_subset_of(&line1));
+    assert!(line1.is_subset_of(&both));
+    assert!(line2.is_subset_of(&both));
+    assert!(!both.is_subset_of(&line1));
+    assert!(!line1.is_subset_of(&line2));
+}
+
+#[test]
 fn serialization() {
     let mut journey_bitmap = JourneyBitmap::new();
     draw_line1(&mut journey_bitmap);
