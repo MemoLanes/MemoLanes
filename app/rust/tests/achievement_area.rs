@@ -5,7 +5,7 @@ use memolanes_core::main_db::NewJourney;
 use memolanes_core::{
     achievement::layer::AchievementLayer,
     achievement::on_demand::explored_areas_from_snapshot,
-    journey_area_utils::{
+    journey_bitmap::area::{
         cm2_to_m2_rounded, journey_bitmap_area_cm2, journey_bitmap_area_m2_rounded,
     },
     journey_bitmap::JourneyBitmap,

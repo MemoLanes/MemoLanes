@@ -1,6 +1,6 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 use memolanes_core::{
-    gps_processor::SegmentGapRule, import_data, journey_area_utils, journey_bitmap::JourneyBitmap,
+    gps_processor::SegmentGapRule, import_data, journey_bitmap::area, journey_bitmap::JourneyBitmap,
 };
 
 fn journey_area_calculation(c: &mut Criterion) {
@@ -11,7 +11,7 @@ fn journey_area_calculation(c: &mut Criterion) {
         let (mut bitmap_import, _warnings) =
             import_data::fow::load_fow_sync_data("./tests/data/fow_1.zip").unwrap();
         b.iter(|| {
-            std::hint::black_box(journey_area_utils::journey_bitmap_area_m2_rounded(
+            std::hint::black_box(area::journey_bitmap_area_m2_rounded(
                 &mut bitmap_import,
                 None,
             ))
@@ -32,7 +32,7 @@ fn journey_area_calculation(c: &mut Criterion) {
             let mut journey_bitmap = JourneyBitmap::new();
             journey_bitmap.edit().merge_vector(&journey_vector);
             b.iter(|| {
-                std::hint::black_box(journey_area_utils::journey_bitmap_area_m2_rounded(
+                std::hint::black_box(area::journey_bitmap_area_m2_rounded(
                     &mut journey_bitmap,
                     None,
                 ))

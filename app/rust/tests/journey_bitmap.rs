@@ -4,7 +4,8 @@ use crate::test_utils::{
 };
 use memolanes_core::{
     gps_processor::SegmentGapRule,
-    import_data, journey_area_utils,
+    import_data,
+    journey_bitmap::area,
     journey_bitmap::{
         BitmapPlane, Block, BlockKey, JourneyBitmap, Tile, TileKey, BITMAP_WIDTH, MAP_WIDTH,
         POLAR_MAP_WIDTH, TILE_WIDTH,
@@ -470,11 +471,11 @@ fn area_cache_distinguishes_planes_while_rendering_remains_mercator_only() {
         single_plane
             .edit()
             .insert_tile(&key, make_tile((i + 1) as u8));
-        expected_cm2 += journey_area_utils::journey_bitmap_area_cm2(&single_plane, None);
+        expected_cm2 += area::journey_bitmap_area_cm2(&single_plane, None);
         renderer.update(|editor| editor.merge(single_plane));
         assert_eq!(
             renderer.get_current_area(),
-            journey_area_utils::cm2_to_m2_rounded(expected_cm2)
+            area::cm2_to_m2_rounded(expected_cm2)
         );
         let rendered = render(&mut renderer);
         match plane {
@@ -490,7 +491,7 @@ fn area_cache_distinguishes_planes_while_rendering_remains_mercator_only() {
     expected_cm2 += 18 * 11010;
     assert_eq!(
         renderer.get_current_area(),
-        journey_area_utils::cm2_to_m2_rounded(expected_cm2)
+        area::cm2_to_m2_rounded(expected_cm2)
     );
     assert_eq!(Some(render(&mut renderer)), mercator_render);
     let mut removal = JourneyBitmap::new();
@@ -499,7 +500,7 @@ fn area_cache_distinguishes_planes_while_rendering_remains_mercator_only() {
     expected_cm2 -= 20 * 11010;
     assert_eq!(
         renderer.get_current_area(),
-        journey_area_utils::cm2_to_m2_rounded(expected_cm2)
+        area::cm2_to_m2_rounded(expected_cm2)
     );
     assert_eq!(Some(render(&mut renderer)), mercator_render);
 }
@@ -630,10 +631,7 @@ fn polar_gpx_import_matches_bitmap_area_snapshot() {
     // Regression snapshot of the full import/rasterization path, in cm².
     // Update only after reviewing intentional changes to the covered geometry.
     // Complete cross-partition brushes retain formerly clipped edge pixels.
-    assert_eq!(
-        journey_area_utils::journey_bitmap_area_cm2(&bitmap, None),
-        1_218_281_635,
-    );
+    assert_eq!(area::journey_bitmap_area_cm2(&bitmap, None), 1_218_281_635,);
 }
 
 #[test]
@@ -780,7 +778,7 @@ fn draw_single_point() {
     journey_bitmap.edit().add_line(120.0, 30.0, 120.0, 30.0);
 
     assert_eq!(
-        journey_area_utils::journey_bitmap_area_m2_rounded(&journey_bitmap, None),
+        area::journey_bitmap_area_m2_rounded(&journey_bitmap, None),
         68
     );
 }
@@ -793,7 +791,7 @@ fn draw_line_in_different_latitude() {
     journey_bitmap.edit().add_line(120.0, 0.0, 121.0, 0.0);
     journey_bitmap.edit().add_line(120.0, 0.0, 121.0, 1.0);
     assert_eq!(
-        journey_area_utils::journey_bitmap_area_m2_rounded(&journey_bitmap, None),
+        area::journey_bitmap_area_m2_rounded(&journey_bitmap, None),
         3183812
     );
 
@@ -802,7 +800,7 @@ fn draw_line_in_different_latitude() {
     journey_bitmap2.edit().add_line(120.0, 60.0, 120.0, 61.0);
     journey_bitmap2.edit().add_line(120.0, 60.0, 122.0, 60.0);
     journey_bitmap2.edit().add_line(120.0, 60.0, 122.0, 61.0);
-    let area2 = journey_area_utils::journey_bitmap_area_m2_rounded(&journey_bitmap2, None);
+    let area2 = area::journey_bitmap_area_m2_rounded(&journey_bitmap2, None);
     assert_eq!(area2 / 100000, 31);
 
     // width is 3 , lat 70.5
@@ -810,7 +808,7 @@ fn draw_line_in_different_latitude() {
     journey_bitmap3.edit().add_line(120.0, 70.5, 120.0, 71.5);
     journey_bitmap3.edit().add_line(120.0, 70.5, 123.0, 70.5);
     journey_bitmap3.edit().add_line(120.0, 70.5, 123.0, 71.5);
-    let area3 = journey_area_utils::journey_bitmap_area_m2_rounded(&journey_bitmap3, None);
+    let area3 = area::journey_bitmap_area_m2_rounded(&journey_bitmap3, None);
     assert_eq!(area3 / 100000, 31);
 
     // width is 3 , lat -70.5
@@ -818,7 +816,7 @@ fn draw_line_in_different_latitude() {
     journey_bitmap4.edit().add_line(120.0, -70.5, 120.0, -71.5);
     journey_bitmap4.edit().add_line(120.0, -70.5, 123.0, -70.5);
     journey_bitmap4.edit().add_line(120.0, -70.5, 123.0, -71.5);
-    let area3 = journey_area_utils::journey_bitmap_area_m2_rounded(&journey_bitmap4, None);
+    let area3 = area::journey_bitmap_area_m2_rounded(&journey_bitmap4, None);
     assert_eq!(area3 / 100000, 31);
 }
 

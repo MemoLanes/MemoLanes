@@ -4,7 +4,7 @@ use anyhow::Result;
 use geo_data_format::GeoEntityId;
 
 use crate::geo::GeoLookup;
-use crate::journey_area_utils::mercator_block_area_cm2;
+use crate::journey_bitmap::area::mercator_block_area_cm2;
 use crate::journey_bitmap::{JourneyBitmap, TileKey};
 
 pub type AreaCm2ByEntity = HashMap<GeoEntityId, i64>;

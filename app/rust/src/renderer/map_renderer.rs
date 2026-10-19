@@ -4,7 +4,7 @@ use journey_kernel::FTA_COMPRESSION_ZSTD;
 
 use super::render_tile_cache::{CachedRenderTile, RenderTileCache, RenderTileCacheKey};
 use super::tile_rasterizer;
-use crate::journey_area_utils;
+use crate::journey_bitmap::area;
 use crate::journey_bitmap::{BitmapEditor, JourneyBitmap, TileKey};
 use crate::utils;
 use crate::utils::MapBounds;
@@ -33,12 +33,6 @@ impl MapRenderer {
 
     /// Apply incremental edits and invalidate caches for their changed tiles.
     /// Use `replace` to replace the complete bitmap.
-    ///
-    /// ```compile_fail
-    /// use memolanes_core::{journey_bitmap::JourneyBitmap, renderer::MapRenderer};
-    /// let mut renderer = MapRenderer::new(JourneyBitmap::new());
-    /// renderer.update(|editor| *editor = JourneyBitmap::new());
-    /// ```
     pub fn update<F>(&mut self, f: F)
     where
         F: FnOnce(&mut BitmapEditor<'_>),
@@ -102,11 +96,11 @@ impl MapRenderer {
 
     pub fn get_current_area(&mut self) -> u64 {
         *self.current_area.get_or_insert_with(|| {
-            let area = journey_area_utils::journey_bitmap_area_cm2(
+            let area = area::journey_bitmap_area_cm2(
                 &self.journey_bitmap,
                 Some(&mut self.tile_area_cache),
             );
-            journey_area_utils::cm2_to_m2_rounded(area)
+            area::cm2_to_m2_rounded(area)
         })
     }
 

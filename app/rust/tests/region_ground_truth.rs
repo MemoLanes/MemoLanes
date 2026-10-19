@@ -45,7 +45,7 @@ use memolanes_core::{
 };
 use tempdir::TempDir;
 
-const EARTH_RADIUS: f64 = 6_371_000.0; // must match journey_area_utils
+const EARTH_RADIUS: f64 = 6_371_000.0; // must match journey_bitmap::area
 const BIT_OFFSET: i32 = (MAP_WIDTH_OFFSET + TILE_WIDTH_OFFSET + BITMAP_WIDTH_OFFSET) as i32; // 22
 const BLOCK_OFFSET: i32 = (MAP_WIDTH_OFFSET + TILE_WIDTH_OFFSET) as i32; // 16 -> 65536 blocks
 const BITS_PER_TILE: i32 = 128 * 64; // blocks-per-tile * bits-per-block
