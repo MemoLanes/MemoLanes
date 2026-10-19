@@ -4,6 +4,7 @@
     "title": "Screenshot",
     "include_logo": "Add Logo at the bottom right",
     "include_logo_top_right": "Add Logo at the top right",
+    "include_journey_info": "Include journey information",
     "logo_unavailable": "Logo is not configured. You can save without it.",
     "save": "Save to Photos",
     "saved": "Image saved to Photos",

@@ -4,6 +4,7 @@
     "title": "屏幕截图",
     "include_logo": "在右下角加入 Logo",
     "include_logo_top_right": "在右上角加入 Logo",
+    "include_journey_info": "保留旅程信息",
     "logo_unavailable": "Logo 尚未配置，当前可保存无 Logo 图片",
     "save": "保存到相册",
     "saved": "图片已保存到相册",

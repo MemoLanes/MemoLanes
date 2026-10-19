@@ -10,6 +10,8 @@ import 'package:memolanes/theme/app_theme.dart';
 import 'package:memolanes/common/app_translation_loader.dart';
 import 'package:memolanes/common/component/app_button.dart';
 import 'package:memolanes/common/screenshot.dart';
+import 'package:memolanes/body/journey/compact_journey_info_card.dart';
+import 'package:memolanes/src/rust/journey_header.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -64,6 +66,69 @@ void main() {
 
   setUp(() => captures = 0);
 
+  Future<void> waitForLogo(WidgetTester tester) async {
+    final logoSwitch = find.byType(SwitchListTile).last;
+    await tester.runAsync(() async {
+      final deadline = DateTime.now().add(const Duration(seconds: 10));
+      while (tester.widget<SwitchListTile>(logoSwitch).onChanged == null &&
+          DateTime.now().isBefore(deadline)) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+        await tester.pump();
+      }
+    });
+    expect(tester.widget<SwitchListTile>(logoSwitch).onChanged, isNotNull);
+  }
+
+  testWidgets(
+    'journey preview can independently hide its card and default logo',
+    (tester) async {
+      final recorder = ui.PictureRecorder();
+      Canvas(recorder).drawColor(Colors.blue, BlendMode.src);
+      final picture = recorder.endRecording();
+      final map = (await tester.runAsync(() => picture.toImage(640, 1280)))!;
+      picture.dispose();
+      final journey = JourneyHeader(
+        id: 'screenshot-journey',
+        revision: '1',
+        journeyDate: DateTime.utc(2026, 10, 19),
+        createdAt: DateTime.utc(2026, 10, 19),
+        journeyType: JourneyType.vector,
+        journeyKind: JourneyKind.defaultKind,
+        hasRawData: false,
+      );
+      await pumpApp(
+        tester,
+        ScreenshotPreviewPage(
+          map: map,
+          logicalSize: const Size(320, 640),
+          journey: journey,
+        ),
+      );
+      await waitForLogo(tester);
+      final cardSwitch = find.widgetWithText(SwitchListTile, '保留旅程信息');
+      final logoSwitch = find.widgetWithText(SwitchListTile, '在右上角加入 Logo');
+      expect(tester.widget<SwitchListTile>(cardSwitch).value, isTrue);
+      expect(tester.widget<SwitchListTile>(logoSwitch).value, isTrue);
+      expect(find.byType(ReadOnlyJourneyInfoCard), findsOneWidget);
+      expect(find.byType(RawImage), findsNWidgets(2));
+
+      await tester.tap(cardSwitch);
+      await tester.pumpAndSettle();
+      expect(find.byType(ReadOnlyJourneyInfoCard), findsNothing);
+      expect(find.byType(RawImage), findsNWidgets(2));
+      await tester.tap(logoSwitch);
+      await tester.pumpAndSettle();
+      expect(find.byType(RawImage), findsOneWidget);
+      await tester.tap(cardSwitch);
+      await tester.pumpAndSettle();
+      expect(find.byType(ReadOnlyJourneyInfoCard), findsOneWidget);
+      expect(tester.widget<SwitchListTile>(logoSwitch).value, isFalse);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      map.dispose();
+    },
+  );
+
   testWidgets('preview retains export resolution and equal, readable actions', (
     tester,
   ) async {
@@ -80,6 +145,12 @@ void main() {
       tester,
       ScreenshotPreviewPage(map: map, logicalSize: const Size(320, 640)),
     );
+    await waitForLogo(tester);
+    expect(
+      tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
+      isTrue,
+    );
+    expect(find.text('保留旅程信息'), findsNothing);
     final actions = find.byType(AppButton);
     expect(actions, findsNWidgets(3));
     expect(tester.widget<AppButton>(actions.at(1)).label, '保存到相册');

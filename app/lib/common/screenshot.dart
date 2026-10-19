@@ -62,7 +62,8 @@ class _ScreenshotPreviewPageState extends State<ScreenshotPreviewPage> {
   final _shareButtonKey = GlobalKey();
   ui.Image? _logo;
   bool _loadingLogo = true;
-  bool _includeLogo = false;
+  bool _includeLogo = true;
+  bool _includeJourneyInfo = true;
   bool _saving = false;
   bool _sharing = false;
   String? _error;
@@ -97,6 +98,7 @@ class _ScreenshotPreviewPageState extends State<ScreenshotPreviewPage> {
     setState(() {
       _logo = logo;
       _loadingLogo = false;
+      if (logo == null) _includeLogo = false;
     });
   }
 
@@ -121,7 +123,7 @@ class _ScreenshotPreviewPageState extends State<ScreenshotPreviewPage> {
   }
 
   Future<void> _share() async {
-    if (_busy) return;
+    if (_busy || _loadingLogo) return;
     setState(() {
       _sharing = true;
       _error = null;
@@ -154,7 +156,7 @@ class _ScreenshotPreviewPageState extends State<ScreenshotPreviewPage> {
   }
 
   Future<void> _save() async {
-    if (_busy) return;
+    if (_busy || _loadingLogo) return;
     setState(() {
       _saving = true;
       _error = null;
@@ -209,7 +211,7 @@ class _ScreenshotPreviewPageState extends State<ScreenshotPreviewPage> {
                     child: RawImage(image: timeline, fit: BoxFit.contain),
                   ),
                 ),
-              if (journey != null)
+              if (journey != null && _includeJourneyInfo)
                 Positioned(
                   left: _imageEdgeInset,
                   right: _imageEdgeInset,
@@ -273,6 +275,15 @@ class _ScreenshotPreviewPageState extends State<ScreenshotPreviewPage> {
                     ),
                   ),
                 ),
+                if (widget.journey != null)
+                  SwitchListTile(
+                    title: Text(context.tr('screenshot.include_journey_info')),
+                    value: _includeJourneyInfo,
+                    onChanged: _busy
+                        ? null
+                        : (value) =>
+                              setState(() => _includeJourneyInfo = value),
+                  ),
                 SwitchListTile(
                   title: Text(
                     context.tr(
@@ -318,7 +329,7 @@ class _ScreenshotPreviewPageState extends State<ScreenshotPreviewPage> {
                             label: context.tr('screenshot.save'),
                             labelMaxLines: 3,
                             loading: _saving,
-                            onPressed: _busy ? null : _save,
+                            onPressed: _busy || _loadingLogo ? null : _save,
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -329,7 +340,7 @@ class _ScreenshotPreviewPageState extends State<ScreenshotPreviewPage> {
                             labelMaxLines: 3,
                             variant: AppButtonVariant.secondary,
                             loading: _sharing,
-                            onPressed: _busy ? null : _share,
+                            onPressed: _busy || _loadingLogo ? null : _share,
                           ),
                         ),
                       ],
