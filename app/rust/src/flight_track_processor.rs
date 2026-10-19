@@ -51,11 +51,68 @@ pub fn process(raw_data: &[Vec<RawGPSPoint>]) -> Option<JourneyVector> {
             // Do not normalize, round, simplify, or replace original fixes.
             track_points.push(to_track_point(&pair[1]));
         }
-        track_segments.push(TrackSegment { track_points });
+        track_segments.extend(split_at_dateline(track_points));
     }
     if track_segments.is_empty() {
         None
     } else {
         Some(JourneyVector { track_segments })
     }
+}
+
+// Planar consumers (notably box editing) must never see a longitude jump across
+// the map. Split after sampling so source points and the sampling cadence survive.
+fn split_at_dateline(points: Vec<TrackPoint>) -> Vec<TrackSegment> {
+    let mut segments = Vec::new();
+    let mut current: Vec<TrackPoint> = Vec::new();
+    for point in points {
+        if let Some(previous) = current.last() {
+            if (point.longitude - previous.longitude).abs() > 180.0 {
+                let longitude = 180.0_f64.copysign(previous.longitude);
+                let latitude = dateline_latitude(previous, &point);
+                // Reuse original boundary points rather than replacing them or
+                // adding a second copy on the same side of the split.
+                if previous.longitude != longitude {
+                    current.push(TrackPoint {
+                        latitude,
+                        longitude,
+                    });
+                }
+                segments.push(TrackSegment {
+                    track_points: std::mem::take(&mut current),
+                });
+                if point.longitude != -longitude {
+                    current.push(TrackPoint {
+                        latitude,
+                        longitude: -longitude,
+                    });
+                }
+            }
+        }
+        current.push(point);
+    }
+    if !current.is_empty() {
+        segments.push(TrackSegment {
+            track_points: current,
+        });
+    }
+    segments
+}
+
+fn dateline_latitude(a: &TrackPoint, b: &TrackPoint) -> f64 {
+    if a.longitude.abs() == 180.0 {
+        return a.latitude;
+    }
+    if b.longitude.abs() == 180.0 {
+        return b.latitude;
+    }
+    let a = UnitPoint::from_lng_lat(a.longitude, a.latitude);
+    let b = UnitPoint::from_lng_lat(b.longitude, b.latitude);
+    // The chord and the short great-circle arc lie in the same plane through
+    // the origin. Intersect the chord with y = 0, then project back to latitude.
+    // For a dateline crossing x is negative; no vector normalization is needed.
+    let t = a.y / (a.y - b.y);
+    let x = a.x + t * (b.x - a.x);
+    let z = a.z + t * (b.z - a.z);
+    z.atan2(-x).to_degrees()
 }

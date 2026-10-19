@@ -196,19 +196,19 @@ fn assert_source_points_and_spherical_interpolation(
     raw: &[Vec<RawGPSPoint>],
     result: &memolanes_core::journey_vector::JourneyVector,
 ) {
-    let nonempty: Vec<_> = raw.iter().filter(|s| !s.is_empty()).collect();
-    assert_eq!(
-        result.track_segments.len(),
-        nonempty.len(),
-        "spherical paths must retain source breaks without artificial dateline breaks"
-    );
-    for (source, output) in nonempty.iter().zip(&result.track_segments) {
-        let points = &output.track_points;
+    // Flatten only for checking the spherical path: paired ±180° endpoints
+    // occupy the same physical location even though planar consumers need a break.
+    let points: Vec<_> = result
+        .track_segments
+        .iter()
+        .flat_map(|segment| &segment.track_points)
+        .collect();
+    let mut index = 0;
+    for source in raw.iter().filter(|s| !s.is_empty()) {
         let matches = |point: &memolanes_core::journey_vector::TrackPoint, source: &RawGPSPoint| {
             point.latitude == source.point.latitude && point.longitude == source.point.longitude
         };
-        assert!(matches(&points[0], &source[0]));
-        let mut index = 0;
+        assert!(matches(points[index], &source[0]));
         for pair in source.windows(2) {
             let next = index
                 + 1
@@ -259,8 +259,9 @@ fn assert_source_points_and_spherical_interpolation(
             );
             index = next;
         }
-        assert_eq!(index + 1, points.len());
+        index += 1;
     }
+    assert_eq!(index, points.len());
 }
 
 #[test]
@@ -294,6 +295,7 @@ fn spherical_interpolation_keeps_source_segment_breaks() {
     ];
     let result = flight_track_processor::process(&raw).unwrap();
     assert_source_points_and_spherical_interpolation(&raw, &result);
+    assert_eq!(result.track_segments.len(), 2);
 }
 
 #[test]
@@ -337,4 +339,36 @@ fn arctic_kml_import_and_postprocessing_rasterize_the_spherical_route() {
         !covered(22.293726396749058, 73.7),
         "longitude/latitude interpolation must not leave the old southward detour"
     );
+}
+
+#[test]
+fn dateline_splits_preserve_source_points_and_share_spherical_endpoints() {
+    for (start, end) in [
+        ((179.99, 0.0), (-179.99, 0.0)),
+        ((-179.999, 70.0), (179.999, 70.001)),
+        ((170.0, 88.0), (-170.0, 88.2)),
+        ((180.0, 10.0), (-179.99, 10.01)),
+        ((179.99, -10.0), (-180.0, -10.01)),
+    ] {
+        for (start, end) in [(start, end), (end, start)] {
+            let source = vec![raw_data_at(start.0, start.1), raw_data_at(end.0, end.1)];
+            let result = flight_track_processor::process(std::slice::from_ref(&source)).unwrap();
+            assert_eq!(result.track_segments.len(), 2);
+            assert_source_points_and_spherical_interpolation(
+                std::slice::from_ref(&source),
+                &result,
+            );
+            let before = result.track_segments[0].track_points.last().unwrap();
+            let after = &result.track_segments[1].track_points[0];
+            assert_eq!(before.longitude.abs(), 180.0);
+            assert_eq!(after.longitude, -before.longitude);
+            assert_eq!(before.latitude, after.latitude);
+            for segment in &result.track_segments {
+                assert!(segment
+                    .track_points
+                    .windows(2)
+                    .all(|pair| { (pair[1].longitude - pair[0].longitude).abs() <= 180.0 }));
+            }
+        }
+    }
 }
