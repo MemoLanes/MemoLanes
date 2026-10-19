@@ -22,6 +22,7 @@ class _MapScreenshotButtonState extends State<MapScreenshotButton> {
   final _pointers = <int>{};
   Timer? _fadeTimer;
   bool _revealed = false;
+  bool _armed = false;
   bool _hovered = false;
   bool _focused = false;
 
@@ -34,8 +35,23 @@ class _MapScreenshotButtonState extends State<MapScreenshotButton> {
     _fadeTimer?.cancel();
     if (_pointers.isNotEmpty || _hovered || _focused) return;
     _fadeTimer = Timer(_revealHoldDuration, () {
-      if (mounted) setState(() => _revealed = false);
+      if (mounted) {
+        setState(() {
+          _revealed = false;
+          _armed = false;
+        });
+      }
     });
+  }
+
+  void _handleTap() {
+    // Contact/hover may reveal the button, but only a completed first tap
+    // arms it. Dragging across it or cancelling a gesture cannot arm it.
+    final shouldCapture = _armed;
+    _armed = !shouldCapture;
+    _reveal();
+    _scheduleFade();
+    if (shouldCapture) widget.onPressed?.call();
   }
 
   void _releasePointer(int pointer) {
@@ -75,7 +91,7 @@ class _MapScreenshotButtonState extends State<MapScreenshotButton> {
             child: Material(
               color: Colors.transparent,
               child: InkWell(
-                onTap: widget.onPressed,
+                onTap: widget.onPressed == null ? null : _handleTap,
                 customBorder: const CircleBorder(),
                 onHover: (hovered) {
                   _hovered = hovered;
