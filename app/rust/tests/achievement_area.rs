@@ -3,9 +3,16 @@ use crate::test_utils::{draw_line1, draw_line2};
 use chrono::NaiveDate;
 use memolanes_core::main_db::NewJourney;
 use memolanes_core::{
-    achievement::layer::AchievementLayer, achievement::on_demand::explored_areas_from_snapshot,
-    journey_area_utils::journey_bitmap_area_m2_rounded, journey_bitmap::JourneyBitmap,
-    journey_data::JourneyData, journey_header::JourneyKind, storage::Storage,
+    achievement::layer::AchievementLayer,
+    achievement::on_demand::explored_areas_from_snapshot,
+    journey_area_utils::{
+        cm2_to_m2_rounded, journey_bitmap_area_cm2, journey_bitmap_area_m2_rounded,
+    },
+    journey_bitmap::JourneyBitmap,
+    journey_data::JourneyData,
+    journey_header::JourneyKind,
+    journey_vector::{JourneyVector, TrackPoint, TrackSegment},
+    storage::Storage,
 };
 use std::collections::HashMap;
 use std::fs;
@@ -111,5 +118,87 @@ fn explored_areas_match_direct_fold() {
         assert!(default > 0);
         assert!(flight > 0);
         assert!(all >= default && all >= flight);
+    });
+}
+
+#[test]
+fn polar_area_is_counted_once_across_layers_in_cached_and_on_demand_reads() {
+    setup_storage_for_test(|storage| {
+        let layers = AchievementLayer::ALL_LAYERS;
+        let read_cached = || {
+            storage
+                .with_achievement_read(|reader| {
+                    layers
+                        .into_iter()
+                        .map(|layer| Ok((layer, reader.explored_area_m2(layer)?)))
+                        .collect::<anyhow::Result<HashMap<_, _>>>()
+                })
+                .unwrap()
+        };
+        // Warm all three layers before inserting anything, so subsequent reads
+        // exercise incremental updates of the persisted totals as well.
+        assert!(read_cached().values().all(|area| *area == 0));
+
+        let mut mercator = JourneyBitmap::new();
+        mercator.edit().add_line(0.0, 0.0, 0.0, 0.0);
+        let mercator_cm2 = journey_bitmap_area_cm2(&mercator, None);
+        // A pole point's complete 9×9 brush lies inside the equal-area disk.
+        let pole_cm2 = 81 * 11010;
+        let mut default_cm2 = 0;
+        let mut flight_cm2 = 0;
+        let mut all_cm2 = 0;
+
+        for (step, (kind, latitudes)) in [
+            (JourneyKind::DefaultKind, &[0.0, 90.0][..]),
+            (JourneyKind::Flight, &[90.0, -90.0][..]),
+            (JourneyKind::DefaultKind, &[90.0][..]),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let vector = JourneyVector {
+                track_segments: latitudes
+                    .iter()
+                    .map(|&latitude| TrackSegment {
+                        track_points: vec![TrackPoint {
+                            longitude: 0.0,
+                            latitude,
+                        }],
+                    })
+                    .collect(),
+            };
+            storage
+                .with_db_txn(|txn| {
+                    txn.create_and_insert_journey(NewJourney {
+                        journey_date: NaiveDate::from_ymd_opt(2025, 1, step as u32 + 1).unwrap(),
+                        start: None,
+                        end: None,
+                        created_at: None,
+                        journey_kind: kind,
+                        note: None,
+                        journey_data: JourneyData::Vector(vector),
+                        raw_data: None,
+                    })
+                })
+                .unwrap();
+            if step == 0 {
+                default_cm2 = mercator_cm2 + pole_cm2;
+                all_cm2 = default_cm2;
+            } else if step == 1 {
+                flight_cm2 = 2 * pole_cm2;
+                all_cm2 += pole_cm2; // North is already covered by Default.
+            }
+            let expected = HashMap::from([
+                (AchievementLayer::Default, cm2_to_m2_rounded(default_cm2)),
+                (AchievementLayer::Flight, cm2_to_m2_rounded(flight_cm2)),
+                (AchievementLayer::All, cm2_to_m2_rounded(all_cm2)),
+            ]);
+            assert_eq!(read_cached(), expected, "cached step {step}");
+            assert_eq!(
+                explored_areas(&storage, &layers),
+                expected,
+                "on-demand step {step}"
+            );
+        }
     });
 }

@@ -18,21 +18,31 @@ const MID_LNG: f64 = (START_LNG + END_LNG) / 2.;
 const MID_LAT: f64 = (START_LAT + END_LAT) / 2.;
 
 fn draw_line1(journey_bitmap: &mut JourneyBitmap) {
-    journey_bitmap.add_line(START_LNG, START_LAT, END_LNG, END_LAT)
+    journey_bitmap
+        .edit()
+        .add_line(START_LNG, START_LAT, END_LNG, END_LAT)
 }
 fn draw_line2(journey_bitmap: &mut JourneyBitmap) {
-    journey_bitmap.add_line(START_LNG, END_LAT, END_LNG, START_LAT);
+    journey_bitmap
+        .edit()
+        .add_line(START_LNG, END_LAT, END_LNG, START_LAT);
 }
 fn draw_line3(journey_bitmap: &mut JourneyBitmap) {
-    journey_bitmap.add_line(MID_LNG, START_LAT, MID_LNG, END_LAT)
+    journey_bitmap
+        .edit()
+        .add_line(MID_LNG, START_LAT, MID_LNG, END_LAT)
 }
 fn draw_line4(journey_bitmap: &mut JourneyBitmap) {
-    journey_bitmap.add_line(START_LNG, MID_LAT, END_LNG, MID_LAT)
+    journey_bitmap
+        .edit()
+        .add_line(START_LNG, MID_LAT, END_LNG, MID_LAT)
 }
 
 fn draw_line5(journey_bitmap: &mut JourneyBitmap) {
     // Draw a line from Tokyo to Hawaii across the antimeridian
-    journey_bitmap.add_line(139.7690, 35.6804, -157.8583, 21.3069)
+    journey_bitmap
+        .edit()
+        .add_line(139.7690, 35.6804, -157.8583, 21.3069)
 }
 
 pub fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -106,14 +116,8 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let next_lng = lng + lng_step;
                 let next_lat = lat + rng.random_range(-lat_step..=lat_step);
                 let mut map_renderer = map_renderer_arc_clone.lock().unwrap();
-                map_renderer.update(|bitmap, tile_changed| {
-                    bitmap.add_line_with_change_callback(
-                        lng,
-                        lat,
-                        next_lng,
-                        next_lat,
-                        tile_changed,
-                    );
+                map_renderer.update(|editor| {
+                    editor.add_line(lng, lat, next_lng, next_lat);
                 });
                 lng = next_lng;
                 lat = next_lat;

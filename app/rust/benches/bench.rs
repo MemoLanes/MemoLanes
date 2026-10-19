@@ -30,7 +30,7 @@ fn journey_area_calculation(c: &mut Criterion) {
                 )
                 .unwrap();
             let mut journey_bitmap = JourneyBitmap::new();
-            journey_bitmap.merge_vector(&journey_vector);
+            journey_bitmap.edit().merge_vector(&journey_vector);
             b.iter(|| {
                 std::hint::black_box(journey_area_utils::journey_bitmap_area_m2_rounded(
                     &mut journey_bitmap,
@@ -63,8 +63,12 @@ fn journey_bitmap(c: &mut Criterion) {
 
         b.iter(|| {
             let mut journey_bitmap = JourneyBitmap::new();
-            std::hint::black_box(journey_bitmap.merge_vector(&nelson_to_wharariki_beach));
-            std::hint::black_box(journey_bitmap.merge_vector(&heihe));
+            std::hint::black_box(
+                journey_bitmap
+                    .edit()
+                    .merge_vector(&nelson_to_wharariki_beach),
+            );
+            std::hint::black_box(journey_bitmap.edit().merge_vector(&heihe));
             journey_bitmap
         })
     });

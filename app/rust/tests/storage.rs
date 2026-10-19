@@ -220,7 +220,7 @@ fn assert_cache(storage: &Storage, default: &JourneyBitmap, flight: &JourneyBitm
         flight
     );
     let mut all = default.clone();
-    all.merge(flight.clone());
+    all.edit().merge(flight.clone());
     assert_eq!(
         storage
             .get_latest_bitmap_for_main_map_renderer(&Some(LayerKind::All), true)
@@ -240,8 +240,8 @@ fn increment_journey_and_verify_cache_same_kind() {
         draw_line2(&mut journey_bitmap2);
 
         let mut total_bitmap = JourneyBitmap::new();
-        total_bitmap.merge(journey_bitmap1.clone());
-        total_bitmap.merge(journey_bitmap2.clone());
+        total_bitmap.edit().merge(journey_bitmap1.clone());
+        total_bitmap.edit().merge(journey_bitmap2.clone());
 
         assert_cache(&storage, &empty_bitmap, &empty_bitmap);
 
@@ -602,7 +602,7 @@ fn get_range_bitmap_works() {
             .unwrap();
 
         let mut expected = bitmap_jan.clone();
-        expected.merge(bitmap_mar.clone());
+        expected.edit().merge(bitmap_mar.clone());
         assert_eq!(result, expected);
 
         // Range Jan only for Flight
@@ -624,7 +624,7 @@ fn get_range_bitmap_works() {
             )
             .unwrap();
         let mut expected_all = bitmap_jan;
-        expected_all.merge(bitmap_flight);
+        expected_all.edit().merge(bitmap_flight);
         assert_eq!(all_result, expected_all);
     });
 }
@@ -818,7 +818,7 @@ fn multiple_inserts_in_sequence_final_state_correct() {
             )
             .unwrap();
         let mut expected2 = bitmap1.clone();
-        expected2.merge(bitmap2.clone());
+        expected2.edit().merge(bitmap2.clone());
         assert_eq!(result2, expected2);
 
         storage
@@ -844,8 +844,8 @@ fn multiple_inserts_in_sequence_final_state_correct() {
             )
             .unwrap();
         let mut expected3 = bitmap1.clone();
-        expected3.merge(bitmap2.clone());
-        expected3.merge(bitmap3.clone());
+        expected3.edit().merge(bitmap2.clone());
+        expected3.edit().merge(bitmap3.clone());
         assert_eq!(result3, expected3);
 
         // Delete middle one
@@ -859,7 +859,7 @@ fn multiple_inserts_in_sequence_final_state_correct() {
             )
             .unwrap();
         let mut expected_final = bitmap1;
-        expected_final.merge(bitmap3);
+        expected_final.edit().merge(bitmap3);
         assert_eq!(final_result, expected_final);
     });
 }

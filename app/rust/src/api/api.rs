@@ -12,7 +12,7 @@ pub use crate::export_data::RawDataExportType;
 use crate::frb_generated::StreamSink;
 pub use crate::gps::ExtendedRawGPSPoint;
 use crate::gps_processor::{GpsPreprocessor, ProcessResult};
-use crate::journey_bitmap::JourneyBitmap;
+use crate::journey_bitmap::{BitmapPlane, JourneyBitmap};
 use crate::journey_data::JourneyData;
 use crate::journey_header::{JourneyHeader, JourneyInfo, JourneyKind, JourneyType};
 use crate::legacy_raw_data::LegacyRawDataFile;
@@ -390,7 +390,7 @@ fn get_map_renderer_proxy_for_journey_data_internal(
     journey_data: JourneyData,
 ) -> Result<(MapRendererProxy, Option<MapBounds>)> {
     let mut journey_bitmap = JourneyBitmap::new();
-    journey_data.merge_into(&mut journey_bitmap);
+    journey_data.merge_into(&mut journey_bitmap.edit());
 
     let bounds = get_bounds_from_journey_bitmap(&mut journey_bitmap);
 
@@ -454,17 +454,9 @@ pub fn on_location_update(data: ExtendedRawGPSPoint) -> bool {
         match line_to_add {
             None => (),
             Some((start, end)) => {
-                main_map_state.map_renderer.update(
-                    |journey_bitmap: &mut crate::journey_bitmap::JourneyBitmap, tile_changed| {
-                        journey_bitmap.add_line_with_change_callback(
-                            start.longitude,
-                            start.latitude,
-                            end.longitude,
-                            end.latitude,
-                            tile_changed,
-                        );
-                    },
-                );
+                main_map_state.map_renderer.update(|editor| {
+                    editor.add_line(start.longitude, start.latitude, end.longitude, end.latitude);
+                });
             }
         };
     };
@@ -632,14 +624,13 @@ pub fn export_all_journeys_as_fwss(target_filepath: String) -> Result<ExportResu
     let journey_bitmap = get()
         .storage
         .get_latest_bitmap_for_main_map_renderer(&Some(LayerKind::All), false)?;
-    if journey_bitmap.is_empty() {
-        Ok(ExportResult::DataIsEmpty)
-    } else {
-        export_data::write_export_file(&target_filepath, |file| {
-            export_data::fow::journey_bitmap_to_fwss_file(&journey_bitmap, file)
-        })?;
-        Ok(ExportResult::Succeed)
+    if !journey_bitmap.has_plane_data(BitmapPlane::Mercator) {
+        return Ok(ExportResult::DataIsEmpty);
     }
+    export_data::write_export_file(&target_filepath, |file| {
+        export_data::fow::journey_bitmap_to_fwss_file(&journey_bitmap, file)
+    })?;
+    Ok(ExportResult::Succeed)
 }
 
 pub fn export_all_journeys_as_gpx(target_filepath: String) -> Result<ExportResult> {
@@ -743,43 +734,51 @@ pub fn export_journey(
         }
     })?;
 
-    // the main reason for having `data_for_export` is to run the expensive file generation
-    // outside `with_txn`, so we don't need to hold the lock.
-
+    // Generate files after releasing the database lock. Check FoW coverage
+    // before opening the destination, including when converting vector data.
+    let Some(data_for_export) = data_for_export else {
+        return Ok(ExportResult::DataIsEmpty);
+    };
     match data_for_export {
-        None => Ok(ExportResult::DataIsEmpty),
-        Some(data_for_export) => {
-            export_data::write_export_file(&target_filepath, |file| match data_for_export {
-                InternalDataForExport::Mldx(header, data, raw_data) => {
-                    archive::export_single_journey_as_mldx(
-                        header,
-                        data,
-                        raw_data,
-                        file,
-                        include_raw_data,
-                    )
-                }
-                InternalDataForExport::Fwss(data) => {
-                    let bitmap = match data {
-                        JourneyData::Bitmap(bitmap) => bitmap,
-                        JourneyData::Vector(vector) => {
-                            let mut journey_bitmap = JourneyBitmap::new();
-                            journey_bitmap.merge_vector(&vector);
-                            journey_bitmap
-                        }
-                    };
-                    export_data::fow::journey_bitmap_to_fwss_file(&bitmap, file)
-                }
-                InternalDataForExport::Gpx(journey) => {
-                    export_data::gpx::journeys_to_gpx_file(&[journey], file)
-                }
-                InternalDataForExport::Kml(journey) => {
-                    export_data::kml::journeys_to_kml_file(&[journey], file)
-                }
+        InternalDataForExport::Mldx(header, data, raw_data) => {
+            export_data::write_export_file(&target_filepath, |file| {
+                archive::export_single_journey_as_mldx(
+                    header,
+                    data,
+                    raw_data,
+                    file,
+                    include_raw_data,
+                )
             })?;
-            Ok(ExportResult::Succeed)
+        }
+        InternalDataForExport::Fwss(data) => {
+            let bitmap = match data {
+                JourneyData::Bitmap(bitmap) => bitmap,
+                JourneyData::Vector(vector) => {
+                    let mut bitmap = JourneyBitmap::new();
+                    bitmap.edit().merge_vector(&vector);
+                    bitmap
+                }
+            };
+            if !bitmap.has_plane_data(BitmapPlane::Mercator) {
+                return Ok(ExportResult::DataIsEmpty);
+            }
+            export_data::write_export_file(&target_filepath, |file| {
+                export_data::fow::journey_bitmap_to_fwss_file(&bitmap, file)
+            })?;
+        }
+        InternalDataForExport::Gpx(journey) => {
+            export_data::write_export_file(&target_filepath, |file| {
+                export_data::gpx::journeys_to_gpx_file(&[journey], file)
+            })?;
+        }
+        InternalDataForExport::Kml(journey) => {
+            export_data::write_export_file(&target_filepath, |file| {
+                export_data::kml::journeys_to_kml_file(&[journey], file)
+            })?;
         }
     }
+    Ok(ExportResult::Succeed)
 }
 
 pub fn journey_has_raw_data(journey_id: String) -> Result<bool> {
