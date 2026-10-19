@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:ui' as ui;
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:material_ui/material_ui.dart';
@@ -10,14 +11,19 @@ import 'package:memolanes/body/map/overlay/normal_map_overlay.dart';
 import 'package:memolanes/body/map/overlay/time_machine_overlay.dart';
 import 'package:memolanes/common/component/base_map_webview.dart';
 import 'package:memolanes/common/component/capsule_style_overlay_app_bar.dart';
+import 'package:memolanes/common/component/map_controls/screenshot_button.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/log.dart';
+import 'package:memolanes/common/loading_manager.dart';
+import 'package:memolanes/common/screenshot.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
 import 'package:memolanes/utils/nav_helper.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:provider/provider.dart';
+import 'package:pointer_interceptor/pointer_interceptor.dart';
 
 part 'map.g.dart';
 
@@ -82,6 +88,70 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
   /// cause a mistaken rebuild and reload.
   final GlobalKey<BaseMapWebviewState> _mainMapKey =
       GlobalKey<BaseMapWebviewState>();
+  final _timelineKey = GlobalKey<TimeMachineOverlayState>();
+  bool _screenshotInProgress = false;
+
+  Future<void> takeScreenshot() async {
+    final loading = GlobalLoadingManager.instance;
+    if (_screenshotInProgress ||
+        loading.isLoading ||
+        loading.isNavigationBlocked) {
+      return;
+    }
+    final mode = widget.mode;
+    final journey = widget.journeys.session?.journey;
+    if (mode == MapMode.journeys &&
+        (journey == null || widget.journeys.phase != JourneyPhase.viewing)) {
+      return;
+    }
+    if (mode == MapMode.timeMachine &&
+        _timelineKey.currentState?.canCaptureScreenshot != true) {
+      Fluttertoast.showToast(msg: context.tr('screenshot.not_ready'));
+      return;
+    }
+    setState(() => _screenshotInProgress = true);
+    ui.Image? mapImage;
+    ui.Image? timelineImage;
+    try {
+      final mapState = _mainMapKey.currentState;
+      final box = _mainMapKey.currentContext?.findRenderObject();
+      if (mapState == null || box is! RenderBox || !box.hasSize) {
+        throw StateError('Map is unavailable');
+      }
+      final size = box.size;
+      final pixelRatio = MediaQuery.devicePixelRatioOf(context);
+      await loading.runWithLoading(() async {
+        if (mode == MapMode.timeMachine) {
+          timelineImage = await _timelineKey.currentState!.captureScreenshot(
+            pixelRatio,
+          );
+        }
+        mapImage = await decodeScreenshot(await mapState.captureScreenshot());
+      }, blockNavigation: true);
+      if (!mounted || widget.mode != mode) return;
+      final route = MaterialPageRoute<bool>(
+        builder: (_) => ScreenshotPreviewPage(
+          map: mapImage!,
+          logicalSize: size,
+          timeline: timelineImage,
+          journey: mode == MapMode.journeys ? journey : null,
+        ),
+      );
+      final saved = await Navigator.of(context).push(route);
+      // RawImage still paints during the outgoing route transition.
+      await route.completed;
+      if (saved == true && mounted) {
+        Fluttertoast.showToast(msg: context.tr('screenshot.saved'));
+      }
+    } catch (error, stackTrace) {
+      log.error('Capturing screenshot failed: $error', stackTrace);
+      if (mounted) Fluttertoast.showToast(msg: context.tr('screenshot.failed'));
+    } finally {
+      mapImage?.dispose();
+      timelineImage?.dispose();
+      if (mounted) setState(() => _screenshotInProgress = false);
+    }
+  }
 
   void setJourneyMapRendererProxy(api.MapRendererProxy? proxy) {
     setState(() => _journeyMapRendererProxy = proxy);
@@ -289,6 +359,7 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
         );
       case MapMode.timeMachine:
         return TimeMachineOverlay(
+          key: _timelineKey,
           onJourneyRangeLoaded: setJourneyMapRendererProxy,
         );
       case MapMode.journeys:
@@ -310,8 +381,26 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final mode = widget.mode;
+    final padding = MediaQuery.viewPaddingOf(context);
+    final showScreenshot =
+        mode != MapMode.journeys ||
+        (widget.journeys.session != null &&
+            widget.journeys.phase == JourneyPhase.viewing);
 
-    final children = <Widget>[_buildMapLayer(), _buildOverlay(context, mode)];
+    final children = <Widget>[
+      _buildMapLayer(),
+      _buildOverlay(context, mode),
+      if (showScreenshot)
+        Positioned(
+          top: padding.top + 14,
+          right: padding.right + 16,
+          child: PointerInterceptor(
+            child: MapScreenshotButton(
+              onPressed: _screenshotInProgress ? null : takeScreenshot,
+            ),
+          ),
+        ),
+    ];
 
     return Stack(children: children);
   }

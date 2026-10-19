@@ -7,5 +7,6 @@ class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         flutterEngine.plugins.add(DeviceRegionPlugin())
+        flutterEngine.plugins.add(ScreenshotPlugin())
     }
 }

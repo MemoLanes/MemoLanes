@@ -1,4 +1,18 @@
 {
+  "screenshot": {
+    "button_label": "截图",
+    "title": "屏幕截图",
+    "include_logo": "在右下角加入 Logo",
+    "include_logo_top_right": "在右上角加入 Logo",
+    "logo_unavailable": "Logo 尚未配置，当前可保存无 Logo 图片",
+    "save": "保存到相册",
+    "saved": "图片已保存到相册",
+    "not_ready": "地图或时间轴仍在加载，请稍后再试",
+    "failed": "生成截图失败，请等待地图加载完成后重试",
+    "save_failed": "保存失败，请检查设备可用空间后重试",
+    "share_failed": "分享失败，请重试",
+    "permission_denied": "没有保存相册的权限，请在系统设置中允许后重试"
+  },
   "home": {
     "start_new_journey": "开始新旅程",
     "pause": "暂停",

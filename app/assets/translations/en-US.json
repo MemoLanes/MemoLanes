@@ -1,4 +1,18 @@
 {
+  "screenshot": {
+    "button_label": "Screenshot",
+    "title": "Screenshot",
+    "include_logo": "Add Logo at the bottom right",
+    "include_logo_top_right": "Add Logo at the top right",
+    "logo_unavailable": "Logo is not configured. You can save without it.",
+    "save": "Save to Photos",
+    "saved": "Image saved to Photos",
+    "not_ready": "The map or timeline is still loading. Please try again shortly.",
+    "failed": "Could not capture the map. Wait for it to load and try again.",
+    "save_failed": "Could not save. Check available storage and try again.",
+    "share_failed": "Could not share the image. Please try again.",
+    "permission_denied": "Photo permission was denied. Allow it in system settings and try again."
+  },
   "home": {
     "start_new_journey": "Start new journey",
     "pause": "Pause",

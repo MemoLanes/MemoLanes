@@ -144,6 +144,7 @@ flutter:
   uses-material-design: true
 
   assets:
+    - assets/screenshot_logo.png
     - assets/translations/
     - assets/map_webview/
     - assets/geo/
