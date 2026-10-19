@@ -11,15 +11,25 @@ class OptionCard extends StatelessWidget {
     this.useSafeArea = true,
     this.separators = true,
     this.embedded = false,
-  });
+  }) : contentBuilder = null;
+
+  const OptionCard.builder({
+    super.key,
+    required this.contentBuilder,
+    this.useSafeArea = true,
+    this.separators = true,
+    this.embedded = false,
+  }) : children = const [];
 
   final List<Widget> children;
+  final List<Widget> Function(BuildContext, BoxConstraints)? contentBuilder;
   final bool useSafeArea;
   final bool separators;
   final bool embedded;
 
   @override
   Widget build(BuildContext context) {
+    final builder = contentBuilder;
     final card = Container(
       decoration: embedded
           ? null
@@ -43,16 +53,23 @@ class OptionCard extends StatelessWidget {
             ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: separators ? _withDividers(context, children) : children,
-        ),
+        child: builder == null
+            ? _buildColumn(context, children)
+            : LayoutBuilder(
+                builder: (context, constraints) =>
+                    _buildColumn(context, builder(context, constraints)),
+              ),
       ),
     );
 
     if (!useSafeArea) return card;
     return SafeAreaWrapper(child: card);
   }
+
+  Widget _buildColumn(BuildContext context, List<Widget> children) => Column(
+    mainAxisSize: MainAxisSize.min,
+    children: separators ? _withDividers(context, children) : children,
+  );
 
   List<Widget> _withDividers(BuildContext context, List<Widget> widgets) {
     if (widgets.isEmpty) return [];

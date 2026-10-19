@@ -1,11 +1,9 @@
-import 'dart:io';
-import 'dart:typed_data';
-
 import 'package:easy_localization/easy_localization.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:memolanes/common/component/capsule_style_app_bar.dart';
-import 'package:memolanes/common/map_webview_assets.dart';
+import 'package:memolanes/common/component/page_content_layout.dart';
+import 'package:memolanes/common/map_webview_resources.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 
 class RenderDiagnosticsPage extends StatefulWidget {
@@ -27,35 +25,11 @@ class _RenderDiagnosticsPageState extends State<RenderDiagnosticsPage> {
 
   Future<void> _onWebViewCreated(InAppWebViewController controller) async {
     _controller = controller;
-    await MapWebViewAssets.load(controller, 'render_diagnostics.html');
-  }
-
-  Future<
-    ({
-      int status,
-      Uint8List body,
-      String contentType,
-      Map<String, String> headers,
-    })
-  >
-  _handleInterceptedRequest(WebUri url) async {
-    final path = url.path.replaceFirst(RegExp(r'^/?(api/)?'), '');
-    final result = await _mapRendererProxy.handleRequest(
-      path: path,
-      queryParams: url.queryParameters,
-    );
-    return (
-      status: result.status,
-      body: result.body,
-      contentType: result.contentType,
-      headers: result.headers,
-    );
+    await MapWebViewResources.load(controller, 'render_diagnostics.html');
   }
 
   Future<void> _injectApiEndpoint() async {
-    final cgiEndpoint = Platform.isIOS
-        ? 'memolanes://api'
-        : 'https://memolanes.local/api';
+    final cgiEndpoint = MapWebViewResources.apiEndpoint;
     final appearance = (Theme.of(context).brightness == Brightness.dark)
         ? 'dark'
         : 'light';
@@ -81,74 +55,50 @@ class _RenderDiagnosticsPageState extends State<RenderDiagnosticsPage> {
   }
 
   @override
-  void dispose() {
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: CapsuleStyleAppBar(
         title: context.tr("general.advanced_settings.render_diagnostics"),
       ),
-      body: InAppWebView(
-        initialSettings: InAppWebViewSettings(
-          javaScriptEnabled: true,
-          allowFileAccessFromFileURLs: true,
-          allowUniversalAccessFromFileURLs: true,
-          resourceCustomSchemes: ['memolanes'],
-          webViewAssetLoader: MapWebViewAssets.createAssetLoader(),
+      body: PageContentInsets(
+        child: InAppWebView(
+          initialSettings: InAppWebViewSettings(
+            javaScriptEnabled: true,
+            allowFileAccessFromFileURLs: true,
+            allowUniversalAccessFromFileURLs: true,
+            resourceCustomSchemes: ['memolanes'],
+            webViewAssetLoader: MapWebViewResources.createAssetLoader(),
+          ),
+          onWebViewCreated: (controller) {
+            _onWebViewCreated(controller);
+          },
+          onLoadResourceWithCustomScheme: (controller, request) async {
+            if (!mounted) return null;
+            return MapWebViewResources.loadApiResource(
+              _mapRendererProxy,
+              request.url,
+            );
+          },
+          shouldInterceptRequest: (controller, request) async {
+            if (!mounted) return null;
+            return MapWebViewResources.interceptApiRequest(
+              _mapRendererProxy,
+              request.url,
+            );
+          },
+          onLoadStop: (controller, url) {
+            debugPrint('Page finished loading: $url');
+            _injectApiEndpoint();
+          },
+          onConsoleMessage: (controller, consoleMessage) {
+            debugPrint(
+              '[${consoleMessage.messageLevel.name}] ${consoleMessage.message}',
+            );
+          },
+          onReceivedError: (controller, request, error) {
+            debugPrint('WebView error: ${error.description}');
+          },
         ),
-        onWebViewCreated: (controller) {
-          _onWebViewCreated(controller);
-        },
-        onLoadResourceWithCustomScheme: (controller, request) async {
-          final result = await _handleInterceptedRequest(request.url);
-          return CustomSchemeResponse(
-            data: result.body,
-            contentType: result.contentType,
-            contentEncoding: 'utf-8',
-            statusCode: result.status,
-            headers: {
-              'Access-Control-Allow-Origin': '*',
-              'Access-Control-Expose-Headers': 'X-Tile-Version, X-Not-Modified',
-              'Content-Type': result.contentType,
-              ...result.headers,
-            },
-          );
-        },
-        shouldInterceptRequest: (controller, request) async {
-          final url = request.url.toString();
-          if (!url.startsWith('https://memolanes.local/api/')) {
-            return null;
-          }
-          final result = await _handleInterceptedRequest(request.url);
-          return WebResourceResponse(
-            contentType: result.contentType,
-            contentEncoding: 'utf-8',
-            data: result.body,
-            statusCode: result.status,
-            reasonPhrase: result.status == 200 ? 'OK' : 'Not Modified',
-            headers: {
-              'Access-Control-Allow-Origin': '*',
-              'Access-Control-Expose-Headers': 'X-Tile-Version, X-Not-Modified',
-              'Content-Type': result.contentType,
-              ...result.headers,
-            },
-          );
-        },
-        onLoadStop: (controller, url) {
-          debugPrint('Page finished loading: $url');
-          _injectApiEndpoint();
-        },
-        onConsoleMessage: (controller, consoleMessage) {
-          debugPrint(
-            '[${consoleMessage.messageLevel.name}] ${consoleMessage.message}',
-          );
-        },
-        onReceivedError: (controller, request, error) {
-          debugPrint('WebView error: ${error.description}');
-        },
       ),
     );
   }

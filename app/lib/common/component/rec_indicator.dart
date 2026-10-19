@@ -12,12 +12,10 @@ class RecIndicator extends StatefulWidget {
     super.key,
     required this.isRecording,
     this.blinkDurationMs = 1300,
-    this.margin = const EdgeInsets.fromLTRB(18, 8, 0, 0),
   });
 
   final bool isRecording;
   final int blinkDurationMs;
-  final EdgeInsetsGeometry margin;
 
   @override
   State<RecIndicator> createState() => _RecIndicatorState();
@@ -106,77 +104,68 @@ class _RecIndicatorState extends State<RecIndicator>
     if (!widget.isRecording) return const SizedBox.shrink();
 
     return IgnorePointer(
-      child: SafeArea(
-        child: Align(
-          alignment: Alignment.topLeft,
-          child: Container(
-            margin: widget.margin,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(18),
-              boxShadow: [
-                BoxShadow(
-                  color: context.appColors.shadowColor.withValues(
-                    alpha: context.appColors.popupShadowAlpha,
-                  ),
-                  blurRadius: 18,
-                  offset: const Offset(0, 6),
-                ),
-              ],
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: context.appColors.shadowColor.withValues(
+                alpha: context.appColors.popupShadowAlpha,
+              ),
+              blurRadius: 18,
+              offset: const Offset(0, 6),
             ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(18),
-              child: BackdropFilter(
-                enabled: StyleConstants.enableBackdropFilter,
-                filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 11,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: context.appColors.glassColor.withValues(
-                      alpha: lerpDouble(
-                        0.72,
-                        0.92,
-                        context.appColors.darkProgress,
-                      )!,
-                    ),
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(
-                      color: context.appColors.glassBorderColor.withValues(
-                        alpha: lerpDouble(
-                          0.86,
-                          0.48,
-                          context.appColors.darkProgress,
-                        )!,
-                      ),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (_shouldAnimate)
-                        AnimatedBuilder(
-                          animation: _pulse,
-                          builder: (context, _) => _buildRecordingDot(
-                            animated: true,
-                            pulse: _pulse.value,
-                          ),
-                        )
-                      else
-                        _buildRecordingDot(animated: false),
-                      const SizedBox(width: 7),
-                      Text(
-                        'REC',
-                        style: AppTypography.label.copyWith(
-                          color: context.appColors.inkColor,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.2,
-                        ),
-                      ),
-                    ],
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(18),
+          child: BackdropFilter(
+            enabled: StyleConstants.enableBackdropFilter,
+            filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
+              decoration: BoxDecoration(
+                color: context.appColors.glassColor.withValues(
+                  alpha: lerpDouble(
+                    0.72,
+                    0.92,
+                    context.appColors.darkProgress,
+                  )!,
+                ),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: context.appColors.glassBorderColor.withValues(
+                    alpha: lerpDouble(
+                      0.86,
+                      0.48,
+                      context.appColors.darkProgress,
+                    )!,
                   ),
                 ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (_shouldAnimate)
+                    AnimatedBuilder(
+                      animation: _pulse,
+                      builder: (context, _) => _buildRecordingDot(
+                        animated: true,
+                        pulse: _pulse.value,
+                      ),
+                    )
+                  else
+                    _buildRecordingDot(animated: false),
+                  const SizedBox(width: 7),
+                  Text(
+                    'REC',
+                    style: AppTypography.label.copyWith(
+                      color: context.appColors.inkColor,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),

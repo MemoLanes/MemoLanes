@@ -2,8 +2,10 @@ import 'package:memolanes/theme/app_colors.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:memolanes/common/component/capsule_style_app_bar.dart';
+import 'package:memolanes/common/component/page_content_layout.dart';
 import 'package:memolanes/common/loading_manager.dart';
 import 'package:memolanes/constants/app_typography.dart';
+import 'package:memolanes/constants/style_constants.dart';
 
 class ImportLoadingPage<T> extends StatefulWidget {
   const ImportLoadingPage({
@@ -70,13 +72,14 @@ class ImportLoadingScaffold extends StatelessWidget {
       child: Scaffold(
         backgroundColor: context.appColors.canvasColor,
         appBar: CapsuleStyleAppBar(title: context.tr('data.import_data.title')),
-        body: SafeArea(
-          top: false,
+        body: PageContentFrame(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          maxWidth: StyleConstants.dialogMaxWidth,
           child: Center(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 440),
+              padding: const EdgeInsets.only(top: 24, bottom: 32),
+              child: SafeArea(
+                top: false,
                 child: Column(
                   children: [
                     Text(

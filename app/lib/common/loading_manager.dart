@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
+import 'package:memolanes/common/component/app_modal_region.dart';
 import 'package:memolanes/theme/app_colors.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
@@ -157,7 +158,11 @@ class GlobalLoadingOverlay extends StatelessWidget {
                               )!
                             : Colors.transparent,
                       ),
-                      if (isLoading) const Center(child: _DefaultLoadingCard()),
+                      if (isLoading)
+                        const AppModalRegion(
+                          useSafeArea: false,
+                          child: Center(child: _DefaultLoadingCard()),
+                        ),
                     ],
                   ),
                 ),

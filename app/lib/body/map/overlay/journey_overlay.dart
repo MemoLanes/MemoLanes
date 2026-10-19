@@ -1,11 +1,9 @@
-import 'dart:math' as math;
-
 import 'package:memolanes/theme/app_colors.dart';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:memolanes/common/component/map_overlay_panel.dart';
 import 'package:memolanes/constants/app_typography.dart';
-import 'package:memolanes/constants/style_constants.dart';
 import 'package:memolanes/body/journey/journey_body.dart';
 import 'package:memolanes/body/journey/compact_journey_info_card.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
@@ -30,50 +28,18 @@ class JourneyOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final mediaQuery = MediaQuery.of(context);
-    final viewPadding = mediaQuery.viewPadding;
-    final bottom = StyleConstants.mapPrimaryControlBottomInsetForContext(
-      context,
-    );
-    final availableHeight = math.max(
-      0.0,
-      mediaQuery.size.height - bottom - viewPadding.top - 12,
-    );
-    final preferredHeight = (mediaQuery.size.height * 0.62)
-        .clamp(390.0, 530.0)
-        .toDouble();
-    final pickerHeight = math.min(preferredHeight, availableHeight);
-    final isLandscape = mediaQuery.orientation == Orientation.landscape;
-    final pickerMaxWidth = isLandscape ? 720.0 : 480.0;
-
     return Stack(
       children: [
         Offstage(
           offstage: detail != null,
           child: Stack(
             children: [
-              Positioned(
-                left: viewPadding.left + 16,
-                right: viewPadding.right + 16,
-                bottom: bottom,
-                child: Align(
-                  alignment: Alignment.bottomCenter,
-                  child: SizedBox(
-                    width: math.min(
-                      mediaQuery.size.width -
-                          viewPadding.left -
-                          viewPadding.right -
-                          32,
-                      pickerMaxWidth,
-                    ),
-                    height: pickerHeight,
-                    child: PointerInterceptor(
-                      child: _JourneyPickerCard(
-                        onJourneySelected: onJourneySelected,
-                        isLoading: isLoading,
-                        refreshRevision: refreshRevision,
-                      ),
-                    ),
+              MapOverlayPanel.picker(
+                child: PointerInterceptor(
+                  child: _JourneyPickerCard(
+                    onJourneySelected: onJourneySelected,
+                    isLoading: isLoading,
+                    refreshRevision: refreshRevision,
                   ),
                 ),
               ),
@@ -139,7 +105,8 @@ class _JourneyPickerCard extends StatelessWidget {
                 height: 1,
                 color: context.appColors.lineColor.withValues(alpha: 0.9),
               ),
-              Expanded(
+              Flexible(
+                fit: FlexFit.loose,
                 child: JourneyBody(
                   onJourneySelected: onJourneySelected,
                   refreshRevision: refreshRevision,

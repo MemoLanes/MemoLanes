@@ -42,70 +42,63 @@ class JourneyListEmptyState extends StatelessWidget {
 
     return Align(
       alignment: topAligned ? Alignment.topCenter : Alignment.center,
-      child: SingleChildScrollView(
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(
-            compact ? 8 : 24,
-            topAligned ? (compact ? 10 : 24) : 32,
-            compact ? 8 : 24,
-            compact ? 12 : 24,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          compact ? 8 : 24,
+          topAligned ? (compact ? 10 : 24) : 32,
+          compact ? 8 : 24,
+          compact ? 12 : 24,
+        ),
+        child: Container(
+          width: double.infinity,
+          padding: EdgeInsets.all(compact ? 18 : 24),
+          decoration: BoxDecoration(
+            color: context.appColors.surfaceColor,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: context.appColors.lineColor),
           ),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 320),
-            child: Container(
-              width: double.infinity,
-              padding: EdgeInsets.all(compact ? 18 : 24),
-              decoration: BoxDecoration(
-                color: context.appColors.surfaceColor,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: context.appColors.lineColor),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: context.appColors.softYellow,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  icon,
+                  color: context.appColors.deepYellow,
+                  size: 25,
+                ),
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: context.appColors.softYellow,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      icon,
-                      color: context.appColors.deepYellow,
-                      size: 25,
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  Text(
-                    context.tr(titleKey),
-                    textAlign: TextAlign.center,
-                    style: AppTypography.subpageTitle.copyWith(
-                      color: context.appColors.inkColor,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    context.tr(descriptionKey),
-                    textAlign: TextAlign.center,
-                    style: AppTypography.supporting.copyWith(
-                      color: context.appColors.mutedInkColor,
-                    ),
-                  ),
-                  if (onShowAll != null) ...[
-                    const SizedBox(height: 12),
-                    AppButton(
-                      onPressed: onShowAll,
-                      icon: Icons.layers_outlined,
-                      size: compact
-                          ? AppButtonSize.compact
-                          : AppButtonSize.regular,
-                      label: context.tr('journey.list.show_all_layers'),
-                    ),
-                  ],
-                ],
+              const SizedBox(height: 14),
+              Text(
+                context.tr(titleKey),
+                textAlign: TextAlign.center,
+                style: AppTypography.subpageTitle.copyWith(
+                  color: context.appColors.inkColor,
+                ),
               ),
-            ),
+              const SizedBox(height: 6),
+              Text(
+                context.tr(descriptionKey),
+                textAlign: TextAlign.center,
+                style: AppTypography.supporting.copyWith(
+                  color: context.appColors.mutedInkColor,
+                ),
+              ),
+              if (onShowAll != null) ...[
+                const SizedBox(height: 12),
+                AppButton(
+                  onPressed: onShowAll,
+                  icon: Icons.layers_outlined,
+                  size: compact ? AppButtonSize.compact : AppButtonSize.regular,
+                  label: context.tr('journey.list.show_all_layers'),
+                ),
+              ],
+            ],
           ),
         ),
       ),

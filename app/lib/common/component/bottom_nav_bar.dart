@@ -13,25 +13,28 @@ class BottomNavBar extends StatelessWidget {
     required this.selectedIndex,
     required this.onIndexChanged,
     required this.hasUpdateNotification,
+    this.axis = Axis.horizontal,
   });
 
   final int selectedIndex;
   final ValueChanged<int> onIndexChanged;
   final bool Function() hasUpdateNotification;
+  final Axis axis;
 
-  static const double height = StyleConstants.navBarHeight;
-  static const double designHorizontalMargin = 24;
-
-  Alignment get _selectionAlignment => switch (selectedIndex) {
-    0 => Alignment.centerLeft,
-    1 => const Alignment(-0.5, 0),
-    2 => Alignment.center,
-    3 => const Alignment(0.5, 0),
-    _ => Alignment.centerRight,
-  };
+  static const _icons = [
+    (Icons.explore_outlined, Icons.explore_rounded),
+    (Icons.access_time_rounded, Icons.history_rounded),
+    (Icons.route_outlined, Icons.route),
+    (Icons.emoji_events_outlined, Icons.emoji_events_rounded),
+    (Icons.settings_outlined, Icons.settings_rounded),
+  ];
 
   @override
   Widget build(BuildContext context) {
+    final position = -1 + selectedIndex * 2 / (_icons.length - 1);
+    final selectionAlignment = axis == Axis.horizontal
+        ? Alignment(position, 0)
+        : Alignment(0, position);
     final darkProgress = context.appColors.darkProgress;
     final glowEdge = Color.lerp(
       Colors.white,
@@ -58,13 +61,21 @@ class BottomNavBar extends StatelessWidget {
         fit: StackFit.expand,
         children: [
           Positioned(
-            left: 42,
-            right: 42,
-            bottom: 1,
-            height: 1,
+            left: axis == Axis.horizontal ? 42 : null,
+            right: axis == Axis.horizontal ? 42 : 1,
+            top: axis == Axis.vertical ? 42 : null,
+            bottom: axis == Axis.horizontal ? 1 : 42,
+            height: axis == Axis.horizontal ? 1 : null,
+            width: axis == Axis.vertical ? 1 : null,
             child: DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
+                  begin: axis == Axis.horizontal
+                      ? Alignment.centerLeft
+                      : Alignment.topCenter,
+                  end: axis == Axis.horizontal
+                      ? Alignment.centerRight
+                      : Alignment.bottomCenter,
                   colors: [glowEdge, glowCenter, glowEdge],
                 ),
               ),
@@ -73,7 +84,7 @@ class BottomNavBar extends StatelessWidget {
           AnimatedAlign(
             duration: const Duration(milliseconds: 460),
             curve: Curves.easeOutCubic,
-            alignment: _selectionAlignment,
+            alignment: selectionAlignment,
             child: TweenAnimationBuilder<double>(
               key: ValueKey(selectedIndex),
               tween: Tween(begin: 0, end: 1),
@@ -102,8 +113,8 @@ class BottomNavBar extends StatelessWidget {
                 );
               },
               child: FractionallySizedBox(
-                widthFactor: 0.2,
-                heightFactor: 1,
+                widthFactor: axis == Axis.horizontal ? 1 / _icons.length : 1,
+                heightFactor: axis == Axis.horizontal ? 1 : 1 / _icons.length,
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 4,
@@ -138,33 +149,11 @@ class BottomNavBar extends StatelessWidget {
           ),
           Material(
             color: Colors.transparent,
-            child: Row(
+            child: Flex(
+              direction: axis,
               children: [
-                _buildNavItem(
-                  context,
-                  Icons.explore_outlined,
-                  Icons.explore_rounded,
-                  0,
-                ),
-                _buildNavItem(
-                  context,
-                  Icons.access_time_rounded,
-                  Icons.history_rounded,
-                  1,
-                ),
-                _buildNavItem(context, Icons.route_outlined, Icons.route, 2),
-                _buildNavItem(
-                  context,
-                  Icons.emoji_events_outlined,
-                  Icons.emoji_events_rounded,
-                  3,
-                ),
-                _buildNavItem(
-                  context,
-                  Icons.settings_outlined,
-                  Icons.settings_rounded,
-                  4,
-                ),
+                for (var index = 0; index < _icons.length; index++)
+                  _buildNavItem(context, index),
               ],
             ),
           ),
@@ -173,12 +162,7 @@ class BottomNavBar extends StatelessWidget {
     );
   }
 
-  Widget _buildNavItem(
-    BuildContext context,
-    IconData icon,
-    IconData activeIcon,
-    int index,
-  ) {
+  Widget _buildNavItem(BuildContext context, int index) {
     final isSelected = selectedIndex == index;
 
     return Expanded(
@@ -222,7 +206,7 @@ class BottomNavBar extends StatelessWidget {
                       tileMode: TileMode.decal,
                     ),
                     child: Icon(
-                      isSelected ? activeIcon : icon,
+                      isSelected ? _icons[index].$2 : _icons[index].$1,
                       color: color,
                       size: 27 + progress * 2,
                     ),
