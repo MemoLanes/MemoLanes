@@ -356,7 +356,7 @@ impl Storage {
             };
             if include_ongoing {
                 if let Some(journey_vector) = snapshot.ongoing_journey()? {
-                    bitmap.merge_vector(&journey_vector);
+                    bitmap.edit().merge_vector(&journey_vector);
                 }
             }
             Ok(bitmap)

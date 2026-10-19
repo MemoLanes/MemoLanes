@@ -49,7 +49,7 @@ pub(super) fn render_tile_bitmap(
 
     for i in 0..tile_span {
         for j in 0..tile_span {
-            let tile_key = TileKey::new((tile_x + i) as u16, (tile_y + j) as u16);
+            let tile_key = TileKey::mercator((tile_x + i) as u16, (tile_y + j) as u16);
             if !journey_bitmap.contains_tile(&tile_key) {
                 continue;
             }

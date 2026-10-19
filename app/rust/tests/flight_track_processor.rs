@@ -10,9 +10,13 @@ use std::io::Write;
 use std::path::Path;
 
 fn raw_data(longitude: f64) -> RawGPSPoint {
+    raw_data_at(longitude, 0.0)
+}
+
+fn raw_data_at(longitude: f64, latitude: f64) -> RawGPSPoint {
     RawGPSPoint {
         point: Point {
-            latitude: 0.0,
+            latitude,
             longitude,
         },
         timestamp_ms: None,
@@ -90,6 +94,7 @@ fn run_tests() {
         let (loaded_data, _preprocessor) =
             import_data::kml::load_kml(&format!("./tests/data/flight_{name}.kml")).unwrap();
         let result = flight_track_processor::process(&loaded_data).unwrap();
+        assert_source_points_and_spherical_interpolation(&loaded_data, &result);
         let input_point_count: usize = loaded_data.iter().map(Vec::len).sum();
         let output_point_count: usize = result
             .track_segments
@@ -162,4 +167,174 @@ fn verify_gpx(name: &str, gpx_data: &[u8]) {
         fs::write(hash_table_path, hash_table_content).expect("Failed to write hash table file");
         println!("Added new hash entry for: {name}");
     }
+}
+
+#[test]
+fn sparse_arctic_flight_follows_the_shortest_arc_below_the_bitmap_seam() {
+    // The Greenland/Siberia coverage gap from CX841. Neither endpoint, nor
+    // the true arc, enters the >85.05-degree bitmap cap.
+    for sign in [1.0, -1.0] {
+        let source = vec![
+            raw_data_at(-54.15144, sign * 74.692955),
+            raw_data_at(82.201324, sign * 72.745468),
+        ];
+        let result = flight_track_processor::process(std::slice::from_ref(&source)).unwrap();
+        assert_source_points_and_spherical_interpolation(std::slice::from_ref(&source), &result);
+        let points = &result.track_segments[0].track_points;
+        let maximum_latitude = points
+            .iter()
+            .map(|p| sign * p.latitude)
+            .fold(-90.0, f64::max);
+        assert!(
+            maximum_latitude > 83.82 && maximum_latitude < 83.84,
+            "the short Arctic arc reaches 83.83 degrees, got {maximum_latitude}"
+        );
+    }
+}
+
+fn assert_source_points_and_spherical_interpolation(
+    raw: &[Vec<RawGPSPoint>],
+    result: &memolanes_core::journey_vector::JourneyVector,
+) {
+    let nonempty: Vec<_> = raw.iter().filter(|s| !s.is_empty()).collect();
+    assert_eq!(
+        result.track_segments.len(),
+        nonempty.len(),
+        "spherical paths must retain source breaks without artificial dateline breaks"
+    );
+    for (source, output) in nonempty.iter().zip(&result.track_segments) {
+        let points = &output.track_points;
+        let matches = |point: &memolanes_core::journey_vector::TrackPoint, source: &RawGPSPoint| {
+            point.latitude == source.point.latitude && point.longitude == source.point.longitude
+        };
+        assert!(matches(&points[0], &source[0]));
+        let mut index = 0;
+        for pair in source.windows(2) {
+            let next = index
+                + 1
+                + points[index + 1..]
+                    .iter()
+                    .position(|p| matches(p, &pair[1]))
+                    .expect("every source point must survive in order");
+            let a = pair[0].point.to_cartesian();
+            let b = pair[1].point.to_cartesian();
+            let n = (
+                a.1 * b.2 - a.2 * b.1,
+                a.2 * b.0 - a.0 * b.2,
+                a.0 * b.1 - a.1 * b.0,
+            );
+            let norm = (n.0 * n.0 + n.1 * n.1 + n.2 * n.2).sqrt();
+            let mut length = 0.0;
+            for point in &points[index + 1..next] {
+                let p = Point {
+                    longitude: point.longitude,
+                    latitude: point.latitude,
+                }
+                .to_cartesian();
+                if norm > 1e-12 {
+                    let deviation =
+                        ((n.0 * p.0 + n.1 * p.1 + n.2 * p.2) / norm).abs().asin() * 6_371_000.0;
+                    assert!(
+                        deviation < 0.2,
+                        "interpolated point deviates by {deviation} metres from the spherical path"
+                    );
+                }
+            }
+            for segment in points[index..=next].windows(2) {
+                let a = Point {
+                    longitude: segment[0].longitude,
+                    latitude: segment[0].latitude,
+                };
+                let b = Point {
+                    longitude: segment[1].longitude,
+                    latitude: segment[1].latitude,
+                };
+                let step = a.haversine_distance(&b);
+                assert!(step <= 1_000.2, "interpolation left a {step}-metre gap");
+                length += step;
+            }
+            assert!(
+                (length - pair[0].point.haversine_distance(&pair[1].point)).abs() < 1.0,
+                "flight interpolation takes a detour"
+            );
+            index = next;
+        }
+        assert_eq!(index + 1, points.len());
+    }
+}
+
+#[test]
+fn dateline_and_pole_crossings_are_continuous_on_the_sphere() {
+    for source in [
+        vec![raw_data_at(170.0, 88.0), raw_data_at(-170.0, 88.2)],
+        vec![raw_data_at(179.9, 70.0), raw_data_at(-179.9, 70.0)],
+        vec![raw_data_at(0.0, 89.0), raw_data_at(180.0, 89.0)],
+        vec![raw_data_at(0.0, -89.0), raw_data_at(180.0, -89.0)],
+        vec![raw_data_at(0.0, 0.0), raw_data_at(180.0, 0.0)],
+    ] {
+        let result = flight_track_processor::process(std::slice::from_ref(&source)).unwrap();
+        assert_source_points_and_spherical_interpolation(std::slice::from_ref(&source), &result);
+        assert!(result
+            .track_segments
+            .iter()
+            .flat_map(|s| &s.track_points)
+            .all(|p| p.latitude.is_finite()
+                && p.longitude.is_finite()
+                && p.latitude.abs() <= 90.0));
+    }
+}
+
+#[test]
+fn spherical_interpolation_keeps_source_segment_breaks() {
+    assert!(flight_track_processor::process(&[vec![]]).is_none());
+    let raw = vec![
+        vec![],
+        vec![raw_data(0.0), raw_data(0.02)],
+        vec![raw_data(100.0), raw_data(100.02)],
+    ];
+    let result = flight_track_processor::process(&raw).unwrap();
+    assert_source_points_and_spherical_interpolation(&raw, &result);
+}
+
+#[test]
+fn arctic_kml_import_and_postprocessing_rasterize_the_spherical_route() {
+    use journey_kernel::tile_range::decode_tile_range_response;
+    use memolanes_core::{
+        gps_processor::GpsPostprocessor, journey_bitmap::JourneyBitmap, renderer::MapRenderer,
+        utils::lng_lat_to_tile_x_y,
+    };
+    let (raw, _) = import_data::kml::load_kml("tests/data/flight_arctic_gap.kml").unwrap();
+    assert_eq!(raw.len(), 1);
+    assert_eq!(raw[0].len(), 6);
+    let result = flight_track_processor::process(&raw).unwrap();
+    assert_source_points_and_spherical_interpolation(&raw, &result);
+    let stored = GpsPostprocessor::process(result);
+    let mut bitmap = JourneyBitmap::new();
+    bitmap.edit().merge_vector(&stored);
+    assert!(
+        !bitmap.has_polar_data(),
+        "this route stays below the bitmap cap while still crossing the Arctic"
+    );
+    let mut renderer = MapRenderer::new(bitmap);
+    let mut covered = |lng: f64, lat: f64| {
+        let (x, y) = lng_lat_to_tile_x_y(lng, lat, 14);
+        let (px, py) = lng_lat_to_tile_x_y(lng, lat, 22);
+        let response = renderer
+            .get_tile_range_response(x.into(), y.into(), 14, 1, 1, 8)
+            .unwrap();
+        decode_tile_range_response(&response)
+            .unwrap()
+            .first()
+            .is_some_and(|(_, _, bitmap)| {
+                bitmap.get(px.rem_euclid(256) as usize, py.rem_euclid(256) as usize)
+            })
+    };
+    assert!(
+        covered(22.293726396749058, 83.73896566386834),
+        "the stored bitmap must pass through the spherical midpoint"
+    );
+    assert!(
+        !covered(22.293726396749058, 73.7),
+        "longitude/latitude interpolation must not leave the old southward detour"
+    );
 }

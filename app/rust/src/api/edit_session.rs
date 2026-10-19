@@ -191,7 +191,7 @@ impl EditSession {
 
     fn build_bitmap_from_vector(vector: &JourneyVector) -> JourneyBitmap {
         let mut bitmap = JourneyBitmap::new();
-        bitmap.merge_vector(vector);
+        bitmap.edit().merge_vector(vector);
         bitmap
     }
 
@@ -509,7 +509,7 @@ impl EditSession {
         self.data.track_segments.push(TrackSegment { track_points });
 
         let mut map_renderer = self.map_renderer.lock().unwrap();
-        map_renderer.update(|journey_bitmap, tile_changed| {
+        map_renderer.update(|editor| {
             for window in render_points.windows(2) {
                 let (start_lat, start_lng) = window[0];
                 let (end_lat, end_lng) = window[1];
@@ -518,13 +518,7 @@ impl EditSession {
                     continue;
                 }
 
-                journey_bitmap.add_line_with_change_callback(
-                    start_lng,
-                    start_lat,
-                    end_lng,
-                    end_lat,
-                    &mut *tile_changed,
-                );
+                editor.add_line(start_lng, start_lat, end_lng, end_lat);
             }
         });
         drop(map_renderer);

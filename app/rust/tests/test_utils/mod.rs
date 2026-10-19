@@ -149,24 +149,24 @@ fn render_map_overlay_internal(
         .unwrap();
 
     let mut image = RgbaImage::new(tile_size * width_by_tile, tile_size * height_by_tile);
+    // Rendering lazily populates bitmap caches, so use a private test copy
+    // instead of borrowing `MapRenderer::update` for a non-update operation.
+    let mut journey_bitmap = map_renderer.peek_latest_bitmap().clone();
 
     for x in 0..width_by_tile {
         for y in 0..height_by_tile {
-            map_renderer.update(|journey_bitmap, _change_callback| {
-                // No actual change here
-                TileShader::render_on_image(
-                    &mut image,
-                    x * tile_size,
-                    y * tile_size,
-                    journey_bitmap,
-                    render_area.left_idx as i64 + x as i64,
-                    render_area.top_idx as i64 + y as i64,
-                    render_area.zoom as i16,
-                    DEFAULT_TILE_SIZE.power(), // 9
-                    DEFAULT_BG_COLOR,
-                    DEFAULT_FG_COLOR,
-                );
-            });
+            TileShader::render_on_image(
+                &mut image,
+                x * tile_size,
+                y * tile_size,
+                &mut journey_bitmap,
+                render_area.left_idx as i64 + x as i64,
+                render_area.top_idx as i64 + y as i64,
+                render_area.zoom as i16,
+                DEFAULT_TILE_SIZE.power(), // 9
+                DEFAULT_BG_COLOR,
+                DEFAULT_FG_COLOR,
+            );
         }
     }
 
@@ -192,16 +192,24 @@ fn render_map_overlay_internal(
 }
 
 pub fn draw_line1(journey_bitmap: &mut JourneyBitmap) {
-    journey_bitmap.add_line(START_LNG, START_LAT, END_LNG, END_LAT)
+    journey_bitmap
+        .edit()
+        .add_line(START_LNG, START_LAT, END_LNG, END_LAT)
 }
 pub fn draw_line2(journey_bitmap: &mut JourneyBitmap) {
-    journey_bitmap.add_line(START_LNG, END_LAT, END_LNG, START_LAT);
+    journey_bitmap
+        .edit()
+        .add_line(START_LNG, END_LAT, END_LNG, START_LAT);
 }
 pub fn draw_line3(journey_bitmap: &mut JourneyBitmap) {
-    journey_bitmap.add_line(MID_LNG, START_LAT, MID_LNG, END_LAT)
+    journey_bitmap
+        .edit()
+        .add_line(MID_LNG, START_LAT, MID_LNG, END_LAT)
 }
 pub fn draw_line4(journey_bitmap: &mut JourneyBitmap) {
-    journey_bitmap.add_line(START_LNG, MID_LAT, END_LNG, MID_LAT)
+    journey_bitmap
+        .edit()
+        .add_line(START_LNG, MID_LAT, END_LNG, MID_LAT)
 }
 
 pub fn draw_sample_bitmap() -> JourneyBitmap {

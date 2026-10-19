@@ -1,7 +1,9 @@
 use std::io::{Read, Write};
 
+pub use crate::journey_bitmap::{deserialize_journey_bitmap, serialize_journey_bitmap};
+
 use crate::{
-    journey_bitmap::{JourneyBitmap, TileKey},
+    journey_bitmap::{BitmapEditor, JourneyBitmap},
     journey_header::JourneyType,
     journey_vector::{JourneyVector, TrackPoint, TrackSegment},
     utils,
@@ -23,8 +25,6 @@ pub enum JourneyData {
 pub const ZSTD_COMPRESS_LEVEL: i32 = 3;
 
 const JOURNEY_VECTOR_MAGIC_HEADER: [u8; 2] = *b"V0";
-const JOURNEY_BITMAP_MAGIC_HEADER: [u8; 2] = *b"B0";
-
 // TODO: I don't have a strong reason on putting all serializations here
 #[auto_context]
 pub fn serialize_journey_vector<T: Write>(
@@ -74,75 +74,18 @@ pub fn deserialize_journey_vector<T: Read>(mut reader: T) -> Result<JourneyVecto
     Ok(JourneyVector { track_segments })
 }
 
-#[auto_context]
-pub fn serialize_journey_bitmap<T: Write>(
-    journey_bitmap: &mut JourneyBitmap,
-    mut writer: T,
-) -> Result<()> {
-    // magic header
-    writer.write_all(&JOURNEY_BITMAP_MAGIC_HEADER)?;
-
-    let mut keys = journey_bitmap.all_tile_keys().cloned().collect::<Vec<_>>();
-    keys.sort();
-
-    writer.write_all(&(keys.len() as u64).encode_var_vec())?;
-    for key in &keys {
-        writer.write_all(&key.x.to_be_bytes())?;
-        writer.write_all(&key.y.to_be_bytes())?;
-        // Also write down the size of the tile so we could load the bitmap
-        // without eagerly deserialize all tiles.
-        let tile_bytes = journey_bitmap.get_tile_bytes(key).unwrap(); // must exist
-        writer.write_all(&(tile_bytes.len() as u64).encode_var_vec())?;
-        writer.write_all(&tile_bytes)?;
-    }
-    Ok(())
-}
-
-#[auto_context]
-/// `full_validation = true`  will fully deserialize (instead of a lazy version)
-/// the bitmap to make sure it is valid. It can be slow but is required for
-/// loading data from the outside.
-pub fn deserialize_journey_bitmap<T: Read>(
-    mut reader: T,
-    full_validation: bool,
-) -> Result<JourneyBitmap> {
-    utils::validate_magic_header(&mut reader, &JOURNEY_BITMAP_MAGIC_HEADER)?;
-
-    let tiles_count: usize = reader.read_varint()?;
-    let mut tiles_and_bytes = Vec::with_capacity(tiles_count);
-    for _ in 0..tiles_count {
-        let mut buf: [u8; 2] = [0; 2];
-        reader.read_exact(&mut buf)?;
-        let tile_x = u16::from_be_bytes(buf);
-
-        reader.read_exact(&mut buf)?;
-        let tile_y = u16::from_be_bytes(buf);
-
-        let tile_data_len: u64 = reader.read_varint()?;
-        let mut tile_bytes = vec![0u8; tile_data_len as usize];
-        reader.read_exact(&mut tile_bytes)?;
-        tiles_and_bytes.push((TileKey::new(tile_x, tile_y), tile_bytes));
-    }
-
-    let mut journey_bitmap = JourneyBitmap::of_tile_bytes_without_validation(tiles_and_bytes)?;
-    if full_validation {
-        journey_bitmap.validate()?;
-    }
-    Ok(journey_bitmap)
-}
-
 impl JourneyData {
-    pub fn merge_into(self, bitmap: &mut JourneyBitmap) {
+    pub fn merge_into(self, editor: &mut BitmapEditor<'_>) {
         match self {
-            JourneyData::Bitmap(b) => bitmap.merge(b),
-            JourneyData::Vector(v) => bitmap.merge_vector(&v),
+            JourneyData::Bitmap(b) => editor.merge(b),
+            JourneyData::Vector(v) => editor.merge_vector(&v),
         }
     }
 
-    pub fn merge_into_with_partial_clone(&self, bitmap: &mut JourneyBitmap) {
+    pub fn merge_into_with_partial_clone(&self, editor: &mut BitmapEditor<'_>) {
         match self {
-            JourneyData::Bitmap(b) => bitmap.merge_with_partial_clone(b),
-            JourneyData::Vector(v) => bitmap.merge_vector(v),
+            JourneyData::Bitmap(b) => editor.merge_with_partial_clone(b),
+            JourneyData::Vector(v) => editor.merge_vector(v),
         }
     }
 
@@ -171,9 +114,8 @@ impl JourneyData {
         Ok(())
     }
 
-    /// `full_validation = true`  will fully deserialize (instead of a lazy version)
-    /// the bitmap to make sure it is valid. It can be slow but is required for
-    /// loading data from the outside.
+    /// Fully validate imported bitmap contents when `full_validation` is true.
+    /// External input requires validation regardless of the storage policy.
     pub fn deserialize<T: Read>(
         reader: T,
         journey_type: JourneyType,

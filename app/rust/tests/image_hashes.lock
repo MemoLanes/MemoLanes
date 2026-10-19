@@ -1,14 +1,15 @@
 {
-  "draw_line_with_width2": "95637a38c8e98ed5f41932d2936681d51273f85a5970510cf773e4f42cf4d8a4",
-  "draw_line_with_width3": "1599c32155e50b08bb74aaf03f384fb4639e75ab0a9d6ff987131565d6bb0f14",
+  "draw_line_with_width2": "81a1c72e93fe965e24156f304006a9f1e0acee8d44320e8d26d69dbec2c03dfb",
+  "draw_line_with_width3": "87e334f1b5f1d0c1955d5e7d47a64676b5b475fbd88c524716c47cf6cbc83dc3",
   "end_to_end_basic_0": "186c7d1bfa898caedbb726f4418700ebd0e5ba01416733be9882be7f6fd1bb28",
   "end_to_end_basic_1": "f5709b1e635aa45171e64571fcf985fee3768a4d18cd80e5eda86226d3c04ae2",
-  "journey_bitmap_add_line_cross_antimeridian": "068482e2ca7b79bcf1dfc0d591c34b6d1f6e748e6d3a7071e084cfd57a715963",
+  "journey_bitmap_add_line_cross_antimeridian": "1fa20e898d323a99660a2bb73287346b62bcb81afe3dfd66a47c83c1f233a19a",
   "journey_bitmap_basic": "a6fc582cb00dace8088da52bab2fcfe45f75eb5bf78cfd852ec3adf52e71eefc",
-  "journey_bitmap_merge_with_render": "de4a7cd311c0a58fe26167052c971d0277239f929d93fa0470ce2e921b2f87cc",
-  "journey_bitmap_vector_to_bitmap_heihe": "fb1ddc7a98d0c1377d5383452fc5195c9ed61afa46881e5aaecfbecfa1330d73",
+  "journey_bitmap_merge_with_render": "d07820b74dfd1dea565a413da9e1d5eed1960794de279200db0a0291df29d0cc",
+  "journey_bitmap_polar_seams": "4d958df71d9d76aae167f6f3647265ce85d65c124666a4b8b05c4bb4281f669d",
+  "journey_bitmap_vector_to_bitmap_heihe": "9f42d82a56485f6f7b0f8db3bad8f59d597a659ccbaf41e57e26e641c6324182",
   "journey_bitmap_vector_to_bitmap_laojunshan": "fce6f8602d9afd2040462e26ba1916553f0dd97f7bebd25a864e69678f86cb39",
   "journey_bitmap_vector_to_bitmap_nelson_to_wharariki_beach": "c9cc282d4f09e18d4519e246fdc53c5c94af58383b26078c05c458a47e47f742",
   "journey_bitmap_vector_to_bitmap_shenzhen_stationary": "7182e69132a2e9dd4de171ca158d088d33ed7421a02ec7c00554b79214515d91",
-  "map_renderer_basic": "001e24205bb2efc2b183613af447faae8ffa7996d5c6d151abd3f4333968af3b"
+  "map_renderer_basic": "abbe539fa93de6ddb86b53c8e0335d3a64eaf87cd16b6f1cc5b5b877e8c8536f"
 }

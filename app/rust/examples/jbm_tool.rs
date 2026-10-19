@@ -61,7 +61,7 @@ fn process_gpx_or_kml(file_path: &str) -> Result<JourneyBitmap> {
             let jv = memolanes_core::flight_track_processor::process(&raw_data);
             let mut bm = JourneyBitmap::new();
             if let Some(v) = jv {
-                bm.merge_vector(&v);
+                bm.edit().merge_vector(&v);
             }
             return Ok(bm);
         }
@@ -72,7 +72,7 @@ fn process_gpx_or_kml(file_path: &str) -> Result<JourneyBitmap> {
     );
     let mut bm = JourneyBitmap::new();
     if let Some(v) = jv {
-        bm.merge_vector(&v);
+        bm.edit().merge_vector(&v);
     }
     Ok(bm)
 }
@@ -91,7 +91,7 @@ fn process_mldx(file_path: &str) -> Result<JourneyBitmap> {
     let mut bitmap = JourneyBitmap::new();
     for id in &journey_ids {
         if let Some((_header, data)) = reader.load_single_journey(id)? {
-            data.merge_into(&mut bitmap);
+            data.merge_into(&mut bitmap.edit());
         }
     }
     Ok(bitmap)
@@ -141,7 +141,7 @@ pub fn main() -> Result<()> {
     if let Some(dir) = &cli.data_dir {
         println!("Loading app data from: {dir}");
         let dir_bitmap = process_data_dir(dir)?;
-        bitmap.merge(dir_bitmap);
+        bitmap.edit().merge(dir_bitmap);
         println!("  done.");
     }
 
@@ -158,7 +158,7 @@ pub fn main() -> Result<()> {
             Some("jbm") => process_jbm(file_path)?,
             other => bail!("Unsupported file type: {other:?} (file: {file_path})"),
         };
-        bitmap.merge(file_bitmap);
+        bitmap.edit().merge(file_bitmap);
         println!("  done.");
     }
 

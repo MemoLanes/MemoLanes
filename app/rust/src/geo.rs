@@ -109,10 +109,13 @@ impl GeoIndex {
     }
 
     fn tile_entry(&self, tile: TileKey) -> TileEntry {
-        if tile.x as usize >= TILE_GRID_WIDTH || tile.y as usize >= TILE_GRID_WIDTH {
+        let TileKey::Mercator { x, y } = tile else {
+            return TileEntry::None;
+        };
+        if x as usize >= TILE_GRID_WIDTH || y as usize >= TILE_GRID_WIDTH {
             return TileEntry::None;
         }
-        self.data.tile_index.get(tile_index(tile.x, tile.y))
+        self.data.tile_index.get(tile_index(x, y))
     }
 
     pub fn worldview_id(&self) -> &str {
