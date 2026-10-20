@@ -1,6 +1,8 @@
 {
-  "CHH7867_XIAN_HANGZHOU": "60bb1013e097d967d1595d21a657b4cefb8abd50eb9f9dd4cb303252cb96ea42",
-  "TV9882-3bf27ed6": "a2a3a6d91be8ef6eeea1f207785baf52f1d57f90cbdb2127cfc244e56d18e475",
-  "interpolate_cross_180": "de33c4392ae5ea984bc5e94a70eff9943ac013195aa8a9dccadba8956191b616",
-  "tokyo_hawaii": "8c9ab59be7ba8f2252635a0fdd77938a16a4cbd2b67af4544ddafd45710716fa"
+  "flight_track_arctic_arc": "3719396a25dca1aa16c74ff5e576ce257ef2da92de8bafea24941d35ec05b84b",
+  "flight_track_dateline_turn": "9b992c50047acc26d5c1fe4cadc1339d5a7654fd359802da68c9e213ac4c8253",
+  "flight_track_high_latitude_turn": "3f440b6967009fe6bfcbb2787f0dba0def24c90282276964024933190dfbab07",
+  "flight_track_right_angle": "63c2024aaf7f68eeb072f2e9f44654669d6dbd2629d4602f208967ad0a4e9da2",
+  "flight_track_unequal_spacing": "2dfcf5a029b418f553ff830da083d4304d72de9b715a85254a9788bf5d528e4a",
+  "flight_track_wide_right_angle": "401b70e3d91fd98e5fe56ab7c596c078cc6c3dd48d32c37de0e9370ef70ca5f4"
 }

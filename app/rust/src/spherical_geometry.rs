@@ -38,7 +38,7 @@ impl UnitPoint {
     fn norm(self) -> f64 {
         self.dot(self).sqrt()
     }
-    fn normalized(self) -> Self {
+    pub(crate) fn normalized(self) -> Self {
         let norm = self.norm();
         Self {
             x: self.x / norm,
@@ -52,7 +52,7 @@ impl UnitPoint {
             .norm()
             .atan2(self.dot(other).clamp(-1.0, 1.0))
     }
-    fn scale_add(self, scale: f64, other: Self, other_scale: f64) -> Self {
+    pub(crate) fn scale_add(self, scale: f64, other: Self, other_scale: f64) -> Self {
         Self {
             x: self.x * scale + other.x * other_scale,
             y: self.y * scale + other.y * other_scale,
