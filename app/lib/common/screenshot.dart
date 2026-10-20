@@ -44,12 +44,14 @@ class ScreenshotPreviewPage extends StatefulWidget {
     required this.logicalSize,
     this.timeline,
     this.journey,
+    this.centeredJourneyMap,
   });
 
   final ui.Image map;
   final Size logicalSize;
   final ui.Image? timeline;
   final JourneyHeader? journey;
+  final ui.Image? centeredJourneyMap;
 
   @override
   State<ScreenshotPreviewPage> createState() => _ScreenshotPreviewPageState();
@@ -71,6 +73,10 @@ class _ScreenshotPreviewPageState extends State<ScreenshotPreviewPage> {
   bool get _busy => _saving || _sharing;
 
   bool get _logoAtTopRight => widget.timeline != null || widget.journey != null;
+
+  ui.Image get _mapImage => !_includeJourneyInfo && widget.journey != null
+      ? widget.centeredJourneyMap ?? widget.map
+      : widget.map;
 
   @override
   void initState() {
@@ -111,7 +117,7 @@ class _ScreenshotPreviewPageState extends State<ScreenshotPreviewPage> {
   Future<Uint8List> _encodePreview() async {
     final image = await captureScreenshotBoundary(
       _compositionKey,
-      widget.map.width / widget.logicalSize.width,
+      _mapImage.width / widget.logicalSize.width,
     );
     try {
       final data = await image.toByteData(format: ui.ImageByteFormat.png);
@@ -200,7 +206,7 @@ class _ScreenshotPreviewPageState extends State<ScreenshotPreviewPage> {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              RawImage(image: widget.map, fit: BoxFit.fill),
+              RawImage(image: _mapImage, fit: BoxFit.fill),
               if (timeline != null)
                 Positioned(
                   left: _imageEdgeInset,

@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:easy_localization/easy_localization.dart';
@@ -86,6 +87,9 @@ void main() {
       Canvas(recorder).drawColor(Colors.blue, BlendMode.src);
       final picture = recorder.endRecording();
       final map = (await tester.runAsync(() => picture.toImage(640, 1280)))!;
+      final centeredMap = (await tester.runAsync(
+        () => picture.toImage(640, 1280),
+      ))!;
       picture.dispose();
       final journey = JourneyHeader(
         id: 'screenshot-journey',
@@ -102,6 +106,7 @@ void main() {
           map: map,
           logicalSize: const Size(320, 640),
           journey: journey,
+          centeredJourneyMap: centeredMap,
         ),
       );
       await waitForLogo(tester);
@@ -111,10 +116,18 @@ void main() {
       expect(tester.widget<SwitchListTile>(logoSwitch).value, isTrue);
       expect(find.byType(ReadOnlyJourneyInfoCard), findsOneWidget);
       expect(find.byType(RawImage), findsNWidgets(2));
+      expect(
+        tester.widget<RawImage>(find.byType(RawImage).first).image,
+        same(map),
+      );
 
       await tester.tap(cardSwitch);
       await tester.pumpAndSettle();
       expect(find.byType(ReadOnlyJourneyInfoCard), findsNothing);
+      expect(
+        tester.widget<RawImage>(find.byType(RawImage).first).image,
+        same(centeredMap),
+      );
       expect(find.byType(RawImage), findsNWidgets(2));
       await tester.tap(logoSwitch);
       await tester.pumpAndSettle();
@@ -122,10 +135,15 @@ void main() {
       await tester.tap(cardSwitch);
       await tester.pumpAndSettle();
       expect(find.byType(ReadOnlyJourneyInfoCard), findsOneWidget);
+      expect(
+        tester.widget<RawImage>(find.byType(RawImage).first).image,
+        same(map),
+      );
       expect(tester.widget<SwitchListTile>(logoSwitch).value, isFalse);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
       map.dispose();
+      centeredMap.dispose();
     },
   );
 
@@ -216,6 +234,194 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     map.dispose();
   });
+
+  for (final includeLogo in [true, false]) {
+    testWidgets(
+      'journey preview, gallery and share retain centered pixels with logo $includeLogo',
+      (tester) async {
+        // Distinct route positions detect exporting the original map by mistake.
+        Future<ui.Image> routeImage(double centerY) async {
+          final recorder = ui.PictureRecorder();
+          final canvas = Canvas(recorder);
+          canvas.drawColor(Colors.white, BlendMode.src);
+          canvas.drawRect(
+            Rect.fromCenter(
+              center: Offset(320, centerY),
+              width: 100,
+              height: 100,
+            ),
+            Paint()..color = const Color(0xff0000ff),
+          );
+          final picture = recorder.endRecording();
+          try {
+            return await picture.toImage(640, 1280);
+          } finally {
+            picture.dispose();
+          }
+        }
+
+        final map = (await tester.runAsync(() => routeImage(400)))!;
+        final centeredMap = (await tester.runAsync(() => routeImage(640)))!;
+        addTearDown(() {
+          map.dispose();
+          centeredMap.dispose();
+        });
+        final journey = JourneyHeader(
+          id: 'screenshot-export',
+          revision: '1',
+          journeyDate: DateTime.utc(2026, 10, 19),
+          createdAt: DateTime.utc(2026, 10, 19),
+          journeyType: JourneyType.vector,
+          journeyKind: JourneyKind.defaultKind,
+          hasRawData: false,
+        );
+        await pumpApp(
+          tester,
+          ScreenshotPreviewPage(
+            map: map,
+            logicalSize: const Size(320, 640),
+            journey: journey,
+            centeredJourneyMap: centeredMap,
+          ),
+        );
+        await waitForLogo(tester);
+        if (!includeLogo) {
+          await tester.tap(find.widgetWithText(SwitchListTile, '在右上角加入 Logo'));
+          await tester.pumpAndSettle();
+        }
+
+        const galleryChannel = MethodChannel('com.memolanes/screenshots');
+        const shareChannel = MethodChannel('dev.fluttercommunity.plus/share');
+        const pathChannel = MethodChannel('plugins.flutter.io/path_provider');
+        final messenger =
+            TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+        // Exercise share_plus's actual PNG file creation up to the native bridge.
+        final temp = Directory.systemTemp.createTempSync(
+          'memolanes_screenshot_',
+        );
+        Uint8List? savedPng;
+        Uint8List? sharedPng;
+        messenger.setMockMethodCallHandler(pathChannel, (call) async {
+          expect(call.method, 'getTemporaryDirectory');
+          return temp.path;
+        });
+        messenger.setMockMethodCallHandler(shareChannel, (call) async {
+          expect(call.method, 'share');
+          expect(call.arguments['mimeTypes'], ['image/png']);
+          final paths = (call.arguments['paths'] as List).cast<String>();
+          expect(paths, hasLength(1));
+          sharedPng = File(paths.single).readAsBytesSync();
+          expect(call.arguments['originWidth'], greaterThan(0));
+          expect(call.arguments['originHeight'], greaterThan(0));
+          return ''; // Dismiss the system sheet and retain the preview.
+        });
+        messenger.setMockMethodCallHandler(galleryChannel, (call) async {
+          expect(call.method, 'saveToPhotos');
+          savedPng = call.arguments['png'] as Uint8List;
+          // Leave the preview open so the same selection can also be shared.
+          throw PlatformException(code: 'permission_denied');
+        });
+        addTearDown(() {
+          for (final channel in [galleryChannel, shareChannel, pathChannel]) {
+            messenger.setMockMethodCallHandler(channel, null);
+          }
+          temp.deleteSync(recursive: true);
+        });
+
+        Future<Uint8List> pixels(ui.Image image) async {
+          expect(
+            Size(image.width.toDouble(), image.height.toDouble()),
+            const Size(640, 1280),
+          );
+          final bytes = (await image.toByteData(
+            format: ui.ImageByteFormat.rawRgba,
+          ))!;
+          return bytes.buffer.asUint8List(
+            bytes.offsetInBytes,
+            bytes.lengthInBytes,
+          );
+        }
+
+        Future<void> export(String label, bool Function() received) async {
+          await tester.runAsync(() async {
+            tester
+                .widget<AppButton>(find.widgetWithText(AppButton, label))
+                .onPressed!();
+            final deadline = DateTime.now().add(const Duration(seconds: 10));
+            while (!received() && DateTime.now().isBefore(deadline)) {
+              await tester.pump();
+              await Future<void>.delayed(const Duration(milliseconds: 10));
+            }
+            expect(received(), isTrue, reason: '$label must receive a PNG');
+          });
+          await tester.pumpAndSettle();
+        }
+
+        final cardSwitch = find.widgetWithText(SwitchListTile, '保留旅程信息');
+        for (final includeCard in [false, true, false]) {
+          // Deliberately export before pumping the switch's new frame.
+          tester.widget<SwitchListTile>(cardSwitch).onChanged!(includeCard);
+          savedPng = null;
+          sharedPng = null;
+          // Cover either action being the first tap after changing the card.
+          final actions = includeLogo ? ['保存到相册', '分享'] : ['分享', '保存到相册'];
+          for (final action in actions) {
+            await export(
+              action,
+              () => action == '分享' ? sharedPng != null : savedPng != null,
+            );
+          }
+          expect(
+            find.byType(ReadOnlyJourneyInfoCard),
+            includeCard ? findsOneWidget : findsNothing,
+          );
+
+          final boundary = tester.renderObject<RenderRepaintBoundary>(
+            find
+                .ancestor(
+                  of: find.byType(RawImage).first,
+                  matching: find.byType(RepaintBoundary),
+                )
+                .first,
+          );
+          late Uint8List previewPixels;
+          await tester.runAsync(() async {
+            final preview = await boundary.toImage(pixelRatio: 2);
+            try {
+              previewPixels = await pixels(preview);
+              final center = (640 * 640 + 320) * 4;
+              final originalCenter = (400 * 640 + 320) * 4;
+              const blue = [0, 0, 255, 255];
+              const white = [255, 255, 255, 255];
+              expect(
+                previewPixels.sublist(center, center + 4),
+                includeCard ? white : blue,
+              );
+              expect(
+                previewPixels.sublist(originalCenter, originalCenter + 4),
+                includeCard ? blue : white,
+              );
+            } finally {
+              preview.dispose();
+            }
+          });
+
+          await tester.runAsync(() async {
+            for (final png in [savedPng!, sharedPng!]) {
+              final image = await decodeScreenshot(png);
+              try {
+                expect(await pixels(image), orderedEquals(previewPixels));
+              } finally {
+                image.dispose();
+              }
+            }
+          });
+        }
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
+  }
 
   testWidgets('first tap reveals; second tap captures; every capture resets', (
     tester,

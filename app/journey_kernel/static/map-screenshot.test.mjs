@@ -1,6 +1,53 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { captureMapFrame } from "./map-screenshot.ts";
+import { captureCenteredMapFrame, captureMapFrame } from "./map-screenshot.ts";
+
+for (const fails of [false, true]) {
+  test(`centered capture keeps zoom and restores camera after ${fails ? "failure" : "success"}`, async () => {
+    const original = {
+      center: [120, 30],
+      zoom: 12,
+      bearing: 20,
+      pitch: 25,
+      padding: { top: 20, bottom: 240, left: 20, right: 20 },
+    };
+    let camera = { ...original };
+    const bounds = [
+      [179, 30],
+      [181, 40],
+    ];
+    const map = {
+      getCenter: () => ({ toArray: () => [...camera.center] }),
+      getZoom: () => camera.zoom,
+      getBearing: () => camera.bearing,
+      getPitch: () => camera.pitch,
+      getPadding: () => camera.padding,
+      cameraForBounds: (actualBounds, options) => {
+        assert.deepEqual(actualBounds, bounds);
+        assert.equal(options.padding, 0);
+        assert.equal(options.absolutePadding, true);
+        assert.equal(options.bearing, original.bearing);
+        return { center: [180, 35], zoom: 6 };
+      },
+      jumpTo: (options) => {
+        camera = { ...camera, ...options };
+      },
+    };
+    const capture = captureCenteredMapFrame(map, bounds, async () => {
+      await Promise.resolve();
+      assert.deepEqual(camera, {
+        ...original,
+        center: [180, 35],
+        padding: { top: 0, bottom: 0, left: 0, right: 0 },
+      });
+      if (fails) throw new Error("Capture failed");
+      return "centered PNG";
+    });
+    if (fails) await assert.rejects(capture, /Capture failed/);
+    else assert.equal(await capture, "centered PNG");
+    assert.deepEqual(camera, original);
+  });
+}
 
 function fakeMap() {
   const listeners = new Map();
