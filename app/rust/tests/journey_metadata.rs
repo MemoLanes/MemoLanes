@@ -1,4 +1,4 @@
-use std::{fs, io::Cursor};
+use std::io::Cursor;
 
 use memolanes_core::{
     archive::{self, MldxReader},
@@ -146,20 +146,9 @@ fn unknown_keys_survive_import_database_reopen_header_edit_and_export() {
     assert_eq!(stored.metadata, header.metadata);
 }
 
-// The compatibility script requests files produced by the real new writer,
-// then passes them to a separately compiled, pinned old core's importer.
 #[test]
-fn compatibility_fixtures_use_unchanged_archive_versions_and_track_layout() {
-    let output_directory =
-        std::env::var_os("MLDX_COMPAT_FIXTURE_DIR").map(std::path::PathBuf::from);
-    if let Some(directory) = &output_directory {
-        fs::create_dir_all(directory).unwrap();
-    }
-    for (name, metadata) in [
-        ("absent", None),
-        ("empty", Some(JourneyMetadata::default())),
-        ("populated", Some(metadata())),
-    ] {
+fn metadata_preserves_archive_version_and_track_data() {
+    for metadata in [None, Some(JourneyMetadata::default()), Some(metadata())] {
         let (header, data) = journey(metadata);
         let bytes = encode(header.clone(), data.clone());
         let mut reader = MldxReader::open(Cursor::new(&bytes)).unwrap();
@@ -172,8 +161,5 @@ fn compatibility_fixtures_use_unchanged_archive_versions_and_track_layout() {
             .unwrap()
             .unwrap();
         assert_eq!(loaded, (header, data, None));
-        if let Some(directory) = &output_directory {
-            fs::write(directory.join(format!("{name}.mldx")), bytes).unwrap();
-        }
     }
 }

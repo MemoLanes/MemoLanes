@@ -56,7 +56,7 @@ impl JourneyMetadata {
         }
     }
 
-    pub(crate) fn to_proto(self) -> protos::journey::JourneyMetadata {
+    pub(crate) fn into_proto(self) -> protos::journey::JourneyMetadata {
         let mut proto = protos::journey::JourneyMetadata::new();
         proto.fields = self.fields;
         proto

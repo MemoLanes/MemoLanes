@@ -215,7 +215,7 @@ impl JourneyHeader {
         proto.note = note;
         proto.postprocessor_algo = postprocessor_algo;
         proto.has_raw_data = has_raw_data;
-        proto.metadata = metadata.map(JourneyMetadata::to_proto).into();
+        proto.metadata = metadata.map(JourneyMetadata::into_proto).into();
         proto
     }
 }
