@@ -31,7 +31,7 @@ pub enum RawDataExportType {
     KML = 2,
 }
 
-/// The geometry and journey date exported to GPX/KML.
+/// The geometry and header metadata that can be represented by GPX/KML.
 /// MLDX remains the complete backup format.
 #[derive(Clone, Debug)]
 pub struct JourneyExport {

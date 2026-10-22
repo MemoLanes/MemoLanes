@@ -250,7 +250,7 @@ void main() {
   testWidgets('cancel discards the draft without saving or closing details', (
     tester,
   ) async {
-    mockApi.savedInfo.clear();
+    mockApi.savedMetadata.clear();
     final flow = await openDetail(tester);
 
     await tester.tap(find.text(tr('common.edit')));
@@ -263,7 +263,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(flow.session, isNotNull);
-    expect(mockApi.savedInfo, isEmpty);
+    expect(mockApi.savedMetadata, isEmpty);
 
     await tester.tap(find.text(tr('common.edit')));
     await tester.pumpAndSettle();
@@ -279,7 +279,7 @@ void main() {
   testWidgets('saving journey information requires confirmation', (
     tester,
   ) async {
-    mockApi.savedInfo.clear();
+    mockApi.savedMetadata.clear();
     await openDetail(tester);
 
     await tester.tap(find.text(tr('common.edit')));
@@ -291,19 +291,19 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
-    expect(mockApi.savedInfo, isEmpty);
+    expect(mockApi.savedMetadata, isEmpty);
     invokeConfirmationAction(tester, tr('common.cancel'));
     await tester.pumpAndSettle();
     expect(find.text('Confirmed note'), findsOneWidget);
     expect(find.byType(TextField), findsOneWidget);
-    expect(mockApi.savedInfo, isEmpty);
+    expect(mockApi.savedMetadata, isEmpty);
 
     await tester.tap(find.text(tr('common.save')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
     invokeConfirmationAction(tester, tr('common.ok'));
     await tester.pumpAndSettle();
-    expect(mockApi.savedInfo.single.note, 'Confirmed note');
+    expect(mockApi.savedMetadata.single.note, 'Confirmed note');
     expect(find.byType(TextField), findsNothing);
     expect(find.text('Confirmed note'), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -312,7 +312,7 @@ void main() {
   testWidgets('system back cancels editing, then closes details', (
     tester,
   ) async {
-    mockApi.savedInfo.clear();
+    mockApi.savedMetadata.clear();
     final flow = await openDetail(tester);
     await editNote(tester, 'Unsaved draft');
 
@@ -320,7 +320,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(flow.session, isNotNull);
     expect(find.byType(TextField), findsNothing);
-    expect(mockApi.savedInfo, isEmpty);
+    expect(mockApi.savedMetadata, isEmpty);
 
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
@@ -334,7 +334,7 @@ void main() {
   testWidgets(
     'iOS edge swipe cancels editing, then closes shared-map details',
     (tester) async {
-      mockApi.savedInfo.clear();
+      mockApi.savedMetadata.clear();
       final flow = await openDetail(tester, platform: TargetPlatform.iOS);
       await editNote(tester, 'Unsaved swipe draft');
       final overlay = find.byType(JourneyDetailOverlay);
@@ -346,7 +346,7 @@ void main() {
       expect(flow.phase, JourneyPhase.viewing);
       expect(find.byType(TextField), findsNothing);
       expect(find.text('Original note'), findsOneWidget);
-      expect(mockApi.savedInfo, isEmpty);
+      expect(mockApi.savedMetadata, isEmpty);
 
       // A short, fast fling also completes the return gesture.
       await tester.flingFrom(start, const Offset(100, 0), width * 2);
@@ -410,7 +410,7 @@ void main() {
   testWidgets(
     'pending save blocks every exit before the loading overlay appears',
     (tester) async {
-      mockApi.savedInfo.clear();
+      mockApi.savedMetadata.clear();
       final pending = Completer<void>();
       mockApi.pendingSave = pending;
       addTearDown(() => mockApi.pendingSave = null);
@@ -440,8 +440,8 @@ void main() {
 
       pending.complete();
       await tester.pumpAndSettle();
-      expect(mockApi.savedInfo.single.note, 'Changed note');
-      expect(mockApi.savedInfo.single.journeyDate, journey.journeyDate);
+      expect(mockApi.savedMetadata.single.note, 'Changed note');
+      expect(mockApi.savedMetadata.single.journeyDate, journey.journeyDate);
       expect(flow.session!.journey.note, 'Changed note');
       expect(flow.session!.mapData, originalMap);
       expect(flow.phase, JourneyPhase.viewing);
@@ -452,7 +452,7 @@ void main() {
   testWidgets('failed save after back preserves the draft and allows retry', (
     tester,
   ) async {
-    mockApi.savedInfo.clear();
+    mockApi.savedMetadata.clear();
     final pending = Completer<void>();
     mockApi.pendingSave = pending;
     addTearDown(() => mockApi.pendingSave = null);
@@ -471,7 +471,7 @@ void main() {
     mockApi.pendingSave = null;
     await confirmSave(tester);
     await tester.pumpAndSettle();
-    expect(mockApi.savedInfo.single.note, 'Keep my draft');
+    expect(mockApi.savedMetadata.single.note, 'Keep my draft');
     expect(flow.phase, JourneyPhase.viewing);
     expect(tester.takeException(), isNull);
   });
@@ -528,7 +528,7 @@ void main() {
   testWidgets('duplicate save callbacks open only one confirmation', (
     tester,
   ) async {
-    mockApi.savedInfo.clear();
+    mockApi.savedMetadata.clear();
     final flow = await openDetail(tester);
     await editNote(tester, 'Only once');
     final save = tester
@@ -544,7 +544,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(flow.phase, JourneyPhase.editing);
     expect(find.text('Only once'), findsOneWidget);
-    expect(mockApi.savedInfo, isEmpty);
+    expect(mockApi.savedMetadata, isEmpty);
   });
 
   testWidgets('collapsing and restoring details preserves the unsaved draft', (
@@ -719,7 +719,7 @@ class _JourneyListApi extends Fake implements RustLibApi {
   _JourneyListApi(this.journey);
 
   final JourneyHeader journey;
-  final List<JourneyInfo> savedInfo = [];
+  final List<JourneyInfo> savedMetadata = [];
   Completer<void>? pendingSave;
   Completer<void>? pendingDelete;
 
@@ -734,19 +734,19 @@ class _JourneyListApi extends Fake implements RustLibApi {
   }
 
   @override
-  Future<void> crateApiApiUpdateJourneyInfo({
+  Future<void> crateApiApiUpdateJourneyMetadata({
     required String id,
     required JourneyInfo journeyInfo,
   }) async {
     await pendingSave?.future;
-    savedInfo.add(journeyInfo);
+    savedMetadata.add(journeyInfo);
   }
 
   @override
   Future<JourneyHeader?> crateApiApiGetJourneyHeader({
     required String journeyId,
   }) async {
-    final latest = savedInfo.isEmpty ? null : savedInfo.last;
+    final latest = savedMetadata.isEmpty ? null : savedMetadata.last;
     return JourneyHeader(
       id: journey.id,
       revision: latest == null ? journey.revision : 'updated',

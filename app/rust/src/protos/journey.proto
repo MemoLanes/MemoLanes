@@ -4,16 +4,16 @@ package journey;
 
 // Optional display information. Preserve unknown fields and categories when
 // importing, editing, or exporting a journey.
-message JourneyMetadata {
+message JourneyAttributes {
   reserved 1;
   reserved "fields";
 
   oneof details {
-    FlightMetadata flight = 2;
+    FlightAttributes flight = 2;
   }
 }
 
-message FlightMetadata {
+message FlightAttributes {
   optional string flight_number = 1;
   optional string operating_airline_icao = 2;
   optional string aircraft_type_icao = 3;
@@ -53,5 +53,5 @@ message Header {
   // Whether this stored or exported journey includes a raw-data attachment.
   bool has_raw_data = 12;
   // Adding display information does not change the MLDX container version.
-  JourneyMetadata metadata = 13;
+  JourneyAttributes attributes = 13;
 }

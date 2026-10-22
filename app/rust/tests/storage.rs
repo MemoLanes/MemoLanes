@@ -410,7 +410,7 @@ fn delete_journey_invalidates_monthly_cache() {
 }
 
 #[test]
-fn update_info_cross_month_invalidates_both() {
+fn update_metadata_cross_month_invalidates_both() {
     setup_storage_for_test(|storage| {
         let mut bitmap = JourneyBitmap::new();
         draw_line1(&mut bitmap);
@@ -441,7 +441,7 @@ fn update_info_cross_month_invalidates_both() {
         // Move from Mar to May
         storage
             .with_db_txn(|txn| {
-                txn.update_journey_info(
+                txn.update_journey_metadata(
                     &id,
                     NaiveDate::from_ymd_opt(2024, 5, 15).unwrap(),
                     None,
@@ -475,7 +475,7 @@ fn update_info_cross_month_invalidates_both() {
 }
 
 #[test]
-fn update_info_change_kind_invalidates_both() {
+fn update_metadata_change_kind_invalidates_both() {
     setup_storage_for_test(|storage| {
         let mut bitmap = JourneyBitmap::new();
         draw_line1(&mut bitmap);
@@ -506,7 +506,7 @@ fn update_info_change_kind_invalidates_both() {
         // Change kind from DefaultKind to Flight
         storage
             .with_db_txn(|txn| {
-                txn.update_journey_info(
+                txn.update_journey_metadata(
                     &id,
                     NaiveDate::from_ymd_opt(2024, 3, 15).unwrap(),
                     None,
@@ -927,7 +927,7 @@ fn delete_all_clears_cache_and_requery_empty() {
 }
 
 #[test]
-fn update_info_same_month_cache_still_correct() {
+fn update_metadata_same_month_cache_still_correct() {
     setup_storage_for_test(|storage| {
         let mut bitmap = JourneyBitmap::new();
         draw_line1(&mut bitmap);
@@ -958,7 +958,7 @@ fn update_info_same_month_cache_still_correct() {
         // Update date within same month (Mar 15 → Mar 20), same kind
         storage
             .with_db_txn(|txn| {
-                txn.update_journey_info(
+                txn.update_journey_metadata(
                     &id,
                     date("2024-03-20"),
                     None,

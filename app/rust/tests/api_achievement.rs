@@ -84,7 +84,7 @@ async fn api_achievement_explored_area_and_region_contract() {
     assert_eq!(headers.len(), 2);
     headers.sort_by_key(|h| h.journey_date);
     let flight = &headers[1];
-    api::update_journey_info(
+    api::update_journey_metadata(
         &flight.id,
         JourneyInfo {
             journey_date: flight.journey_date,

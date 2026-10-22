@@ -27,7 +27,7 @@ const _fold = DuoHardware(
 
 void main() {
   testWidgets(
-    'shared form preserves its journey-info draft across device changes',
+    'shared form preserves its draft and metadata across device changes',
     (tester) async {
       final scenes = ValueNotifier(
         const _Scene(

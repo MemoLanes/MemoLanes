@@ -141,7 +141,7 @@ class JourneyFlowController extends ChangeNotifier {
     try {
       if (!await confirm() || _disposed) return;
       await GlobalLoadingManager.instance.runWithLoading(() async {
-        await api.updateJourneyInfo(
+        await api.updateJourneyMetadata(
           id: _session!.journey.id,
           journeyInfo: info,
         );

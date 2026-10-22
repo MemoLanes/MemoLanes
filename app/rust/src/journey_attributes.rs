@@ -4,11 +4,11 @@ use flutter_rust_bridge::frb;
 
 use crate::protos;
 
-/// A read-only view of the metadata understood by this version.
-/// Keep the owning `JourneyMetadata` when storing or exporting a journey.
+/// A read-only view of the attributes understood by this version.
+/// Keep the owning `JourneyAttributes` when storing or exporting a journey.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[frb(non_opaque)]
-pub enum JourneyMetadataDetails {
+pub enum JourneyAttributesView {
     Flight {
         flight_number: Option<String>,
         operating_airline_icao: Option<String>,
@@ -20,19 +20,19 @@ pub enum JourneyMetadataDetails {
 /// Owns the complete message so newer fields and categories survive round trips.
 #[derive(Clone, Debug, Default, PartialEq)]
 #[frb(opaque)]
-pub struct JourneyMetadata {
-    pub(crate) proto: protos::journey::JourneyMetadata,
+pub struct JourneyAttributes {
+    pub(crate) proto: protos::journey::JourneyAttributes,
 }
 
-impl JourneyMetadata {
+impl JourneyAttributes {
     pub fn flight(
         flight_number: Option<String>,
         operating_airline_icao: Option<String>,
         aircraft_type_icao: Option<String>,
         registration: Option<String>,
     ) -> Self {
-        let mut proto = protos::journey::JourneyMetadata::new();
-        proto.set_flight(protos::journey::FlightMetadata {
+        let mut proto = protos::journey::JourneyAttributes::new();
+        proto.set_flight(protos::journey::FlightAttributes {
             flight_number,
             operating_airline_icao,
             aircraft_type_icao,
@@ -42,12 +42,12 @@ impl JourneyMetadata {
         Self { proto }
     }
 
-    pub fn details(&self) -> Option<JourneyMetadataDetails> {
-        use protos::journey::journey_metadata::Details;
+    pub fn details(&self) -> Option<JourneyAttributesView> {
+        use protos::journey::journey_attributes::Details;
         self.proto
             .details
             .as_ref()
-            .map(|Details::Flight(flight)| JourneyMetadataDetails::Flight {
+            .map(|Details::Flight(flight)| JourneyAttributesView::Flight {
                 flight_number: flight.flight_number.clone(),
                 operating_airline_icao: flight.operating_airline_icao.clone(),
                 aircraft_type_icao: flight.aircraft_type_icao.clone(),
