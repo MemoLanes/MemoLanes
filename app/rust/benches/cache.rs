@@ -396,50 +396,47 @@ fn bench_delete_update(c: &mut Criterion) {
             );
         });
 
-        // --- update_journey_metadata ---
-        group.bench_function(
-            BenchmarkId::new(src.label, "update_journey_metadata"),
-            |b| {
-                b.iter_batched(
-                    || {
-                        // Setup (not measured): insert a journey with sample_date
-                        storage
-                            .with_db_txn(|txn| {
-                                txn.create_and_insert_journey(NewJourney {
-                                    journey_date: ranges.sample_date,
-                                    start: None,
-                                    end: None,
-                                    created_at: None,
-                                    journey_kind: JourneyKind::DefaultKind,
-                                    note: None,
-                                    journey_data: JourneyData::Bitmap(sample_bitmap.clone()),
-                                    raw_data: None,
-                                })
+        // --- update_journey_info ---
+        group.bench_function(BenchmarkId::new(src.label, "update_journey_info"), |b| {
+            b.iter_batched(
+                || {
+                    // Setup (not measured): insert a journey with sample_date
+                    storage
+                        .with_db_txn(|txn| {
+                            txn.create_and_insert_journey(NewJourney {
+                                journey_date: ranges.sample_date,
+                                start: None,
+                                end: None,
+                                created_at: None,
+                                journey_kind: JourneyKind::DefaultKind,
+                                note: None,
+                                journey_data: JourneyData::Bitmap(sample_bitmap.clone()),
+                                raw_data: None,
                             })
-                            .unwrap()
-                    },
-                    |id| {
-                        // Measured: invalidate cache (update) + trigger full rebuild
-                        storage
-                            .with_db_txn(|txn| {
-                                txn.update_journey_metadata(
-                                    &id,
-                                    alt_date,
-                                    None,
-                                    None,
-                                    None,
-                                    JourneyKind::DefaultKind,
-                                )
-                            })
-                            .unwrap();
-                        storage
-                            .get_latest_bitmap_for_main_map_renderer(&Some(LayerKind::All), false)
-                            .unwrap()
-                    },
-                    BatchSize::SmallInput,
-                );
-            },
-        );
+                        })
+                        .unwrap()
+                },
+                |id| {
+                    // Measured: invalidate cache (update) + trigger full rebuild
+                    storage
+                        .with_db_txn(|txn| {
+                            txn.update_journey_info(
+                                &id,
+                                alt_date,
+                                None,
+                                None,
+                                None,
+                                JourneyKind::DefaultKind,
+                            )
+                        })
+                        .unwrap();
+                    storage
+                        .get_latest_bitmap_for_main_map_renderer(&Some(LayerKind::All), false)
+                        .unwrap()
+                },
+                BatchSize::SmallInput,
+            );
+        });
     }
 
     group.finish();

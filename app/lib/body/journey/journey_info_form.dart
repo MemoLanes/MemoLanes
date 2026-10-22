@@ -14,7 +14,8 @@ import 'package:memolanes/constants/app_typography.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
 import 'package:memolanes/theme/app_colors.dart';
 
-/// Shared editable journey metadata. The caller owns scrolling, save and exit.
+/// Edits the journey date, time range, kind and note.
+/// The caller owns scrolling, save and exit.
 class JourneyInfoForm extends StatefulWidget {
   const JourneyInfoForm({
     super.key,

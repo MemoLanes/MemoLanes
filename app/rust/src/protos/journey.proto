@@ -2,6 +2,12 @@ syntax = "proto3";
 
 package journey;
 
+// Optional display information. Keys are extensible and unknown keys must be
+// preserved when a journey is imported, edited, or exported.
+message JourneyMetadata {
+  map<string, string> fields = 1;
+}
+
 message Header {
   message Kind {
     enum BuiltIn {
@@ -34,4 +40,6 @@ message Header {
   optional string postprocessor_algo = 11;
   // Whether this stored or exported journey includes a raw-data attachment.
   bool has_raw_data = 12;
+  // Adding display information does not change the MLDX container version.
+  JourneyMetadata metadata = 13;
 }

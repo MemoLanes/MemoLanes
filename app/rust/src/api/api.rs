@@ -709,9 +709,7 @@ pub fn export_journey(
         let journey_data = txn.get_journey_data(&journey_id)?;
 
         if export_type != ExportType::MLDX {
-            // A bit weird, but we allow exporting empty journey as MLDX, unlike
-            // other format, this still means something (metadata).
-            //  we tried to avoid having empty journey in our database.
+            // MLDX can preserve a journey's header even when its track is empty.
             if journey_data.is_empty() {
                 return Ok(None);
             }
@@ -842,9 +840,10 @@ pub fn delete_all_journeys() -> Result<()> {
     get().storage.with_db_txn(|txn| txn.delete_all_journeys())
 }
 
-pub fn update_journey_metadata(id: &str, journey_info: JourneyInfo) -> Result<()> {
+/// Updates editable journey details while preserving extra metadata.
+pub fn update_journey_info(id: &str, journey_info: JourneyInfo) -> Result<()> {
     get().storage.with_db_txn(|txn| {
-        txn.update_journey_metadata(
+        txn.update_journey_info(
             id,
             journey_info.journey_date,
             journey_info.start_time,

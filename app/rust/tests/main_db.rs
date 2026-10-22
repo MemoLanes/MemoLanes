@@ -183,7 +183,7 @@ fn journey_raw_data_lifecycle() {
 
     main_db
         .with_txn(|txn| {
-            txn.update_journey_metadata(
+            txn.update_journey_info(
                 &header.id,
                 header.journey_date,
                 header.start,
@@ -256,9 +256,10 @@ fn journey_for_raw_data_insertion() -> (JourneyHeader, JourneyData) {
             end: None,
             journey_type: JourneyType::Vector,
             journey_kind: JourneyKind::DefaultKind,
-            note: Some("Preserve metadata".to_owned()),
+            note: Some("Preserve journey details".to_owned()),
             postprocessor_algo: None,
             has_raw_data: false,
+            metadata: None,
         },
         JourneyData::Vector(JourneyVector {
             track_segments: vec![],
@@ -1002,8 +1003,8 @@ fn delete_two_journeys_different_kinds_accumulates() {
 }
 
 #[test]
-fn update_metadata_same_date_kind_no_action() {
-    let temp_dir = TempDir::new("main_db-update_meta_no_action").unwrap();
+fn update_info_same_date_kind_no_action() {
+    let temp_dir = TempDir::new("main_db-update_info_no_action").unwrap();
     let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
 
     let bitmap = test_utils::make_bitmap_with_line(test_utils::draw_line1);
@@ -1020,7 +1021,7 @@ fn update_metadata_same_date_kind_no_action() {
 
     let action = main_db
         .with_txn(|txn| {
-            txn.update_journey_metadata(
+            txn.update_journey_info(
                 &id,
                 date("2024-03-15"), // same date
                 None,
@@ -1038,8 +1039,8 @@ fn update_metadata_same_date_kind_no_action() {
 }
 
 #[test]
-fn update_metadata_changes_date() {
-    let temp_dir = TempDir::new("main_db-update_meta_date").unwrap();
+fn update_info_changes_date() {
+    let temp_dir = TempDir::new("main_db-update_info_date").unwrap();
     let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
 
     let bitmap = test_utils::make_bitmap_with_line(test_utils::draw_line1);
@@ -1056,7 +1057,7 @@ fn update_metadata_changes_date() {
 
     let action = main_db
         .with_txn(|txn| {
-            txn.update_journey_metadata(
+            txn.update_journey_info(
                 &id,
                 date("2024-05-20"), // different month
                 None,
@@ -1088,8 +1089,8 @@ fn update_metadata_changes_date() {
 }
 
 #[test]
-fn update_metadata_changes_kind() {
-    let temp_dir = TempDir::new("main_db-update_meta_kind").unwrap();
+fn update_info_changes_kind() {
+    let temp_dir = TempDir::new("main_db-update_info_kind").unwrap();
     let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
 
     let bitmap = test_utils::make_bitmap_with_line(test_utils::draw_line1);
@@ -1106,7 +1107,7 @@ fn update_metadata_changes_kind() {
 
     let action = main_db
         .with_txn(|txn| {
-            txn.update_journey_metadata(
+            txn.update_journey_info(
                 &id,
                 date("2024-03-15"), // same date
                 None,
@@ -1128,8 +1129,8 @@ fn update_metadata_changes_kind() {
 }
 
 #[test]
-fn update_metadata_changes_date_and_kind() {
-    let temp_dir = TempDir::new("main_db-update_meta_both").unwrap();
+fn update_info_changes_date_and_kind() {
+    let temp_dir = TempDir::new("main_db-update_info_both").unwrap();
     let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
 
     let bitmap = test_utils::make_bitmap_with_line(test_utils::draw_line1);
@@ -1146,7 +1147,7 @@ fn update_metadata_changes_date_and_kind() {
 
     let action = main_db
         .with_txn(|txn| {
-            txn.update_journey_metadata(
+            txn.update_journey_info(
                 &id,
                 date("2024-06-10"), // different month
                 None,
@@ -1681,7 +1682,7 @@ fn complete_rebuilt_survives_subsequent_insert() {
 // === Theme B: Intra-month date change ===
 
 #[test]
-fn update_metadata_same_month_different_day_sets_invalidate() {
+fn update_info_same_month_different_day_sets_invalidate() {
     let temp_dir = TempDir::new("main_db-same_month_diff_day").unwrap();
     let mut main_db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
 
@@ -1699,7 +1700,7 @@ fn update_metadata_same_month_different_day_sets_invalidate() {
 
     let action = main_db
         .with_txn(|txn| {
-            txn.update_journey_metadata(
+            txn.update_journey_info(
                 &id,
                 date("2024-03-20"), // same month, different day
                 None,
@@ -1878,12 +1879,12 @@ fn merge_one_is_only_ever_a_single_fresh_insert() {
     })
     .unwrap();
 
-    // Metadata edit -> never MergeOne. Nothing here changes date or kind, so it
+    // Journey-info edit -> never MergeOne. Nothing here changes date or kind, so it
     // needs no cache action at all; a date or kind change escalates to
-    // Invalidate (see `update_metadata_changes_date`).
+    // Invalidate (see `update_info_changes_date`).
     db.with_txn(|txn| {
         let h = txn.get_journey_header(&id)?.unwrap();
-        txn.update_journey_metadata(&id, h.journey_date, h.start, h.end, None, h.journey_kind)?;
+        txn.update_journey_info(&id, h.journey_date, h.start, h.end, None, h.journey_kind)?;
         assert!(!matches!(txn.action, Some(Action::MergeOne { .. })));
         Ok(())
     })

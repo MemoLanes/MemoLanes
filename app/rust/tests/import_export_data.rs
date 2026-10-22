@@ -570,7 +570,7 @@ fn check_journey_detail_and_mldx_analysis(path: &Path, db: &mut MainDb) {
     use import_api::MldxJourneyAnalysis;
     use import_api::MldxJourneyImportAnalyzeResult::{Conflict, New, Unchanged};
 
-    // The single-journey archive was exported before any local metadata edits.
+    // The single-journey archive was exported before any local journey-info edits.
     let reader = import_api::OpaqueMldxReader::open(path.to_string_lossy().into_owned()).unwrap();
     let initial = reader.analyze().unwrap();
     assert_eq!(initial.len(), 1);
@@ -586,12 +586,12 @@ fn check_journey_detail_and_mldx_analysis(path: &Path, db: &mut MainDb) {
 
     let local_header = db
         .with_txn(|txn| {
-            txn.update_journey_metadata(
+            txn.update_journey_info(
                 &archived_header.id,
                 archived_header.journey_date,
                 archived_header.start,
                 archived_header.end,
-                Some("Local metadata changed".to_owned()),
+                Some("Local journey info changed".to_owned()),
                 archived_header.journey_kind,
             )?;
             Ok(txn.get_journey_header(&archived_header.id)?.unwrap())

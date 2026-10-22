@@ -5,7 +5,7 @@ use flutter_rust_bridge::frb;
 use protobuf::EnumOrUnknown;
 use strum_macros::EnumIter;
 
-use crate::{protos, utils};
+use crate::{journey_metadata::JourneyMetadata, protos, utils};
 
 #[derive(Copy, Clone, Debug, EnumIter, PartialEq, Eq, Hash)]
 #[repr(i8)]
@@ -95,6 +95,8 @@ impl JourneyKind {
     }
 }
 
+/// Editable journey details: date, time range, kind and note.
+/// Extra display attributes belong to `JourneyHeader::metadata`.
 #[derive(Debug)]
 #[frb(non_opaque)]
 pub struct JourneyInfo {
@@ -120,6 +122,7 @@ pub struct JourneyHeader {
     pub note: Option<String>,
     pub postprocessor_algo: Option<String>,
     pub has_raw_data: bool,
+    pub metadata: Option<JourneyMetadata>,
 }
 
 impl JourneyHeader {
@@ -151,6 +154,7 @@ impl JourneyHeader {
             note: proto.note,
             postprocessor_algo: proto.postprocessor_algo,
             has_raw_data: proto.has_raw_data,
+            metadata: proto.metadata.take().map(JourneyMetadata::of_proto),
         })
     }
 
@@ -164,7 +168,7 @@ impl JourneyHeader {
 
     /// Reconcile the declared flag with the actual attachment. Removing a
     /// declared attachment changes the represented content and derives a `*`
-    /// revision; discovering an undeclared attachment only repairs metadata.
+    /// revision; discovering an undeclared attachment only repairs the header flag.
     /// Reapplying this correction is idempotent.
     pub(crate) fn correct_has_raw_data(&mut self, actual_has_raw_data: bool, operation: &str) {
         if self.has_raw_data != actual_has_raw_data {
@@ -196,6 +200,7 @@ impl JourneyHeader {
             note,
             postprocessor_algo,
             has_raw_data,
+            metadata,
         } = self;
         let mut proto = protos::journey::Header::new();
         proto.id = id;
@@ -210,6 +215,7 @@ impl JourneyHeader {
         proto.note = note;
         proto.postprocessor_algo = postprocessor_algo;
         proto.has_raw_data = has_raw_data;
+        proto.metadata = metadata.map(JourneyMetadata::to_proto).into();
         proto
     }
 }

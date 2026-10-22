@@ -39,7 +39,7 @@ pub struct Txn<'a> {
     pub action: Option<Action>,
 }
 
-/// Inputs for a new journey. Identity, revision, processed data metadata and
+/// Inputs for a new journey. Identity, revision, postprocessor algorithm and
 /// attachment presence are derived when the journey is created.
 pub struct NewJourney {
     pub journey_date: NaiveDate,
@@ -190,7 +190,7 @@ impl Txn<'_> {
         Ok(())
     }
 
-    /// Removes only the raw GPS attachment. Journey metadata and processed track
+    /// Removes only the raw GPS attachment. Extra metadata and processed track
     /// data are kept unchanged.
     #[auto_context]
     pub fn delete_journey_raw_data(&mut self, id: &str) -> Result<bool> {
@@ -337,13 +337,15 @@ impl Txn<'_> {
             note,
             postprocessor_algo,
             has_raw_data: raw_data.is_some(),
+            metadata: None,
         };
         self.insert_journey_with_raw_data(header, journey_data, raw_data)?;
         Ok(id)
     }
 
+    /// Updates editable header fields, preserving the optional extra metadata.
     #[auto_context]
-    pub fn update_journey_metadata(
+    pub fn update_journey_info(
         &mut self,
         id: &str,
         new_journey_date: NaiveDate,
@@ -968,6 +970,7 @@ mod migration_tests {
             note: None,
             postprocessor_algo: None,
             has_raw_data: false,
+            metadata: None,
         };
         let header_bytes = header.clone().to_proto().write_to_bytes()?;
         tx.execute(

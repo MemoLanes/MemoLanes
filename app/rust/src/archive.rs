@@ -56,7 +56,7 @@ use crate::{
     journey_data::{self, JourneyData},
     journey_header::JourneyHeader,
     main_db,
-    protos::archive::{metadata, Metadata, SectionHeader},
+    protos::archive::{metadata, Metadata as ArchiveMetadata, SectionHeader},
     raw_data::SerializedJourneyRawData,
 };
 
@@ -99,7 +99,7 @@ pub struct MldxImportResult {
 
 pub struct MldxReader<R: Read + Seek> {
     zip: zip::ZipArchive<R>,
-    metadata: Metadata,
+    archive_metadata: ArchiveMetadata,
     // we could load the following two lazily, doesn't matter for now though (because we always need them).
     journey_headers: Vec<JourneyHeader>,
     journey_id_to_section_id: HashMap<String, String>,
@@ -213,7 +213,7 @@ fn skip_journey_record<T: Read>(reader: &mut T, section_version: SectionVersion)
 
 impl<R: Read + Seek> MldxReader<R> {
     #[auto_context]
-    fn read_metadata(zip: &mut zip::ZipArchive<R>) -> Result<Metadata> {
+    fn read_archive_metadata(zip: &mut zip::ZipArchive<R>) -> Result<ArchiveMetadata> {
         let metadata_file_index = zip
             .index_for_name(METADATA_FILE_NAME_NEW)
             .or_else(|| zip.index_for_name(METADATA_FILE_NAME_OLD))
@@ -246,8 +246,8 @@ impl<R: Read + Seek> MldxReader<R> {
 
         let len: u64 = file.read_varint()?;
         let mut decoder = zstd::Decoder::new(file.take(len))?;
-        let metadata: Metadata = Message::parse_from_reader(&mut decoder)?;
-        Ok(metadata)
+        let archive_metadata = Message::parse_from_reader(&mut decoder)?;
+        Ok(archive_metadata)
     }
 
     #[auto_context]
@@ -275,11 +275,11 @@ impl<R: Read + Seek> MldxReader<R> {
     pub fn open(reader: R) -> Result<Self> {
         let mut zip = zip::ZipArchive::new(reader)?;
 
-        let metadata = Self::read_metadata(&mut zip)?;
+        let archive_metadata = Self::read_archive_metadata(&mut zip)?;
 
         let mut journey_headers = Vec::new();
         let mut journey_id_to_section_id = HashMap::new();
-        for section_info in &metadata.section_infos {
+        for section_info in &archive_metadata.section_infos {
             let mut file = zip.by_name(&section_info.section_id)?;
             let (_, section_header) = Self::read_section_header(&mut file)?;
             drop(file);
@@ -293,7 +293,7 @@ impl<R: Read + Seek> MldxReader<R> {
 
         Ok(Self {
             zip,
-            metadata,
+            archive_metadata,
             journey_headers,
             journey_id_to_section_id,
         })
@@ -363,7 +363,12 @@ impl<R: Read + Seek> MldxReader<R> {
             overwritten_count: 0,
             ignored_by_filter_count: 0,
         };
-        for section_id in self.metadata.section_infos.iter().map(|s| &s.section_id) {
+        for section_id in self
+            .archive_metadata
+            .section_infos
+            .iter()
+            .map(|s| &s.section_id)
+        {
             let mut file = self.zip.by_name(section_id)?;
             let (section_version, section_header) = Self::read_section_header(&mut file)?;
             for header in section_header.journey_headers {
@@ -579,15 +584,15 @@ where
         zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
 
     // writing metadata
-    let mut metadata_proto = Metadata::new();
-    metadata_proto.created_at_timestamp_sec = Utc::now().timestamp();
-    metadata_proto.kind = Some(EnumOrUnknown::new(metadata::Kind::FULL_ARCHIVE));
-    metadata_proto.note = None;
+    let mut archive_metadata = ArchiveMetadata::new();
+    archive_metadata.created_at_timestamp_sec = Utc::now().timestamp();
+    archive_metadata.kind = Some(EnumOrUnknown::new(metadata::Kind::FULL_ARCHIVE));
+    archive_metadata.note = None;
     for (_, section_id, journeys) in &to_process {
         let mut section_info = metadata::SectionInfo::new();
         section_info.section_id.clone_from(section_id);
         section_info.num_of_journeys = journeys.len() as u32;
-        metadata_proto.section_infos.push(section_info)
+        archive_metadata.section_infos.push(section_info)
     }
 
     zip.start_file(METADATA_FILE_NAME_NEW, default_options)?;
@@ -596,7 +601,7 @@ where
     zip.write_all(&[METADATA_VERSION])?;
 
     // metadata
-    write_proto_as_compressed_block(&mut zip, metadata_proto)?;
+    write_proto_as_compressed_block(&mut zip, archive_metadata)?;
 
     // writing section data
     for (_, section_id, journeys) in &to_process {
