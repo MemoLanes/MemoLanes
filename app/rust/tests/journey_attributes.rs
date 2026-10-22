@@ -53,7 +53,7 @@ fn add_future_fields(fields: &mut UnknownFields) {
     fields.add_varint(100, 99);
     fields.add_fixed32(101, 123);
     fields.add_fixed64(102, 456);
-    fields.add_length_delimited(103, "未来信息 ✈️\n第二行".as_bytes().to_vec());
+    fields.add_length_delimited(103, "Future info ✈️\nSecond line".as_bytes().to_vec());
     fields.add_length_delimited(103, Vec::new());
 }
 
