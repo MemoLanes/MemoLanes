@@ -1,64 +1,57 @@
-//! Optional journey display information stored in the Header.
-//!
-//! Keys are extensible; preserve unknown entries and omit missing information.
-//! Values are display strings. Adding keys requires no schema or MLDX version
-//! change. Older readers can import the track but may discard this information.
-
-use std::collections::HashMap;
+//! Typed journey display information, retaining unknown Protobuf data.
 
 use flutter_rust_bridge::frb;
 
 use crate::protos;
 
-/// Keys understood by this version of the application. The stored names are
-/// part of the format contract and must not be repurposed for other meanings.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum JourneyMetadataKey {
-    FlightNumber,
-    FlightAirline,
-    FlightAircraftType,
-    FlightRegistration,
-}
-
-impl JourneyMetadataKey {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::FlightNumber => "flight.number",
-            Self::FlightAirline => "flight.airline",
-            Self::FlightAircraftType => "flight.aircraft_type",
-            Self::FlightRegistration => "flight.registration",
-        }
-    }
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+/// A read-only view of the metadata understood by this version.
+/// Keep the owning `JourneyMetadata` when storing or exporting a journey.
+#[derive(Clone, Debug, PartialEq, Eq)]
 #[frb(non_opaque)]
+pub enum JourneyMetadataDetails {
+    Flight {
+        flight_number: Option<String>,
+        operating_airline_icao: Option<String>,
+        aircraft_type_icao: Option<String>,
+        registration: Option<String>,
+    },
+}
+
+/// Owns the complete message so newer fields and categories survive round trips.
+#[derive(Clone, Debug, Default, PartialEq)]
+#[frb(opaque)]
 pub struct JourneyMetadata {
-    pub fields: HashMap<String, String>,
+    pub(crate) proto: protos::journey::JourneyMetadata,
 }
 
 impl JourneyMetadata {
-    pub fn get(&self, key: JourneyMetadataKey) -> Option<&str> {
-        self.fields.get(key.as_str()).map(String::as_str)
-    }
-
-    pub fn set(&mut self, key: JourneyMetadataKey, value: impl Into<String>) {
-        self.fields.insert(key.as_str().to_owned(), value.into());
-    }
-
-    pub fn remove(&mut self, key: JourneyMetadataKey) -> Option<String> {
-        self.fields.remove(key.as_str())
-    }
-
-    pub(crate) fn of_proto(proto: protos::journey::JourneyMetadata) -> Self {
-        Self {
-            fields: proto.fields,
-        }
-    }
-
-    pub(crate) fn into_proto(self) -> protos::journey::JourneyMetadata {
+    pub fn flight(
+        flight_number: Option<String>,
+        operating_airline_icao: Option<String>,
+        aircraft_type_icao: Option<String>,
+        registration: Option<String>,
+    ) -> Self {
         let mut proto = protos::journey::JourneyMetadata::new();
-        proto.fields = self.fields;
-        proto
+        proto.set_flight(protos::journey::FlightMetadata {
+            flight_number,
+            operating_airline_icao,
+            aircraft_type_icao,
+            registration,
+            ..Default::default()
+        });
+        Self { proto }
+    }
+
+    pub fn details(&self) -> Option<JourneyMetadataDetails> {
+        use protos::journey::journey_metadata::Details;
+        self.proto
+            .details
+            .as_ref()
+            .map(|Details::Flight(flight)| JourneyMetadataDetails::Flight {
+                flight_number: flight.flight_number.clone(),
+                operating_airline_icao: flight.operating_airline_icao.clone(),
+                aircraft_type_icao: flight.aircraft_type_icao.clone(),
+                registration: flight.registration.clone(),
+            })
     }
 }

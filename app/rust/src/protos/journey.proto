@@ -2,10 +2,22 @@ syntax = "proto3";
 
 package journey;
 
-// Optional display information. Keys are extensible and unknown keys must be
-// preserved when a journey is imported, edited, or exported.
+// Optional display information. Preserve unknown fields and categories when
+// importing, editing, or exporting a journey.
 message JourneyMetadata {
-  map<string, string> fields = 1;
+  reserved 1;
+  reserved "fields";
+
+  oneof details {
+    FlightMetadata flight = 2;
+  }
+}
+
+message FlightMetadata {
+  optional string flight_number = 1;
+  optional string operating_airline_icao = 2;
+  optional string aircraft_type_icao = 3;
+  optional string registration = 4;
 }
 
 message Header {
