@@ -1,11 +1,10 @@
 //! Refine a coarser entity raster with a finer one.
 //!
 //! Both operations here are level-agnostic — they take a coarse raster and a
-//! fine one and never look at which admin level either is. Today that is
-//! countries refined by provinces; an admin-2 level would reuse them unchanged,
-//! with the province raster as the coarse side. Only the parenting policy in
-//! `entities` is level-specific, because it reads a particular Natural Earth
-//! column.
+//! fine one and never look at which admin level either is: countries refined
+//! by provinces, then provinces by the admin-2 tier. Only the parenting
+//! policy in `entities` is level-specific, because it reads a particular
+//! Natural Earth column.
 //!
 //! The coarse mask is authoritative: a block's leaf is the fine entity only
 //! when that entity's parent is the coarse one the block already belongs to.

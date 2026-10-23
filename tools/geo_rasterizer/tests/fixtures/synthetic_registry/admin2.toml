@@ -1,0 +1,6 @@
+schema = 1
+
+admin2 = [
+  { code = "CN-4401", id = 9 },
+  { code = "CN-4601", id = 10 },
+]

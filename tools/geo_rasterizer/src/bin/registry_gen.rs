@@ -6,11 +6,13 @@
 //! all worldviews. Pass `--source <worldview-id>:<path>` to register specific
 //! country files instead.
 //!
-//! Either way both levels are registered: countries from the admin-0 file(s),
-//! provinces from the pinned admin-1 file. Natural Earth ships one
+//! Either way all three levels are registered: countries from the admin-0
+//! file(s), provinces from the pinned admin-1 file, and the admin-2 tier from the
+//! committed CHN snapshot. Natural Earth ships one
 //! worldview-independent admin-1 file, so `--source` overrides the admin-0 side
 //! only and the admin-1 side stays pinned — a registry without provinces would
-//! make every `rasterize-geo` fail on an unknown `adm1_code`.
+//! make every `rasterize-geo` fail on an unknown `adm1_code`. The admin-2 tier is
+//! worldview-invariant, so it is registered once rather than per worldview.
 //!
 //! Commit the resulting geo_entity_registry/ files in the same PR as the source
 //! bump.
@@ -22,10 +24,11 @@ use clap::Parser;
 use geo_data_format::Worldview;
 use geo_rasterizer::admin0::parse_admin0;
 use geo_rasterizer::admin1::parse_admin1;
+use geo_rasterizer::admin2;
 use geo_rasterizer::download::{ensure_admin1, ensure_geojson};
 use geo_rasterizer::registry::{
-    admin0_point_items, admin1_point_items, merged_representative_points, register_worldview,
-    Namespace, Registry,
+    admin0_point_items, admin1_point_items, admin2_point_items, merged_representative_points,
+    register_worldview, Namespace, Registry,
 };
 
 #[derive(Parser, Debug)]
@@ -79,6 +82,7 @@ fn main() -> Result<()> {
             continents: vec![],
             countries: vec![],
             provinces: vec![],
+            admin2: vec![],
         }
     };
     let start_id = reg.next_id();
@@ -110,6 +114,8 @@ fn main() -> Result<()> {
             items.extend(admin1_point_items(&parse_admin1(&admin1_path, worldview)?));
         }
     }
+
+    items.extend(admin2_point_items(&admin2::load(&admin2::default_dir())?));
 
     register_worldview(&mut reg, &merged_representative_points(items));
 
