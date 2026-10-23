@@ -452,9 +452,10 @@ fn write_proto_as_compressed_block<W: Write, M: protobuf::Message>(
     writer: &mut W,
     message: M,
 ) -> Result<()> {
-    // TODO: use streaming to avoid one extra allocation
-    let buf = message.write_to_bytes()?;
-    let buf = zstd::encode_all(buf.as_slice(), journey_data::ZSTD_COMPRESS_LEVEL)?;
+    let mut encoder = zstd::Encoder::new(Vec::new(), journey_data::ZSTD_COMPRESS_LEVEL)?;
+    message.write_to_writer(&mut encoder)?;
+    // The archive prefixes each block with its compressed length.
+    let buf = encoder.finish()?;
     write_bytes_with_size_header(writer, &buf)
 }
 
