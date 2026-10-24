@@ -253,3 +253,51 @@ fn iso_asset_maps_non_iso_adm0_to_real_iso() {
         Some("FRA")
     );
 }
+
+/// The `Admin2`-kind entity for a leaf, when the tier reaches this far down.
+fn admin2_of(geo: &GeoIndex, leaf: GeoEntityId) -> Option<GeoEntity> {
+    let id = std::iter::once(leaf)
+        .chain(geo.ancestors(leaf))
+        .find(|&id| geo.node(id).map(|n| n.kind) == Some(GeoEntityKind::Admin2))?;
+    describe_one(geo, id)
+}
+
+/// The tier the achievement drill-down offers as its third level: a block
+/// inside an admin-2-covered country resolves to the admin-2 unit, nested under the
+/// province the country tier already placed it in. This is the data behind
+/// 中国 → 广东省 → 深圳市 and 中国 → 四川省 → 成都市.
+#[test]
+fn iso_asset_resolves_the_admin2_tier_under_its_province() {
+    let geo = GeoIndex::open(&test_utils::geo_asset("iso")).unwrap();
+
+    for (lng, lat, admin2, province, country) in [
+        (114.0579, 22.5431, "CN-4403", "CHN-1180", "CHN"), // Shenzhen, Guangdong
+        (104.0665, 30.5723, "CN-5101", "CHN-1809", "CHN"), // Chengdu, Sichuan
+    ] {
+        let leaf = leaf_at(&geo, lng, lat)
+            .unwrap_or_else(|| panic!("{admin2}: resolved to ocean at ({lng}, {lat})"));
+        let unit = admin2_of(&geo, leaf)
+            .unwrap_or_else(|| panic!("{admin2}: no admin-2 ancestor at ({lng}, {lat})"));
+        assert_eq!(unit.canonical_code, admin2);
+        assert_eq!(unit.name_key, format!("admin2.{admin2}"));
+
+        let parent = describe_one(&geo, unit.parent_id.unwrap()).unwrap();
+        assert_eq!(parent.canonical_code, province);
+        assert_eq!(parent.kind, GeoEntityKind::Admin1);
+        assert_eq!(country_of(&geo, leaf).unwrap().canonical_code, country);
+        assert!(geo.children(unit.id).is_empty(), "{admin2} is a leaf tier");
+    }
+}
+
+/// A province in a country the tier does not cover keeps the province as the
+/// leaf and offers no third level — the drill-down shows no chevron for it.
+#[test]
+fn iso_asset_leaves_an_admin2_free_province_childless() {
+    let geo = GeoIndex::open(&test_utils::geo_asset("iso")).unwrap();
+
+    // Munich, in Bavaria — Germany has no admin-2 tier.
+    let leaf = leaf_at(&geo, 11.5820, 48.1351).expect("Munich resolved to ocean");
+    assert_eq!(geo.node(leaf).unwrap().kind, GeoEntityKind::Admin1);
+    assert!(admin2_of(&geo, leaf).is_none());
+    assert!(geo.children(leaf).is_empty());
+}

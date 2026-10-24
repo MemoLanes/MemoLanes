@@ -129,13 +129,11 @@ class _CountriesHeader extends StatelessWidget {
                 onPressed: () {
                   navigatorPush(
                     context,
-                    page: AchievementRegionListPage(
+                    page: AchievementRegionListPage.countries(
                       title: context.tr(
                         'achievement.region_list.country_title',
                       ),
-                      level: achievementCountryRegionKind,
                       emptyText: context.tr('achievement.countries.empty'),
-                      showCountryFlags: true,
                     ),
                   );
                 },
@@ -232,15 +230,16 @@ class _CountryFlagItem extends StatelessWidget {
       type: MaterialType.transparency,
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
-        onTap: () => navigatorPush(
-          context,
-          page: AchievementRegionListPage(
-            title: countryName,
-            level: achievementProvinceRegionKind,
-            parent: country.entityId,
-            emptyText: context.tr('achievement.region_list.region_empty'),
-          ),
-        ),
+        onTap: country.entity.hasChildren
+            ? () => navigatorPush(
+                context,
+                page: AchievementRegionListPage.childrenOf(
+                  title: countryName,
+                  parent: country.entityId,
+                  emptyText: context.tr('achievement.region_list.region_empty'),
+                ),
+              )
+            : null,
         child: Padding(
           padding: const EdgeInsets.symmetric(
             vertical: _countryItemVerticalPadding,

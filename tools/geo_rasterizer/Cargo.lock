@@ -488,6 +488,7 @@ dependencies = [
  "tempfile",
  "toml",
  "ureq",
+ "zstd",
 ]
 
 [[package]]

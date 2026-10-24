@@ -1,0 +1,10 @@
+# Parent map for the synthetic admin-2 fixture. The Overture adapter selects a
+# province by the adcode's first two digits, so the fixture units use `44`/`46`
+# prefixes to land in country AAA's two provinces. The file name is the one the
+# adapter looks for, not a claim about China.
+schema = 1
+
+province = [
+  { prefix = "44", adm1_code = "AAA-001" },
+  { prefix = "46", adm1_code = "AAA-002" },
+]

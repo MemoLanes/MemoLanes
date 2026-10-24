@@ -115,15 +115,11 @@ pub fn region_levels() -> Result<HashMap<RegionKind, LevelSummary>> {
         .with_achievement_read(|store| Ok(region::region_levels(store.geo()?)))
 }
 
-pub fn region_level_view(
-    layer: AchievementLayer,
-    level: RegionKind,
-    parent: Option<GeoEntityId>,
-) -> Result<RegionLevelView> {
+pub fn region_level_view(layer: AchievementLayer, level: RegionKind) -> Result<RegionLevelView> {
     crate::api::api::get()
         .storage
         .with_achievement_read(|store| {
-            let ids = region::level_scope(store.geo()?, level, parent);
+            let ids = region::level_scope(store.geo()?, level)?;
             let areas = store.region_areas(layer, &ids)?;
             region::level_view(store.geo()?, level, &ids, &areas)
         })

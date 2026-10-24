@@ -6,6 +6,7 @@ use geo_data_format::{Locale, Worldview};
 
 use crate::admin0::Admin0Feature;
 use crate::admin1::Admin1Feature;
+use crate::admin2::Admin2Feature;
 use crate::atomic_write::write_atomically;
 use crate::entities::{group_continent_code, sovereign_member};
 use crate::overrides::Overrides;
@@ -18,6 +19,7 @@ pub fn region_names_path(dir: &Path, locale: Locale) -> PathBuf {
 pub fn build_region_names(
     by_worldview: &[(Worldview, Vec<Admin0Feature>)],
     admin1_by_worldview: &[(Worldview, Vec<Admin1Feature>)],
+    admin2: &[Admin2Feature],
     cldr: &BTreeMap<Locale, BTreeMap<String, String>>,
     cldr_subdivisions: &BTreeMap<Locale, BTreeMap<String, String>>,
     overrides: &Overrides,
@@ -85,6 +87,7 @@ pub fn build_region_names(
                 .keys()
                 .map(|adm1_code| format!("province.{adm1_code}")),
         )
+        .chain(admin2.iter().map(|f| admin2_key(&f.canonical_code)))
         .collect();
     let dead: Vec<&str> = overrides.keys().filter(|k| !minted.contains(*k)).collect();
     if !dead.is_empty() {
@@ -184,6 +187,12 @@ pub fn build_region_names(
                 }
                 Err(e) => missing.push(e.to_string()),
             }
+        }
+
+        for f in admin2 {
+            let key = admin2_key(&f.canonical_code);
+            let name = resolve_admin2_name(&key, f, locale, overrides);
+            names.insert(key, name);
         }
 
         // Worldview-scoped overrides → `<worldview>.<name_key>`, only where a
@@ -326,6 +335,25 @@ fn resolve_province_name(
         locale.ne_name_field(),
         feature.subdivision_key,
     )
+}
+
+fn admin2_key(canonical_code: &str) -> String {
+    format!("admin2.{canonical_code}")
+}
+
+fn resolve_admin2_name(
+    key: &str,
+    feature: &Admin2Feature,
+    locale: Locale,
+    overrides: &Overrides,
+) -> String {
+    if let Some(name) = overrides.get_default(key, locale) {
+        return name.to_string();
+    }
+    match locale {
+        Locale::EnUs => feature.name_en.clone(),
+        Locale::ZhCn => feature.name_zh.clone(),
+    }
 }
 
 fn nest(flat: &BTreeMap<String, String>) -> Result<serde_json::Value> {

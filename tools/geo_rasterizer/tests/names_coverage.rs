@@ -234,3 +234,33 @@ fn cldr_supplies_the_english_province_names_it_is_pinned_for() {
         "(named by CLDR, fell through to Natural Earth, named by an English override)"
     );
 }
+
+/// The admin-2 tier is worldview-invariant and its bins are refined from the
+/// same feature set, so its coverage is checked against the loaded sources
+/// rather than against one worldview's entity list.
+#[test]
+fn every_admin2_unit_is_named_in_every_locale() {
+    let dir = geo_rasterizer::admin2::default_dir();
+    let features = geo_rasterizer::admin2::load(&dir).unwrap();
+    // 364 CHN admin-2 units. A change here means a source moved and the
+    // registry needs regenerating.
+    assert_eq!(features.len(), 364, "admin-2 source membership moved");
+
+    for &locale in Locale::ALL {
+        let map = names(locale);
+        for f in &features {
+            let key = format!("admin2.{}", f.canonical_code);
+            match map.get(&key) {
+                Some(name) => assert!(
+                    !name.trim().is_empty(),
+                    "{}: empty name for {key}",
+                    locale.spec().tag
+                ),
+                None => panic!(
+                    "{}: no name for {key} — the app would render a raw key",
+                    locale.spec().tag
+                ),
+            }
+        }
+    }
+}

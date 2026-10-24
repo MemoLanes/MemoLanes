@@ -424,7 +424,8 @@
       "system": "跟随系统",
       "chinese": "简体中文",
       "english": "English"
-    }
+    },
+    "data_attribution": "地图边界数据 © OpenStreetMap 贡献者（经 Overture Maps，ODbL 许可）。"
   },
   "beta_testing_notice": {
     "title": "欢迎体验「迹忆」公测版",

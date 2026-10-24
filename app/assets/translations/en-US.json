@@ -424,7 +424,8 @@
       "system": "Follow system",
       "chinese": "Simplified Chinese",
       "english": "English"
-    }
+    },
+    "data_attribution": "Map boundary data © OpenStreetMap contributors, via Overture Maps (ODbL)."
   },
   "beta_testing_notice": {
     "title": "Welcome to MemoLanes Public Beta",
