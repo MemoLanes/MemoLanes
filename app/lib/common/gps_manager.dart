@@ -44,6 +44,13 @@ class GpsManager extends ChangeNotifier {
   var mapTracking = false;
   LocationData? latestPosition;
 
+  // Startup may restore a recording after asynchronous permission/database checks.
+  late final Future<void> initialized;
+
+  // Map-only fixes must never be presented as recording telemetry.
+  LocationData? get recordingPosition =>
+      _internalState == _InternalState.recording ? latestPosition : null;
+
   final _journeyFinalizedController = StreamController<void>.broadcast();
 
   // TODO: In a later version of the achievement system, we should get this
@@ -86,12 +93,12 @@ class GpsManager extends ChangeNotifier {
   GpsManager() {
     _locationService = GeoLocatorService();
     unawaited(_processRecordingLocationUpdatePipe());
-    _initState();
+    initialized = _initState();
   }
 
   LocationBackend get locationBackend => _locationService.locationBackend;
 
-  void _initState() async {
+  Future<void> _initState() async {
     await _m.protect(() async {
       Timer.periodic(const Duration(minutes: 30), (timer) async {
         await _m.protect(() async {
