@@ -699,6 +699,16 @@ impl Txn<'_> {
         )?)
     }
 
+    pub fn has_bitmap_journey(&self) -> Result<bool> {
+        self.db_txn
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM journey WHERE type = ?1);",
+                [JourneyType::Bitmap.to_int()],
+                |row| row.get(0),
+            )
+            .context("has_bitmap_journey")
+    }
+
     #[auto_context]
     pub fn has_journeys(&self) -> Result<bool> {
         let mut query = self.db_txn.prepare("SELECT 1 FROM journey LIMIT 1;")?;

@@ -115,8 +115,6 @@ export class JourneyTileProvider {
   private params: ReactiveParams;
   private currentVersion: string | null; // Store the current version
   private viewRange: TileRange | null; // Store the current viewport tile range [x, y, w, h, z]
-  // TODO: evaluate whether we need to make this public (also the bufferSizePower)
-  tileBuffer: TileBuffer | null; // Store the tile buffer data
   private loadedTileBuffer: LoadedTileBuffer | null;
   private dataGeneration: number;
   private generationAdvancePending: boolean;
@@ -124,7 +122,7 @@ export class JourneyTileProvider {
   private tileBufferRequestState: TileBufferRequestState;
   private readonly tileBufferBackends = new Map<string, TileBufferBackend>();
   private nextTileBufferSourceId: number;
-  bufferSizePower: number;
+  private requestedBufferSizePower: number;
   private isGlobeProjection: boolean; // Flag indicating if globe projection is used
   private tileBufferCallbacks: TileBufferCallback[]; // Array to store tile buffer update callbacks
   private cgiEndpoint: string;
@@ -149,7 +147,6 @@ export class JourneyTileProvider {
     this.params = params;
     this.currentVersion = null;
     this.viewRange = null;
-    this.tileBuffer = null;
     this.loadedTileBuffer = null;
     this.dataGeneration = 0;
     this.generationAdvancePending = false;
@@ -157,7 +154,7 @@ export class JourneyTileProvider {
     this.tileBufferRequestState = createTileBufferRequestState();
     this.nextTileBufferSourceId = 1;
 
-    this.bufferSizePower = this.getBufferSizePowerFromRenderMode(
+    this.requestedBufferSizePower = this.getBufferSizePowerFromRenderMode(
       params.renderMode,
     );
 
@@ -176,7 +173,6 @@ export class JourneyTileProvider {
     this.unsubscribeRenderMode = this.params.on("renderMode", (newMode) => {
       const newBufferSizePower = this.getBufferSizePowerFromRenderMode(newMode);
       this.setBufferSizePower(newBufferSizePower);
-      // TODO: should we also refresh the tile buffer?
     });
 
     this.map.on("move", this.handleMapMove);
@@ -227,6 +223,11 @@ export class JourneyTileProvider {
     await this.checkAndFetchTileBuffer(true);
   }
 
+  /** Requested resolution, which may differ from the currently loaded buffer. */
+  get bufferSizePower(): number {
+    return this.requestedBufferSizePower;
+  }
+
   setBufferSizePower(bufferSizePower: number): void {
     if (this.disposed || this.bufferSizePower === bufferSizePower) {
       return;
@@ -235,7 +236,7 @@ export class JourneyTileProvider {
     console.log(
       `Switching buffer size power: ${this.bufferSizePower} -> ${bufferSizePower}`,
     );
-    this.bufferSizePower = bufferSizePower;
+    this.requestedBufferSizePower = bufferSizePower;
     this.pollForJourneyUpdates(true);
   }
 
@@ -363,7 +364,6 @@ export class JourneyTileProvider {
     }
     this.releaseTileBufferSource(this.loadedTileBuffer?.source ?? null);
     this.loadedTileBuffer = null;
-    this.tileBuffer = null;
     for (const backend of this.tileBufferBackends.values()) backend.dispose();
     this.tileBufferBackends.clear();
   }
@@ -592,7 +592,6 @@ export class JourneyTileProvider {
       }
 
       this.releaseTileBufferSource(previousSource);
-      this.tileBuffer = source.mainThreadBuffer;
       this.loadedTileBuffer = {
         source,
         generation: this.dataGeneration,

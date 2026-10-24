@@ -50,6 +50,46 @@ fn rejects_newer_major_schema_version_without_migrating() {
 }
 
 #[test]
+fn bitmap_journey_presence_tracks_insertions_and_deletions() {
+    let temp_dir = TempDir::new("main_db-bitmap_journey_presence").unwrap();
+    let mut db = MainDb::open(temp_dir.path().to_str().unwrap()).unwrap();
+    assert!(!db.with_txn(|txn| txn.has_bitmap_journey()).unwrap());
+
+    let date = NaiveDate::from_ymd_opt(2025, 1, 1).unwrap();
+    db.with_txn(|txn| {
+        txn.create_and_insert_journey(NewJourney {
+            journey_date: date,
+            start: None,
+            end: None,
+            created_at: None,
+            journey_kind: JourneyKind::DefaultKind,
+            note: None,
+            journey_data: JourneyData::Vector(JourneyVector {
+                track_segments: vec![],
+            }),
+            raw_data: None,
+        })
+    })
+    .unwrap();
+    assert!(!db.with_txn(|txn| txn.has_bitmap_journey()).unwrap());
+
+    let bitmap_id = db
+        .with_txn(|txn| {
+            Ok(test_utils::insert_bitmap_journey(
+                txn,
+                date,
+                JourneyKind::DefaultKind,
+                test_utils::make_bitmap_with_line(test_utils::draw_line1),
+            ))
+        })
+        .unwrap();
+    assert!(db.with_txn(|txn| txn.has_bitmap_journey()).unwrap());
+    db.with_txn(|txn| txn.delete_journey(&bitmap_id)).unwrap();
+    assert!(!db.with_txn(|txn| txn.has_bitmap_journey()).unwrap());
+    assert!(db.with_txn(|txn| txn.has_journeys()).unwrap());
+}
+
+#[test]
 fn basic() {
     let (raw_data, _preprocessor) =
         import_data::gpx::load_gpx("./tests/data/raw_gps_shanghai.gpx").unwrap();
