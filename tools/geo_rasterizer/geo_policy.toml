@@ -66,18 +66,24 @@ drop_admin1_in = [
   "UGA", # 112 districts and counties
 ]
 
-# Admin-1 entries this worldview's admin-0 leaves no land for; dropped instead
-# of failing the landless check.
+# Admin-1 entries this worldview's admin-0 leaves no land, or only a minority
+# of the entry's land, for; dropped instead of failing the landless check.
 unparented = [
   { worldview = "iso", code = "ASM-5001" },  # Swains Island
+  { worldview = "iso", code = "CSI+00?" },   # Coral Sea Islands
+  { worldview = "iso", code = "ESB-5132" },  # Dhekelia
   { worldview = "iso", code = "GUY-675" },   # Barima-Waini (Essequibo)
   { worldview = "iso", code = "GUY-680" },   # Cuyuni-Mazaruni (Essequibo)
   { worldview = "iso", code = "IND-20012" }, # Ladakh (disputed Kashmir)
+  { worldview = "iso", code = "KAS+00?" },   # Siachen Glacier (disputed Kashmir)
   { worldview = "iso", code = "PFA+00?" },   # Paracel Islands
   { worldview = "iso", code = "PGA+00?" },   # Spratly Islands
   { worldview = "iso", code = "RUS-283" },   # Autonomous Republic of Crimea
   { worldview = "iso", code = "RUS-5482" },  # Sevastopol
   { worldview = "iso", code = "UMI-5179" },  # Wake Island
+  { worldview = "iso", code = "USG+00?" },   # Guantanamo Bay Naval Base
+  { worldview = "iso", code = "WSB-5133" },  # Akrotiri
+  { worldview = "usa", code = "KAS+00?" },   # Siachen Glacier (disputed Kashmir)
   { worldview = "usa", code = "PFA+00?" },   # Paracel Islands
 ]
 

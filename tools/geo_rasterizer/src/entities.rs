@@ -466,6 +466,7 @@ pub fn collect_provinces(
 pub fn resolve_province_parents(
     model: &EntityModel,
     tally: &Coverage,
+    province_blocks: &[u64],
     worldview: Worldview,
 ) -> Result<BTreeMap<GeoEntityId, GeoEntityId>> {
     let policy = policy::get()?;
@@ -500,7 +501,10 @@ pub fn resolve_province_parents(
 
     for (adm1_code, &id) in &model.province_ids {
         let by_country = tally.get(id.0 as usize);
-        let majority = by_country.and_then(block_majority);
+        let total = province_blocks.get(id.0 as usize).copied().unwrap_or(0);
+        let majority = by_country.and_then(|by_country| {
+            block_majority(by_country).filter(|m| 2 * by_country[m] > total)
+        });
         let declared_code = model
             .province_declared_adm0
             .get(adm1_code)

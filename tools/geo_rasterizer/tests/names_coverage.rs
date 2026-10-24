@@ -230,7 +230,7 @@ fn cldr_supplies_the_english_province_names_it_is_pinned_for() {
     // broke, not that the data moved: both sides are hash-verified.
     assert_eq!(
         (from_cldr, from_ne, from_override),
-        (3095, 369, 18),
+        (3095, 365, 18),
         "(named by CLDR, fell through to Natural Earth, named by an English override)"
     );
 }
