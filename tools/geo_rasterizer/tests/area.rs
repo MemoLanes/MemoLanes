@@ -113,7 +113,7 @@ fn country_area_is_the_sum_of_its_leaf_blocks_at_any_depth() {
     use geo_rasterizer::entities::{
         attach_province_entities, collect_provinces, resolve_province_parents,
     };
-    use geo_rasterizer::refine::{measure_coverage, refine_raster};
+    use geo_rasterizer::refine::{block_counts, measure_coverage, refine_raster};
     use std::collections::BTreeMap;
 
     let features = parse_admin0(Path::new("tests/fixtures/synthetic.geojson"), "iso").unwrap();
@@ -140,8 +140,14 @@ fn country_area_is_the_sum_of_its_leaf_blocks_at_any_depth() {
         (&country_raster.0, &country_raster.1),
         (&province_raster.0, &province_raster.1),
     );
-    let parents =
-        resolve_province_parents(&model, &tally, geo_data_format::Worldview::Iso).unwrap();
+    let province_blocks = block_counts((&province_raster.0, &province_raster.1));
+    let parents = resolve_province_parents(
+        &model,
+        &tally,
+        &province_blocks,
+        geo_data_format::Worldview::Iso,
+    )
+    .unwrap();
     attach_province_entities(&mut model, &parents);
     let (tile_lookup, block_lookup) = refine_raster(
         (&country_raster.0, &country_raster.1),

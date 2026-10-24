@@ -212,7 +212,8 @@ Which country owns a province, in precedence order:
    full;
 2. the declared `adm0_a3` where it names a country here — for a demoted or
    synthesized territory this is its policy-row `into`;
-3. `block_majority` over the country mask;
+3. `block_majority` over the country mask, when that country holds more than
+   half of the province's blocks;
 4. landless — dropped if listed in `unparented`, a hard error otherwise.
 
 ## Region names (`geo_names_overrides.toml`)
