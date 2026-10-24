@@ -239,22 +239,26 @@ class _MldxImportPageState extends State<MldxImportPage> {
               ? Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Column(
-                      mainAxisSize: MainAxisSize.min,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.error_outline,
-                          size: 30,
-                          color: context.appColors.dangerColor,
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          context.tr('import.mldx_preview.conflict_label'),
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: context.appColors.dangerColor),
-                        ),
-                      ],
+                    Flexible(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.error_outline,
+                            size: 30,
+                            color: context.appColors.dangerColor,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            context.tr('import.mldx_preview.conflict_label'),
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: context.appColors.dangerColor,
+                                ),
+                          ),
+                        ],
+                      ),
                     ),
                     const SizedBox(width: 8),
                     const LabelTileContent(showArrow: true),

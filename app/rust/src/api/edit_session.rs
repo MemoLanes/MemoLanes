@@ -296,8 +296,15 @@ impl EditSession {
 
         for segment in segments {
             let pts = &segment.track_points;
-            if pts.len() < 2 {
-                continue;
+            match pts.as_slice() {
+                [] => continue,
+                [point] => {
+                    if !Self::point_in_box(point, min_lat, max_lat, min_lng, max_lng) {
+                        new_segments.push(segment.clone());
+                    }
+                    continue;
+                }
+                _ => {}
             }
 
             let mut current: Vec<crate::journey_vector::TrackPoint> = Vec::new();

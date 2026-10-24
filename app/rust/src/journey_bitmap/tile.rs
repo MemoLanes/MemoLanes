@@ -8,6 +8,20 @@ use std::ops::Range;
 pub const BITMAP_SIZE: usize = (BITMAP_WIDTH * BITMAP_WIDTH / 8) as usize;
 const MIPMAP_LEVELS: [usize; 6] = [32, 16, 8, 4, 2, 1];
 
+// Indexed by z (level width = 2^z), while the packed levels run largest first.
+const MIPMAP_OFFSETS: [usize; MIPMAP_LEVELS.len()] = {
+    let mut offsets = [0; MIPMAP_LEVELS.len()];
+    let mut offset = 0;
+    let mut i = 0;
+    while i < MIPMAP_LEVELS.len() {
+        let dim = MIPMAP_LEVELS[i];
+        offsets[dim.ilog2() as usize] = offset;
+        offset += dim * dim;
+        i += 1;
+    }
+    offsets
+};
+
 pub const MIPMAP_BIT_SIZE: usize = {
     let mut sum = 0;
     let mut i = 0;
@@ -541,20 +555,7 @@ impl Block {
             return self.is_visited(x as u8, y as u8);
         }
 
-        // TODO: This could be implemented with const expressions with `MIPMAP_LEVELS`,
-        // so we don't have to hardcode the offsets here. But I am too lazy to do it now.
-
-        // For z=0 to z=5, read from mipmap if it exists
-        // Note: Block2's mipmap does NOT include the original 64x64 data
-        let offset = match z {
-            0 => 1024 + 256 + 64 + 16 + 4, // 1x1 at bit 1364
-            1 => 1024 + 256 + 64 + 16,     // 2x2 at bit 1360
-            2 => 1024 + 256 + 64,          // 4x4 at bit 1344
-            3 => 1024 + 256,               // 8x8 at bit 1280
-            4 => 1024,                     // 16x16 at bit 1024
-            5 => 0,                        // 32x32 at bit 0
-            _ => panic!("Invalid mipmap level: z={}", z),
-        };
+        let offset = MIPMAP_OFFSETS[z];
 
         let mut mipmap_cell = self.mipmap.borrow_mut();
         let mipmap = mipmap_cell.get_or_insert_with(|| Box::new(self.regenerate_mipmaps()));

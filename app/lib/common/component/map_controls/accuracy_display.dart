@@ -6,10 +6,12 @@ import 'package:memolanes/theme/app_colors.dart';
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:memolanes/common/component/custom_popup.dart';
+import 'package:memolanes/common/component/app_menu.dart';
+import 'package:memolanes/common/component/map_controls/map_popup_surface.dart';
 import 'package:memolanes/common/component/liquid_glass_surface.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/constants/app_typography.dart';
+import 'package:memolanes/constants/style_constants.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:provider/provider.dart';
 
@@ -18,59 +20,30 @@ class AccuracyDisplay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 44,
-      height: 44,
-      child: Consumer<GpsManager>(
-        builder: (context, gpsState, child) {
-          final position = gpsState.latestPosition;
-          final accuracy = position?.accuracy ?? 0.0;
-          final hasData = position != null;
-          final accuracyLevel = getAccuracyLevel(accuracy);
-          final button = PointerInterceptor(
-            child: _AccuracyButton(
-              hasData: hasData,
-              accuracy: accuracy,
-              accuracyLevel: accuracyLevel,
-            ),
-          );
-
-          if (!hasData) return button;
-
-          return CustomPopup(
-            position: PopupPosition.left,
-            horizontalOffset: -16,
-            contentRadius: 24,
-            barrierColor: Colors.transparent,
-            contentDecorationBuilder: _popupDecoration,
-            content: PointerInterceptor(child: const _AccuracyPopupContent()),
-            child: button,
-          );
-        },
-      ),
-    );
-  }
-
-  BoxDecoration _popupDecoration(BuildContext context) {
-    return BoxDecoration(
-      color: context.appColors.glassColor.withValues(
-        alpha: context.appColors.mapPopupBackgroundAlpha,
-      ),
-      borderRadius: BorderRadius.circular(24),
-      border: Border.all(
-        color: context.appColors.glassBorderColor.withValues(
-          alpha: context.appColors.mapPopupBorderAlpha,
-        ),
-      ),
-      boxShadow: [
-        BoxShadow(
-          color: context.appColors.shadowColor.withValues(
-            alpha: context.appColors.mapPopupShadowAlpha,
+    return Consumer<GpsManager>(
+      builder: (context, gpsState, child) {
+        final position = gpsState.latestPosition;
+        final accuracy = position?.accuracy ?? 0.0;
+        final hasData = position != null;
+        final accuracyLevel = getAccuracyLevel(accuracy);
+        final button = PointerInterceptor(
+          child: _AccuracyButton(
+            hasData: hasData,
+            accuracy: accuracy,
+            accuracyLevel: accuracyLevel,
           ),
-          blurRadius: 22,
-          offset: const Offset(0, 8),
-        ),
-      ],
+        );
+
+        if (!hasData) return button;
+
+        return AppMenu(
+          menuBuilder: (_) => const _AccuracyPopupContent(),
+          position: AppMenuPosition.side,
+          offset: const Offset(16, 0),
+          surfaceBuilder: (_, child) => MapPopupSurface(child: child),
+          child: button,
+        );
+      },
     );
   }
 }
@@ -132,37 +105,33 @@ class _AccuracyButton extends StatelessWidget {
     return LiquidGlassSurface(
       circular: true,
       backgroundAlpha: hasData ? 0.36 : 0.32,
-      child: SizedBox(
-        width: 44,
-        height: 44,
-        child: Material(
-          color: Colors.transparent,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              Center(
-                child: Text(
-                  hasData ? '${accuracy.round()}m\nACC' : 'NO\nGPS',
-                  textAlign: TextAlign.center,
-                  style: AppTypography.micro.copyWith(
-                    color: context.appColors.mutedInkColor,
-                    height: 1.1,
-                  ),
+      child: Material(
+        color: Colors.transparent,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Center(
+              child: Text(
+                hasData ? '${accuracy.round()}m\nACC' : 'NO\nGPS',
+                textAlign: TextAlign.center,
+                style: AppTypography.micro.copyWith(
+                  color: context.appColors.mutedInkColor,
+                  height: 1.1,
                 ),
               ),
-              if (hasData)
-                CustomPaint(
-                  size: const ui.Size(44, 44),
-                  painter: AccuracyTicksPainter(
-                    inactiveColor: context.appColors.mutedInkColor.withValues(
-                      alpha: 0.52,
-                    ),
-                    filledTicks: accuracyLevel.filledTicks,
-                    color: getStatusColor(context.appColors, accuracyLevel),
+            ),
+            if (hasData)
+              CustomPaint(
+                size: const ui.Size.square(StyleConstants.mapControlSize),
+                painter: AccuracyTicksPainter(
+                  inactiveColor: context.appColors.mutedInkColor.withValues(
+                    alpha: 0.52,
                   ),
+                  filledTicks: accuracyLevel.filledTicks,
+                  color: getStatusColor(context.appColors, accuracyLevel),
                 ),
-            ],
-          ),
+              ),
+          ],
         ),
       ),
     );
@@ -178,12 +147,8 @@ class _AccuracyPopupContent extends StatelessWidget {
       builder: (context, gpsState, child) {
         final position = gpsState.latestPosition;
         if (position == null) {
-          final route = ModalRoute.of(context);
-          // Close this popup after the build, preserving any dialog above it.
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (context.mounted && route != null && route.isActive) {
-              route.navigator?.removeRoute(route);
-            }
+            if (context.mounted) MenuController.maybeOf(context)?.close();
           });
           return const SizedBox.shrink();
         }
@@ -192,7 +157,7 @@ class _AccuracyPopupContent extends StatelessWidget {
         final statusColor = getStatusColor(context.appColors, accuracyLevel);
 
         return GestureDetector(
-          onTap: () => Navigator.of(context).pop(),
+          onTap: () => MenuController.maybeOf(context)?.close(),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,

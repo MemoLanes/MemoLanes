@@ -52,6 +52,11 @@ fn regenerated_mipmaps_match_source_regions_at_varied_densities() {
                             expected,
                             "occupied={occupied}, clustered={clustered}, dim={dim}, x={x}, y={y}"
                         );
+                        assert_eq!(
+                            block.get_at_level(x, y, dim.ilog2() as usize),
+                            expected,
+                            "occupied={occupied}, clustered={clustered}, dim={dim}, x={x}, y={y}"
+                        );
                     }
                 }
                 offset += dim * dim;

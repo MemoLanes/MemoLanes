@@ -41,20 +41,30 @@ class StyleConstants {
   // Gap between the nav bar and primary map controls such as recording buttons
   // and the time-machine ruler.
   static const double mapPrimaryControlNavBarSpacing = 14;
+  static const double mapControlSize = 44;
+  static const double mapControlSpacing = 8;
+  static const double mapControlsExtent =
+      mapControlSize * 3 + mapControlSpacing * 2;
 
   // Bottom inset shared by primary map controls so they align across map modes.
   static const double mapPrimaryControlBottomInset =
       navBarSafeArea + mapPrimaryControlNavBarSpacing;
 
   static double navBarBottomInset(BuildContext context) {
-    final bottomGestureInset = MediaQuery.systemGestureInsetsOf(context).bottom;
-    final bottomSafeArea = MediaQuery.viewPaddingOf(context).bottom;
-
-    return switch ((
-      bottomGestureInset,
-      bottomSafeArea,
+    return navBarBottomInsetForMedia(
+      MediaQuery.of(context),
       defaultTargetPlatform,
-    )) {
+    );
+  }
+
+  static double navBarBottomInsetForMedia(
+    MediaQueryData media,
+    TargetPlatform platform,
+  ) {
+    final bottomGestureInset = media.systemGestureInsets.bottom;
+    final bottomSafeArea = media.viewPadding.bottom;
+
+    return switch ((bottomGestureInset, bottomSafeArea, platform)) {
       (> 0, _, _) => bottomGestureInset + navBarGestureBottomInset,
       (_, > 0, TargetPlatform.iOS) => navBarGestureBottomInset,
       (_, > 0, _) => bottomSafeArea + navBarSystemAreaGap,
@@ -68,7 +78,22 @@ class StyleConstants {
   static double mapPrimaryControlBottomInsetForContext(BuildContext context) =>
       navBarSafeAreaForContext(context) + mapPrimaryControlNavBarSpacing;
 
+  static const double pageContentMaxWidth = 640;
+  // Keep the timeline and its mode switch slightly inside the navigation bar.
+  static const double timelineControlsMaxWidth = 600;
+  // Dialogs and notices share one reading width; narrow panes shrink it.
+  static const double dialogMaxWidth = 560;
+  static const double contentMinWidth = 320;
+  static const double minimumMapExtent = 120;
+
+  // Browsing cards retain map space vertically within the shared page width.
+  static const double mapPickerMinHeight = 390;
+  static const double mapPickerMaxHeight = 530;
+
   // Overlays
+  static const double overlayBarContentHeight = 48;
+  static const double overlayBarBottomInset = 4;
+  static const double overlayBarHorizontalInset = 8;
   static const double overlayFloatingRadius = 16.0;
 
   // Shared elevation for glass buttons and cards displayed over the map.

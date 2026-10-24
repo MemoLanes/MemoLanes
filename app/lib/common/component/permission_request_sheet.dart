@@ -6,8 +6,9 @@ import 'package:memolanes/theme/app_colors.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:memolanes/common/component/app_button.dart';
+import 'package:memolanes/common/component/app_dialog.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:memolanes/common/component/setup_bottom_sheet.dart';
+import 'package:memolanes/common/component/setup_tile.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/service/permission_service.dart';
 import 'package:memolanes/common/utils.dart';
@@ -20,7 +21,7 @@ import 'package:permission_handler/permission_handler.dart';
 Future<void> showPermissionRequestSheet(BuildContext context) async {
   final permissions = PermissionService();
   unawaited(permissions.logPermissionState('sheet_open'));
-  await showSetupCard<void>(
+  await showAppDialog<void>(
     context,
     builder: (_) => _PermissionRequestSheetContent(),
   );
@@ -188,9 +189,9 @@ class _PermissionRequestSheetContentState
 
   @override
   Widget build(BuildContext context) {
-    return SetupDialogCard(
+    return AppDialogContent(
       title: context.tr("permission_sheet.title"),
-      maxHeightFactor: 0.6,
+
       leading: IconButton(
         icon: Icon(
           Icons.arrow_back_ios,
@@ -203,19 +204,22 @@ class _PermissionRequestSheetContentState
           minimumSize: const Size(40, 40),
         ),
       ),
-      actions: [
-        AppButton(
-          label: context.tr("permission_sheet.skip"),
-          labelMaxLines: 2,
-          onPressed: _onSkip,
-          variant: AppButtonVariant.secondary,
-        ),
-        AppButton(
-          label: context.tr("permission_sheet.enable_all"),
-          labelMaxLines: 2,
-          onPressed: _onEnableAll,
-        ),
-      ],
+      actions: AppDialogActions(
+        children: [
+          AppButton(
+            label: context.tr("permission_sheet.skip"),
+            labelMaxLines: 2,
+            onPressed: _onSkip,
+            variant: AppButtonVariant.secondary,
+          ),
+          AppButton(
+            label: context.tr("permission_sheet.enable_all"),
+            labelMaxLines: 2,
+            onPressed: _onEnableAll,
+          ),
+        ],
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
       child: Column(
         children: [
           _PermissionTile(

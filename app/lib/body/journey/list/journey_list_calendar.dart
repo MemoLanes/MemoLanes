@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:memolanes/theme/app_colors.dart';
 
@@ -9,7 +10,7 @@ import 'package:memolanes/body/journey/list/journey_layer_filter_menu.dart';
 import 'package:memolanes/body/journey/list/journey_list_controller.dart';
 import 'package:memolanes/common/app_haptics.dart';
 import 'package:memolanes/common/component/app_calendar_mode_picker.dart';
-import 'package:memolanes/common/component/custom_popup.dart';
+import 'package:memolanes/common/component/app_menu.dart';
 import 'package:memolanes/common/loading_manager.dart';
 import 'package:memolanes/common/simple_date_utils.dart';
 import 'package:memolanes/constants/app_typography.dart';
@@ -20,10 +21,14 @@ class JourneyListCalendar extends StatefulWidget {
   final JourneyListController controller;
   final SimpleDate firstDate;
 
+  /// Let a scrolling header expand for localized text and large text sizes.
+  final bool fitLabels;
+
   const JourneyListCalendar({
     super.key,
     required this.controller,
     required this.firstDate,
+    this.fitLabels = false,
   });
 
   @override
@@ -35,7 +40,7 @@ class _JourneyListCalendarState extends State<JourneyListCalendar> {
 
   late final DateTime _initialSelectedDate;
   CalendarDatePicker2Mode _calendarViewMode = CalendarDatePicker2Mode.day;
-  int _calendarPickerRevision = 0;
+  GlobalKey _pickerKey = GlobalKey();
 
   @override
   void initState() {
@@ -45,12 +50,19 @@ class _JourneyListCalendarState extends State<JourneyListCalendar> {
     );
   }
 
+  @override
+  void didUpdateWidget(covariant JourneyListCalendar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // The package's page indices are relative to this origin.
+    if (oldWidget.firstDate != widget.firstDate) _pickerKey = GlobalKey();
+  }
+
   void _setCalendarViewMode(CalendarDatePicker2Mode mode) {
     setState(() {
       // Selecting a month returns the package to day mode internally, while
       // the externally held mode may still be month. Recreate on every header
       // tap so the requested mode always takes effect on the first tap.
-      _calendarPickerRevision += 1;
+      _pickerKey = GlobalKey();
       _calendarViewMode = mode;
     });
   }
@@ -58,10 +70,64 @@ class _JourneyListCalendarState extends State<JourneyListCalendar> {
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
-      builder: (context, constraints) => _buildCalendar(
-        context,
-        compact: constraints.maxWidth < _compactWidthBreakpoint,
-      ),
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < _compactWidthBreakpoint;
+        final calendar = _buildCalendar(context, compact: compact);
+        if (!widget.fitLabels) return calendar;
+        final style = compact
+            ? AppTypography.sectionLabel
+            : AppTypography.cardTitle;
+        double widthOf(String label, TextStyle textStyle) {
+          final painter = TextPainter(
+            text: TextSpan(
+              text: label,
+              style: DefaultTextStyle.of(context).style.merge(textStyle),
+            ),
+            textScaler: MediaQuery.textScalerOf(context),
+            textDirection: Directionality.of(context),
+          )..layout();
+          final width = painter.width;
+          painter.dispose();
+          return width;
+        }
+
+        final locale = Localizations.localeOf(context).toString();
+        final monthWidth = [
+          for (var month = 1; month <= 12; month++)
+            widthOf(
+              (compact ? DateFormat.MMM(locale) : DateFormat.MMMM(locale))
+                  .format(DateTime(2000, month)),
+              style,
+            ),
+        ].reduce(math.max);
+        final yearWidth = widthOf(
+          MaterialLocalizations.of(context)
+              .formatYear(DateTime(widget.controller.selectedDate.year)),
+          style,
+        );
+        final filterWidth = compact
+            ? 24.0
+            : widthOf(_filterLabel(context), AppTypography.cardTitle) + 32;
+        // Seven compact 30pt days plus the picker's existing 8pt side padding;
+        // the header adds two navigation buttons, dropdowns and measured text.
+        final minimum = math.max(
+          compact ? 30.0 * 7 + 16 : 0.0,
+          108 +
+              48 +
+              16 +
+              (compact ? 8 : 16) +
+              yearWidth +
+              monthWidth +
+              filterWidth,
+        );
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: SizedBox(
+            width: math.max(constraints.maxWidth, minimum),
+            child: calendar,
+          ),
+        );
+      },
     );
   }
 
@@ -81,7 +147,18 @@ class _JourneyListCalendarState extends State<JourneyListCalendar> {
       semanticsDictionary: yearFirstCalendarModePickerSemantics(context),
       calendarType: CalendarDatePicker2Type.single,
       selectedDayHighlightColor: context.appColors.primaryGreen,
-      controlsHeight: compact ? 38 : null,
+      daySplashColor: Colors.transparent,
+      controlsHeight: widget.fitLabels
+          ? math.max(
+              compact ? 44.0 : 52.0,
+              MediaQuery.textScalerOf(context)
+                          .scale(controlsTextStyle.fontSize!) *
+                      controlsTextStyle.height! +
+                  16,
+            )
+          : compact
+          ? 38
+          : null,
       dayMaxWidth: compact ? 30 : null,
       dayTextStyle: (compact ? AppTypography.caption : AppTypography.body)
           .copyWith(color: context.appColors.inkColor),
@@ -230,7 +307,7 @@ class _JourneyListCalendarState extends State<JourneyListCalendar> {
     return CalendarDatePicker2(
       // Page indices are relative to firstDate. Recreate the picker when that
       // origin changes so the visible grid still matches the selected month.
-      key: ValueKey((widget.firstDate, _calendarPickerRevision)),
+      key: _pickerKey,
       config: config,
       displayedMonthDate: controller.selectedDate.toLocalDateTime(),
       value: controller.hasJourneyOnSelectedDate
@@ -256,21 +333,20 @@ class _JourneyListCalendarState extends State<JourneyListCalendar> {
   Widget _buildFilterButton(BuildContext context, {required bool compact}) {
     final controller = widget.controller;
     final label = _filterLabel(context);
-    return CustomPopup(
-      position: PopupPosition.bottom,
-      horizontalOffset: -8,
-      verticalOffset: 8,
-      contentPadding: const EdgeInsets.symmetric(vertical: 8),
-      contentRadius: 12,
-      barrierColor: Colors.transparent,
-      content: PointerInterceptor(
-        child: JourneyLayerFilterMenu(
-          selectedKinds: controller.selectedJourneyKinds,
-          onChanged: (kinds) {
-            AppHaptics.selection();
-            _runWithLoading(() => controller.setJourneyKinds(kinds));
-          },
-        ),
+    return AppMenu(
+      menuBuilder: (_) => JourneyLayerFilterMenu(
+        selectedKinds: controller.selectedJourneyKinds,
+        onChanged: (kinds) {
+          AppHaptics.selection();
+          _runWithLoading(() => controller.setJourneyKinds(kinds));
+        },
+      ),
+      position: AppMenuPosition.bottom,
+      offset: const Offset(-8, 8),
+      surfaceBuilder: (context, child) => AppMenuSurface(
+        radius: 12,
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: child,
       ),
       child: PointerInterceptor(
         child: Padding(

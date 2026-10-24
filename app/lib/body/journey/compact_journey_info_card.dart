@@ -79,6 +79,7 @@ class CompactJourneyInfoField extends StatelessWidget {
     this.value,
     this.trailing,
     this.onTap,
+    this.onInfoTap,
     this.maxLines = 1,
   }) : assert(value != null || trailing != null);
 
@@ -87,10 +88,19 @@ class CompactJourneyInfoField extends StatelessWidget {
   final String? value;
   final Widget? trailing;
   final VoidCallback? onTap;
+  final VoidCallback? onInfoTap;
   final int maxLines;
 
   @override
   Widget build(BuildContext context) {
+    final labelText = Text(
+      label,
+      maxLines: 1,
+      softWrap: false,
+      style: AppTypography.label.copyWith(
+        color: context.appColors.mutedInkColor,
+      ),
+    );
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -110,15 +120,25 @@ class CompactJourneyInfoField extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              SizedBox(
-                width: 92,
-                child: Text(
-                  label,
-                  style: AppTypography.label.copyWith(
-                    color: context.appColors.mutedInkColor,
+              if (onInfoTap == null)
+                labelText
+              else
+                InkWell(
+                  onTap: onInfoTap,
+                  borderRadius: BorderRadius.circular(4),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      labelText,
+                      const SizedBox(width: 4),
+                      Icon(
+                        Icons.info_outline,
+                        size: 16,
+                        color: context.appColors.mutedInkColor,
+                      ),
+                    ],
                   ),
                 ),
-              ),
               const SizedBox(width: 6),
               Expanded(
                 child:
@@ -188,42 +208,44 @@ class ReadOnlyJourneyInfoCard extends StatelessWidget {
     final note = journey.note?.trim();
 
     return JourneyInfoPanelSurface(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 10, 14, 13),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const JourneyInfoCardHeader(),
-            const SizedBox(height: 5),
-            CompactJourneyInfoField(
-              icon: Icons.calendar_today_rounded,
-              label: context.tr('journey.journey_date'),
-              value: journey.journeyDate.toSimpleDate().toString(),
-            ),
-            CompactJourneyInfoField(
-              icon: Icons.sell_outlined,
-              label: context.tr('journey.journey_kind'),
-              value: journeyKindLabel(context, journey.journeyKind),
-            ),
-            CompactJourneyInfoField(
-              icon: Icons.schedule_rounded,
-              label: context.tr('journey.start_time'),
-              value: formatJourneyInfoTime(journey.start),
-            ),
-            CompactJourneyInfoField(
-              icon: Icons.schedule_rounded,
-              label: context.tr('journey.end_time'),
-              value: formatJourneyInfoTime(journey.end),
-            ),
-            JourneyRawDataInfoField(hasRawData: journey.hasRawData),
-            if (note != null && note.isNotEmpty)
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 10, 14, 13),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const JourneyInfoCardHeader(),
+              const SizedBox(height: 5),
               CompactJourneyInfoField(
-                icon: Icons.notes_rounded,
-                label: context.tr('journey.note'),
-                value: note,
-                maxLines: 2,
+                icon: Icons.calendar_today_rounded,
+                label: context.tr('journey.journey_date'),
+                value: journey.journeyDate.toSimpleDate().toString(),
               ),
-          ],
+              CompactJourneyInfoField(
+                icon: Icons.sell_outlined,
+                label: context.tr('journey.journey_kind'),
+                value: journeyKindLabel(context, journey.journeyKind),
+              ),
+              CompactJourneyInfoField(
+                icon: Icons.schedule_rounded,
+                label: context.tr('journey.start_time'),
+                value: formatJourneyInfoTime(journey.start),
+              ),
+              CompactJourneyInfoField(
+                icon: Icons.schedule_rounded,
+                label: context.tr('journey.end_time'),
+                value: formatJourneyInfoTime(journey.end),
+              ),
+              JourneyRawDataInfoField(hasRawData: journey.hasRawData),
+              if (note != null && note.isNotEmpty)
+                CompactJourneyInfoField(
+                  icon: Icons.notes_rounded,
+                  label: context.tr('journey.note'),
+                  value: note,
+                  maxLines: 2,
+                ),
+            ],
+          ),
         ),
       ),
     );

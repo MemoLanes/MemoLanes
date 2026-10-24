@@ -22,7 +22,7 @@ use geo_rasterizer::{
     names::{build_region_names, write_region_names},
     overrides::Overrides,
     rasterize::rasterize,
-    refine::{measure_coverage, refine_raster},
+    refine::{block_counts, measure_coverage, refine_raster},
     registry::Registry,
 };
 
@@ -350,7 +350,8 @@ fn rasterize_one(
         (&country_raster.0, &country_raster.1),
         (&province_raster.0, &province_raster.1),
     );
-    let parents = resolve_province_parents(&model, &tally, worldview)?;
+    let province_blocks = block_counts((&province_raster.0, &province_raster.1));
+    let parents = resolve_province_parents(&model, &tally, &province_blocks, worldview)?;
     attach_province_entities(&mut model, &parents);
     validate_tier_order(&model.entities)?;
     let (tile_lookup, block_lookup) = refine_raster(

@@ -14,7 +14,7 @@ pub use crate::gps::ExtendedRawGPSPoint;
 use crate::gps_processor::{GpsPreprocessor, ProcessResult};
 use crate::journey_bitmap::{BitmapPlane, JourneyBitmap};
 use crate::journey_data::JourneyData;
-use crate::journey_header::{JourneyHeader, JourneyInfo, JourneyKind, JourneyType};
+use crate::journey_header::{JourneyHeader, JourneyInfo, JourneyKind};
 use crate::legacy_raw_data::LegacyRawDataFile;
 use crate::logs;
 use crate::renderer::internal_server::{dispatch_request, WebviewResponse};
@@ -123,9 +123,8 @@ pub fn init(
             flight_kind: false,
         };
 
-        // TODO: use an empty journey bitmap first, because loading could be slow (especially when we don't have cache).
-        // Ideally, we should support main map renderer being none, combine together with `dropped_for_power_saving`
-        // to be more type safe.
+        // Defer loading the bitmap to init_main_map, since rebuilding an uncached bitmap can be slow.
+        // TODO: represent an absent renderer explicitly, including the power-saving state.
         let main_map_state = Arc::new(Mutex::new(MainMapState {
             map_renderer: MapRenderer::new(JourneyBitmap::new()),
             dropped_for_power_saving: false,
@@ -921,18 +920,7 @@ pub fn rebuild_cache() -> Result<()> {
 // multiple FoW data. Bitmap does not necessarily mean FoW data, but this is
 // good enough.
 pub fn contains_bitmap_journey() -> Result<bool> {
-    // TODO: we should just have a real SQL query for this, instead of a linear
-    // scan that involves deserializing all journey heads.
-    let journey_headers = get()
-        .storage
-        .with_db_txn(|txn| txn.query_journeys(None, None, None))?;
-
-    Ok(journey_headers
-        .iter()
-        .any(|header| match header.journey_type {
-            JourneyType::Bitmap => true,
-            JourneyType::Vector => false,
-        }))
+    get().storage.with_db_txn(|txn| txn.has_bitmap_journey())
 }
 
 /// flutter_rust_bridge:ignore

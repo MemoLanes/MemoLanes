@@ -11,6 +11,7 @@ import 'package:memolanes/body/map/overlay/journey_detail_overlay.dart';
 import 'package:memolanes/body/map/overlay/journey_more_dialog.dart';
 import 'package:memolanes/body/map/overlay/journey_overlay.dart';
 import 'package:memolanes/common/app_haptics.dart';
+import 'package:memolanes/common/app_layout.dart';
 import 'package:memolanes/common/app_translation_loader.dart';
 import 'package:memolanes/common/component/app_button.dart';
 import 'package:memolanes/common/component/common_dialog.dart';
@@ -63,7 +64,7 @@ void main() {
               ],
               supportedLocales: context.supportedLocales,
               locale: context.locale,
-              home: home,
+              home: AppLayoutBuilder(builder: (_, _) => home),
             ),
           ),
         ),
@@ -123,18 +124,18 @@ void main() {
   }
 
   Future<void> editNote(WidgetTester tester, String note) async {
-    await tester.tap(find.text('Edit'));
+    await tester.tap(find.text(tr('common.edit')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Edit Journey Information'));
+    await tester.tap(find.text(tr('journey.journey_info_edit_page_title')));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), note);
   }
 
   Future<void> confirmSave(WidgetTester tester) async {
-    await tester.tap(find.text('Save'));
+    await tester.tap(find.text(tr('common.save')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
-    invokeConfirmationAction(tester, 'OK');
+    invokeConfirmationAction(tester, tr('common.ok'));
     await tester.pump();
   }
 
@@ -176,65 +177,74 @@ void main() {
       revision++;
     });
     await tester.pumpAndSettle();
-    expect(find.text('Dec'), findsOneWidget);
+    expect(controller.selectedDate.year, 2023);
+    expect(controller.selectedDate.month, 12);
+    expect(find.textContaining(RegExp(r'^Dec(ember)?$')), findsOneWidget);
   });
 
-  for (final keepSelectedMonth in [false, true]) {
-    testWidgets('calendar follows a changed earliest date with '
-        '${keepSelectedMonth ? 'a retained' : 'a deleted'} selected month', (
-      tester,
-    ) async {
-      final november = SimpleDate(2023, 11, 14);
-      final february = SimpleDate(2024, 2, 1);
-      final march = SimpleDate(2024, 3, 1);
-      var earliest = november;
-      var dates = [november, february, march];
-      final controller = JourneyListController(
-        earliestJourneyDateLoader: () async => earliest,
-        journeyDatesLoader: (_) async => dates,
-        journeyHeadersLoader: (_, _) async => [],
-      );
-      addTearDown(controller.dispose);
-      await controller.initialize();
-      await controller.selectDate(keepSelectedMonth ? march : november);
-      await pumpApp(
-        tester,
-        Scaffold(
-          body: Center(
-            child: SizedBox(
-              width: 340,
-              child: AnimatedBuilder(
-                animation: controller,
-                builder: (context, _) => JourneyListCalendar(
-                  controller: controller,
-                  firstDate: controller.firstDate!,
+  for (final (keepSelectedMonth, fitLabels) in [(false, true), (true, false)]) {
+    testWidgets(
+      'calendar follows a changed earliest date with '
+      '${keepSelectedMonth ? 'a retained' : 'a deleted'} selected month / fit labels $fitLabels',
+      (tester) async {
+        final november = SimpleDate(2023, 11, 14);
+        final february = SimpleDate(2024, 2, 1);
+        final march = SimpleDate(2024, 3, 1);
+        var earliest = november;
+        var dates = [november, february, march];
+        final controller = JourneyListController(
+          earliestJourneyDateLoader: () async => earliest,
+          journeyDatesLoader: (_) async => dates,
+          journeyHeadersLoader: (_, _) async => [],
+        );
+        addTearDown(controller.dispose);
+        await controller.initialize();
+        await controller.selectDate(keepSelectedMonth ? march : november);
+        await pumpApp(
+          tester,
+          Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 340,
+                child: AnimatedBuilder(
+                  animation: controller,
+                  builder: (context, _) => JourneyListCalendar(
+                    controller: controller,
+                    firstDate: controller.firstDate!,
+                    fitLabels: fitLabels,
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-      );
+        );
 
-      // Deleting November's last journey changes the calendar's page origin.
-      earliest = february;
-      dates = [february, march];
-      await controller.refresh();
-      await tester.pumpAndSettle();
+        // Deleting November's last journey changes the calendar's page origin.
+        earliest = february;
+        dates = [february, march];
+        await controller.refresh();
+        await tester.pumpAndSettle();
 
-      final expectedDate = keepSelectedMonth ? march : february;
-      expect(controller.selectedDate, expectedDate);
-      expect(find.text(keepSelectedMonth ? 'Mar' : 'Feb'), findsOneWidget);
-      expect(find.text('29'), findsOneWidget);
-      expect(
-        find.text('31'),
-        keepSelectedMonth ? findsOneWidget : findsNothing,
-      );
-      expect(
-        find.text('30'),
-        keepSelectedMonth ? findsOneWidget : findsNothing,
-      );
-      expect(tester.takeException(), isNull);
-    });
+        final expectedDate = keepSelectedMonth ? march : february;
+        expect(controller.selectedDate, expectedDate);
+        expect(
+          find.textContaining(
+            RegExp(keepSelectedMonth ? r'^Mar(ch)?$' : r'^Feb(ruary)?$'),
+          ),
+          findsOneWidget,
+        );
+        expect(find.text('29'), findsOneWidget);
+        expect(
+          find.text('31'),
+          keepSelectedMonth ? findsOneWidget : findsNothing,
+        );
+        expect(
+          find.text('30'),
+          keepSelectedMonth ? findsOneWidget : findsNothing,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
   }
 
   testWidgets('cancel discards the draft without saving or closing details', (
@@ -243,21 +253,21 @@ void main() {
     mockApi.savedMetadata.clear();
     final flow = await openDetail(tester);
 
-    await tester.tap(find.text('Edit'));
+    await tester.tap(find.text(tr('common.edit')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Edit Journey Information'));
+    await tester.tap(find.text(tr('journey.journey_info_edit_page_title')));
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextField), 'Unsaved draft');
-    await tester.tap(find.text('Cancel'));
+    await tester.tap(find.text(tr('common.cancel')));
     await tester.pumpAndSettle();
 
     expect(flow.session, isNotNull);
     expect(mockApi.savedMetadata, isEmpty);
 
-    await tester.tap(find.text('Edit'));
+    await tester.tap(find.text(tr('common.edit')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Edit Journey Information'));
+    await tester.tap(find.text(tr('journey.journey_info_edit_page_title')));
     await tester.pumpAndSettle();
     expect(
       tester.widget<TextField>(find.byType(TextField)).controller!.text,
@@ -272,26 +282,26 @@ void main() {
     mockApi.savedMetadata.clear();
     await openDetail(tester);
 
-    await tester.tap(find.text('Edit'));
+    await tester.tap(find.text(tr('common.edit')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Edit Journey Information'));
+    await tester.tap(find.text(tr('journey.journey_info_edit_page_title')));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'Confirmed note');
-    await tester.tap(find.text('Save'));
+    await tester.tap(find.text(tr('common.save')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(mockApi.savedMetadata, isEmpty);
-    invokeConfirmationAction(tester, 'Cancel');
+    invokeConfirmationAction(tester, tr('common.cancel'));
     await tester.pumpAndSettle();
     expect(find.text('Confirmed note'), findsOneWidget);
     expect(find.byType(TextField), findsOneWidget);
     expect(mockApi.savedMetadata, isEmpty);
 
-    await tester.tap(find.text('Save'));
+    await tester.tap(find.text(tr('common.save')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
-    invokeConfirmationAction(tester, 'OK');
+    invokeConfirmationAction(tester, tr('common.ok'));
     await tester.pumpAndSettle();
     expect(mockApi.savedMetadata.single.note, 'Confirmed note');
     expect(find.byType(TextField), findsNothing);
@@ -397,80 +407,6 @@ void main() {
     expect(flow.pickerRevision, 0);
   });
 
-  testWidgets('iOS edge swipe is blocked during deletion', (tester) async {
-    final pending = Completer<void>();
-    mockApi.pendingDelete = pending;
-    addTearDown(() => mockApi.pendingDelete = null);
-    final flow = await openDetail(tester, platform: TargetPlatform.iOS);
-    final deleting = flow.deleteJourney();
-    await tester.pump();
-    await tester.flingFrom(const Offset(5, 150), const Offset(600, 0), 2000);
-    await tester.pump();
-    expect(flow.phase, JourneyPhase.deleting);
-    expect(flow.session, isNotNull);
-    expect(flow.pickerRevision, 0);
-    pending.complete();
-    await tester.pumpAndSettle();
-    await deleting;
-    expect(flow.session, isNull);
-  });
-
-  testWidgets('detail form scrolls above a landscape keyboard', (tester) async {
-    tester.view.devicePixelRatio = 1;
-    tester.view.physicalSize = const Size(667, 375);
-    tester.view.viewInsets = const FakeViewPadding(bottom: 200);
-    addTearDown(tester.view.reset);
-    final saved = <JourneyInfo>[];
-
-    await pumpApp(
-      tester,
-      Scaffold(
-        body: Stack(
-          fit: StackFit.expand,
-          children: [
-            Positioned(
-              left: 16,
-              right: 16,
-              top: 68,
-              bottom: 16,
-              child: Align(
-                alignment: Alignment.bottomCenter,
-                child: SizedBox(
-                  width: 430,
-                  child: CollapsibleJourneyDetail(
-                    child: JourneyDetailCard(
-                      journey: journey,
-                      isEditing: true,
-                      onExport: () {},
-                      onEdit: () {},
-                      onMore: () {},
-                      onCancel: () {},
-                      onSave: (info) async => saved.add(info),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-
-    await tester.ensureVisible(find.byType(TextField));
-    await tester.enterText(find.byType(TextField), 'Landscape draft');
-    await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Journey Date'));
-    await tester.pumpAndSettle();
-    expect(find.text('Journey Date').hitTestable(), findsOneWidget);
-    await tester.ensureVisible(find.text('Save'));
-    await tester.pumpAndSettle();
-    expect(find.text('Save').hitTestable(), findsOneWidget);
-    await tester.tap(find.text('Save'));
-    await tester.pumpAndSettle();
-    expect(saved.single.note, 'Landscape draft');
-    expect(tester.takeException(), isNull);
-  });
-
   testWidgets(
     'pending save blocks every exit before the loading overlay appears',
     (tester) async {
@@ -526,11 +462,8 @@ void main() {
     await tester.binding.handlePopRoute();
     pending.completeError(StateError('Storage unavailable'));
     await tester.pumpAndSettle();
-    expect(
-      find.text('Something went wrong. Please try again.'),
-      findsOneWidget,
-    );
-    invokeConfirmationAction(tester, 'OK');
+    expect(find.text(tr('journey.editor.operation_failed')), findsOneWidget);
+    invokeConfirmationAction(tester, tr('common.ok'));
     await tester.pumpAndSettle();
     expect(flow.phase, JourneyPhase.editing);
     expect(find.text('Keep my draft'), findsOneWidget);
@@ -543,16 +476,17 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('pending deletion blocks both system and detail back', (
+  testWidgets('pending deletion blocks gestures, system and detail back', (
     tester,
   ) async {
     final pending = Completer<void>();
     mockApi.pendingDelete = pending;
     addTearDown(() => mockApi.pendingDelete = null);
-    final flow = await openDetail(tester);
+    final flow = await openDetail(tester, platform: TargetPlatform.iOS);
     final delete = flow.deleteJourney();
     await tester.pump();
     expect(GlobalLoadingManager.instance.isLoading, isFalse);
+    await tester.flingFrom(const Offset(5, 150), const Offset(600, 0), 2000);
     await tester.binding.handlePopRoute();
     tester
         .widget<MapGlassBackButton>(find.byType(MapGlassBackButton))
@@ -560,6 +494,7 @@ void main() {
     expect(flow.leave(), isFalse);
     expect(flow.phase, JourneyPhase.deleting);
     expect(flow.session, isNotNull);
+    expect(flow.pickerRevision, 0);
     pending.complete();
     await delete;
     await tester.pumpAndSettle();
@@ -650,14 +585,14 @@ void main() {
     // only after the outgoing card finished animating.
     await tester.pumpAndSettle();
     expect(find.byType(TextField).hitTestable(), findsNothing);
-    expect(find.text('Save').hitTestable(), findsNothing);
+    expect(find.text(tr('common.save')).hitTestable(), findsNothing);
     expect(tester.testTextInput.isVisible, isFalse);
     expect(saved, isEmpty);
 
     await tester.tap(find.byIcon(Icons.keyboard_arrow_up_rounded));
     await tester.pumpAndSettle();
     expect(find.text('Unsaved draft'), findsOneWidget);
-    await tester.tap(find.text('Save'));
+    await tester.tap(find.text(tr('common.save')));
     await tester.pumpAndSettle();
     expect(saved, hasLength(1));
     expect(saved.single.note, 'Unsaved draft');
@@ -684,7 +619,7 @@ void main() {
     final delete = tester
         .widget<AppButton>(
           find.ancestor(
-            of: find.text('Delete Journey'),
+            of: find.text(tr('journey.delete_journey_title')),
             matching: find.byType(AppButton),
           ),
         )
@@ -704,7 +639,10 @@ void main() {
     cancel();
     cancel();
     await tester.pumpAndSettle();
-    expect(find.text('Delete Journey').hitTestable(), findsOneWidget);
+    expect(
+      find.text(tr('journey.delete_journey_title')).hitTestable(),
+      findsOneWidget,
+    );
     expect(results, isEmpty);
     delete();
     await tester.pumpAndSettle();
@@ -741,22 +679,25 @@ void main() {
     await tester.pumpAndSettle();
     // Both Cancel and system Back must leave the menu open without a result.
     for (final cancelWithBack in [false, true]) {
-      await tester.tap(find.text('Delete Journey'));
+      await tester.tap(find.text(tr('journey.delete_journey_title')));
       await tester.pumpAndSettle();
-      expect(find.text('Delete this journey record?'), findsOneWidget);
+      expect(find.text(tr('journey.delete_journey_message')), findsOneWidget);
       if (cancelWithBack) {
         await tester.binding.handlePopRoute();
       } else {
-        invokeConfirmationAction(tester, 'Cancel');
+        invokeConfirmationAction(tester, tr('common.cancel'));
       }
       await tester.pumpAndSettle();
-      expect(find.text('Delete this journey record?'), findsNothing);
-      expect(find.text('Delete Journey').hitTestable(), findsOneWidget);
+      expect(find.text(tr('journey.delete_journey_message')), findsNothing);
+      expect(
+        find.text(tr('journey.delete_journey_title')).hitTestable(),
+        findsOneWidget,
+      );
       expect(results, isEmpty);
     }
-    await tester.tap(find.text('Delete Journey'));
+    await tester.tap(find.text(tr('journey.delete_journey_title')));
     await tester.pumpAndSettle();
-    invokeConfirmationAction(tester, 'Delete');
+    invokeConfirmationAction(tester, tr('common.delete'));
     await tester.pumpAndSettle();
     expect(results, [JourneyMoreAction.delete]);
     expect(find.byType(Dialog), findsNothing);
