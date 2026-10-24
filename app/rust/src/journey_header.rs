@@ -5,7 +5,7 @@ use flutter_rust_bridge::frb;
 use protobuf::EnumOrUnknown;
 use strum_macros::EnumIter;
 
-use crate::{protos, utils};
+use crate::{journey_attributes::JourneyAttributes, protos, utils};
 
 #[derive(Copy, Clone, Debug, EnumIter, PartialEq, Eq, Hash)]
 #[repr(i8)]
@@ -120,6 +120,7 @@ pub struct JourneyHeader {
     pub note: Option<String>,
     pub postprocessor_algo: Option<String>,
     pub has_raw_data: bool,
+    pub attributes: Option<JourneyAttributes>,
 }
 
 impl JourneyHeader {
@@ -151,6 +152,10 @@ impl JourneyHeader {
             note: proto.note,
             postprocessor_algo: proto.postprocessor_algo,
             has_raw_data: proto.has_raw_data,
+            attributes: proto
+                .attributes
+                .take()
+                .map(|proto| JourneyAttributes { proto }),
         })
     }
 
@@ -196,6 +201,7 @@ impl JourneyHeader {
             note,
             postprocessor_algo,
             has_raw_data,
+            attributes,
         } = self;
         let mut proto = protos::journey::Header::new();
         proto.id = id;
@@ -210,6 +216,7 @@ impl JourneyHeader {
         proto.note = note;
         proto.postprocessor_algo = postprocessor_algo;
         proto.has_raw_data = has_raw_data;
+        proto.attributes = attributes.map(|attributes| attributes.proto).into();
         proto
     }
 }

@@ -2,6 +2,24 @@ syntax = "proto3";
 
 package journey;
 
+// Optional display information. Preserve unknown fields and categories when
+// importing, editing, or exporting a journey.
+message JourneyAttributes {
+  reserved 1;
+  reserved "fields";
+
+  oneof details {
+    FlightAttributes flight = 2;
+  }
+}
+
+message FlightAttributes {
+  optional string flight_number = 1;
+  optional string operating_airline_icao = 2;
+  optional string aircraft_type_icao = 3;
+  optional string registration = 4;
+}
+
 message Header {
   message Kind {
     enum BuiltIn {
@@ -34,4 +52,6 @@ message Header {
   optional string postprocessor_algo = 11;
   // Whether this stored or exported journey includes a raw-data attachment.
   bool has_raw_data = 12;
+  // Adding display information does not change the MLDX container version.
+  JourneyAttributes attributes = 13;
 }

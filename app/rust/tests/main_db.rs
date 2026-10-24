@@ -259,6 +259,7 @@ fn journey_for_raw_data_insertion() -> (JourneyHeader, JourneyData) {
             note: Some("Preserve metadata".to_owned()),
             postprocessor_algo: None,
             has_raw_data: false,
+            attributes: None,
         },
         JourneyData::Vector(JourneyVector {
             track_segments: vec![],
