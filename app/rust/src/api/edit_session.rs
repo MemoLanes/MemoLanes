@@ -5,13 +5,13 @@ use flutter_rust_bridge::frb;
 
 use crate::journey_bitmap::JourneyBitmap;
 use crate::journey_data::JourneyData;
-use crate::journey_vector::{JourneyVector, TrackSegment};
+use crate::journey_vector::{JourneyVector, TrackPoint, TrackSegment};
+use crate::spherical_geometry::{GreatCircleArc, UnitPoint};
 
 use super::api::{get, MapRendererProxy};
 use crate::renderer::MapRenderer;
 use crate::utils::{get_bounds_from_journey_bitmap, MapBounds};
 
-// TODO: This is a bit sus, it is comparing the lng/lat and doesn't handle anti-meridian.
 const EPS: f64 = 1e-12_f64;
 const DEDUP_EPS: f64 = 1e-9_f64;
 const LINK_SNAP_DISTANCE_RATIO_THRESHOLD: f64 = 3.0_f64;
@@ -189,7 +189,7 @@ impl EditSession {
 
     fn build_bitmap_from_vector(vector: &JourneyVector) -> JourneyBitmap {
         let mut bitmap = JourneyBitmap::new();
-        bitmap.merge_vector(vector);
+        bitmap.edit().merge_vector(vector);
         bitmap
     }
 
@@ -227,62 +227,49 @@ impl EditSession {
             && p.longitude <= max_lng
     }
 
-    fn segment_intersections(
-        a: &crate::journey_vector::TrackPoint,
-        b: &crate::journey_vector::TrackPoint,
-        min_lat: f64,
-        max_lat: f64,
-        min_lng: f64,
-        max_lng: f64,
-    ) -> Vec<(f64, crate::journey_vector::TrackPoint)> {
-        let x0 = a.longitude;
-        let y0 = a.latitude;
-        let x1 = b.longitude;
-        let y1 = b.latitude;
-        let dx = x1 - x0;
-        let dy = y1 - y0;
-
-        let mut hits: Vec<(f64, crate::journey_vector::TrackPoint)> = Vec::new();
-
-        let mut push_hit = |t: f64, x: f64, y: f64| {
-            if !(-EPS..=1.0 + EPS).contains(&t) {
-                return;
-            }
-            let t = t.clamp(0.0, 1.0);
-            if hits.iter().any(|(t0, _)| (*t0 - t).abs() < DEDUP_EPS) {
-                return;
-            }
-            hits.push((
-                t,
-                crate::journey_vector::TrackPoint {
-                    latitude: y,
-                    longitude: x,
-                },
-            ));
+    /// A conservative bound for the entire spherical arc, without trigonometry.
+    fn segment_bounds(a: &TrackPoint, b: &TrackPoint) -> Option<(f64, f64, f64, f64)> {
+        if ![a.latitude, b.latitude]
+            .iter()
+            .all(|lat| (-90.0..=90.0).contains(lat))
+            || ![a.longitude, b.longitude]
+                .iter()
+                .all(|lng| (-180.0..=180.0).contains(lng))
+        {
+            return None;
+        }
+        let longitude_span = (b.longitude - a.longitude).abs();
+        // A meridian/parallel route bounds the shortest arc's angular length.
+        // Every point is at most that distance from BOTH endpoints, including
+        // when the great circle bows beyond their latitude range.
+        let angle_bound =
+            (b.latitude - a.latitude).abs() + longitude_span.min(360.0 - longitude_span);
+        let min_lat = (a.latitude.max(b.latitude) - angle_bound).max(-90.0);
+        let max_lat = (a.latitude.min(b.latitude) + angle_bound).min(90.0);
+        let (min_lng, max_lng) = if longitude_span < 180.0
+            && a.latitude.abs().max(b.latitude.abs()) + angle_bound < 90.0 - EPS
+        {
+            // Away from poles, longitude is monotone along the shorter arc.
+            (a.longitude.min(b.longitude), a.longitude.max(b.longitude))
+        } else {
+            // Dateline/polar arcs need no longitude shortcut to stay safe.
+            (-180.0, 180.0)
         };
+        Some((min_lat, max_lat, min_lng, max_lng))
+    }
 
-        if dx.abs() > EPS {
-            for x_edge in [min_lng, max_lng] {
-                let t = (x_edge - x0) / dx;
-                let y = y0 + t * dy;
-                if y >= min_lat - EPS && y <= max_lat + EPS {
-                    push_hit(t, x_edge, y);
-                }
-            }
+    fn segment_intersections(arc: GreatCircleArc, planes: &[(UnitPoint, f64); 4]) -> Vec<f64> {
+        let mut cuts = Vec::new();
+        for &(normal, offset) in planes {
+            cuts.extend(arc.plane_intersections(normal, offset));
         }
-
-        if dy.abs() > EPS {
-            for y_edge in [min_lat, max_lat] {
-                let t = (y_edge - y0) / dy;
-                let x = x0 + t * dx;
-                if x >= min_lng - EPS && x <= max_lng + EPS {
-                    push_hit(t, x, y_edge);
-                }
-            }
-        }
-
-        hits.sort_by(|(t1, _), (t2, _)| t1.total_cmp(t2));
-        hits
+        // Meridian planes also intersect the opposite longitude. These extra
+        // cuts are harmless: classify intervals, then merge retained spans.
+        cuts.retain(|t| *t > EPS && *t < 1.0 - EPS);
+        cuts.extend([0.0, 1.0]);
+        cuts.sort_by(f64::total_cmp);
+        cuts.dedup_by(|a, b| (*a - *b).abs() < EPS);
+        cuts
     }
 
     fn delete_points_in_box_segments(
@@ -293,6 +280,34 @@ impl EditSession {
         max_lng: f64,
     ) -> Vec<crate::journey_vector::TrackSegment> {
         let mut new_segments: Vec<crate::journey_vector::TrackSegment> = Vec::new();
+        // The selection is constant for every segment; compute its planes once.
+        let latitude_plane = |latitude: f64| {
+            (
+                UnitPoint {
+                    x: 0.0,
+                    y: 0.0,
+                    z: 1.0,
+                },
+                latitude.to_radians().sin(),
+            )
+        };
+        let longitude_plane = |longitude: f64| {
+            let (sin, cos) = longitude.to_radians().sin_cos();
+            (
+                UnitPoint {
+                    x: -sin,
+                    y: cos,
+                    z: 0.0,
+                },
+                0.0,
+            )
+        };
+        let planes = [
+            latitude_plane(min_lat),
+            latitude_plane(max_lat),
+            longitude_plane(min_lng),
+            longitude_plane(max_lng),
+        ];
 
         for segment in segments {
             let pts = &segment.track_points;
@@ -307,71 +322,98 @@ impl EditSession {
                 _ => {}
             }
 
-            let mut current: Vec<crate::journey_vector::TrackPoint> = Vec::new();
-            if !Self::point_in_box(&pts[0], min_lat, max_lat, min_lng, max_lng) {
-                current.push(pts[0].clone());
-            }
-
-            for i in 0..(pts.len() - 1) {
-                let a = &pts[i];
-                let b = &pts[i + 1];
-                let inside_a = Self::point_in_box(a, min_lat, max_lat, min_lng, max_lng);
-                let inside_b = Self::point_in_box(b, min_lat, max_lat, min_lng, max_lng);
-                let hits = Self::segment_intersections(a, b, min_lat, max_lat, min_lng, max_lng);
-
-                match (inside_a, inside_b) {
-                    (false, false) => {
-                        if hits.len() >= 2 {
-                            let entry = hits.first().unwrap().1.clone();
-                            let exit = hits.last().unwrap().1.clone();
-
-                            if current.last() != Some(&entry) {
-                                current.push(entry);
-                            }
-                            if current.len() >= 2 {
-                                new_segments.push(crate::journey_vector::TrackSegment {
-                                    track_points: current,
-                                });
-                            }
-
-                            current = vec![exit];
-                            if current.last() != Some(b) {
-                                current.push(b.clone());
-                            }
-                        } else {
-                            if current.is_empty() {
-                                current.push(a.clone());
-                            }
-                            if current.last() != Some(b) {
-                                current.push(b.clone());
+            let mut current = Vec::new();
+            for pair in pts.windows(2) {
+                let (a, b) = (&pair[0], &pair[1]);
+                if let Some((south, north, west, east)) = Self::segment_bounds(a, b) {
+                    if north < min_lat - EPS
+                        || south > max_lat + EPS
+                        || east < min_lng - EPS
+                        || west > max_lng + EPS
+                    {
+                        for point in [a, b] {
+                            if current.last() != Some(point) {
+                                current.push(point.clone());
                             }
                         }
+                        continue;
                     }
-                    (true, true) => {}
-                    (false, true) => {
-                        if let Some(hit) = hits.first().map(|x| x.1.clone()) {
-                            if current.is_empty() {
-                                current.push(a.clone());
-                            }
-                            if current.last() != Some(&hit) {
-                                current.push(hit);
-                            }
-                        }
+                    if south > min_lat + EPS
+                        && north < max_lat - EPS
+                        && west > min_lng + EPS
+                        && east < max_lng - EPS
+                    {
                         if current.len() >= 2 {
-                            new_segments.push(crate::journey_vector::TrackSegment {
-                                track_points: current,
+                            new_segments.push(TrackSegment {
+                                track_points: std::mem::take(&mut current),
                             });
-                        }
-                        current = Vec::new();
-                    }
-                    (true, false) => {
-                        if let Some(hit) = hits.last().map(|x| x.1.clone()) {
-                            current = vec![hit];
                         } else {
-                            current = Vec::new();
+                            current.clear();
                         }
-                        if current.last() != Some(b) {
-                            current.push(b.clone());
+                        continue;
+                    }
+                }
+                // Match the renderer's canonical direction, including its
+                // deterministic choice for antipodal endpoints.
+                let reversed = (a.longitude, a.latitude) > (b.longitude, b.latitude);
+                let (start, end) = if reversed { (b, a) } else { (a, b) };
+                let arc = GreatCircleArc::new(
+                    UnitPoint::from_lng_lat(start.longitude, start.latitude),
+                    UnitPoint::from_lng_lat(end.longitude, end.latitude),
+                );
+                let point_at = |t: f64| {
+                    // Preserve original observations exactly at the endpoints.
+                    if t <= 0.0 {
+                        return a.clone();
+                    }
+                    if t >= 1.0 {
+                        return b.clone();
+                    }
+                    let (longitude, latitude) =
+                        arc.at(if reversed { 1.0 - t } else { t }).to_lng_lat();
+                    TrackPoint {
+                        latitude,
+                        longitude,
+                    }
+                };
+                let mut cuts = Self::segment_intersections(arc, &planes);
+                if reversed {
+                    cuts = cuts.into_iter().rev().map(|t| 1.0 - t).collect();
+                }
+                let mut kept_start = 0.0;
+                for interval in cuts.windows(2) {
+                    let midpoint = point_at((interval[0] + interval[1]) * 0.5);
+                    if !Self::point_in_box(
+                        &midpoint,
+                        min_lat - EPS,
+                        max_lat + EPS,
+                        min_lng - EPS,
+                        max_lng + EPS,
+                    ) {
+                        continue;
+                    }
+                    if interval[0] > kept_start {
+                        for t in [kept_start, interval[0]] {
+                            let point = point_at(t);
+                            if current.last() != Some(&point) {
+                                current.push(point);
+                            }
+                        }
+                    }
+                    if current.len() >= 2 {
+                        new_segments.push(TrackSegment {
+                            track_points: std::mem::take(&mut current),
+                        });
+                    } else {
+                        current.clear();
+                    }
+                    kept_start = interval[1];
+                }
+                if kept_start < 1.0 {
+                    for t in [kept_start, 1.0] {
+                        let point = point_at(t);
+                        if current.last() != Some(&point) {
+                            current.push(point);
                         }
                     }
                 }
@@ -514,7 +556,7 @@ impl EditSession {
         self.data.track_segments.push(TrackSegment { track_points });
 
         let mut map_renderer = self.map_renderer.lock().unwrap();
-        map_renderer.update(|journey_bitmap, tile_changed| {
+        map_renderer.update(|editor| {
             for window in render_points.windows(2) {
                 let (start_lat, start_lng) = window[0];
                 let (end_lat, end_lng) = window[1];
@@ -523,13 +565,7 @@ impl EditSession {
                     continue;
                 }
 
-                journey_bitmap.add_line_with_change_callback(
-                    start_lng,
-                    start_lat,
-                    end_lng,
-                    end_lat,
-                    &mut *tile_changed,
-                );
+                editor.add_line(start_lng, start_lat, end_lng, end_lat);
             }
         });
         drop(map_renderer);
@@ -589,6 +625,41 @@ mod tests {
     }
 
     #[test]
+    fn segment_bounds_contain_arcs_including_dateline_poles_and_antipodes() {
+        let mut points = Vec::new();
+        for latitude in [-90.0, -89.999, -60.0, 0.0, 60.0, 89.999, 90.0] {
+            for longitude in [-180.0, -179.0, -90.0, 0.0, 90.0, 179.0, 180.0] {
+                points.push(TrackPoint {
+                    latitude,
+                    longitude,
+                });
+            }
+        }
+        for a in &points {
+            for b in &points {
+                let (south, north, west, east) = EditSession::segment_bounds(a, b).unwrap();
+                let (start, end) = if (a.longitude, a.latitude) <= (b.longitude, b.latitude) {
+                    (a, b)
+                } else {
+                    (b, a)
+                };
+                let arc = GreatCircleArc::new(
+                    UnitPoint::from_lng_lat(start.longitude, start.latitude),
+                    UnitPoint::from_lng_lat(end.longitude, end.latitude),
+                );
+                for i in 0..=16 {
+                    let (longitude, latitude) = arc.at(i as f64 / 16.0).to_lng_lat();
+                    assert!(
+                        latitude >= south - EPS && latitude <= north + EPS
+                            && longitude >= west - EPS && longitude <= east + EPS,
+                        "arc {a:?} -> {b:?} escaped its conservative bounds at {longitude}, {latitude}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
     fn box_deletion_preserves_disjoint_segments_including_single_points() {
         let segments = vec![
             segment(&[(-1.0, -1.0)]),
@@ -622,25 +693,48 @@ mod tests {
         }
     }
 
+    fn assert_segments_close(actual: &[TrackSegment], expected: &[TrackSegment]) {
+        assert_eq!(actual.len(), expected.len());
+        for (actual, expected) in actual.iter().zip(expected) {
+            assert_eq!(actual.track_points.len(), expected.track_points.len());
+            for (actual, expected) in actual.track_points.iter().zip(&expected.track_points) {
+                assert!(
+                    (actual.latitude - expected.latitude).abs() < 1e-9,
+                    "{actual:?} != {expected:?}"
+                );
+                assert!(
+                    (actual.longitude - expected.longitude).abs() < 1e-9,
+                    "{actual:?} != {expected:?}"
+                );
+            }
+        }
+    }
+
     #[test]
     fn box_deletion_splits_crossings_at_ordered_intersections() {
+        // For equal-latitude endpoints around longitude 1, the great circle
+        // satisfies tan(lat) = tan(1 degree) * cos(lng - 1) / cos(2 degrees).
+        let hit_lat = (1.0_f64.to_radians().tan() * 1.0_f64.to_radians().cos()
+            / 2.0_f64.to_radians().cos())
+        .atan()
+        .to_degrees();
         for (start, entry, exit, end) in [
-            ((1.0, -1.0), (1.0, 0.0), (1.0, 2.0), (1.0, 3.0)),
+            ((1.0, -1.0), (hit_lat, 0.0), (hit_lat, 2.0), (1.0, 3.0)),
             ((-1.0, 1.0), (0.0, 1.0), (2.0, 1.0), (3.0, 1.0)),
-            // Corner intersections must be deduplicated across the two edges.
-            ((-1.0, -1.0), (0.0, 0.0), (2.0, 2.0), (3.0, 3.0)),
+            // The equator lies exactly along the inclusive box boundary.
+            ((0.0, -1.0), (0.0, 0.0), (0.0, 2.0), (0.0, 3.0)),
         ] {
             for (start, entry, exit, end) in [(start, entry, exit, end), (end, exit, entry, start)]
             {
-                assert_eq!(
-                    EditSession::delete_points_in_box_segments(
+                assert_segments_close(
+                    &EditSession::delete_points_in_box_segments(
                         &[segment(&[start, end])],
                         0.0,
                         2.0,
                         0.0,
                         2.0,
                     ),
-                    vec![segment(&[start, entry]), segment(&[exit, end])]
+                    &[segment(&[start, entry]), segment(&[exit, end])],
                 );
             }
         }
@@ -648,19 +742,76 @@ mod tests {
 
     #[test]
     fn box_deletion_clips_entering_and_leaving_segments() {
-        assert_eq!(
-            EditSession::delete_points_in_box_segments(
+        let hit_lat = (1.0_f64.to_radians().tan() / 1.0_f64.to_radians().cos())
+            .atan()
+            .to_degrees();
+        assert_segments_close(
+            &EditSession::delete_points_in_box_segments(
                 &[segment(&[(1.0, -1.0), (1.0, 1.0), (1.0, 3.0)])],
                 0.0,
                 2.0,
                 0.0,
                 2.0,
             ),
-            vec![
-                segment(&[(1.0, -1.0), (1.0, 0.0)]),
-                segment(&[(1.0, 2.0), (1.0, 3.0)]),
-            ]
+            &[
+                segment(&[(1.0, -1.0), (hit_lat, 0.0)]),
+                segment(&[(hit_lat, 2.0), (1.0, 3.0)]),
+            ],
         );
+    }
+
+    #[test]
+    fn box_deletion_handles_corner_entry_and_tangency() {
+        for points in [
+            vec![(-1.0, 1.0), (1.0, -1.0)],
+            vec![(1.0, -1.0), (-1.0, 1.0)],
+        ] {
+            let original = vec![segment(&points)];
+            assert_eq!(
+                EditSession::delete_points_in_box_segments(&original, 0.0, 2.0, 0.0, 2.0),
+                original
+            );
+        }
+        assert_segments_close(
+            &EditSession::delete_points_in_box_segments(
+                &[segment(&[(-1.0, -1.0), (1.0, 1.0)])],
+                0.0,
+                2.0,
+                0.0,
+                2.0,
+            ),
+            &[segment(&[(-1.0, -1.0), (0.0, 0.0)])],
+        );
+    }
+
+    #[test]
+    fn box_deletion_preserves_an_arc_bowing_outside_with_both_endpoints_inside() {
+        for longitudes in [[0.0, 1.0], [1.0, 0.0]] {
+            let edited = EditSession::delete_points_in_box_segments(
+                &[segment(&[(60.0, longitudes[0]), (60.0, longitudes[1])])],
+                59.9,
+                60.0005,
+                -0.1,
+                1.1,
+            );
+            assert_eq!(edited.len(), 1);
+            let points = &edited[0].track_points;
+            assert_eq!(points.len(), 2);
+            // The surviving middle arc meets the upper parallel twice.
+            let delta = (60.0005_f64.to_radians().tan() * 0.5_f64.to_radians().cos()
+                / 60.0_f64.to_radians().tan())
+            .acos()
+            .to_degrees();
+            let expected = if longitudes[0] < longitudes[1] {
+                [0.5 - delta, 0.5 + delta]
+            } else {
+                [0.5 + delta, 0.5 - delta]
+            };
+            for (point, longitude) in points.iter().zip(expected) {
+                assert!((point.latitude - 60.0005).abs() < 1e-9);
+                assert!((point.longitude - longitude).abs() < 1e-8);
+            }
+        }
     }
 
     #[test]
@@ -743,5 +894,35 @@ mod tests {
         ));
         assert_eq!(session.data, original);
         assert!(!session.can_undo());
+    }
+
+    use crate::flight_track_processor;
+    use crate::gps::{Point, RawGPSPoint};
+
+    #[test]
+    fn deleting_a_remote_box_preserves_dateline_flights() {
+        for longitudes in [[179.99, -179.99], [-179.999, 179.999]] {
+            let source = longitudes
+                .map(|longitude| RawGPSPoint {
+                    point: Point {
+                        latitude: 0.0,
+                        longitude,
+                    },
+                    timestamp_ms: None,
+                    accuracy: None,
+                    altitude: None,
+                    speed: None,
+                })
+                .to_vec();
+            let flight = flight_track_processor::process(&[source]).unwrap();
+            let edited = EditSession::delete_points_in_box_segments(
+                &flight.track_segments,
+                -1.0,
+                1.0,
+                -1.0,
+                1.0,
+            );
+            assert_eq!(edited, flight.track_segments);
+        }
     }
 }

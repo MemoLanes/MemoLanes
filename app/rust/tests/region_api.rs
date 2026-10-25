@@ -56,7 +56,7 @@ fn one_block(tile: TileKey, block: BlockKey) -> JourneyBitmap {
     for x in 0..20u8 {
         b.set_point(x, 0, true);
     }
-    bm.get_tile_mut_or_insert_empty(&tile).set(&block, b);
+    bm.edit().get_tile_mut_or_insert_empty(&tile).set(&block, b);
     bm
 }
 
@@ -95,13 +95,13 @@ fn region_read_api_lists_progress_and_completion() {
         &storage,
         1,
         JourneyKind::DefaultKind,
-        one_block(TileKey::new(0, 0), BlockKey::from_x_y(3, 4)),
+        one_block(TileKey::mercator(0, 0), BlockKey::from_x_y(3, 4)),
     );
     insert(
         &storage,
         2,
         JourneyKind::Flight,
-        one_block(TileKey::new(1, 0), BlockKey::from_x_y(7, 7)),
+        one_block(TileKey::mercator(1, 0), BlockKey::from_x_y(7, 7)),
     );
 
     storage

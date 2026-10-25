@@ -57,7 +57,7 @@ fn one_block(tile: TileKey, block: BlockKey, bits: u32) -> JourneyBitmap {
     for i in 0..bits {
         b.set_point((i % 64) as u8, (i / 64) as u8, true);
     }
-    bm.get_tile_mut_or_insert_empty(&tile).set(&block, b);
+    bm.edit().get_tile_mut_or_insert_empty(&tile).set(&block, b);
     bm
 }
 
@@ -107,13 +107,13 @@ fn setup(prefix: &str) -> (MainDb, CacheDbV1, TempDir, TempDir) {
                 txn,
                 date("2025-01-01"),
                 JourneyKind::DefaultKind,
-                one_block(TileKey::new(0, 0), BlockKey::from_x_y(3, 4), 25),
+                one_block(TileKey::mercator(0, 0), BlockKey::from_x_y(3, 4), 25),
             );
             test_utils::insert_bitmap_journey(
                 txn,
                 date("2025-01-02"),
                 JourneyKind::Flight,
-                one_block(TileKey::new(0, 0), BlockKey::from_x_y(5, 6), 40),
+                one_block(TileKey::mercator(0, 0), BlockKey::from_x_y(5, 6), 40),
             );
             Ok(())
         })
