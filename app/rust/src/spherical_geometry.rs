@@ -133,24 +133,40 @@ impl GreatCircleArc {
     }
     /// All interior intersections with the two latitude seams, in arc fractions.
     pub(crate) fn latitude_intersections(self, latitude: f64) -> Vec<f64> {
+        let normal = UnitPoint {
+            x: 0.0,
+            y: 0.0,
+            z: 1.0,
+        };
+        let threshold = latitude.to_radians().sin();
+        let mut cuts = self.plane_intersections(normal, threshold);
+        cuts.extend(self.plane_intersections(normal, -threshold));
+        cuts.sort_by(f64::total_cmp);
+        cuts.dedup_by(|a, b| (*a - *b).abs() < 1e-12);
+        cuts
+    }
+
+    /// Interior arc fractions where `normal.dot(point) == offset`.
+    /// Meridians use planes through the origin; parallels use horizontal planes.
+    pub(crate) fn plane_intersections(self, normal: UnitPoint, offset: f64) -> Vec<f64> {
         if self.angle < 1e-12 {
             return Vec::new();
         }
-        let threshold = latitude.to_radians().sin();
-        let amplitude = self.start.z.hypot(self.tangent.z);
-        let phase = self.tangent.z.atan2(self.start.z);
+        let a = normal.dot(self.start);
+        let b = normal.dot(self.tangent);
+        let amplitude = a.hypot(b);
+        if amplitude == 0.0 || amplitude < offset.abs() {
+            return Vec::new();
+        }
+        // a*cos(u) + b*sin(u) = offset, with u in (0, angle).
+        let phase = b.atan2(a);
+        let delta = (offset / amplitude).clamp(-1.0, 1.0).acos();
         let mut cuts = Vec::new();
-        for seam in [threshold, -threshold] {
-            if amplitude < seam.abs() {
-                continue;
-            }
-            let offset = (seam / amplitude).clamp(-1.0, 1.0).acos();
-            for sign in [-1.0, 1.0] {
-                for turn in -1..=1 {
-                    let u = phase + sign * offset + turn as f64 * std::f64::consts::TAU;
-                    if u > 0.0 && u < self.angle {
-                        cuts.push(u / self.angle);
-                    }
+        for sign in [-1.0, 1.0] {
+            for turn in -1..=1 {
+                let u = phase + sign * delta + turn as f64 * std::f64::consts::TAU;
+                if u > 0.0 && u < self.angle {
+                    cuts.push(u / self.angle);
                 }
             }
         }
