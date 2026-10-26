@@ -23,9 +23,9 @@ pub const PROVENANCE_HASH_END: usize = PROVENANCE_HASH_OFFSET + PROVENANCE_HASH_
 /// during rasterization
 pub const NO_ENTITY: u32 = u32::MAX;
 
-pub const TILE_WIDTH: usize = 128;
+pub const TILE_WIDTH: usize = bitmap_geometry::TILE_WIDTH as usize;
 pub const CELLS_PER_TILE: usize = TILE_WIDTH * TILE_WIDTH;
-pub const TILE_GRID_WIDTH: usize = 512;
+pub const TILE_GRID_WIDTH: usize = bitmap_geometry::MAP_WIDTH as usize;
 pub const TILE_COUNT: usize = TILE_GRID_WIDTH * TILE_GRID_WIDTH;
 
 /// x-major tile index in the tile grid: `tx * TILE_GRID_WIDTH + ty`. The one

@@ -5,6 +5,7 @@ edition = "2021"
 description = "On-disk binary format for MemoLanes geo reference data; shared by the runtime and the offline rasterizer."
 
 [dependencies]
+bitmap_geometry = { path = "../bitmap_geometry" }
 serde = { version = "1", features = ["derive"] }
 bitcode = { version = "=0.6.9", default-features = false, features = ["std", "serde"] }
 sha2 = "0.11"

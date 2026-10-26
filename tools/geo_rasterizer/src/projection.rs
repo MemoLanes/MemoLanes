@@ -4,18 +4,15 @@
 //! `app/rust/src/journey_area_utils.rs:38-46`. Duplicated here because
 //! `memolanes_core` is too heavy a dep for the offline rasterizer.
 //!
-//! Constants must stay in lockstep with `journey_bitmap.rs`:
-//!   MAP_WIDTH_OFFSET = 9, TILE_WIDTH_OFFSET = 7.
-//! BLOCK_GRID_OFFSET = MAP_WIDTH_OFFSET + TILE_WIDTH_OFFSET = 16.
-//! Block grid resolution: 2^16 = 65_536 per side.
 
 use std::f64::consts::PI;
 
 /// Slippy-map zoom level at the block-grid resolution.
-pub const BLOCK_GRID_OFFSET: i32 = 16;
+pub const BLOCK_GRID_OFFSET: i32 =
+    (bitmap_geometry::MAP_WIDTH_OFFSET + bitmap_geometry::TILE_WIDTH_OFFSET) as i32;
 /// Block-grid resolution per side (2^16).
 pub const BLOCK_GRID_SIZE: i64 = 1 << BLOCK_GRID_OFFSET;
-const EARTH_RADIUS_M: f64 = 6_371_000.0;
+use bitmap_geometry::EARTH_RADIUS_METERS as EARTH_RADIUS_M;
 
 /// Project (lng, lat) to integer block coordinates in [0, BLOCK_GRID_SIZE).
 /// Equivalent to `lng_lat_to_tile_x_y(lng, lat, 16)` from `app/rust/src/utils.rs`.

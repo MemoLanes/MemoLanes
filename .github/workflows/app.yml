@@ -33,7 +33,7 @@ jobs:
       # ======== START SETUP ========
       - uses: actions/checkout@v5
 
-      # Detect whether geo_rasterizer / geo_data_format sources changed, so the
+      # Detect whether geometry / geo format / rasterizer sources changed, so the
       # geo-only check/test steps run only when related files change. (The
       # rasterize step itself still runs every time so the registry guardrail
       # is never vacuous — but it's a near-instant no-op on a cache hit.)
@@ -44,6 +44,7 @@ jobs:
             geo:
               - 'tools/geo_rasterizer/**'
               - 'app/rust/geo_data_format/**'
+              - 'app/rust/bitmap_geometry/**'
 
       - uses: extractions/setup-just@v4
 
@@ -62,6 +63,7 @@ jobs:
           workspaces: |
             app/rust/
             app/rust/geo_data_format/
+            app/rust/bitmap_geometry/
             app/journey_kernel/
             tools/geo_rasterizer/
 
@@ -94,7 +96,7 @@ jobs:
           key: geo-natural-earth-${{ hashFiles('tools/geo_rasterizer/src/download.rs', 'app/rust/geo_data_format/src/**', 'app/rust/geo_data_format/Cargo.toml', 'app/rust/geo_data_format/Cargo.lock') }}
 
       # Cache the generated geo_data_*.bin. The key hashes the rasterizer and
-      # geo_data_format *sources* (not just the inputs) on purpose: the in-bin
+      # geo_data_format / bitmap_geometry *sources* (not just inputs): the in-bin
       # provenance hash keys on inputs + GEO_DATA_VERSION, NOT on algorithm
       # code, so an algorithm change must bust this cache or stale output would
       # be served. On a hit, rasterize-geo finds matching provenance and skips.
@@ -102,7 +104,12 @@ jobs:
         uses: actions/cache@v5
         with:
           path: app/assets/geo/geo_data_*.bin
-          key: geo-bins-${{ hashFiles('tools/geo_rasterizer/src/**', 'tools/geo_rasterizer/Cargo.lock', 'tools/geo_rasterizer/geo_entity_registry/*.toml', 'app/rust/geo_data_format/src/**', 'app/rust/geo_data_format/Cargo.lock') }}
+          key: geo-bins-${{ hashFiles('tools/geo_rasterizer/src/**', 'tools/geo_rasterizer/Cargo.lock', 'tools/geo_rasterizer/geo_entity_registry/*.toml', 'app/rust/geo_data_format/src/**', 'app/rust/geo_data_format/Cargo.lock', 'app/rust/bitmap_geometry/src/**', 'app/rust/bitmap_geometry/Cargo.toml', 'app/rust/bitmap_geometry/Cargo.lock') }}
+
+      - name: Bitmap Geometry Check
+        if: steps.changes.outputs.geo == 'true'
+        working-directory: app
+        run: just bitmap-geometry-check
 
       - name: Geo Data Format Check
         if: steps.changes.outputs.geo == 'true'
