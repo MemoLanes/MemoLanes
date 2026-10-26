@@ -272,7 +272,8 @@
     },
     "region_list": {
       "country_title": "国家与地区",
-      "region_empty": "还没有点亮这个国家的下辖地区。",
+      "region_empty": "还没有点亮下辖地区。",
+      "region_unsupported": "暂不支持该地区的下辖地区统计。",
       "error": "无法加载地区数据。",
       "retry": "重试",
       "view_all": "查看全部",

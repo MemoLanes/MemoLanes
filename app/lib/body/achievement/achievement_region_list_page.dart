@@ -77,7 +77,10 @@ class _AchievementRegionListPageState extends State<AchievementRegionListPage> {
       entityId: parent,
       layer: AchievementLayer.default_,
     );
-    return detail?.children ?? const {};
+    if (detail == null) {
+      throw StateError('Achievement region is unavailable: $parent');
+    }
+    return detail.children;
   }
 
   @override
@@ -86,7 +89,9 @@ class _AchievementRegionListPageState extends State<AchievementRegionListPage> {
     return AchievementRegionAreaListPage(
       title: widget.title,
       items: regions == null ? const [] : _items(regions),
-      emptyText: widget.emptyText,
+      emptyText: !_isCountryList && regions?.isEmpty == true
+          ? context.tr('achievement.region_list.region_unsupported')
+          : widget.emptyText,
       isLoading: regions == null && _error == null,
       onRetry: _error == null ? null : _load,
       showIcons: _isCountryList,
