@@ -1,7 +1,11 @@
 {
   "screenshot": {
     "button_label": "截图",
-    "title": "屏幕截图",
+    "generating": "正在生成截图…",
+    "title": "旅途快照",
+    "content_options": "画面内容",
+    "journey_info_option": "旅程信息",
+    "logo_option": "Logo 水印",
     "include_logo": "在右下角加入 Logo",
     "include_logo_top_right": "在右上角加入 Logo",
     "include_journey_info": "保留旅程信息",

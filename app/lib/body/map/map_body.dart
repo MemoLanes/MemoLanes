@@ -95,16 +95,16 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
 
   Future<void> takeScreenshot() async {
     final loading = GlobalLoadingManager.instance;
-    if (_screenshotInProgress ||
-        loading.isLoading ||
-        loading.isNavigationBlocked) {
+    if (_screenshotInProgress) return;
+    if (loading.isLoading || loading.isNavigationBlocked) {
+      Fluttertoast.showToast(msg: context.tr('screenshot.not_ready'));
       return;
     }
     final mode = widget.mode;
     final journey = widget.journeys.session?.journey;
-    final journeyBounds = widget.journeys.session?.mapData.$2;
     if (mode == MapMode.journeys &&
         (journey == null || widget.journeys.phase != JourneyPhase.viewing)) {
+      Fluttertoast.showToast(msg: context.tr('screenshot.not_ready'));
       return;
     }
     if (mode == MapMode.timeMachine &&
@@ -115,7 +115,6 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
     setState(() => _screenshotInProgress = true);
     ui.Image? mapImage;
     ui.Image? timelineImage;
-    ui.Image? centeredJourneyMap;
     try {
       late Size size;
       await loading.runWithLoading(() async {
@@ -134,11 +133,6 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
           );
         }
         mapImage = await decodeScreenshot(await mapState.captureScreenshot());
-        if (mode == MapMode.journeys && journeyBounds != null) {
-          centeredJourneyMap = await decodeScreenshot(
-            await mapState.captureScreenshot(centerBounds: journeyBounds),
-          );
-        }
         // A rotation can resize the WebView even while pointer input is
         // blocked. Never combine a new map aspect ratio with an old timeline.
         if (!box.attached || box.size != size) {
@@ -152,7 +146,6 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
           logicalSize: size,
           timeline: timelineImage,
           journey: mode == MapMode.journeys ? journey : null,
-          centeredJourneyMap: centeredJourneyMap,
         ),
       );
       final saved = await Navigator.of(context).push(route);
@@ -167,7 +160,6 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
     } finally {
       mapImage?.dispose();
       timelineImage?.dispose();
-      centeredJourneyMap?.dispose();
       if (mounted) setState(() => _screenshotInProgress = false);
     }
   }

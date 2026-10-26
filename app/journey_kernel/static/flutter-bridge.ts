@@ -12,7 +12,6 @@ import * as maplibregl from "maplibre-gl";
 import { MapController } from "./map-controller";
 import { LocationFollowController } from "./location-follow-controller";
 import { MAX_MAP_ZOOM } from "./layer-config";
-import { captureCenteredMapFrame } from "./map-screenshot";
 
 interface MapBounds {
   west: number;
@@ -55,7 +54,6 @@ declare global {
     ) => void;
     getCurrentMapView?: () => string;
     captureMapScreenshot?: () => Promise<string>;
-    captureCenteredMapScreenshot?: (bounds: MapBounds) => Promise<string>;
     refreshMapData?: () => Promise<boolean | null>;
     flyToBounds?: (bounds: MapBounds, padding: MapPadding) => void;
     flyToView?: (view: MapView) => void;
@@ -203,15 +201,6 @@ export class FlutterBridge {
     // Refresh map data - allows Flutter to trigger a data refresh
     window.refreshMapData = () => this.mapController.refreshMapData();
     window.captureMapScreenshot = () => this.mapController.captureScreenshot();
-    window.captureCenteredMapScreenshot = (bounds) =>
-      captureCenteredMapFrame(
-        this.map,
-        [
-          [bounds.west, bounds.south],
-          [bounds.east, bounds.north],
-        ],
-        () => this.mapController.captureScreenshot(),
-      );
 
     // Focus a journey within the visible area above its Flutter detail card.
     window.flyToBounds = (bounds, padding) => {

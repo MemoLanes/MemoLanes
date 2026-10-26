@@ -124,33 +124,19 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   }
 
   /// Export only the map canvas, without Flutter controls or system chrome.
-  Future<Uint8List> captureScreenshot({MapBounds? centerBounds}) async {
+  Future<Uint8List> captureScreenshot() async {
     final controller = _webViewController;
     if (controller == null || !_readyForDisplay || _pendingMapDataSync) {
       throw StateError('Map is not ready for a screenshot');
     }
     final result = await controller
         .callAsyncJavaScript(
-          arguments: {
-            'centerBounds': centerBounds == null
-                ? null
-                : {
-                    'west': centerBounds.west,
-                    'south': centerBounds.south,
-                    'east': centerBounds.east,
-                    'north': centerBounds.north,
-                  },
-          },
           functionBody: '''
-        // Use a separate entry point so older bundles cannot silently ignore
-        // the centering request and return the original map again.
-        const capture = centerBounds
-          ? window.captureCenteredMapScreenshot
-          : window.captureMapScreenshot;
+        const capture = window.captureMapScreenshot;
         if (typeof capture !== 'function') {
           throw new Error('Rebuild the bundled map assets to enable screenshots');
         }
-        return await capture(centerBounds);
+        return await capture();
       ''',
         )
         .timeout(const Duration(seconds: 20));

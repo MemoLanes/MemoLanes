@@ -1,7 +1,11 @@
 {
   "screenshot": {
     "button_label": "Screenshot",
-    "title": "Screenshot",
+    "generating": "Preparing screenshot…",
+    "title": "Travel snapshot",
+    "content_options": "Image content",
+    "journey_info_option": "Journey info",
+    "logo_option": "Watermark",
     "include_logo": "Add Logo at the bottom right",
     "include_logo_top_right": "Add Logo at the top right",
     "include_journey_info": "Include journey information",

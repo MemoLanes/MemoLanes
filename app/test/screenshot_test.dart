@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -29,23 +30,30 @@ void main() {
   });
   var captures = 0;
 
-  Widget app({bool enabled = true, String scene = 'record'}) => Scaffold(
-    body: Center(
-      child: MapScreenshotButton(
-        key: ValueKey(scene),
-        onPressed: enabled ? () => captures++ : null,
-      ),
-    ),
-  );
+  Widget app({bool enabled = true, Future<void> Function()? onCapture}) =>
+      Scaffold(
+        body: Center(
+          child: MapScreenshotButton(
+            onPressed: !enabled
+                ? null
+                : onCapture ??
+                      () async {
+                        captures++;
+                      },
+          ),
+        ),
+      );
 
   Future<void> pumpApp(WidgetTester tester, Widget home) async {
     await tester.runAsync(() async {
       await tester.pumpWidget(
         EasyLocalization(
-          supportedLocales: const [locale],
+          supportedLocales: const [locale, Locale('en', 'US')],
           path: 'assets/translations',
           assetLoader: loader,
           fallbackLocale: locale,
+          startLocale: locale,
+          saveLocale: false,
           child: Builder(
             builder: (context) => MaterialApp(
               theme: AppTheme.light,
@@ -67,18 +75,104 @@ void main() {
 
   setUp(() => captures = 0);
 
-  Future<void> waitForLogo(WidgetTester tester) async {
-    final logoSwitch = find.byType(SwitchListTile).last;
+  Future<void> waitForLogo(
+    WidgetTester tester, {
+    String label = 'Logo 水印',
+  }) async {
+    final logoOption = find.widgetWithText(FilterChip, label);
     await tester.runAsync(() async {
       final deadline = DateTime.now().add(const Duration(seconds: 10));
-      while (tester.widget<SwitchListTile>(logoSwitch).onChanged == null &&
+      while (tester.widget<FilterChip>(logoOption).onSelected == null &&
           DateTime.now().isBefore(deadline)) {
         await Future<void>.delayed(const Duration(milliseconds: 10));
         await tester.pump();
       }
     });
-    expect(tester.widget<SwitchListTile>(logoSwitch).onChanged, isNotNull);
+    expect(tester.widget<FilterChip>(logoOption).onSelected, isNotNull);
   }
+
+  testWidgets('watermark follows app language and retains visibility choice', (
+    tester,
+  ) async {
+    final recorder = ui.PictureRecorder();
+    Canvas(recorder).drawColor(Colors.blue, BlendMode.src);
+    final picture = recorder.endRecording();
+    final map = (await tester.runAsync(() => picture.toImage(640, 1280)))!;
+    picture.dispose();
+    addTearDown(map.dispose);
+    await pumpApp(
+      tester,
+      ScreenshotPreviewPage(map: map, logicalSize: const Size(320, 640)),
+    );
+    await waitForLogo(tester);
+    final page = find.byType(ScreenshotPreviewPage);
+    final state = tester.state(page);
+
+    Future<void> expectLogo(String asset) async {
+      await tester.runAsync(() async {
+        final data = await rootBundle.load(asset);
+        final expected = await decodeScreenshot(
+          data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes),
+        );
+        try {
+          final actual = tester
+              .widget<RawImage>(find.byType(RawImage).last)
+              .image!;
+          expect(actual.width, expected.width);
+          expect(actual.height, expected.height);
+          final expectedPixels = (await expected.toByteData(
+            format: ui.ImageByteFormat.rawRgba,
+          ))!;
+          final actualPixels = (await actual.toByteData(
+            format: ui.ImageByteFormat.rawRgba,
+          ))!;
+          expect(
+            actualPixels.buffer.asUint8List(
+              actualPixels.offsetInBytes,
+              actualPixels.lengthInBytes,
+            ),
+            orderedEquals(
+              expectedPixels.buffer.asUint8List(
+                expectedPixels.offsetInBytes,
+                expectedPixels.lengthInBytes,
+              ),
+            ),
+          );
+          // This part of the old icon's square backdrop must be transparent.
+          expect(
+            expectedPixels.getUint8((50 * expected.width + 80) * 4 + 3),
+            0,
+          );
+        } finally {
+          expected.dispose();
+        }
+      });
+    }
+
+    await expectLogo('assets/screenshot_logo_zh.png');
+    await tester.tap(find.widgetWithText(FilterChip, 'Logo 水印'));
+    await tester.pumpAndSettle();
+    await tester.runAsync(
+      () => tester.element(page).setLocale(const Locale('en', 'US')),
+    );
+    await tester.pumpAndSettle();
+    await waitForLogo(tester, label: 'Watermark');
+    final englishOption = find.widgetWithText(FilterChip, 'Watermark');
+    expect(tester.state(page), same(state));
+    expect(tester.widget<FilterChip>(englishOption).selected, isFalse);
+    expect(find.byType(RawImage), findsOneWidget);
+    await tester.tap(englishOption);
+    await tester.pumpAndSettle();
+    await expectLogo('assets/screenshot_logo_en.png');
+
+    await tester.runAsync(() => tester.element(page).setLocale(locale));
+    await tester.pumpAndSettle();
+    await waitForLogo(tester);
+    expect(tester.widget<FilterChip>(find.byType(FilterChip)).selected, isTrue);
+    await expectLogo('assets/screenshot_logo_zh.png');
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 
   testWidgets(
     'journey preview can independently hide its card and default logo',
@@ -87,9 +181,6 @@ void main() {
       Canvas(recorder).drawColor(Colors.blue, BlendMode.src);
       final picture = recorder.endRecording();
       final map = (await tester.runAsync(() => picture.toImage(640, 1280)))!;
-      final centeredMap = (await tester.runAsync(
-        () => picture.toImage(640, 1280),
-      ))!;
       picture.dispose();
       final journey = JourneyHeader(
         id: 'screenshot-journey',
@@ -106,14 +197,13 @@ void main() {
           map: map,
           logicalSize: const Size(320, 640),
           journey: journey,
-          centeredJourneyMap: centeredMap,
         ),
       );
       await waitForLogo(tester);
-      final cardSwitch = find.widgetWithText(SwitchListTile, '保留旅程信息');
-      final logoSwitch = find.widgetWithText(SwitchListTile, '在右上角加入 Logo');
-      expect(tester.widget<SwitchListTile>(cardSwitch).value, isTrue);
-      expect(tester.widget<SwitchListTile>(logoSwitch).value, isTrue);
+      final cardOption = find.widgetWithText(FilterChip, '旅程信息');
+      final logoOption = find.widgetWithText(FilterChip, 'Logo 水印');
+      expect(tester.widget<FilterChip>(cardOption).selected, isTrue);
+      expect(tester.widget<FilterChip>(logoOption).selected, isTrue);
       expect(find.byType(ReadOnlyJourneyInfoCard), findsOneWidget);
       expect(find.byType(RawImage), findsNWidgets(2));
       expect(
@@ -121,33 +211,32 @@ void main() {
         same(map),
       );
 
-      await tester.tap(cardSwitch);
+      await tester.tap(cardOption);
       await tester.pumpAndSettle();
       expect(find.byType(ReadOnlyJourneyInfoCard), findsNothing);
       expect(
         tester.widget<RawImage>(find.byType(RawImage).first).image,
-        same(centeredMap),
+        same(map),
       );
       expect(find.byType(RawImage), findsNWidgets(2));
-      await tester.tap(logoSwitch);
+      await tester.tap(logoOption);
       await tester.pumpAndSettle();
       expect(find.byType(RawImage), findsOneWidget);
-      await tester.tap(cardSwitch);
+      await tester.tap(cardOption);
       await tester.pumpAndSettle();
       expect(find.byType(ReadOnlyJourneyInfoCard), findsOneWidget);
       expect(
         tester.widget<RawImage>(find.byType(RawImage).first).image,
         same(map),
       );
-      expect(tester.widget<SwitchListTile>(logoSwitch).value, isFalse);
+      expect(tester.widget<FilterChip>(logoOption).selected, isFalse);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
       map.dispose();
-      centeredMap.dispose();
     },
   );
 
-  testWidgets('preview retains export resolution and equal, readable actions', (
+  testWidgets('preview retains export resolution and prioritizes save action', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(320, 640);
@@ -164,20 +253,17 @@ void main() {
       ScreenshotPreviewPage(map: map, logicalSize: const Size(320, 640)),
     );
     await waitForLogo(tester);
-    expect(
-      tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
-      isTrue,
-    );
-    expect(find.text('保留旅程信息'), findsNothing);
+    expect(tester.widget<FilterChip>(find.byType(FilterChip)).selected, isTrue);
+    expect(find.widgetWithText(FilterChip, '旅程信息'), findsNothing);
     final actions = find.byType(AppButton);
-    expect(actions, findsNWidgets(3));
-    expect(tester.widget<AppButton>(actions.at(1)).label, '保存到相册');
-    final width = tester.getSize(actions.first).width;
-    for (final action in actions.evaluate()) {
-      expect(tester.getSize(find.byWidget(action.widget)).width, width);
-    }
+    expect(actions, findsNWidgets(2));
+    expect(tester.widget<AppButton>(actions.first).label, '保存到相册');
+    expect(
+      tester.getSize(actions.first).width,
+      greaterThan(tester.getSize(actions.last).width),
+    );
     final saveLabel = find.descendant(
-      of: actions.at(1),
+      of: find.text('保存到相册'),
       matching: find.byType(RichText),
     );
     expect(
@@ -211,7 +297,7 @@ void main() {
     });
     addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
     await tester.runAsync(() async {
-      tester.widget<AppButton>(actions.at(1)).onPressed!();
+      tester.widget<AppButton>(actions.first).onPressed!();
       // Rasterization/PNG encoding use the engine's real event loop; their
       // continuations still need the widget test's fake clock to be pumped.
       final deadline = DateTime.now().add(const Duration(seconds: 10));
@@ -223,6 +309,16 @@ void main() {
       final image = await decodeScreenshot(savedPng!);
       expect(image.width, 640);
       expect(image.height, 1280);
+      // Rounded preview corners must not trim the exported image.
+      final data = (await image.toByteData(
+        format: ui.ImageByteFormat.rawRgba,
+      ))!;
+      expect(data.buffer.asUint8List(data.offsetInBytes, 4), [
+        33,
+        150,
+        243,
+        255,
+      ]);
       image.dispose();
     });
     await tester.pumpAndSettle();
@@ -235,18 +331,68 @@ void main() {
     map.dispose();
   });
 
+  testWidgets('snapshot controls fit landscape and large text', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    final recorder = ui.PictureRecorder();
+    Canvas(recorder).drawColor(Colors.blue, BlendMode.src);
+    final picture = recorder.endRecording();
+    final map = (await tester.runAsync(() => picture.toImage(640, 1280)))!;
+    picture.dispose();
+    addTearDown(map.dispose);
+    final journey = JourneyHeader(
+      id: 'screenshot-layout',
+      revision: '1',
+      journeyDate: DateTime.utc(2026, 10, 19),
+      createdAt: DateTime.utc(2026, 10, 19),
+      journeyType: JourneyType.vector,
+      journeyKind: JourneyKind.defaultKind,
+      hasRawData: false,
+    );
+    for (final (size, textScale) in [
+      (const Size(844, 390), 1.0),
+      (const Size(320, 568), 2.0),
+    ]) {
+      tester.view.physicalSize = size;
+      await pumpApp(
+        tester,
+        Builder(
+          builder: (context) => MediaQuery(
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: TextScaler.linear(textScale)),
+            child: ScreenshotPreviewPage(
+              key: ValueKey(size),
+              map: map,
+              logicalSize: const Size(320, 640),
+              journey: journey,
+            ),
+          ),
+        ),
+      );
+      await waitForLogo(tester);
+      await tester.pumpAndSettle();
+      final save = find.widgetWithText(AppButton, '保存到相册');
+      await tester.ensureVisible(save);
+      expect(tester.getRect(save).overlaps(Offset.zero & size), isTrue);
+      expect(find.byType(ReadOnlyJourneyInfoCard), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    }
+  });
+
   for (final includeLogo in [true, false]) {
     testWidgets(
-      'journey preview, gallery and share retain centered pixels with logo $includeLogo',
+      'journey preview, gallery and share keep the map fixed with logo $includeLogo',
       (tester) async {
-        // Distinct route positions detect exporting the original map by mistake.
-        Future<ui.Image> routeImage(double centerY) async {
+        // An off-center landmark must stay fixed when the card is toggled.
+        Future<ui.Image> routeImage() async {
           final recorder = ui.PictureRecorder();
           final canvas = Canvas(recorder);
           canvas.drawColor(Colors.white, BlendMode.src);
           canvas.drawRect(
             Rect.fromCenter(
-              center: Offset(320, centerY),
+              center: const Offset(320, 400),
               width: 100,
               height: 100,
             ),
@@ -260,12 +406,8 @@ void main() {
           }
         }
 
-        final map = (await tester.runAsync(() => routeImage(400)))!;
-        final centeredMap = (await tester.runAsync(() => routeImage(640)))!;
-        addTearDown(() {
-          map.dispose();
-          centeredMap.dispose();
-        });
+        final map = (await tester.runAsync(routeImage))!;
+        addTearDown(map.dispose);
         final journey = JourneyHeader(
           id: 'screenshot-export',
           revision: '1',
@@ -281,12 +423,11 @@ void main() {
             map: map,
             logicalSize: const Size(320, 640),
             journey: journey,
-            centeredJourneyMap: centeredMap,
           ),
         );
         await waitForLogo(tester);
         if (!includeLogo) {
-          await tester.tap(find.widgetWithText(SwitchListTile, '在右上角加入 Logo'));
+          await tester.tap(find.widgetWithText(FilterChip, 'Logo 水印'));
           await tester.pumpAndSettle();
         }
 
@@ -357,10 +498,10 @@ void main() {
           await tester.pumpAndSettle();
         }
 
-        final cardSwitch = find.widgetWithText(SwitchListTile, '保留旅程信息');
+        final cardOption = find.widgetWithText(FilterChip, '旅程信息');
         for (final includeCard in [false, true, false]) {
-          // Deliberately export before pumping the switch's new frame.
-          tester.widget<SwitchListTile>(cardSwitch).onChanged!(includeCard);
+          // Deliberately export before pumping the option's new frame.
+          tester.widget<FilterChip>(cardOption).onSelected!(includeCard);
           savedPng = null;
           sharedPng = null;
           // Cover either action being the first tap after changing the card.
@@ -393,13 +534,10 @@ void main() {
               final originalCenter = (400 * 640 + 320) * 4;
               const blue = [0, 0, 255, 255];
               const white = [255, 255, 255, 255];
-              expect(
-                previewPixels.sublist(center, center + 4),
-                includeCard ? white : blue,
-              );
+              expect(previewPixels.sublist(center, center + 4), white);
               expect(
                 previewPixels.sublist(originalCenter, originalCenter + 4),
-                includeCard ? blue : white,
+                blue,
               );
             } finally {
               preview.dispose();
@@ -423,93 +561,110 @@ void main() {
     );
   }
 
-  testWidgets('first tap reveals; second tap captures; every capture resets', (
-    tester,
-  ) async {
+  testWidgets('one tap captures immediately even after idling', (tester) async {
     await pumpApp(tester, app());
     final button = find.byType(MapScreenshotButton);
     await tester.tap(button);
-    await tester.pump();
-    expect(captures, 0);
-    expect(
-      tester.widget<AnimatedOpacity>(find.byType(AnimatedOpacity)).opacity,
-      1,
+    await tester.pumpAndSettle();
+    expect(captures, 1);
+    await tester.pump(const Duration(seconds: 3));
+    await tester.tap(button);
+    await tester.pumpAndSettle();
+    expect(captures, 2);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('capture shows progress and ignores repeats until complete', (
+    tester,
+  ) async {
+    final pending = Completer<void>();
+    addTearDown(() {
+      if (!pending.isCompleted) pending.complete();
+    });
+    await pumpApp(
+      tester,
+      app(
+        onCapture: () {
+          captures++;
+          return pending.future;
+        },
+      ),
     );
+    final button = find.byType(MapScreenshotButton);
+    // Both taps arrive before the button gets its next build.
+    await tester.tap(button);
     await tester.tap(button);
     expect(captures, 1);
+    await tester.pump();
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.byTooltip('正在生成截图…'), findsOneWidget);
     await tester.tap(button);
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(captures, 1);
+    pending.complete();
+    await tester.pumpAndSettle();
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(find.byTooltip('截图'), findsOneWidget);
+    await tester.tap(button);
+    await tester.pumpAndSettle();
+    expect(captures, 2);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('cancelled contact and drag do not capture', (tester) async {
+    await pumpApp(tester, app());
+    final button = find.byType(MapScreenshotButton);
+    final cancelled = await tester.startGesture(tester.getCenter(button));
+    await cancelled.cancel();
+    final dragged = await tester.startGesture(tester.getCenter(button));
+    await dragged.moveBy(const Offset(-80, 0));
+    await dragged.up();
+    await tester.pumpAndSettle();
+    expect(captures, 0);
+    await tester.tap(button);
+    await tester.pumpAndSettle();
     expect(captures, 1);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
-  testWidgets('confirmation expires even when the button has focus', (
+  testWidgets('keyboard activation captures on the first press', (
     tester,
   ) async {
     await pumpApp(tester, app());
     await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(captures, 1);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('disabled button ignores taps and works once enabled', (
+    tester,
+  ) async {
+    await pumpApp(tester, app(enabled: false));
+    await tester.tap(find.byType(MapScreenshotButton));
+    await tester.pumpAndSettle();
+    expect(captures, 0);
+    await pumpApp(tester, app());
+    await tester.tap(find.byType(MapScreenshotButton));
+    await tester.pumpAndSettle();
+    expect(captures, 1);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('capture can finish after the button is removed', (tester) async {
+    final pending = Completer<void>();
+    addTearDown(() {
+      if (!pending.isCompleted) pending.complete();
+    });
+    await pumpApp(tester, app(onCapture: () => pending.future));
+    await tester.tap(find.byType(MapScreenshotButton));
     await tester.pump();
-    final button = find.byType(MapScreenshotButton);
-    await tester.tap(button);
-    await tester.pump(const Duration(seconds: 3));
-    expect(
-      tester.widget<AnimatedOpacity>(find.byType(AnimatedOpacity)).opacity,
-      lessThan(1),
-    );
-    await tester.tap(button);
-    expect(captures, 0);
-    await tester.tap(button);
-    expect(captures, 1);
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
+    pending.complete();
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
   });
-
-  testWidgets('cancelled contact does not count as confirmation', (
-    tester,
-  ) async {
-    await pumpApp(tester, app());
-    final button = find.byType(MapScreenshotButton);
-    final gesture = await tester.startGesture(tester.getCenter(button));
-    await gesture.cancel();
-    await tester.tap(button);
-    expect(captures, 0);
-    await tester.tap(button);
-    expect(captures, 1);
-    await tester.pumpWidget(const SizedBox.shrink());
-  });
-
-  testWidgets('hover keeps the button visible without keeping it armed', (
-    tester,
-  ) async {
-    await pumpApp(tester, app());
-    final button = find.byType(MapScreenshotButton);
-    await tester.tap(button);
-    final mouse = await tester.createGesture(kind: ui.PointerDeviceKind.mouse);
-    await mouse.addPointer(location: Offset.zero);
-    await mouse.moveTo(tester.getCenter(button));
-    await tester.pump(const Duration(seconds: 3));
-    await tester.tap(button);
-    expect(captures, 0);
-    await mouse.removePointer();
-    await tester.pumpWidget(const SizedBox.shrink());
-  });
-
-  for (final changeScene in [false, true]) {
-    testWidgets(
-      'confirmation resets after ${changeScene ? 'changing scene' : 'disabling'}',
-      (tester) async {
-        await pumpApp(tester, app());
-        await tester.tap(find.byType(MapScreenshotButton));
-        if (changeScene) {
-          await pumpApp(tester, app(scene: 'timeline'));
-        } else {
-          await pumpApp(tester, app(enabled: false));
-          await pumpApp(tester, app());
-        }
-        await tester.tap(find.byType(MapScreenshotButton));
-        expect(captures, 0);
-        await tester.tap(find.byType(MapScreenshotButton));
-        expect(captures, 1);
-        await tester.pumpWidget(const SizedBox.shrink());
-      },
-    );
-  }
 }

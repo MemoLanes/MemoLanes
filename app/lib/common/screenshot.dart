@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:easy_localization/easy_localization.dart';
@@ -8,10 +9,11 @@ import 'package:memolanes/body/journey/compact_journey_info_card.dart';
 import 'package:memolanes/common/component/app_button.dart';
 import 'package:memolanes/common/component/page_content_layout.dart';
 import 'package:memolanes/common/log.dart';
+import 'package:memolanes/constants/app_typography.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
+import 'package:memolanes/theme/app_colors.dart';
 import 'package:share_plus/share_plus.dart';
 
-const screenshotLogoAsset = 'assets/screenshot_logo.png';
 const _galleryChannel = MethodChannel('com.memolanes/screenshots');
 
 Future<ui.Image> decodeScreenshot(Uint8List bytes) async {
@@ -44,14 +46,12 @@ class ScreenshotPreviewPage extends StatefulWidget {
     required this.logicalSize,
     this.timeline,
     this.journey,
-    this.centeredJourneyMap,
   });
 
   final ui.Image map;
   final Size logicalSize;
   final ui.Image? timeline;
   final JourneyHeader? journey;
-  final ui.Image? centeredJourneyMap;
 
   @override
   State<ScreenshotPreviewPage> createState() => _ScreenshotPreviewPageState();
@@ -63,6 +63,8 @@ class _ScreenshotPreviewPageState extends State<ScreenshotPreviewPage> {
   final _compositionKey = GlobalKey();
   final _shareButtonKey = GlobalKey();
   ui.Image? _logo;
+  String? _logoAsset;
+  int _logoLoadGeneration = 0;
   bool _loadingLogo = true;
   bool _includeLogo = true;
   bool _includeJourneyInfo = true;
@@ -74,22 +76,25 @@ class _ScreenshotPreviewPageState extends State<ScreenshotPreviewPage> {
 
   bool get _logoAtTopRight => widget.timeline != null || widget.journey != null;
 
-  ui.Image get _mapImage => !_includeJourneyInfo && widget.journey != null
-      ? widget.centeredJourneyMap ?? widget.map
-      : widget.map;
-
   @override
-  void initState() {
-    super.initState();
-    _loadLogo();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final asset = context.locale.languageCode == 'zh'
+        ? 'assets/screenshot_logo_zh.png'
+        : 'assets/screenshot_logo_en.png';
+    if (_logoAsset == asset) return;
+    _logoAsset = asset;
+    _loadingLogo = true;
+    _loadLogo(asset);
   }
 
-  Future<void> _loadLogo() async {
+  Future<void> _loadLogo(String asset) async {
+    final generation = ++_logoLoadGeneration;
     ui.Image? logo;
     try {
       final manifest = await AssetManifest.loadFromAssetBundle(rootBundle);
-      if (manifest.listAssets().contains(screenshotLogoAsset)) {
-        final data = await rootBundle.load(screenshotLogoAsset);
+      if (manifest.listAssets().contains(asset)) {
+        final data = await rootBundle.load(asset);
         logo = await decodeScreenshot(
           data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes),
         );
@@ -97,15 +102,17 @@ class _ScreenshotPreviewPageState extends State<ScreenshotPreviewPage> {
     } catch (error, stackTrace) {
       log.error('Loading screenshot logo failed: $error', stackTrace);
     }
-    if (!mounted) {
+    if (!mounted || generation != _logoLoadGeneration) {
       logo?.dispose();
       return;
     }
+    final previousLogo = _logo;
     setState(() {
       _logo = logo;
       _loadingLogo = false;
       if (logo == null) _includeLogo = false;
     });
+    previousLogo?.dispose();
   }
 
   @override
@@ -117,7 +124,7 @@ class _ScreenshotPreviewPageState extends State<ScreenshotPreviewPage> {
   Future<Uint8List> _encodePreview() async {
     final image = await captureScreenshotBoundary(
       _compositionKey,
-      _mapImage.width / widget.logicalSize.width,
+      widget.map.width / widget.logicalSize.width,
     );
     try {
       final data = await image.toByteData(format: ui.ImageByteFormat.png);
@@ -206,7 +213,8 @@ class _ScreenshotPreviewPageState extends State<ScreenshotPreviewPage> {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              RawImage(image: _mapImage, fit: BoxFit.fill),
+              // Content switches only affect overlays, never the frozen map.
+              RawImage(image: widget.map, fit: BoxFit.fill),
               if (timeline != null)
                 Positioned(
                   left: _imageEdgeInset,
@@ -256,104 +264,293 @@ class _ScreenshotPreviewPageState extends State<ScreenshotPreviewPage> {
     );
   }
 
+  Widget _buildPreview() => LayoutBuilder(
+    builder: (context, constraints) {
+      final colors = context.appColors;
+      final scale = math.min(
+        constraints.maxWidth / widget.logicalSize.width,
+        constraints.maxHeight / widget.logicalSize.height,
+      );
+      if (scale <= 0) return const SizedBox.shrink();
+      const radius = BorderRadius.all(Radius.circular(18));
+      return Center(
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: radius,
+            boxShadow: [
+              BoxShadow(
+                color: colors.shadowColor.withValues(alpha: 0.1),
+                blurRadius: 28,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: SizedBox.fromSize(
+            size: widget.logicalSize * scale,
+            // Preview decoration stays outside the exported composition.
+            child: ClipRRect(
+              borderRadius: radius,
+              child: FittedBox(
+                fit: BoxFit.contain,
+                child: IgnorePointer(child: _buildComposition()),
+              ),
+            ),
+          ),
+        ),
+      );
+    },
+  );
+
+  Widget _buildOption({
+    required IconData icon,
+    required String label,
+    required String tooltip,
+    required bool selected,
+    required ValueChanged<bool>? onSelected,
+  }) {
+    final colors = context.appColors;
+    final foreground = onSelected == null
+        ? colors.subtleInkColor
+        : selected
+        ? colors.deepGreen
+        : colors.mutedInkColor;
+    return FilterChip(
+      avatar: Icon(icon, size: 19, color: foreground),
+      label: Row(
+        children: [
+          Expanded(
+            child: Text(label, maxLines: 2, overflow: TextOverflow.ellipsis),
+          ),
+          const SizedBox(width: 8),
+          Icon(
+            selected ? Icons.check_circle_rounded : Icons.circle_outlined,
+            size: 18,
+            color: foreground,
+          ),
+        ],
+      ),
+      labelStyle: AppTypography.supporting.copyWith(
+        color: foreground,
+        fontWeight: FontWeight.w600,
+      ),
+      labelPadding: const EdgeInsets.only(left: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      side: BorderSide(
+        color: selected
+            ? colors.deepGreen.withValues(alpha: 0.38)
+            : colors.strongLineColor,
+      ),
+      color: WidgetStatePropertyAll(
+        selected ? colors.selectedSurfaceColor : colors.surfaceColor,
+      ),
+      showCheckmark: false,
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      selected: selected,
+      onSelected: onSelected,
+      tooltip: tooltip,
+    );
+  }
+
+  Widget _buildTools() {
+    final colors = context.appColors;
+    final optionHeight = math.max(
+      48.0,
+      MediaQuery.textScalerOf(context).scale(13) * 2 * 1.4 + 20,
+    );
+    final logoOption = _buildOption(
+      icon: Icons.image_outlined,
+      label: context.tr('screenshot.logo_option'),
+      tooltip: context.tr(
+        _logoAtTopRight
+            ? 'screenshot.include_logo_top_right'
+            : 'screenshot.include_logo',
+      ),
+      selected: _includeLogo,
+      onSelected: _busy || _loadingLogo || _logo == null
+          ? null
+          : (value) => setState(() => _includeLogo = value),
+    );
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Divider(height: 1, color: colors.lineColor),
+          const SizedBox(height: 12),
+          Text(
+            context.tr('screenshot.content_options'),
+            style: AppTypography.caption.copyWith(color: colors.mutedInkColor),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            height: optionHeight,
+            child: widget.journey == null
+                ? ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 200),
+                    child: logoOption,
+                  )
+                : Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(
+                        child: _buildOption(
+                          icon: Icons.route_rounded,
+                          label: context.tr('screenshot.journey_info_option'),
+                          tooltip: context.tr(
+                            'screenshot.include_journey_info',
+                          ),
+                          selected: _includeJourneyInfo,
+                          onSelected: _busy
+                              ? null
+                              : (value) =>
+                                    setState(() => _includeJourneyInfo = value),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(child: logoOption),
+                    ],
+                  ),
+          ),
+          if (!_loadingLogo && _logo == null) ...[
+            const SizedBox(height: 10),
+            Text(
+              context.tr('screenshot.logo_unavailable'),
+              style: AppTypography.caption.copyWith(
+                color: colors.mutedInkColor,
+              ),
+            ),
+          ],
+          if (_error != null) ...[
+            const SizedBox(height: 12),
+            Semantics(
+              liveRegion: true,
+              child: Text(
+                context.tr(_error!),
+                style: AppTypography.supporting.copyWith(
+                  color: colors.dangerInkColor,
+                ),
+              ),
+            ),
+          ],
+          const SizedBox(height: 14),
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: AppButton(
+                    label: context.tr('screenshot.save'),
+                    icon: Icons.save_alt_rounded,
+                    size: AppButtonSize.large,
+                    borderRadius: 18,
+                    labelMaxLines: 2,
+                    loading: _saving,
+                    onPressed: _busy || _loadingLogo ? null : _save,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  flex: 2,
+                  child: AppButton(
+                    key: _shareButtonKey,
+                    label: context.tr('common.share'),
+                    icon: Icons.ios_share_rounded,
+                    size: AppButtonSize.large,
+                    borderRadius: 18,
+                    labelMaxLines: 2,
+                    variant: AppButtonVariant.secondary,
+                    loading: _sharing,
+                    onPressed: _busy || _loadingLogo ? null : _share,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
     return PopScope(
       canPop: !_busy,
       child: Scaffold(
         appBar: AppBar(
           title: Text(context.tr('screenshot.title')),
+          titleTextStyle: AppTypography.surfaceTitle.copyWith(
+            color: colors.inkColor,
+            fontWeight: FontWeight.w600,
+          ),
+          centerTitle: true,
           automaticallyImplyLeading: false,
+          leadingWidth: 72,
+          leading: Padding(
+            padding: const EdgeInsets.only(left: 16),
+            child: Center(
+              child: IconButton.outlined(
+                tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+                onPressed: _busy ? null : () => Navigator.of(context).pop(),
+                style: IconButton.styleFrom(
+                  foregroundColor: colors.inkColor,
+                  backgroundColor: colors.surfaceColor,
+                  side: BorderSide(color: colors.lineColor),
+                  fixedSize: const Size.square(44),
+                ),
+                icon: const Icon(Icons.close_rounded, size: 21),
+              ),
+            ),
+          ),
         ),
-        body: PageContentFrame(
-          padding: EdgeInsets.zero,
+        body: PageContentInsets(
+          maintainViewPadding: true,
           child: SafeArea(
-            child: Column(
-              children: [
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Center(
-                      child: FittedBox(
-                        fit: BoxFit.contain,
-                        child: IgnorePointer(child: _buildComposition()),
+            top: false,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final landscape =
+                    constraints.maxWidth >= 600 &&
+                    constraints.maxWidth > constraints.maxHeight;
+                final preview = Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+                  child: _buildPreview(),
+                );
+                if (landscape) {
+                  return Row(
+                    children: [
+                      Expanded(child: preview),
+                      SizedBox(
+                        width: math.min(340.0, constraints.maxWidth * 0.42),
+                        child: Center(
+                          child: SingleChildScrollView(
+                            primary: false,
+                            child: _buildTools(),
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                }
+                return Column(
+                  children: [
+                    Expanded(child: preview),
+                    ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: PageContentFrame.maxContentWidth,
+                        maxHeight: constraints.maxHeight * 0.55,
+                      ),
+                      child: SingleChildScrollView(
+                        primary: false,
+                        child: _buildTools(),
                       ),
                     ),
-                  ),
-                ),
-                if (widget.journey != null)
-                  SwitchListTile(
-                    title: Text(context.tr('screenshot.include_journey_info')),
-                    value: _includeJourneyInfo,
-                    onChanged: _busy
-                        ? null
-                        : (value) =>
-                              setState(() => _includeJourneyInfo = value),
-                  ),
-                SwitchListTile(
-                  title: Text(
-                    context.tr(
-                      _logoAtTopRight
-                          ? 'screenshot.include_logo_top_right'
-                          : 'screenshot.include_logo',
-                    ),
-                  ),
-                  subtitle: !_loadingLogo && _logo == null
-                      ? Text(context.tr('screenshot.logo_unavailable'))
-                      : null,
-                  value: _includeLogo,
-                  onChanged: _busy || _logo == null
-                      ? null
-                      : (value) {
-                          setState(() => _includeLogo = value);
-                        },
-                ),
-                if (_error != null)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Text(context.tr(_error!)),
-                  ),
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: IntrinsicHeight(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Expanded(
-                          child: AppButton(
-                            label: context.tr('common.cancel'),
-                            labelMaxLines: 3,
-                            variant: AppButtonVariant.secondary,
-                            onPressed: _busy
-                                ? null
-                                : () => Navigator.of(context).pop(),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: AppButton(
-                            label: context.tr('screenshot.save'),
-                            labelMaxLines: 3,
-                            loading: _saving,
-                            onPressed: _busy || _loadingLogo ? null : _save,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: AppButton(
-                            key: _shareButtonKey,
-                            label: context.tr('common.share'),
-                            labelMaxLines: 3,
-                            variant: AppButtonVariant.secondary,
-                            loading: _sharing,
-                            onPressed: _busy || _loadingLogo ? null : _share,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
+                  ],
+                );
+              },
             ),
           ),
         ),
