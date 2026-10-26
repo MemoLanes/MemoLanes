@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:memolanes/body/journey/compact_journey_info_card.dart';
 import 'package:memolanes/common/component/app_button.dart';
@@ -23,6 +24,25 @@ Future<ui.Image> decodeScreenshot(Uint8List bytes) async {
   } finally {
     codec.dispose();
   }
+}
+
+class _ScreenshotLogoPainter extends CustomPainter {
+  const _ScreenshotLogoPainter(this.logo);
+
+  final PictureInfo logo;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Retain vector paths until the composition is captured at export resolution.
+    canvas.save();
+    canvas.scale(size.width / logo.size.width);
+    canvas.drawPicture(logo.picture);
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_ScreenshotLogoPainter oldDelegate) =>
+      logo != oldDelegate.logo;
 }
 
 /// Captures Flutter content only. Never wrap the platform WebView in this.
@@ -62,7 +82,7 @@ class _ScreenshotPreviewPageState extends State<ScreenshotPreviewPage> {
 
   final _compositionKey = GlobalKey();
   final _shareButtonKey = GlobalKey();
-  ui.Image? _logo;
+  PictureInfo? _logo;
   String? _logoAsset;
   int _logoLoadGeneration = 0;
   bool _loadingLogo = true;
@@ -80,8 +100,8 @@ class _ScreenshotPreviewPageState extends State<ScreenshotPreviewPage> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     final asset = context.locale.languageCode == 'zh'
-        ? 'assets/screenshot_logo_zh.png'
-        : 'assets/screenshot_logo_en.png';
+        ? 'assets/screenshot_logo_zh.svg'
+        : 'assets/screenshot_logo_en.svg';
     if (_logoAsset == asset) return;
     _logoAsset = asset;
     _loadingLogo = true;
@@ -90,20 +110,14 @@ class _ScreenshotPreviewPageState extends State<ScreenshotPreviewPage> {
 
   Future<void> _loadLogo(String asset) async {
     final generation = ++_logoLoadGeneration;
-    ui.Image? logo;
+    PictureInfo? logo;
     try {
-      final manifest = await AssetManifest.loadFromAssetBundle(rootBundle);
-      if (manifest.listAssets().contains(asset)) {
-        final data = await rootBundle.load(asset);
-        logo = await decodeScreenshot(
-          data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes),
-        );
-      }
+      logo = await vg.loadPicture(SvgAssetLoader(asset), null);
     } catch (error, stackTrace) {
       log.error('Loading screenshot logo failed: $error', stackTrace);
     }
     if (!mounted || generation != _logoLoadGeneration) {
-      logo?.dispose();
+      logo?.picture.dispose();
       return;
     }
     final previousLogo = _logo;
@@ -112,12 +126,12 @@ class _ScreenshotPreviewPageState extends State<ScreenshotPreviewPage> {
       _loadingLogo = false;
       if (logo == null) _includeLogo = false;
     });
-    previousLogo?.dispose();
+    previousLogo?.picture.dispose();
   }
 
   @override
   void dispose() {
-    _logo?.dispose();
+    _logo?.picture.dispose();
     super.dispose();
   }
 
@@ -198,8 +212,8 @@ class _ScreenshotPreviewPageState extends State<ScreenshotPreviewPage> {
         ? SizedBox(
             width: 120,
             child: AspectRatio(
-              aspectRatio: _logo!.width / _logo!.height,
-              child: RawImage(image: _logo, fit: BoxFit.contain),
+              aspectRatio: _logo!.size.aspectRatio,
+              child: CustomPaint(painter: _ScreenshotLogoPainter(_logo!)),
             ),
           )
         : null;

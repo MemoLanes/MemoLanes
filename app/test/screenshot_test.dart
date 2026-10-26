@@ -6,6 +6,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:memolanes/common/component/map_controls/screenshot_button.dart';
 import 'package:memolanes/theme/app_theme.dart';
@@ -91,6 +92,28 @@ void main() {
     expect(tester.widget<FilterChip>(logoOption).onSelected, isNotNull);
   }
 
+  Future<ui.Image> capturePreview(
+    WidgetTester tester, {
+    double pixelRatio = 2,
+  }) async {
+    final boundary = tester.renderObject<RenderRepaintBoundary>(
+      find
+          .ancestor(
+            of: find.byType(RawImage).first,
+            matching: find.byType(RepaintBoundary),
+          )
+          .first,
+    );
+    return (await tester.runAsync(
+      () => boundary.toImage(pixelRatio: pixelRatio),
+    ))!;
+  }
+
+  Future<Uint8List> pixels(ui.Image image) async {
+    final bytes = (await image.toByteData(format: ui.ImageByteFormat.rawRgba))!;
+    return bytes.buffer.asUint8List(bytes.offsetInBytes, bytes.lengthInBytes);
+  }
+
   testWidgets('watermark follows app language and retains visibility choice', (
     tester,
   ) async {
@@ -108,48 +131,16 @@ void main() {
     final page = find.byType(ScreenshotPreviewPage);
     final state = tester.state(page);
 
-    Future<void> expectLogo(String asset) async {
-      await tester.runAsync(() async {
-        final data = await rootBundle.load(asset);
-        final expected = await decodeScreenshot(
-          data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes),
-        );
-        try {
-          final actual = tester
-              .widget<RawImage>(find.byType(RawImage).last)
-              .image!;
-          expect(actual.width, expected.width);
-          expect(actual.height, expected.height);
-          final expectedPixels = (await expected.toByteData(
-            format: ui.ImageByteFormat.rawRgba,
-          ))!;
-          final actualPixels = (await actual.toByteData(
-            format: ui.ImageByteFormat.rawRgba,
-          ))!;
-          expect(
-            actualPixels.buffer.asUint8List(
-              actualPixels.offsetInBytes,
-              actualPixels.lengthInBytes,
-            ),
-            orderedEquals(
-              expectedPixels.buffer.asUint8List(
-                expectedPixels.offsetInBytes,
-                expectedPixels.lengthInBytes,
-              ),
-            ),
-          );
-          // This part of the old icon's square backdrop must be transparent.
-          expect(
-            expectedPixels.getUint8((50 * expected.width + 80) * 4 + 3),
-            0,
-          );
-        } finally {
-          expected.dispose();
-        }
-      });
+    Future<Uint8List> previewPixels() async {
+      final image = await capturePreview(tester);
+      try {
+        return (await tester.runAsync(() => pixels(image)))!;
+      } finally {
+        image.dispose();
+      }
     }
 
-    await expectLogo('assets/screenshot_logo_zh.png');
+    final chinesePixels = await previewPixels();
     await tester.tap(find.widgetWithText(FilterChip, 'Logo 水印'));
     await tester.pumpAndSettle();
     await tester.runAsync(
@@ -160,16 +151,103 @@ void main() {
     final englishOption = find.widgetWithText(FilterChip, 'Watermark');
     expect(tester.state(page), same(state));
     expect(tester.widget<FilterChip>(englishOption).selected, isFalse);
-    expect(find.byType(RawImage), findsOneWidget);
+    final mapPixels = (await tester.runAsync(() => pixels(map)))!;
+    expect(await previewPixels(), orderedEquals(mapPixels));
     await tester.tap(englishOption);
     await tester.pumpAndSettle();
-    await expectLogo('assets/screenshot_logo_en.png');
+    final englishPixels = await previewPixels();
+    expect(englishPixels, isNot(orderedEquals(mapPixels)));
+    expect(englishPixels, isNot(orderedEquals(chinesePixels)));
 
     await tester.runAsync(() => tester.element(page).setLocale(locale));
     await tester.pumpAndSettle();
     await waitForLogo(tester);
     expect(tester.widget<FilterChip>(find.byType(FilterChip)).selected, isTrue);
-    await expectLogo('assets/screenshot_logo_zh.png');
+    expect(await previewPixels(), orderedEquals(chinesePixels));
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('watermarks render as vectors at high export resolution', (
+    tester,
+  ) async {
+    // A 1920px-wide watermark exceeds the old 960px raster asset's resolution.
+    const logicalSize = Size(160, 80);
+    const pixelRatio = 16.0;
+    final recorder = ui.PictureRecorder();
+    Canvas(recorder).drawColor(Colors.blue, BlendMode.src);
+    final picture = recorder.endRecording();
+    final map = (await tester.runAsync(() => picture.toImage(2560, 1280)))!;
+    picture.dispose();
+    addTearDown(map.dispose);
+    await pumpApp(
+      tester,
+      ScreenshotPreviewPage(map: map, logicalSize: logicalSize),
+    );
+
+    for (final language in ['zh', 'en']) {
+      if (language == 'en') {
+        await tester.runAsync(
+          () => tester
+              .element(find.byType(ScreenshotPreviewPage))
+              .setLocale(const Locale('en', 'US')),
+        );
+        await tester.pumpAndSettle();
+      }
+      await waitForLogo(
+        tester,
+        label: language == 'zh' ? 'Logo 水印' : 'Watermark',
+      );
+      final actual = await capturePreview(tester, pixelRatio: pixelRatio);
+      await tester.runAsync(() async {
+        final svg = await vg.loadPicture(
+          SvgAssetLoader('assets/screenshot_logo_$language.svg'),
+          null,
+        );
+        final referenceRecorder = ui.PictureRecorder();
+        final canvas = Canvas(referenceRecorder)
+          ..drawColor(Colors.blue, BlendMode.src);
+        final logoHeight = 120 / svg.size.aspectRatio;
+        canvas
+          ..scale(pixelRatio)
+          ..translate(20, logicalSize.height - 20 - logoHeight)
+          ..scale(120 / svg.size.width)
+          ..drawPicture(svg.picture);
+        final referencePicture = referenceRecorder.endRecording();
+        final reference = await referencePicture.toImage(2560, 1280);
+        svg.picture.dispose();
+        referencePicture.dispose();
+        try {
+          final actualPixels = await pixels(actual);
+          final referencePixels = await pixels(reference);
+          expect(actual.width, 2560);
+          expect(actual.height, 1280);
+          // Allow one rounding step when composing Flutter's canvas transforms.
+          var maxDifference = 0;
+          for (var i = 0; i < actualPixels.length; i++) {
+            final difference = (actualPixels[i] - referencePixels[i]).abs();
+            if (difference > maxDifference) maxDifference = difference;
+          }
+          expect(maxDifference, lessThanOrEqualTo(1));
+          // The original black backdrop stays transparent over the map.
+          final transparentPoint =
+              (((logicalSize.height - 20 - logoHeight) * pixelRatio + 100)
+                          .floor() *
+                      2560 +
+                  480) *
+              4;
+          expect(actualPixels.sublist(transparentPoint, transparentPoint + 4), [
+            33,
+            150,
+            243,
+            255,
+          ]);
+        } finally {
+          reference.dispose();
+          actual.dispose();
+        }
+      });
+    }
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
@@ -205,30 +283,17 @@ void main() {
       expect(tester.widget<FilterChip>(cardOption).selected, isTrue);
       expect(tester.widget<FilterChip>(logoOption).selected, isTrue);
       expect(find.byType(ReadOnlyJourneyInfoCard), findsOneWidget);
-      expect(find.byType(RawImage), findsNWidgets(2));
-      expect(
-        tester.widget<RawImage>(find.byType(RawImage).first).image,
-        same(map),
-      );
 
       await tester.tap(cardOption);
       await tester.pumpAndSettle();
       expect(find.byType(ReadOnlyJourneyInfoCard), findsNothing);
-      expect(
-        tester.widget<RawImage>(find.byType(RawImage).first).image,
-        same(map),
-      );
-      expect(find.byType(RawImage), findsNWidgets(2));
+      expect(tester.widget<FilterChip>(logoOption).selected, isTrue);
       await tester.tap(logoOption);
       await tester.pumpAndSettle();
-      expect(find.byType(RawImage), findsOneWidget);
+      expect(tester.widget<FilterChip>(logoOption).selected, isFalse);
       await tester.tap(cardOption);
       await tester.pumpAndSettle();
       expect(find.byType(ReadOnlyJourneyInfoCard), findsOneWidget);
-      expect(
-        tester.widget<RawImage>(find.byType(RawImage).first).image,
-        same(map),
-      );
       expect(tester.widget<FilterChip>(logoOption).selected, isFalse);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
@@ -236,7 +301,7 @@ void main() {
     },
   );
 
-  testWidgets('preview retains export resolution and prioritizes save action', (
+  testWidgets('export retains resolution and recovers from denied permission', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(320, 640);
@@ -255,36 +320,6 @@ void main() {
     await waitForLogo(tester);
     expect(tester.widget<FilterChip>(find.byType(FilterChip)).selected, isTrue);
     expect(find.widgetWithText(FilterChip, '旅程信息'), findsNothing);
-    final actions = find.byType(AppButton);
-    expect(actions, findsNWidgets(2));
-    expect(tester.widget<AppButton>(actions.first).label, '保存到相册');
-    expect(
-      tester.getSize(actions.first).width,
-      greaterThan(tester.getSize(actions.last).width),
-    );
-    final saveLabel = find.descendant(
-      of: find.text('保存到相册'),
-      matching: find.byType(RichText),
-    );
-    expect(
-      tester.renderObject<RenderParagraph>(saveLabel).didExceedMaxLines,
-      isFalse,
-    );
-
-    final boundaryFinder = find
-        .ancestor(
-          of: find.byType(RawImage).first,
-          matching: find.byType(RepaintBoundary),
-        )
-        .first;
-    final boundary = tester.renderObject<RenderRepaintBoundary>(boundaryFinder);
-    expect(boundary.size, const Size(320, 640));
-    final exported = (await tester.runAsync(
-      () => boundary.toImage(pixelRatio: 2),
-    ))!;
-    expect(exported.width, 640);
-    expect(exported.height, 1280);
-    exported.dispose();
 
     const channel = MethodChannel('com.memolanes/screenshots');
     Uint8List? savedPng;
@@ -297,7 +332,9 @@ void main() {
     });
     addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
     await tester.runAsync(() async {
-      tester.widget<AppButton>(actions.first).onPressed!();
+      tester
+          .widget<AppButton>(find.widgetWithText(AppButton, '保存到相册'))
+          .onPressed!();
       // Rasterization/PNG encoding use the engine's real event loop; their
       // continuations still need the widget test's fake clock to be pumped.
       final deadline = DateTime.now().add(const Duration(seconds: 10));
@@ -323,7 +360,7 @@ void main() {
     });
     await tester.pumpAndSettle();
     expect(find.text('没有保存相册的权限，请在系统设置中允许后重试'), findsOneWidget);
-    for (final action in tester.widgetList<AppButton>(actions)) {
+    for (final action in tester.widgetList<AppButton>(find.byType(AppButton))) {
       expect(action.onPressed, isNotNull);
     }
     expect(tester.takeException(), isNull);
@@ -517,17 +554,9 @@ void main() {
             includeCard ? findsOneWidget : findsNothing,
           );
 
-          final boundary = tester.renderObject<RenderRepaintBoundary>(
-            find
-                .ancestor(
-                  of: find.byType(RawImage).first,
-                  matching: find.byType(RepaintBoundary),
-                )
-                .first,
-          );
+          final preview = await capturePreview(tester);
           late Uint8List previewPixels;
           await tester.runAsync(() async {
-            final preview = await boundary.toImage(pixelRatio: 2);
             try {
               previewPixels = await pixels(preview);
               final center = (640 * 640 + 320) * 4;

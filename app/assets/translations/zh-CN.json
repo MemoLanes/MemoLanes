@@ -9,7 +9,7 @@
     "include_logo": "在右下角加入 Logo",
     "include_logo_top_right": "在右上角加入 Logo",
     "include_journey_info": "保留旅程信息",
-    "logo_unavailable": "Logo 尚未配置，当前可保存无 Logo 图片",
+    "logo_unavailable": "水印加载失败，当前可保存无水印图片",
     "save": "保存到相册",
     "saved": "图片已保存到相册",
     "not_ready": "地图或时间轴仍在加载，请稍后再试",
