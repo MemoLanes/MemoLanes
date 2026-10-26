@@ -142,6 +142,24 @@ class AppLayout {
   Axis get mapControlsAxis =>
       _mapControlsRegion.height < 260 ? Axis.horizontal : Axis.vertical;
 
+  /// The screenshot affordance shares the tools' clear pane and circle size.
+  Rect get screenshotControlBounds {
+    final available = geometry.insetRect(
+      _mapControlsRegion,
+      const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+    );
+    final extent = math.min(
+      StyleConstants.mapControlSize,
+      math.min(available.width, available.height),
+    );
+    return Rect.fromLTWH(
+      available.right - extent,
+      available.top,
+      extent,
+      extent,
+    );
+  }
+
   Rect get mapControlsBounds {
     final region = _mapControlsRegion;
     final horizontal = mapControlsAxis == Axis.horizontal;

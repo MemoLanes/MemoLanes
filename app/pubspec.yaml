@@ -90,6 +90,7 @@ dependencies:
   country_flags: ^4.1.2
   code_assets: ^2.1.0
   wolt_modal_sheet: 0.11.0
+  flutter_svg: ^2.3.0
 
 dependency_overrides:
   flutter_inappwebview_platform_interface:
@@ -145,6 +146,8 @@ flutter:
   uses-material-design: true
 
   assets:
+    - assets/screenshot_logo_en.svg
+    - assets/screenshot_logo_zh.svg
     - assets/translations/
     - assets/map_webview/
     - assets/geo/

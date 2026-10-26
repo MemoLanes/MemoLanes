@@ -53,6 +53,7 @@ declare global {
       flyto?: boolean,
     ) => void;
     getCurrentMapView?: () => string;
+    captureMapScreenshot?: () => Promise<string>;
     refreshMapData?: () => Promise<boolean | null>;
     flyToBounds?: (bounds: MapBounds, padding: MapPadding) => void;
     flyToView?: (view: MapView) => void;
@@ -199,6 +200,7 @@ export class FlutterBridge {
 
     // Refresh map data - allows Flutter to trigger a data refresh
     window.refreshMapData = () => this.mapController.refreshMapData();
+    window.captureMapScreenshot = () => this.mapController.captureScreenshot();
 
     // Focus a journey within the visible area above its Flutter detail card.
     window.flyToBounds = (bounds, padding) => {

@@ -3,5 +3,6 @@
 */
 
 "CFBundleDisplayName" = "迹忆";
+"NSPhotoLibraryAddUsageDescription" = "将你选择保存的旅途截图添加到相册。";
 "NSLocationAlwaysAndWhenInUseUsageDescription" = "此应用需要使用你的位置来记录轨迹";
 "NSLocationWhenInUseUsageDescription" = "此应用需要在后台使用你的位置来记录轨迹";

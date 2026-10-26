@@ -1,4 +1,23 @@
 {
+  "screenshot": {
+    "button_label": "截图",
+    "generating": "正在生成截图…",
+    "title": "旅途快照",
+    "content_options": "画面内容",
+    "journey_info_option": "旅程信息",
+    "logo_option": "Logo 水印",
+    "include_logo": "在右下角加入 Logo",
+    "include_logo_top_right": "在右上角加入 Logo",
+    "include_journey_info": "保留旅程信息",
+    "logo_unavailable": "水印加载失败，当前可保存无水印图片",
+    "save": "保存到相册",
+    "saved": "图片已保存到相册",
+    "not_ready": "地图或时间轴仍在加载，请稍后再试",
+    "failed": "生成截图失败，请等待地图加载完成后重试",
+    "save_failed": "保存失败，请检查设备可用空间后重试",
+    "share_failed": "分享失败，请重试",
+    "permission_denied": "没有保存相册的权限，请在系统设置中允许后重试"
+  },
   "home": {
     "start_new_journey": "开始新旅程",
     "pause": "暂停",

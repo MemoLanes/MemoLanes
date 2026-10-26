@@ -31,6 +31,7 @@ import notification_when_app_is_killed
     }
 
     DeviceRegionPlugin.register(with: registry)
+    ScreenshotPlugin.register(with: registry)
   }
 
   override func applicationWillTerminate(_ application: UIApplication) {

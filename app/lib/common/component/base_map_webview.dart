@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 import 'dart:io';
 
 import 'package:material_ui/material_ui.dart';
@@ -120,6 +121,33 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
 
   Future<void> runJavaScript(String javaScript) async {
     await _webViewController?.evaluateJavascript(source: javaScript);
+  }
+
+  /// Export only the map canvas, without Flutter controls or system chrome.
+  Future<Uint8List> captureScreenshot() async {
+    final controller = _webViewController;
+    if (controller == null || !_readyForDisplay || _pendingMapDataSync) {
+      throw StateError('Map is not ready for a screenshot');
+    }
+    final result = await controller
+        .callAsyncJavaScript(
+          functionBody: '''
+        const capture = window.captureMapScreenshot;
+        if (typeof capture !== 'function') {
+          throw new Error('Rebuild the bundled map assets to enable screenshots');
+        }
+        return await capture();
+      ''',
+        )
+        .timeout(const Duration(seconds: 20));
+    final value = result?.value;
+    const prefix = 'data:image/png;base64,';
+    if (result?.error != null ||
+        value is! String ||
+        !value.startsWith(prefix)) {
+      throw StateError('Map screenshot failed: ${result?.error}');
+    }
+    return base64Decode(value.substring(prefix.length));
   }
 
   /// Read the live camera before opening a journey, including recent gestures
