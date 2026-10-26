@@ -4,8 +4,8 @@ use journey_kernel::FTA_COMPRESSION_ZSTD;
 
 use super::render_tile_cache::{CachedRenderTile, RenderTileCache, RenderTileCacheKey};
 use super::tile_rasterizer;
-use crate::journey_area_utils;
-use crate::journey_bitmap::{JourneyBitmap, TileKey};
+use crate::journey_bitmap::area;
+use crate::journey_bitmap::{BitmapEditor, JourneyBitmap, TileKey};
 use crate::utils;
 use crate::utils::MapBounds;
 use std::collections::HashMap;
@@ -31,20 +31,19 @@ impl MapRenderer {
         }
     }
 
+    /// Apply incremental edits and invalidate caches for their changed tiles.
+    /// Use `replace` to replace the complete bitmap.
     pub fn update<F>(&mut self, f: F)
     where
-        F: FnOnce(&mut JourneyBitmap, &mut dyn FnMut(TileKey)),
+        F: FnOnce(&mut BitmapEditor<'_>),
     {
-        let mut changed_tiles = Vec::new();
-        f(&mut self.journey_bitmap, &mut |tile| {
-            changed_tiles.push(tile)
-        });
+        let mut editor = self.journey_bitmap.edit_tracked();
+        f(&mut editor);
+        let changed_tiles = editor.finish();
         if changed_tiles.is_empty() {
             return;
         }
 
-        changed_tiles.sort_unstable();
-        changed_tiles.dedup();
         for tile in &changed_tiles {
             self.tile_area_cache.remove(tile);
         }
@@ -97,10 +96,11 @@ impl MapRenderer {
 
     pub fn get_current_area(&mut self) -> u64 {
         *self.current_area.get_or_insert_with(|| {
-            journey_area_utils::journey_bitmap_area_m2_rounded(
+            let area = area::journey_bitmap_area_cm2(
                 &self.journey_bitmap,
                 Some(&mut self.tile_area_cache),
-            )
+            );
+            area::cm2_to_m2_rounded(area)
         })
     }
 

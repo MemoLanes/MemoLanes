@@ -279,8 +279,7 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
     }
   }
 
-  // TODO: We don't enough time to save if the app got killed. Losing data here
-  // is fine but we could consider saving every minute or so.
+  // Home camera updates persist as they arrive. Journey detail keeps the return view.
   void _saveMapState() {
     final mapView = widget.journeys.session?.returnView ?? _roughMapView;
     if (mapView == null) return;

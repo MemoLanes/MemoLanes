@@ -153,7 +153,7 @@ fn chn_worldview_demotes_hong_kong_and_macau_into_provinces_of_china() {
     // Through the normal parenting path they become Province entities that
     // keep their country-namespace identity.
     let tally = tally(&m, &[("HKG", &[("CHN", 5)]), ("MAC", &[("CHN", 5)])]);
-    let parents = resolve_province_parents(&m, &tally, Worldview::Chn).unwrap();
+    let parents = resolve_province_parents(&m, &tally, &blocks(&tally), Worldview::Chn).unwrap();
     attach_province_entities(&mut m, &parents);
     let hkg = m
         .entities
@@ -441,6 +441,15 @@ fn tally(model: &EntityModel, entries: &[(&str, &[(&str, u64)])]) -> Coverage {
     out
 }
 
+/// Province block totals for a tally whose provinces lie wholly inside the
+/// country mask.
+fn blocks(tally: &Coverage) -> Vec<u64> {
+    tally
+        .iter()
+        .map(|by_country| by_country.values().sum())
+        .collect()
+}
+
 #[test]
 fn provinces_become_entities_under_their_parent() {
     let mut model = model_with(&[prov("AAA-001", "AAA")]);
@@ -454,7 +463,8 @@ fn provinces_become_entities_under_their_parent() {
     );
 
     let tally = tally(&model, &[("AAA-001", &[("AAA", 10)])]);
-    let parents = resolve_province_parents(&model, &tally, Worldview::Iso).unwrap();
+    let parents =
+        resolve_province_parents(&model, &tally, &blocks(&tally), Worldview::Iso).unwrap();
     attach_province_entities(&mut model, &parents);
 
     let province = model
@@ -481,7 +491,8 @@ fn the_declared_country_outranks_the_block_majority() {
     let model = model_with(&[prov("AAA-001", "AAA")]);
     let tally = tally(&model, &[("AAA-001", &[("AAA", 1), ("BBB", 100)])]);
 
-    let parents = resolve_province_parents(&model, &tally, Worldview::Iso).unwrap();
+    let parents =
+        resolve_province_parents(&model, &tally, &blocks(&tally), Worldview::Iso).unwrap();
     assert_eq!(
         parents[&model.province_ids["AAA-001"]],
         country_id(&model, "AAA"),
@@ -496,10 +507,30 @@ fn block_majority_governs_a_declared_code_this_worldview_lacks() {
     let model = model_with(&[prov("AAA-001", "ZZZ")]);
     let tally = tally(&model, &[("AAA-001", &[("AAA", 1), ("BBB", 100)])]);
 
-    let parents = resolve_province_parents(&model, &tally, Worldview::Iso).unwrap();
+    let parents =
+        resolve_province_parents(&model, &tally, &blocks(&tally), Worldview::Iso).unwrap();
     assert_eq!(
         parents[&model.province_ids["AAA-001"]],
         country_id(&model, "BBB"),
+    );
+}
+
+/// Natural Earth's iso and usa admin-0 files leave the Siachen Glacier to no
+/// country, so the only covered blocks of that province are a sliver along
+/// China's edge. Most of the covered part is not most of the province.
+#[test]
+fn block_majority_over_a_sliver_of_the_province_is_no_parent() {
+    let model = model_with(&[prov("AAA-001", "ZZZ")]);
+    let tally = tally(&model, &[("AAA-001", &[("BBB", 5)])]);
+    let mut province_blocks = blocks(&tally);
+    province_blocks[model.province_ids["AAA-001"].0 as usize] = 100;
+
+    let err = resolve_province_parents(&model, &tally, &province_blocks, Worldview::Iso)
+        .unwrap_err()
+        .to_string();
+    assert!(
+        err.contains("AAA-001") && err.contains("unparented"),
+        "a mostly unclaimed province is landless, not BBB's: {err}"
     );
 }
 
@@ -507,7 +538,7 @@ fn block_majority_governs_a_declared_code_this_worldview_lacks() {
 fn a_province_with_no_land_at_all_is_an_error() {
     let model = model_with(&[prov("AAA-001", "AAA")]);
 
-    let err = resolve_province_parents(&model, &Coverage::new(), Worldview::Iso)
+    let err = resolve_province_parents(&model, &Coverage::new(), &[], Worldview::Iso)
         .unwrap_err()
         .to_string();
     assert!(
@@ -529,7 +560,7 @@ fn a_declared_parent_holding_none_of_the_province_is_an_error() {
     let model = model_with(&[prov("AAA-001", "AAA")]);
     let tally = tally(&model, &[("AAA-001", &[("BBB", 100)])]);
 
-    let err = resolve_province_parents(&model, &tally, Worldview::Iso)
+    let err = resolve_province_parents(&model, &tally, &blocks(&tally), Worldview::Iso)
         .unwrap_err()
         .to_string();
     assert!(
@@ -548,7 +579,7 @@ fn a_declared_parent_holding_none_of_the_province_is_an_error() {
 fn every_landless_province_is_reported_in_one_run() {
     let model = model_with(&[prov("AAA-001", "AAA"), prov("AAA-002", "AAA")]);
 
-    let err = resolve_province_parents(&model, &Coverage::new(), Worldview::Iso)
+    let err = resolve_province_parents(&model, &Coverage::new(), &[], Worldview::Iso)
         .unwrap_err()
         .to_string();
     assert!(
@@ -579,7 +610,7 @@ fn a_listed_landless_province_is_skipped() {
     // country raster has a hole there and its declared country holds none of it.
     let model = model_with_one_real_province("RUS-283", "AAA");
 
-    let parents = resolve_province_parents(&model, &Coverage::new(), Worldview::Iso).unwrap();
+    let parents = resolve_province_parents(&model, &Coverage::new(), &[], Worldview::Iso).unwrap();
     assert!(
         parents.is_empty(),
         "a listed landless province must get no parent"
@@ -602,7 +633,7 @@ fn the_skip_list_is_keyed_by_worldview_not_by_code() {
     // listed there, so a landless one is still a hard error.
     let model = model_with_one_real_province("GUY-680", "AAA");
 
-    let err = resolve_province_parents(&model, &Coverage::new(), Worldview::Chn)
+    let err = resolve_province_parents(&model, &Coverage::new(), &[], Worldview::Chn)
         .unwrap_err()
         .to_string();
     assert!(
@@ -619,7 +650,7 @@ fn a_listed_province_that_gained_land_is_an_error() {
     let model = model_with_one_real_province("RUS-283", "AAA");
     let tally = tally(&model, &[("RUS-283", &[("AAA", 10)])]);
 
-    let err = resolve_province_parents(&model, &tally, Worldview::Iso)
+    let err = resolve_province_parents(&model, &tally, &blocks(&tally), Worldview::Iso)
         .unwrap_err()
         .to_string();
     assert!(
@@ -673,7 +704,8 @@ fn a_reviewed_override_lets_the_mask_beat_the_declared_parent() {
     let model = crimea_model();
     let tally = tally(&model, &[("RUS-283", &[("UKR", 143191)])]);
 
-    let parents = resolve_province_parents(&model, &tally, Worldview::Chn).unwrap();
+    let parents =
+        resolve_province_parents(&model, &tally, &blocks(&tally), Worldview::Chn).unwrap();
     assert_eq!(
         parents[&model.province_ids["RUS-283"]],
         country_id(&model, "UKR"),
@@ -685,7 +717,7 @@ fn an_override_the_mask_no_longer_supports_is_an_error() {
     let model = crimea_model();
     let tally = tally(&model, &[("RUS-283", &[("RUS", 143191)])]);
 
-    let err = resolve_province_parents(&model, &tally, Worldview::Chn)
+    let err = resolve_province_parents(&model, &tally, &blocks(&tally), Worldview::Chn)
         .unwrap_err()
         .to_string();
     assert!(
@@ -759,7 +791,8 @@ fn the_override_list_is_keyed_by_worldview_too() {
     let model = crimea_model();
     let tally = tally(&model, &[("RUS-283", &[("UKR", 143191)])]);
 
-    let parents = resolve_province_parents(&model, &tally, Worldview::Iso).unwrap();
+    let parents =
+        resolve_province_parents(&model, &tally, &blocks(&tally), Worldview::Iso).unwrap();
     assert!(
         parents.is_empty(),
         "iso lists RUS-283 as landless, not as mask-overruled"

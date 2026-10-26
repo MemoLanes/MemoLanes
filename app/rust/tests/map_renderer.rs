@@ -12,7 +12,9 @@ const END_LAT: f64 = -33.943600147192235;
 #[test]
 fn basic() {
     let mut journey_bitmap = JourneyBitmap::new();
-    journey_bitmap.add_line(START_LNG, START_LAT, END_LNG, END_LAT);
+    journey_bitmap
+        .edit()
+        .add_line(START_LNG, START_LAT, END_LNG, END_LAT);
 
     let mut map_renderer = MapRenderer::new(journey_bitmap);
 
@@ -35,34 +37,161 @@ fn basic() {
 #[test]
 fn no_op_update_preserves_version_and_real_update_invalidates_it() {
     let mut renderer = MapRenderer::new(JourneyBitmap::new());
-    renderer.update(|bitmap, changed| {
-        bitmap.add_line_with_change_callback(START_LNG, START_LAT, END_LNG, END_LAT, changed);
+    renderer.update(|editor| {
+        editor.add_line(START_LNG, START_LAT, END_LNG, END_LAT);
     });
     let version = renderer.get_current_version();
     let version_string = renderer.get_version_string();
     let area = renderer.get_current_area();
 
-    renderer.update(|bitmap, changed| {
-        bitmap.add_line_with_change_callback(START_LNG, START_LAT, END_LNG, END_LAT, changed);
+    renderer.update(|editor| {
+        editor.add_line(START_LNG, START_LAT, END_LNG, END_LAT);
     });
 
     assert_eq!(renderer.get_current_version(), version);
     assert!(renderer.matches_version(Some(&version_string)));
     assert_eq!(renderer.get_current_area(), area);
 
-    renderer.update(|bitmap, changed| {
-        bitmap.add_line_with_change_callback(
-            START_LNG + 1.0,
-            START_LAT,
-            END_LNG + 1.0,
-            END_LAT,
-            changed,
-        );
+    renderer.update(|editor| {
+        editor.add_line(START_LNG + 1.0, START_LAT, END_LNG + 1.0, END_LAT);
     });
 
     assert_eq!(renderer.get_current_version(), version.wrapping_add(1));
     assert!(!renderer.matches_version(Some(&version_string)));
     assert!(renderer.get_current_area() > area);
+}
+
+#[test]
+fn validation_invalidates_cached_block_occupancy_for_lazy_and_decoded_tiles() {
+    use memolanes_core::journey_bitmap::{Block, BlockKey, Tile, TileKey};
+
+    let key = TileKey::mercator(300, 200);
+    let query = |renderer: &mut MapRenderer| {
+        renderer
+            .get_tile_range_response(300, 200, 9, 1, 1, 6)
+            .unwrap()
+    };
+    for lazy in [false, true] {
+        let mut tile = Tile::new();
+        tile.set(&BlockKey::from_x_y(0, 0), Block::new());
+        let mut block = Block::new();
+        block.set_point(63, 63, true);
+        tile.set(&BlockKey::from_x_y(127, 127), block);
+        let mut bitmap = JourneyBitmap::new();
+        if lazy {
+            bitmap
+                .edit()
+                .insert_tile_bytes(key, tile.serialize())
+                .unwrap();
+        } else {
+            bitmap.edit().insert_tile(&key, tile);
+        }
+        let mut renderer = MapRenderer::new(bitmap);
+        // Coarse rendering caches block presence without decoding lazy tiles.
+        let before = query(&mut renderer);
+        let version = renderer.get_current_version();
+
+        renderer.update(|editor| editor.validate().unwrap());
+
+        assert_eq!(renderer.get_current_version(), version + 1, "lazy={lazy}");
+        let after = query(&mut renderer);
+        let mut fresh = MapRenderer::new(renderer.peek_latest_bitmap().clone());
+        assert_ne!(after, before, "lazy={lazy}");
+        assert_eq!(after, query(&mut fresh), "lazy={lazy}");
+
+        // A second validation makes no edits and must preserve the version.
+        renderer.update(|editor| editor.validate().unwrap());
+        assert_eq!(renderer.get_current_version(), version + 1, "lazy={lazy}");
+        assert_eq!(query(&mut renderer), after, "lazy={lazy}");
+    }
+}
+
+#[test]
+fn scoped_edits_invalidate_cached_tiles_and_area_across_mutation_paths() {
+    use memolanes_core::journey_bitmap::{Block, BlockKey, Tile, TileKey};
+
+    let block_key = BlockKey::from_x_y(0, 0);
+    let tile_with = |points: &[u8]| {
+        let mut block = Block::new();
+        for &x in points {
+            block.set_point(x, 0, true);
+        }
+        let mut tile = Tile::new();
+        tile.set(&block_key, block);
+        tile
+    };
+    let bitmap_with = |entries: &[(TileKey, &[u8])]| {
+        let mut bitmap = JourneyBitmap::new();
+        for &(key, points) in entries {
+            bitmap.edit().insert_tile(&key, tile_with(points));
+        }
+        bitmap
+    };
+    let first = TileKey::mercator(300, 200);
+    let second = TileKey::mercator(301, 200);
+    let third = TileKey::mercator(302, 200);
+    let mut renderer = MapRenderer::new(bitmap_with(&[(first, &[0])]));
+    let partial_merge = bitmap_with(&[(first, &[32]), (second, &[0])]);
+    let keep = bitmap_with(&[(first, &[32])]);
+    let expected: &[&[(TileKey, &[u8])]] = &[
+        &[(first, &[16])],
+        &[(first, &[16, 32]), (second, &[0])],
+        &[(first, &[32, 48]), (second, &[0])],
+        &[(first, &[32, 48]), (second, &[0]), (third, &[0])],
+        &[(first, &[32])],
+        &[],
+    ];
+    let query = |renderer: &mut MapRenderer, key: TileKey| {
+        let TileKey::Mercator { x, y } = key else {
+            panic!("rendering test requires a Mercator tile, got {key:?}");
+        };
+        renderer
+            .get_tile_range_response(x.into(), y.into(), 9, 1, 1, 10)
+            .unwrap()
+    };
+    // Prime both populated and empty cache entries before any edit. Each round
+    // then leaves the caches warm for the next, including after tile deletion.
+    renderer.get_current_area();
+    for key in [first, second, third] {
+        query(&mut renderer, key);
+    }
+
+    for (step, entries) in expected.iter().enumerate() {
+        let version = renderer.get_current_version();
+        renderer.update(|editor| match step {
+            0 => editor
+                .insert_tile_bytes(first, tile_with(&[16]).serialize())
+                .unwrap(),
+            1 => editor.merge_with_partial_clone(&partial_merge),
+            2 => {
+                let (_, block) = editor
+                    .get_tile_mut(&first)
+                    .unwrap()
+                    .iter_mut()
+                    .next()
+                    .unwrap();
+                block.set_point(16, 0, false);
+                block.set_point(48, 0, true);
+            }
+            3 => *editor.get_tile_mut_or_insert_empty(&third) = tile_with(&[0]),
+            4 => editor.intersection(&keep),
+            5 => editor.difference(&keep),
+            _ => unreachable!(),
+        });
+
+        let expected_bitmap = bitmap_with(entries);
+        assert_eq!(renderer.peek_latest_bitmap(), &expected_bitmap);
+        assert_eq!(renderer.get_current_version(), version.wrapping_add(1));
+        let mut fresh = MapRenderer::new(expected_bitmap);
+        assert_eq!(renderer.get_current_area(), fresh.get_current_area());
+        for key in [first, second, third] {
+            assert_eq!(
+                query(&mut renderer, key),
+                query(&mut fresh, key),
+                "step {step}, {key:?}"
+            );
+        }
+    }
 }
 
 #[test]
@@ -80,8 +209,8 @@ fn source_update_changes_only_the_overlapping_rendered_tile() {
         .get_tile_range_response(i64::from(adjacent_x), i64::from(source_y), 9, 1, 1, 6)
         .unwrap();
 
-    renderer.update(|bitmap, changed| {
-        bitmap.add_line_with_change_callback(lng, lat, lng + 0.0001, lat + 0.0001, changed);
+    renderer.update(|editor| {
+        editor.add_line(lng, lat, lng + 0.0001, lat + 0.0001);
     });
 
     let adjacent_after = renderer
@@ -125,8 +254,8 @@ fn source_update_changes_overlapping_fine_and_coarse_rendered_tiles() {
         )
         .unwrap();
 
-    renderer.update(|bitmap, changed| {
-        bitmap.add_line_with_change_callback(lng, lat, lng + 0.0001, lat + 0.0001, changed);
+    renderer.update(|editor| {
+        editor.add_line(lng, lat, lng + 0.0001, lat + 0.0001);
     });
 
     let unrelated_after = renderer
@@ -154,7 +283,7 @@ fn source_update_changes_overlapping_fine_and_coarse_rendered_tiles() {
 #[test]
 fn replace_discards_cached_content_and_empty_results_at_all_resolutions() {
     let mut source = JourneyBitmap::new();
-    source.add_line(114.2, 22.7, 114.21, 22.71);
+    source.edit().add_line(114.2, 22.7, 114.21, 22.71);
     let mut renderer = MapRenderer::new(source.clone());
     let query = |renderer: &mut MapRenderer, zoom: i16| {
         let (x, y) = lng_lat_to_tile_x_y(114.2, 22.7, i32::from(zoom));
@@ -187,7 +316,7 @@ fn wrapped_world_requests_preserve_coordinates_and_see_source_updates() {
     let (lng, lat) = (-179.8, 22.7);
     let (x, y) = lng_lat_to_tile_x_y(lng, lat, 9);
     let mut source = JourneyBitmap::new();
-    source.add_line(lng, lat, lng + 0.01, lat + 0.01);
+    source.edit().add_line(lng, lat, lng + 0.01, lat + 0.01);
     let mut renderer = MapRenderer::new(source);
 
     // Start with cached empty results, then invalidate them while recording.
@@ -197,8 +326,8 @@ fn wrapped_world_requests_preserve_coordinates_and_see_source_updates() {
             .get_tile_range_response(i64::from(x) + world_offset, i64::from(y), 9, 2, 1, 6)
             .unwrap();
     }
-    empty_renderer.update(|bitmap, changed| {
-        bitmap.add_line_with_change_callback(lng, lat, lng + 0.01, lat + 0.01, changed);
+    empty_renderer.update(|editor| {
+        editor.add_line(lng, lat, lng + 0.01, lat + 0.01);
     });
 
     let reference = renderer
@@ -230,9 +359,8 @@ fn rasterized_tile_ranges_match_snapshot() {
     use journey_kernel::tile_range::decompress_tile_range_response;
     use sha2::{Digest, Sha256};
 
-    // Captured from the renderer before the rasterizer refactor. Hash the
-    // uncompressed response to cover base pixels and every LOD independently
-    // of the compression implementation. Include source zoom boundaries,
+    // Hash the spherical add_line output through the existing renderer. Cover
+    // base pixels and every LOD independently of compression, including source zoom boundaries,
     // coarse occupancy, fine pixels, empty regions and the antimeridian.
     let mut source = JourneyBitmap::new();
     for (x0, y0, x1, y1) in [
@@ -241,7 +369,7 @@ fn rasterized_tile_ranges_match_snapshot() {
         (-179.99, 22.70, -179.70, 22.71),
         (179.99, 22.70, -179.99, 22.71),
     ] {
-        source.add_line(x0, y0, x1, y1);
+        source.edit().add_line(x0, y0, x1, y1);
     }
     let mut renderer = MapRenderer::new(source);
     for (zoom, expected) in [
@@ -251,15 +379,15 @@ fn rasterized_tile_ranges_match_snapshot() {
         ),
         (
             8_i16,
-            "91753a90a8da0862b06ef8dea54ccbbe9fa4b8dd7c9961a62a255dddafed5fe6",
+            "1f98b05c4ef27271b0aef76b5116822d792422291fa4eacae4f01ec1c1852179",
         ),
         (
             9_i16,
-            "360d39a25960e4de1c607d8b53b19b2cc5f5696c1d425582ff6d13406a4d269d",
+            "e14964ad667b9c2bb6ab3c0da66a3e674faebf53a99c969e50edd5601cb5a37c",
         ),
         (
             16_i16,
-            "492543abf49b02bb91ed7ce593062f940560fe2719ef9648e1f49d274fcf10c9",
+            "7a29c6e3d61c806f5f1bfe8dc7476593655d9972f0d872f38048a383c4f221ce",
         ),
     ] {
         let mut digest = Sha256::new();

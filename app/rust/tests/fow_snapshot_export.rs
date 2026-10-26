@@ -1,7 +1,7 @@
 use flate2::read::ZlibDecoder;
 use memolanes_core::export_data;
 use memolanes_core::import_data;
-use memolanes_core::journey_bitmap::{JourneyBitmap, TileKey};
+use memolanes_core::journey_bitmap::{Block, BlockKey, JourneyBitmap, Tile, TileKey};
 use memolanes_core::renderer::MapRenderer;
 use memolanes_core::utils;
 use std::collections::BTreeSet;
@@ -29,6 +29,46 @@ fn export_source_snapshot() -> Vec<u8> {
     let mut fwss = Cursor::new(Vec::new());
     export_data::fow::journey_bitmap_to_fwss_file(&bitmap, &mut fwss).unwrap();
     fwss.into_inner()
+}
+
+#[test]
+fn fow_export_omits_polar_tiles_from_payloads_index_layers_and_area() {
+    let mut block = Block::new();
+    block.set_point(10, 20, true);
+    let mut tile = Tile::new();
+    tile.set(&BlockKey::from_x_y(0, 0), block);
+    let mut mercator = JourneyBitmap::new();
+    mercator
+        .edit()
+        .insert_tile(&TileKey::Mercator { x: 64, y: 64 }, tile.clone());
+    let mut mixed = mercator.clone();
+    // Both polar keys deliberately reuse the Mercator tile's coordinates.
+    for key in [
+        TileKey::NorthPolar { x: 64, y: 64 },
+        TileKey::SouthPolar { x: 64, y: 64 },
+    ] {
+        mixed.edit().insert_tile(&key, tile.clone());
+    }
+    let mut expected = Cursor::new(Vec::new());
+    let mut actual = Cursor::new(Vec::new());
+    export_data::fow::journey_bitmap_to_fwss_file(&mercator, &mut expected).unwrap();
+    export_data::fow::journey_bitmap_to_fwss_file(&mixed, &mut actual).unwrap();
+
+    // Compare the entire archive, including derived layers and area metadata.
+    assert_eq!(actual.into_inner(), expected.into_inner());
+}
+
+#[test]
+fn fow_export_with_no_mercator_coverage_has_no_data_to_export() {
+    for latitude in [90.0, -90.0] {
+        let mut bitmap = JourneyBitmap::new();
+        bitmap.edit().add_line(0.0, latitude, 0.0, latitude);
+        let mut output = Cursor::new(Vec::new());
+        let error =
+            export_data::fow::journey_bitmap_to_fwss_file(&bitmap, &mut output).unwrap_err();
+        assert_eq!(error.to_string(), "No Fog of World data to export");
+        assert!(output.get_ref().is_empty());
+    }
 }
 
 fn zip_entry_names_from_path(path: &str) -> BTreeSet<String> {
@@ -62,16 +102,23 @@ fn inflate_zip_entry(fwss: &[u8], path: &str) -> Vec<u8> {
 fn render_first_tile(bitmap: JourneyBitmap) -> Vec<u8> {
     let tile_key = bitmap
         .all_tile_keys()
-        .min_by_key(|tile_key| (tile_key.y, tile_key.x))
+        .min_by_key(|tile_key| match **tile_key {
+            TileKey::Mercator { x, y } => (y, x),
+            TileKey::NorthPolar { .. } | TileKey::SouthPolar { .. } => {
+                panic!("snapshot fixture requires Mercator tiles");
+            }
+        })
         .copied()
         .unwrap_or_else(|| panic!("snapshot fixture should contain at least one tile"));
     render_tile(bitmap, tile_key)
 }
 
 fn render_tile(bitmap: JourneyBitmap, tile_key: TileKey) -> Vec<u8> {
-    let (left, top) = utils::tile_x_y_to_lng_lat(tile_key.x as i32, tile_key.y as i32, 9);
-    let (right, bottom) =
-        utils::tile_x_y_to_lng_lat(tile_key.x as i32 + 1, tile_key.y as i32 + 1, 9);
+    let TileKey::Mercator { x, y } = tile_key else {
+        panic!("snapshot rendering requires a Mercator tile, got {tile_key:?}");
+    };
+    let (left, top) = utils::tile_x_y_to_lng_lat(x as i32, y as i32, 9);
+    let (right, bottom) = utils::tile_x_y_to_lng_lat(x as i32 + 1, y as i32 + 1, 9);
     let mut renderer = MapRenderer::new(bitmap);
     test_utils::render_map_overlay(&mut renderer, 9, left, top, right, bottom).data
 }
@@ -109,13 +156,16 @@ fn generated_fwss_tile_index_matches_exported_base_tiles() {
     );
 
     for tile_key in bitmap.all_tile_keys() {
-        let offset = ((tile_key.y as usize * 512) + tile_key.x as usize) / 8;
+        let TileKey::Mercator { x, y } = *tile_key else {
+            panic!("snapshot tile index requires a Mercator tile, got {tile_key:?}");
+        };
+        let offset = ((y as usize * 512) + x as usize) / 8;
         assert_ne!(
-            tile_index[offset] & (1 << (tile_key.x % 8)),
+            tile_index[offset] & (1 << (x % 8)),
             0,
             "missing low-bit-first index bit for tile ({}, {})",
-            tile_key.x,
-            tile_key.y
+            x,
+            y
         );
     }
 }
