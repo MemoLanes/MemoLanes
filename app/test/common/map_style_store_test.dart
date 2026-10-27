@@ -8,13 +8,12 @@ import 'package:memolanes/common/mmkv_util.dart';
 MapStyle _custom({
   String id = 'custom:one',
   String url = 'https://example.com/style.json?key=user-key',
-  String copyright = 'Manual credit',
+  String name = 'My basemap',
   MapStyleType type = MapStyleType.style,
 }) => MapStyle(
   id: id,
-  customName: 'My basemap',
+  customName: name,
   url: url,
-  copyright: copyright,
   type: type,
   tileSize: 512,
   scheme: MapTileScheme.tms,
@@ -52,7 +51,6 @@ void main() {
     store.save(custom, selectAfterSaving: true);
     final restored = openStore().selected;
     expect(restored.toJson(), custom.toJson());
-    expect(restored.copyright, custom.copyright);
     // These are the parameters JSON-encoded by the native WebView bridge.
     final injected = jsonDecode(jsonEncode(restored.mapLibreStyle));
     final source = injected['sources']['basemap'];
@@ -98,35 +96,35 @@ void main() {
     },
   );
 
-  test('loaded source attribution supplements manual credits and rejects stale maps', () {
-    final first = _custom();
-    store.save(first);
-    store.recordSourceAttributions(first, [
-      ' Source credit ',
-      '',
-      'Source credit',
-    ]);
-    expect(store.copyrightEntries(first), ['Source credit', 'Manual credit']);
+  test(
+    'loaded source attribution follows renderer changes and rejects stale maps',
+    () {
+      final first = _custom();
+      store.save(first);
+      store.recordSourceAttributions(first, [
+        ' Source credit ',
+        '',
+        'Source credit',
+      ]);
+      expect(store.copyrightEntries(first), ['Source credit']);
 
-    final creditsOnlyEdit = _custom(copyright: 'Updated manual credit');
-    store.save(creditsOnlyEdit);
-    expect(store.copyrightEntries(creditsOnlyEdit), [
-      'Source credit',
-      'Updated manual credit',
-    ]);
+      final renamed = _custom(name: 'Renamed map');
+      store.save(renamed);
+      expect(store.copyrightEntries(renamed), ['Source credit']);
 
-    final edited = _custom(url: 'https://other.example.com/style.json');
-    store.save(edited);
-    store.recordSourceAttributions(first, ['Late old source']);
-    expect(store.copyrightEntries(edited), ['Manual credit']);
-    store.recordSourceAttributions(edited, ['New source']);
-    expect(store.copyrightEntries(edited), ['New source', 'Manual credit']);
+      final edited = _custom(url: 'https://other.example.com/style.json');
+      store.save(edited);
+      store.recordSourceAttributions(first, ['Late old source']);
+      expect(store.copyrightEntries(edited), isEmpty);
+      store.recordSourceAttributions(edited, ['New source']);
+      expect(store.copyrightEntries(edited), ['New source']);
 
-    store.delete(edited.id);
-    store.recordSourceAttributions(edited, ['Late deleted source']);
-    store.save(edited);
-    expect(store.copyrightEntries(edited), ['Manual credit']);
-  });
+      store.delete(edited.id);
+      store.recordSourceAttributions(edited, ['Late deleted source']);
+      store.save(edited);
+      expect(store.copyrightEntries(edited), isEmpty);
+    },
+  );
 
   test('failed saves and selections preserve the current map', () {
     final custom = _custom();
@@ -156,16 +154,13 @@ void main() {
       expect(openStore().selected.id, expectedId);
       expect(displayed.id, expectedId);
       expect(store.customStyles.single.id, custom.id);
-      expect(store.copyrightEntries(custom), [
-        'Loaded credit',
-        'Manual credit',
-      ]);
+      expect(store.copyrightEntries(custom), ['Loaded credit']);
 
       failedKeys.clear();
       store.delete(custom.id);
       expect(openStore().selected.id, MapStyle.all.first.id);
       expect(store.customStyles, isEmpty);
-      expect(store.copyrightEntries(custom), ['Manual credit']);
+      expect(store.copyrightEntries(custom), isEmpty);
     });
   }
 

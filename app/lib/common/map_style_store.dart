@@ -118,11 +118,11 @@ class MapStyleStore extends ChangeNotifier {
   }
 
   List<String> copyrightEntries(MapStyle style) {
+    if (!style.isCustom) return [style.copyright];
     final loaded = _sourceAttributions[style.id];
-    return {
-      if (loaded?.style.hasSameRenderer(style) == true) ...loaded!.entries,
-      if (style.copyright.trim().isNotEmpty) style.copyright.trim(),
-    }.toList();
+    return loaded?.style.hasSameRenderer(style) == true
+        ? loaded!.entries.toList()
+        : [];
   }
 
   void _put(String key, String value) {

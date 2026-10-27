@@ -75,7 +75,7 @@ All parameters are optional except `cgi_endpoint` which is required.
 Flutter converts image tile templates into standard MapLibre raster styles and
 passes them through the same `basemap.style` field as remote style URLs. URLs
 retain any credentials and query parameters supplied by the user. The host
-stores custom basemap configurations and optional attribution locally.
+stores custom basemap configurations locally.
 Source attribution loaded from styles or TileJSON is sent to Flutter through
 `window.onMapAttributionChanged` as `{requestId, entries}` JSON containing Markdown strings.
 The request ID comes from the applied style's metadata, so pending selections

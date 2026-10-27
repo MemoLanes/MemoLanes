@@ -172,7 +172,6 @@ class _MapStyleEditorPageState extends State<_MapStyleEditorPage> {
   final _form = GlobalKey<FormState>();
   late final TextEditingController _name;
   late final TextEditingController _url;
-  late final TextEditingController _copyright;
   late final String _id;
   late MapStyleType _type;
   late int _tileSize;
@@ -187,7 +186,6 @@ class _MapStyleEditorPageState extends State<_MapStyleEditorPage> {
     _id = initial?.id ?? 'custom:${const Uuid().v4()}';
     _name = TextEditingController(text: initial?.customName ?? '');
     _url = TextEditingController(text: initial?.url ?? '');
-    _copyright = TextEditingController(text: initial?.copyright ?? '');
     _type = initial?.type ?? MapStyleType.style;
     _tileSize = initial?.tileSize ?? 256;
     _scheme = initial?.scheme ?? MapTileScheme.xyz;
@@ -197,7 +195,6 @@ class _MapStyleEditorPageState extends State<_MapStyleEditorPage> {
   void dispose() {
     _name.dispose();
     _url.dispose();
-    _copyright.dispose();
     super.dispose();
   }
 
@@ -227,7 +224,6 @@ class _MapStyleEditorPageState extends State<_MapStyleEditorPage> {
       id: _id,
       customName: _name.text.trim(),
       url: _url.text.trim(),
-      copyright: _copyright.text.trim(),
       type: _type,
       tileSize: _tileSize,
       scheme: _scheme,
@@ -405,20 +401,6 @@ class _MapStyleEditorPageState extends State<_MapStyleEditorPage> {
                 ],
               ),
             ],
-            const SizedBox(height: 20),
-            TextFormField(
-              controller: _copyright,
-              minLines: 2,
-              maxLines: 5,
-              decoration: _decoration(
-                'attribution',
-                helper: context.tr(
-                  _type == MapStyleType.raster
-                      ? '$_strings.attribution_raster_help'
-                      : '$_strings.attribution_style_help',
-                ),
-              ),
-            ),
             const SizedBox(height: 24),
             if (_error != null) ...[
               Text(

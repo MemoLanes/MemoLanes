@@ -90,7 +90,6 @@ void main() {
     await tapVisible(find.text('512 px').last);
     await tapVisible(find.text('XYZ'));
     await tapVisible(find.text('TMS').last);
-    await tester.enterText(find.byType(TextFormField).at(2), '© Tile provider');
     await tapVisible(find.text('Save and use'));
     expect(find.text('My tiles'), findsOneWidget);
     final id = store.selected.id;
@@ -110,7 +109,6 @@ void main() {
     await tapVisible(find.byTooltip('Edit basemap'));
     expect(store.selected.id, MapStyle.all.first.id);
     await tester.enterText(find.byType(TextFormField).at(0), 'Renamed map');
-    await tester.enterText(find.byType(TextFormField).at(2), '');
     await tapVisible(find.text('Save'));
     expect(find.text('Renamed map'), findsOneWidget);
     expect(store.customStyles, hasLength(1));

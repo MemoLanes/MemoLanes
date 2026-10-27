@@ -10,8 +10,8 @@ class MapStyle {
   const MapStyle({
     required this.id,
     required this.url,
-    required this.copyright,
     required this.fogOpacityByStyle,
+    this.copyright = '',
     this.customName,
     this.type = MapStyleType.style,
     this.tileSize = 256,
@@ -20,6 +20,8 @@ class MapStyle {
 
   final String id;
   final String url;
+
+  /// Fixed attribution for built-in basemaps; custom maps use source metadata.
   final String copyright;
   final String? customName;
   final MapStyleType type;
@@ -58,7 +60,6 @@ class MapStyle {
     'name': customName!,
     'url': url,
     'type': type.name,
-    'copyright': copyright,
     'tileSize': tileSize,
     'scheme': scheme.name,
   };
@@ -67,7 +68,6 @@ class MapStyle {
     final id = json['id'];
     final name = json['name'];
     final url = json['url'];
-    final copyright = json['copyright'] ?? '';
     final type = json['type'];
     final tileSize = json['tileSize'] ?? 256;
     final scheme = json['scheme'] ?? 'xyz';
@@ -77,7 +77,6 @@ class MapStyle {
         name.trim().isEmpty ||
         url is! String ||
         url.trim().isEmpty ||
-        copyright is! String ||
         (type != 'style' && type != 'raster') ||
         tileSize is! int ||
         (tileSize != 256 && tileSize != 512) ||
@@ -88,7 +87,6 @@ class MapStyle {
       id: id,
       customName: name,
       url: url,
-      copyright: copyright,
       type: type == 'raster' ? MapStyleType.raster : MapStyleType.style,
       tileSize: tileSize,
       scheme: scheme == 'tms' ? MapTileScheme.tms : MapTileScheme.xyz,
