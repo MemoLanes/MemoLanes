@@ -23,7 +23,7 @@ void main() {
     await EasyLocalization.ensureInitialized();
   });
 
-  testWidgets('add, edit and delete a raster basemap in a narrow viewport', (
+  testWidgets('add, edit and delete a raster map style in a narrow viewport', (
     tester,
   ) async {
     tester.view.devicePixelRatio = 1;
@@ -69,7 +69,7 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    await tapVisible(find.text('Add basemap'));
+    await tapVisible(find.text('Add style'));
     await tester.enterText(find.byType(TextFormField).at(0), 'My tiles');
     await tapVisible(find.text('Image tiles'));
     await tester.enterText(
@@ -106,7 +106,7 @@ void main() {
       matching: find.byType(AppOptionTile),
     );
     expect(tester.widget<AppOptionTile>(defaultOption).selected, isTrue);
-    await tapVisible(find.byTooltip('Edit basemap'));
+    await tapVisible(find.byTooltip('Edit style'));
     expect(store.selected.id, MapStyle.all.first.id);
     await tester.enterText(find.byType(TextFormField).at(0), 'Renamed map');
     await tapVisible(find.text('Save'));
@@ -116,7 +116,7 @@ void main() {
     await tapVisible(find.text('Renamed map'));
     expect(store.selected.id, id);
 
-    await tapVisible(find.text('View current map attribution'));
+    await tapVisible(find.text('View current style attribution'));
     expect(
       tester.widget<MarkdownBody>(find.byType(MarkdownBody)).data,
       '**Renamed map**',
@@ -124,13 +124,13 @@ void main() {
     Navigator.of(tester.element(find.byType(MarkdownBody))).pop();
     await tester.pumpAndSettle();
 
-    await tapVisible(find.byTooltip('Edit basemap'));
-    await tapVisible(find.text('Delete basemap'));
+    await tapVisible(find.byTooltip('Edit style'));
+    await tapVisible(find.text('Delete style'));
     expect(
-      find.textContaining('will switch to the default basemap'),
+      find.textContaining('will switch to the default style'),
       findsOneWidget,
     );
-    await tapVisible(find.text('Delete basemap').hitTestable().last);
+    await tapVisible(find.text('Delete style').hitTestable().last);
     expect(store.customStyles, isEmpty);
     expect(store.selected.id, MapStyle.all.first.id);
     expect(find.text('Renamed map'), findsNothing);

@@ -296,7 +296,7 @@
     },
     "map_settings": {
       "title": "Map Settings",
-      "style": "Basemap",
+      "style": "Map Style",
       "fog_mode": "Fog Mode",
       "fog_mode_name": {
         "dark": "Dark",
@@ -307,17 +307,17 @@
         "openfreemap": "OpenFreeMap"
       },
       "basemaps": {
-        "title": "Basemaps",
-        "built_in": "Built-in maps",
-        "my_maps": "My maps",
-        "empty": "No custom basemaps yet. Add a map link to get started.",
-        "add": "Add basemap",
-        "edit": "Edit basemap",
-        "copyright": "View current map attribution",
+        "title": "Map Styles",
+        "built_in": "Built-in styles",
+        "my_maps": "Custom styles",
+        "empty": "No custom styles yet. Add a map link to get started.",
+        "add": "Add style",
+        "edit": "Edit style",
+        "copyright": "View current style attribution",
         "type_style": "Map style",
         "type_raster": "Image tiles",
-        "name": "Basemap name",
-        "name_hint": "Name your basemap",
+        "name": "Style name",
+        "name_hint": "Name your style",
         "style_url": "Style URL",
         "tile_url": "Tile URL",
         "style_url_help": "Enter a complete map style URL, including any parameters it requires.",
@@ -329,15 +329,15 @@
         "invalid_url": "Enter a complete HTTP or HTTPS URL",
         "invalid_tiles": "The tile URL must include {z}, {x}, and {y}",
         "write_failed": "Could not save. Please try again.",
-        "fallback_message": "Custom basemap could not load. Switched to the default map.",
-        "fallback_save_failed": "The basemap could not load and settings could not be saved. Please select a basemap again.",
+        "fallback_message": "Custom style could not load. Switched to the default style.",
+        "fallback_save_failed": "The map style could not load and settings could not be saved. Please select a style again.",
         "save_and_use": "Save and use",
         "save": "Save",
-        "delete": "Delete basemap",
+        "delete": "Delete style",
         "cancel": "Cancel",
-        "delete_title": "Delete basemap?",
+        "delete_title": "Delete style?",
         "delete_message": "Delete “{name}”?",
-        "delete_selected_message": "Deleting “{name}” will switch to the default basemap."
+        "delete_selected_message": "Deleting “{name}” will switch to the default style."
       }
     },
     "advanced_settings": {

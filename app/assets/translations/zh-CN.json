@@ -296,7 +296,7 @@
     },
     "map_settings": {
       "title": "地图设置",
-      "style": "地图底图",
+      "style": "地图样式",
       "fog_mode": "遮罩模式",
       "fog_mode_name": {
         "dark": "深色",
@@ -307,17 +307,17 @@
         "openfreemap": "OpenFreeMap"
       },
       "basemaps": {
-        "title": "地图底图",
-        "built_in": "内置底图",
-        "my_maps": "我的底图",
-        "empty": "还没有自定义底图，添加你喜欢的地图链接。",
-        "add": "添加底图",
-        "edit": "编辑底图",
-        "copyright": "查看当前底图署名",
+        "title": "地图样式",
+        "built_in": "内置样式",
+        "my_maps": "自定义样式",
+        "empty": "还没有自定义样式，添加你喜欢的地图链接。",
+        "add": "添加样式",
+        "edit": "编辑样式",
+        "copyright": "查看当前样式署名",
         "type_style": "地图样式",
         "type_raster": "图片瓦片",
-        "name": "底图名称",
-        "name_hint": "给底图取个名字",
+        "name": "样式名称",
+        "name_hint": "给样式取个名字",
         "style_url": "样式链接",
         "tile_url": "瓦片地址",
         "style_url_help": "填写完整的地图样式链接，所需参数请直接拼在链接中。",
@@ -329,15 +329,15 @@
         "invalid_url": "请填写完整的 HTTP 或 HTTPS 地址",
         "invalid_tiles": "瓦片地址须包含 {z}、{x}、{y}",
         "write_failed": "保存失败，请重试",
-        "fallback_message": "自定义底图加载失败，已切换到默认底图",
-        "fallback_save_failed": "底图加载失败，且设置无法保存，请重新选择底图",
+        "fallback_message": "自定义样式加载失败，已切换到默认样式",
+        "fallback_save_failed": "地图样式加载失败，且设置无法保存，请重新选择样式",
         "save_and_use": "保存并使用",
         "save": "保存",
-        "delete": "删除底图",
+        "delete": "删除样式",
         "cancel": "取消",
-        "delete_title": "删除底图？",
+        "delete_title": "删除样式？",
         "delete_message": "确定删除「{name}」吗？",
-        "delete_selected_message": "删除「{name}」后，将切换回默认底图。"
+        "delete_selected_message": "删除「{name}」后，将切换回默认样式。"
       }
     },
     "advanced_settings": {
