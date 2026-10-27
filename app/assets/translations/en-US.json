@@ -296,7 +296,7 @@
     },
     "map_settings": {
       "title": "Map Settings",
-      "style": "Map Style",
+      "style": "Basemap",
       "fog_mode": "Fog Mode",
       "fog_mode_name": {
         "dark": "Dark",
@@ -305,6 +305,42 @@
       "style_name": {
         "maplibre": "MapLibre Demo Tile",
         "openfreemap": "OpenFreeMap"
+      },
+      "basemaps": {
+        "title": "Basemaps",
+        "built_in": "Built-in maps",
+        "my_maps": "My maps",
+        "empty": "No custom basemaps yet. Add a map link to get started.",
+        "add": "Add basemap",
+        "edit": "Edit basemap",
+        "copyright": "View current map attribution",
+        "type_style": "Map style",
+        "type_raster": "Image tiles",
+        "name": "Basemap name",
+        "name_hint": "Name your basemap",
+        "style_url": "Style URL",
+        "tile_url": "Tile URL",
+        "style_url_help": "Enter a complete map style URL, including any parameters it requires.",
+        "tile_url_help": "Include {z}, {x}, and {y}; they are replaced with the tile zoom and coordinates.",
+        "tile_options": "Tile settings",
+        "tile_size": "Tile size",
+        "scheme": "Coordinate scheme",
+        "attribution": "Attribution (optional)",
+        "attribution_style_help": "Source attribution is preserved. Add any extra credits here. Markdown links are supported.",
+        "attribution_raster_help": "Enter the attribution required by your tile service. Markdown links are supported.",
+        "required": "This field is required",
+        "invalid_url": "Enter a complete HTTP or HTTPS URL",
+        "invalid_tiles": "The tile URL must include {z}, {x}, and {y}",
+        "write_failed": "Could not save. Please try again.",
+        "fallback_message": "Custom basemap could not load. Switched to the default map.",
+        "fallback_save_failed": "The basemap could not load and settings could not be saved. Please select a basemap again.",
+        "save_and_use": "Save and use",
+        "save": "Save",
+        "delete": "Delete basemap",
+        "cancel": "Cancel",
+        "delete_title": "Delete basemap?",
+        "delete_message": "Delete “{name}”?",
+        "delete_selected_message": "Deleting “{name}” will switch to the default basemap."
       }
     },
     "advanced_settings": {

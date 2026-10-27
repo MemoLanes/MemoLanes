@@ -9,6 +9,7 @@
  */
 
 import { getFogStyle, normalizeFogStyleId, type FogStyleId } from "./fog-style";
+import type { StyleSpecification } from "maplibre-gl";
 
 // Default values for parameters
 const DEFAULT_MAP_STYLE = "https://tiles.openfreemap.org/styles/liberty";
@@ -55,12 +56,13 @@ export interface ExternalParams {
   fit_padding_left?: string | number;
   render?: string;
   map_style?: string;
+  basemap?: BasemapConfig;
   /** Fog palette ID owned and validated by the map renderer. */
   fog_style?: string;
   fog_density?: string;
   projection?: string;
   debug?: string;
-  [key: string]: string | number | undefined;
+  [key: string]: string | number | BasemapConfig | undefined;
 }
 
 // ============================================================================
@@ -72,13 +74,18 @@ export type PropertyChangeCallback<T> = (newValue: T, oldValue: T) => void;
 
 /** Mutable property names that support hooks */
 export type MutablePropertyName =
-  "renderMode" | "fogStyle" | "fogDensity" | "projection";
+  "basemap" | "renderMode" | "fogStyle" | "fogDensity" | "projection";
 
-/** Internal data structure for ReactiveParams */
+/** Native-selected MapLibre style and the request it belongs to. */
+export interface BasemapConfig {
+  id: string;
+  requestId: number;
+  style: string | StyleSpecification;
+}
+
 interface ParamsData {
   // Readonly properties
   cgiEndpoint: string;
-  mapStyle: string;
   accessKey: string | null;
   lng: number;
   lat: number;
@@ -88,6 +95,7 @@ interface ParamsData {
   requiresMapboxToken: boolean;
   debug: boolean;
   // Mutable properties
+  basemap: BasemapConfig;
   renderMode: string;
   /** Validated palette ID; RGB/opacity remain owned by fog-style.ts. */
   fogStyle: FogStyleId;
@@ -99,7 +107,7 @@ interface ParamsData {
  * ReactiveParams - A Proxy-based reactive parameters object
  *
  * Properties can be accessed and set directly. Setting mutable properties
- * (renderMode, fogStyle, fogDensity, projection) triggers
+ * (basemap, renderMode, fogStyle, fogDensity, projection) triggers
  * registered hooks.
  *
  * Usage:
@@ -133,6 +141,7 @@ export interface ReactiveParams extends ParamsData {
 
 /** Set of properties that trigger hooks when changed */
 const MUTABLE_PROPERTIES = new Set<MutablePropertyName>([
+  "basemap",
   "renderMode",
   "fogStyle",
   "fogDensity",
@@ -274,8 +283,13 @@ export function createReactiveParams(
   }
 
   // Determine map style
-  const mapStyle = externalParams.map_style || DEFAULT_MAP_STYLE;
-  const requiresMapboxToken = mapStyle.startsWith("mapbox://");
+  const basemap = externalParams.basemap ?? {
+    id: "",
+    requestId: 0,
+    style: externalParams.map_style || DEFAULT_MAP_STYLE,
+  };
+  const requiresMapboxToken =
+    typeof basemap.style === "string" && basemap.style.startsWith("mapbox://");
 
   // Validate access key for mapbox styles
   if (requiresMapboxToken && !externalParams.access_key) {
@@ -326,7 +340,7 @@ export function createReactiveParams(
   // Create the reactive proxy
   return createReactiveProxy({
     cgiEndpoint: externalParams.cgi_endpoint,
-    mapStyle,
+    basemap,
     accessKey: requiresMapboxToken ? externalParams.access_key! : null,
     lng: parseNum(externalParams.lng, 0),
     lat: parseNum(externalParams.lat, 0),

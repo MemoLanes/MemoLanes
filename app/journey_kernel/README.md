@@ -17,6 +17,7 @@ This library is used to render journey bitmaps in the app. It supports both nati
 | `window.updateLocationMarker(lng, lat, show, flyto)` | Updates the current location marker | `lng`: longitude (number)<br>`lat`: latitude (number)<br>`show`: visibility (boolean, default: true)<br>`flyto`: animate to location (boolean, default: false) | void |
 | `window.getCurrentMapView()` | Gets current map position | none | `{lng: number, lat: number, zoom: number}` (JSON string) |
 | `window.refreshMapData()` | Manually triggers data refresh | none | `Promise<boolean \| null>` |
+| `window.updateBasemap(config)` | Switches the existing map without reloading the WebView or changing its camera | `{id, requestId, style}`: host ID, generation counter, and MapLibre style URL or object | void |
 
 ### Initialization Parameters
 
@@ -40,6 +41,11 @@ Flutter injects parameters via JavaScript after page load, then calls `trySetup(
 window.EXTERNAL_PARAMS = {
   cgi_endpoint: "flutter://TileProviderChannel",
   render: "canvas",
+  basemap: {
+    id: "openfreemap",
+    requestId: 1,
+    style: "https://tiles.openfreemap.org/styles/liberty",
+  },
   // ... other params
 };
 trySetup();
@@ -59,11 +65,34 @@ All parameters are optional except `cgi_endpoint` which is required.
 | `lat` | Initial latitude | number | 0 |
 | `zoom` | Initial zoom level | number | 2 |
 | `render` | Render method | `'canvas'` | `'canvas'` |
-| `map_style` | Map style URL | string | OpenFreeMap Liberty |
+| `basemap` | `{id, requestId, style}` supplied by Flutter; `custom:` IDs enable initial-load failure reporting | object | - |
+| `map_style` | Map style URL for standalone browser development when no `basemap` is supplied | string | OpenFreeMap Liberty |
 | `fog_style` | Fog palette ID (`dark` or `light`) | string | `dark` |
 | `fog_density` | Fog density (0-1) | number | Style default (0.5 dark, 0.6 light) |
 | `projection` | Map projection | `'mercator'` \| `'globe'` | `'globe'` |
 | `debug` | Show debug panel | `'true'` \| `'false'` | `'false'` |
+
+Flutter converts image tile templates into standard MapLibre raster styles and
+passes them through the same `basemap.style` field as remote style URLs. URLs
+retain any credentials and query parameters supplied by the user. The host
+stores custom basemap configurations and optional attribution locally.
+Source attribution loaded from styles or TileJSON is sent to Flutter through
+`window.onMapAttributionChanged` as `{requestId, entries}` JSON containing Markdown strings.
+The request ID comes from the applied style's metadata, so pending selections
+cannot receive attribution from an older style that is still displayed.
+`window.onBasemapLoadFailed` sends `{requestId}` if the initial custom basemap
+fails or takes over 20 seconds. Flutter saves the default selection, notifies
+all mounted maps through `window.updateBasemap`, and shows a user message.
+The renderer observes basemap changes through `ReactiveParams`. The failed
+configuration stays in the list for editing. A successfully loaded tile or idle
+style ends the initial-load guard; vector 404s converted to empty tiles do not
+count as success. Custom maps use one load attempt with the 20-second guard.
+Failed built-in style requests retry after 8 seconds, even when an older style
+remains visible. Built-in maps have no custom tile-load timeout; slow requests
+and SDK tiles are not interrupted by the retry timer. Style URL
+fetches, JSON parsing and SDK application belong to the same cancellable load.
+Superseded responses and errors cannot affect the selected basemap. Partial tile,
+sprite and font failures do not replace a working basemap.
 
 ## Web Development
 
