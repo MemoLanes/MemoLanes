@@ -31,14 +31,16 @@ use std::collections::BTreeMap;
 use std::time::Instant;
 
 use geo::algorithm::BoundingRect;
-use geo_data_format::{cell_index, tile_index, GeoEntityId, TileMembership, NO_ENTITY, TILE_COUNT};
+use geo_data_format::{cell_index, GeoEntityId, TileMembership, NO_ENTITY};
 use geo_types::MultiPolygon;
 use rayon::prelude::*;
 
 use crate::projection::{lng_lat_to_block_xy, BLOCK_GRID_SIZE};
+use bitmap_geometry::{
+    polar_rect_radius_bounds_squared, BitmapPlane, BITMAP_WIDTH, POLAR_DISK_RADIUS,
+};
 
 const TILE_WIDTH: usize = 128;
-const TILES_TOTAL: usize = TILE_COUNT;
 const BLOCKS_PER_TILE: usize = TILE_WIDTH * TILE_WIDTH;
 const TILE_BITMAP_WORDS: usize = BLOCKS_PER_TILE / 64; // 256 u64s
 
@@ -50,7 +52,6 @@ pub type TileLookup = Vec<TileMembership>;
 /// The internal `TileBitmap` is y-major; the transpose happens once, where this
 /// vector is emitted (phase 2 border branch).
 pub type BlockLookup = BTreeMap<(u16, u16), Vec<u32>>;
-
 /// 128×128 packed bitmap, indexed `byo * TILE_WIDTH + bxo`.
 #[derive(Clone)]
 struct TileBitmap {
@@ -88,7 +89,27 @@ pub fn rasterize(
     geometry_for_code: &BTreeMap<String, MultiPolygon<f64>>,
     id_for_code: &BTreeMap<String, GeoEntityId>,
 ) -> (TileLookup, BlockLookup) {
+    rasterize_in_plane(geometry_for_code, id_for_code, BitmapPlane::Mercator)
+}
+
+/// Rasterize one plane. The Mercator path deliberately retains its existing
+/// projection and edge/fill rules. Polar input is densified into native block
+/// coordinates before using the same scan converter.
+pub fn rasterize_in_plane(
+    geometry_for_code: &BTreeMap<String, MultiPolygon<f64>>,
+    id_for_code: &BTreeMap<String, GeoEntityId>,
+    plane: BitmapPlane,
+) -> (TileLookup, BlockLookup) {
     let started = Instant::now();
+    let projected;
+    let geometry_for_code = if plane == BitmapPlane::Mercator {
+        geometry_for_code
+    } else {
+        projected = crate::polar::project_geometries(geometry_for_code, plane);
+        &projected
+    };
+    let width = plane.grid_width() as usize;
+    let grid_size = (width * TILE_WIDTH) as i64;
 
     // Phase 1: per-entity scanline rasterization.
     let mut entity_rasters: Vec<EntityRaster> = geometry_for_code
@@ -96,14 +117,24 @@ pub fn rasterize(
         .filter_map(|(code, geom)| {
             let id = *id_for_code.get(code)?;
             let bbox_lnglat = geom.bounding_rect()?;
-            let (min_x, min_y) = lng_lat_to_block_xy(bbox_lnglat.min().x, bbox_lnglat.max().y);
-            let (max_x, max_y) = lng_lat_to_block_xy(bbox_lnglat.max().x, bbox_lnglat.min().y);
+            let ((min_x, min_y), (max_x, max_y)) = if plane == BitmapPlane::Mercator {
+                (
+                    lng_lat_to_block_xy(bbox_lnglat.min().x, bbox_lnglat.max().y),
+                    lng_lat_to_block_xy(bbox_lnglat.max().x, bbox_lnglat.min().y),
+                )
+            } else {
+                let clamp = |v: f64| v.floor().clamp(0.0, (grid_size - 1) as f64) as u32;
+                (
+                    (clamp(bbox_lnglat.min().x), clamp(bbox_lnglat.min().y)),
+                    (clamp(bbox_lnglat.max().x), clamp(bbox_lnglat.max().y)),
+                )
+            };
             let bbox_area_blocks =
                 (max_x as i64 - min_x as i64).max(1) * (max_y as i64 - min_y as i64).max(1);
             Some(EntityRaster {
                 id,
                 code: code.as_str(),
-                tiles: rasterize_entity(geom, min_x, min_y, max_x, max_y),
+                tiles: rasterize_entity(geom, min_x, min_y, max_x, max_y, plane),
                 bbox_area_blocks,
             })
         })
@@ -130,7 +161,7 @@ pub fn rasterize(
         }
     }
 
-    let mut tile_lookup: Vec<TileMembership> = vec![TileMembership::None; TILES_TOTAL];
+    let mut tile_lookup: Vec<TileMembership> = vec![TileMembership::None; width * width];
     let mut block_lookup: BlockLookup = BTreeMap::new();
 
     let phase2_started = Instant::now();
@@ -138,7 +169,7 @@ pub fn rasterize(
     let mut tile_done = 0usize;
 
     for ((tx, ty), cand_indices) in &tile_candidates {
-        let tile_idx = tile_index(*tx, *ty);
+        let tile_idx = *tx as usize * width + *ty as usize;
 
         // Determine if any candidate has an edge in this tile.
         let any_edge = cand_indices
@@ -233,6 +264,7 @@ fn rasterize_entity(
     bbox_min_y: u32,
     bbox_max_x: u32,
     bbox_max_y: u32,
+    plane: BitmapPlane,
 ) -> BTreeMap<(u16, u16), TileBitmap> {
     let mut tiles: BTreeMap<(u16, u16), TileBitmap> = BTreeMap::new();
 
@@ -257,31 +289,40 @@ fn rasterize_entity(
         for window in pts.windows(2) {
             let a = window[0];
             let b = window[1];
-            // Project to block-grid floats so DDA and scanline can share.
-            let (ax_u, ay_u) = lng_lat_to_block_xy(a.x, a.y);
-            let (bx_u, by_u) = lng_lat_to_block_xy(b.x, b.y);
-            // Use float block coords for fractional edge intersections.
-            // The projection above gave integer (floor) coords; for scanline
-            // accuracy we want the un-floored block-space position. Re-do
-            // the projection in float.
-            let (ax_f, ay_f) = lng_lat_to_block_xy_float(a.x, a.y);
-            let (bx_f, by_f) = lng_lat_to_block_xy_float(b.x, b.y);
+            let project = |p: geo_types::Coord<f64>| {
+                if plane == BitmapPlane::Mercator {
+                    lng_lat_to_block_xy_float(p.x, p.y)
+                } else {
+                    (p.x, p.y)
+                }
+            };
+            let (ax_f, ay_f) = project(a);
+            let (bx_f, by_f) = project(b);
+            let (ax_u, ay_u, bx_u, by_u) = if plane == BitmapPlane::Mercator {
+                // Preserve integer endpoint clamping before DDA. In particular,
+                // floor(float projection) can equal the grid width at ±180°
+                // or the latitude seam, changing the edge walk by one block.
+                let (ax, ay) = lng_lat_to_block_xy(a.x, a.y);
+                let (bx, by) = lng_lat_to_block_xy(b.x, b.y);
+                (ax as i64, ay as i64, bx as i64, by as i64)
+            } else {
+                (
+                    ax_f.floor() as i64,
+                    ay_f.floor() as i64,
+                    bx_f.floor() as i64,
+                    by_f.floor() as i64,
+                )
+            };
             // Mark border blocks via DDA on integer coords.
-            mark_border_blocks(
-                ax_u as i64,
-                ay_u as i64,
-                bx_u as i64,
-                by_u as i64,
-                &mut |bx, by| {
-                    let tx = (bx / TILE_WIDTH as i64) as u16;
-                    let ty = (by / TILE_WIDTH as i64) as u16;
-                    let tile = tiles.entry((tx, ty)).or_insert_with(TileBitmap::new);
-                    let bxo = (bx as usize) - tx as usize * TILE_WIDTH;
-                    let byo = (by as usize) - ty as usize * TILE_WIDTH;
-                    tile.set(bxo, byo);
-                    tile.has_edge = true;
-                },
-            );
+            mark_border_blocks(ax_u, ay_u, bx_u, by_u, plane, &mut |bx, by| {
+                let tx = (bx / TILE_WIDTH as i64) as u16;
+                let ty = (by / TILE_WIDTH as i64) as u16;
+                let tile = tiles.entry((tx, ty)).or_insert_with(TileBitmap::new);
+                let bxo = (bx as usize) - tx as usize * TILE_WIDTH;
+                let byo = (by as usize) - ty as usize * TILE_WIDTH;
+                tile.set(bxo, byo);
+                tile.has_edge = true;
+            });
             // Add edge to scanline list (skip horizontal edges).
             //
             // Scanlines are at integer y + 0.5. An edge from (x0, y_low) to
@@ -408,7 +449,9 @@ fn rasterize_entity(
             let center_lo = (x_in - 0.5).floor() as i64 + 1;
             let center_hi = (x_out - 0.5).ceil() as i64 - 1;
             let bx_start = center_lo.max(bbox_min_x as i64).max(0);
-            let bx_end = center_hi.min(bbox_max_x as i64).min(BLOCK_GRID_SIZE - 1);
+            let bx_end = center_hi
+                .min(bbox_max_x as i64)
+                .min(plane.grid_width() * TILE_WIDTH as i64 - 1);
             if bx_start <= bx_end {
                 fill_blocks_row(&mut tiles, bx_start, bx_end, y);
             }
@@ -421,7 +464,42 @@ fn rasterize_entity(
         }
     }
 
+    if plane != BitmapPlane::Mercator {
+        clip_polar_tiles(&mut tiles);
+    }
     tiles
+}
+
+/// Clear the square's corners, but retain every block with positive-area cap
+/// intersection. Partial cap tiles must stay Border (not Single over ocean).
+fn clip_polar_tiles(tiles: &mut BTreeMap<(u16, u16), TileBitmap>) {
+    let side = TILE_WIDTH as i64 * BITMAP_WIDTH;
+    let r2 = POLAR_DISK_RADIUS * POLAR_DISK_RADIUS;
+    tiles.retain(|&(tx, ty), tile| {
+        let x = tx as i64 * side;
+        let y = ty as i64 * side;
+        let (near, far) = polar_rect_radius_bounds_squared(x..x + side, y..y + side);
+        if near >= r2 {
+            return false;
+        }
+        if far <= r2 {
+            return true;
+        }
+        tile.has_edge = true;
+        for by in 0..TILE_WIDTH {
+            for bx in 0..TILE_WIDTH {
+                let px = x + bx as i64 * BITMAP_WIDTH;
+                let py = y + by as i64 * BITMAP_WIDTH;
+                if polar_rect_radius_bounds_squared(px..px + BITMAP_WIDTH, py..py + BITMAP_WIDTH).0
+                    >= r2
+                {
+                    let i = by * TILE_WIDTH + bx;
+                    tile.bits[i / 64] &= !(1 << (i % 64));
+                }
+            }
+        }
+        tile.bits.iter().any(|&w| w != 0)
+    });
 }
 
 /// Fill blocks in row `y` from `bx_start` to `bx_end` inclusive into the
@@ -480,7 +558,14 @@ fn fill_blocks_row(
 /// DDA: walk integer block coords from (ax, ay) to (bx, by), invoking
 /// `f(x, y)` for each block touched (including endpoints). Clamps to
 /// the [0, BLOCK_GRID_SIZE) range.
-fn mark_border_blocks(ax: i64, ay: i64, bx: i64, by: i64, f: &mut impl FnMut(i64, i64)) {
+fn mark_border_blocks(
+    ax: i64,
+    ay: i64,
+    bx: i64,
+    by: i64,
+    plane: BitmapPlane,
+    f: &mut impl FnMut(i64, i64),
+) {
     let dx = bx - ax;
     let dy = by - ay;
     let steps = dx.abs().max(dy.abs()).max(1) as usize;
@@ -491,9 +576,14 @@ fn mark_border_blocks(ax: i64, ay: i64, bx: i64, by: i64, f: &mut impl FnMut(i64
     let mut fy = ay as f64;
     let mut last: Option<(i64, i64)> = None;
     for _ in 0..=steps {
-        let x = (fx.round() as i64).clamp(0, BLOCK_GRID_SIZE - 1);
-        let y = (fy.round() as i64).clamp(0, BLOCK_GRID_SIZE - 1);
-        if Some((x, y)) != last {
+        let n = plane.grid_width() * TILE_WIDTH as i64;
+        let mut x = fx.round() as i64;
+        let mut y = fy.round() as i64;
+        if plane == BitmapPlane::Mercator {
+            x = x.clamp(0, n - 1);
+            y = y.clamp(0, n - 1);
+        }
+        if (0..n).contains(&x) && (0..n).contains(&y) && Some((x, y)) != last {
             f(x, y);
             last = Some((x, y));
         }

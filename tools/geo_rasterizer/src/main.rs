@@ -3,14 +3,16 @@ use std::path::PathBuf;
 use std::time::Instant;
 
 use anyhow::{Context, Result};
+use bitmap_geometry::BitmapPlane;
 use clap::Parser;
 use geo_data_format::{
-    read_provenance_hash, write_geo_data, GeoEntityId, GeoEntityKind, Locale, Worldview,
+    read_provenance_hash, write_geo_data_planes, GeoEntityId, GeoEntityKind, Locale, PlaneRaster,
+    Worldview,
 };
 use geo_rasterizer::{
     admin0::{parse_admin0, parse_admin0_with_attributions, validate_no_antimeridian_span},
     admin1::parse_admin1,
-    area::populate_total_areas,
+    area::populate_total_areas_planes,
     atomic_write::write_atomically,
     cache::compute_provenance_hash,
     cldr::{load_subdivisions, load_territories},
@@ -21,7 +23,8 @@ use geo_rasterizer::{
     },
     names::{build_region_names, write_region_names},
     overrides::Overrides,
-    rasterize::rasterize,
+    polar::validate_no_polar_provinces,
+    rasterize::{rasterize, rasterize_in_plane},
     refine::{block_counts, measure_coverage, refine_raster},
     registry::Registry,
 };
@@ -298,7 +301,9 @@ fn rasterize_one(
         model.geometry_for_province.len(),
     );
 
-    // 4. Rasterize countries, then provinces, then merge inside the country mask.
+    validate_no_polar_provinces(&model.geometry_for_province)?;
+
+    // 4. Rasterize countries in every plane; refine provinces only in Mercator.
     eprintln!("[geo_rasterizer] rasterizing countries...");
     let country_ids: BTreeMap<String, GeoEntityId> = model
         .entities
@@ -306,7 +311,9 @@ fn rasterize_one(
         .filter(|e| matches!(e.kind, GeoEntityKind::Admin0))
         .map(|e| (e.canonical_code.clone(), e.id))
         .collect();
-    let country_raster = rasterize(&model.geometry_for_country, &country_ids);
+    let country_rasters = BitmapPlane::ALL
+        .map(|plane| rasterize_in_plane(&model.geometry_for_country, &country_ids, plane));
+    let country_raster = &country_rasters[BitmapPlane::Mercator as usize];
 
     // Zero-block gate: a merge whose land the country mask does not cover is silently clipped by `refine`
     if !merged.is_empty() {
@@ -354,33 +361,40 @@ fn rasterize_one(
     let parents = resolve_province_parents(&model, &tally, &province_blocks, worldview)?;
     attach_province_entities(&mut model, &parents);
     validate_tier_order(&model.entities)?;
-    let (tile_lookup, block_lookup) = refine_raster(
+    let mercator = refine_raster(
         (&country_raster.0, &country_raster.1),
         (&province_raster.0, &province_raster.1),
         &parents,
     );
+    let mut refined = country_rasters;
+    refined[BitmapPlane::Mercator as usize] = mercator;
+    let rasters: Vec<_> = BitmapPlane::ALL
+        .into_iter()
+        .map(|plane| {
+            let r = &refined[plane as usize];
+            PlaneRaster {
+                plane,
+                tiles: &r.0,
+                blocks: &r.1,
+            }
+        })
+        .collect();
     eprintln!(
         "[geo_rasterizer] merged: {} entities, {} border tiles",
         model.entities.len(),
-        block_lookup.len()
+        refined.iter().map(|r| r.1.len()).sum::<usize>()
     );
 
     // 5. Areas.
-    populate_total_areas(&mut model, &tile_lookup, &block_lookup);
+    populate_total_areas_planes(&mut model, &rasters);
 
     // TODO: Phase 2 — instead of one bin per run, iterate the
     // shipped worldview files and emit a shared base + per-worldview delta sections.
     // The registry already gives cross-worldview-stable ids.
 
     // 6. Serialize (sectioned format) + atomic write.
-    let bytes = write_geo_data(
-        &model.entities,
-        worldview_id,
-        &tile_lookup,
-        &block_lookup,
-        provenance_hash,
-    )
-    .context("serializing geo_data.bin")?;
+    let bytes = write_geo_data_planes(&model.entities, worldview_id, &rasters, provenance_hash)
+        .context("serializing geo_data.bin")?;
     write_atomically(&output, &bytes)?;
 
     eprintln!(

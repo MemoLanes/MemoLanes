@@ -103,10 +103,17 @@ pub fn project_polar_laea(lng: f64, lat: f64, plane: BitmapPlane) -> (f64, f64) 
     let colatitude = (90.0 - signed_lat).to_radians();
     let rho = 2.0 * (colatitude / 2.0).sin();
     let normalized_radius = rho / polar_seam_radius();
-    let angle = lng.to_radians();
+    // sin(±π) is not exactly zero in floating point. Keep both dateline
+    // representations on the same native grid axis before flooring to cells.
+    let (sin_lng, cos_lng) = if lng.abs() == 180.0 {
+        (0.0, -1.0)
+    } else {
+        let angle = lng.to_radians();
+        (angle.sin(), angle.cos())
+    };
     let half = POLAR_WORLD_PIXEL_WIDTH as f64 / 2.0;
-    let x = half + half * normalized_radius * angle.sin();
-    let oriented_y = half * normalized_radius * angle.cos();
+    let x = half + half * normalized_radius * sin_lng;
+    let oriented_y = half * normalized_radius * cos_lng;
     let y = match plane {
         BitmapPlane::NorthPolar => half - oriented_y,
         BitmapPlane::SouthPolar => half + oriented_y,
@@ -165,4 +172,71 @@ pub fn polar_row_span(row: i64) -> Range<i64> {
     let start = (radius as f64 - extent).floor() as i64;
     let end = (radius as f64 + extent).ceil() as i64;
     start..end
+}
+
+/// Quantize each pixel independently, matching journey-area accumulation.
+pub fn polar_pixel_area_cm2() -> i64 {
+    let side = polar_pixel_size_meters();
+    (side * side * 10_000.0).round() as i64
+}
+
+/// Fraction of a native pixel inside the cap.
+pub fn polar_pixel_fraction(x: i64, y: i64) -> f64 {
+    let (near, far) = polar_rect_radius_bounds_squared(x..x + 1, y..y + 1);
+    let r2 = POLAR_DISK_RADIUS * POLAR_DISK_RADIUS;
+    if near >= r2 {
+        return 0.0;
+    }
+    if far <= r2 {
+        return 1.0;
+    }
+    let x = x - POLAR_DISK_RADIUS;
+    let y = y - POLAR_DISK_RADIUS;
+    // Reflect into the first octant to keep the circle's slope at most ~1.
+    let x = x.abs().min((x + 1).abs()) as f64;
+    let y = y.abs().min((y + 1).abs()) as f64;
+    let (x, y) = (x.min(y), x.max(y));
+    let radius = POLAR_DISK_RADIUS as f64;
+    let circle = |t: f64| ((radius - t) * (radius + t)).max(0.0).sqrt();
+    let full_end = circle(y + 1.0).clamp(x, x + 1.0);
+    let arc_end = circle(y).clamp(full_end, x + 1.0);
+    let height = |t| circle(t) - y;
+    // Simpson integration over at most one native pixel; error is below cm²
+    // quantization without subtracting large circle sectors.
+    let curved = (arc_end - full_end)
+        * (height(full_end) + 4.0 * height((full_end + arc_end) * 0.5) + height(arc_end))
+        / 6.0;
+    (full_end - x + curved).clamp(0.0, 1.0)
+}
+
+/// Area of a completely filled native rectangle, clipped to the cap. Whole
+/// interiors are O(1); only edge pixels need integration and cm² rounding.
+pub fn polar_rectangle_area_cm2(x: Range<i64>, y: Range<i64>) -> i64 {
+    let (near, far) = polar_rect_radius_bounds_squared(x.clone(), y.clone());
+    let r = POLAR_DISK_RADIUS;
+    let bit_area = polar_pixel_area_cm2();
+    if near >= r * r {
+        return 0;
+    }
+    if far <= r * r {
+        return (x.end - x.start) * (y.end - y.start) * bit_area;
+    }
+    let mut area = 0;
+    for row in y {
+        let span = polar_row_span(row);
+        let start = x.start.max(span.start);
+        let end = x.end.min(span.end);
+        if start >= end {
+            continue;
+        }
+        let far_y = (row - r).abs().max((row + 1 - r).abs());
+        let extent = ((r * r - far_y * far_y) as f64).sqrt();
+        let full_start = ((r as f64 - extent).ceil() as i64).clamp(start, end);
+        let full_end = ((r as f64 + extent).floor() as i64).clamp(full_start, end);
+        area += (full_end - full_start) * bit_area;
+        for col in (start..full_start).chain(full_end..end) {
+            area += (polar_pixel_fraction(col, row) * bit_area as f64).round() as i64;
+        }
+    }
+    area
 }

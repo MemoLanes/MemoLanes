@@ -1,6 +1,7 @@
 use super::geometry::{
-    block_pixel_bounds, polar_pixel_size_meters, polar_rect_radius_bounds_squared, BITMAP_WIDTH,
-    MERCATOR_WORLD_PIXEL_OFFSET, POLAR_DISK_RADIUS, TILE_WIDTH,
+    block_pixel_bounds, polar_pixel_area_cm2, polar_pixel_fraction,
+    polar_rect_radius_bounds_squared, BITMAP_WIDTH, MERCATOR_WORLD_PIXEL_OFFSET, POLAR_DISK_RADIUS,
+    TILE_WIDTH,
 };
 use super::{Block, JourneyBitmap, TileKey};
 use crate::spherical_geometry::EARTH_RADIUS_METERS as EARTH_RADIUS;
@@ -11,42 +12,6 @@ use std::ops::Range;
 
 const CM2_PER_M2: i64 = 10_000;
 const BIT_LNG_STEP: f64 = 360.0 / ((1i64 << MERCATOR_WORLD_PIXEL_OFFSET) as f64);
-
-fn polar_bit_area_cm2() -> i64 {
-    let pixel_side_m = polar_pixel_size_meters();
-    (pixel_side_m * pixel_side_m * CM2_PER_M2 as f64).round() as i64
-}
-
-/// Fraction of a native pixel cell [x,x+1] × [y,y+1] inside the LAEA cap disk.
-fn polar_bit_fraction(x: i64, y: i64) -> f64 {
-    let (near, far) = polar_rect_radius_bounds_squared(x..x + 1, y..y + 1);
-    let radius_squared = POLAR_DISK_RADIUS * POLAR_DISK_RADIUS;
-    if near >= radius_squared {
-        return 0.0;
-    }
-    if far <= radius_squared {
-        return 1.0;
-    }
-
-    let x = x - POLAR_DISK_RADIUS;
-    let y = y - POLAR_DISK_RADIUS;
-    // Reflect into the first octant. Integrating along the smaller coordinate
-    // keeps the circle's slope at most ~1, including pixels near the axes.
-    let x = x.abs().min((x + 1).abs()) as f64;
-    let y = y.abs().min((y + 1).abs()) as f64;
-    let (x, y) = (x.min(y), x.max(y));
-    let radius = POLAR_DISK_RADIUS as f64;
-    let circle = |t: f64| ((radius - t) * (radius + t)).max(0.0).sqrt();
-    let full_end = circle(y + 1.0).clamp(x, x + 1.0);
-    let arc_end = circle(y).clamp(full_end, x + 1.0);
-    let height = |t| circle(t) - y;
-    // Simpson integration over at most one native pixel. At radius 2^19 its
-    // error is far below the 1 cm² quantization, without subtracting huge sectors.
-    let curved_area = (arc_end - full_end)
-        * (height(full_end) + 4.0 * height((full_end + arc_end) / 2.0) + height(arc_end))
-        / 6.0;
-    (full_end - x + curved_area).clamp(0.0, 1.0)
-}
 
 fn polar_block_area_cm2(x: Range<i64>, y: Range<i64>, block: &Block, bit_area_cm2: i64) -> i64 {
     let (near, far) = polar_rect_radius_bounds_squared(x.clone(), y.clone());
@@ -66,7 +31,7 @@ fn polar_block_area_cm2(x: Range<i64>, y: Range<i64>, block: &Block, bit_area_cm
             let y = y.start + (i / BITMAP_WIDTH as usize) as i64;
             // Quantize each bit independently so delta accumulation stays exactly
             // additive even when several journeys fill the same boundary block.
-            (polar_bit_fraction(x, y) * bit_area_cm2 as f64).round() as i64
+            (polar_pixel_fraction(x, y) * bit_area_cm2 as f64).round() as i64
         })
         .sum()
 }
@@ -123,7 +88,7 @@ fn compute_tile(bitmap: &JourneyBitmap, key: &TileKey) -> i64 {
                     .sum()
             }
             TileKey::NorthPolar { x, y } | TileKey::SouthPolar { x, y } => {
-                let bit_area_cm2 = polar_bit_area_cm2();
+                let bit_area_cm2 = polar_pixel_area_cm2();
                 tile.iter()
                     .map(|(block_key, block)| {
                         let (x, y) = block_pixel_bounds((x, y), (block_key.x(), block_key.y()));
