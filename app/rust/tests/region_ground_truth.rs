@@ -408,14 +408,10 @@ fn region_api_reports_correct_countries_and_areas() {
         .unwrap();
 }
 
-/// Past the Mercator limit (±85.0511°) `add_line` produces tile keys outside the
-/// 512×512 grid: y ≥ 512 in the south, and in the north a negative Mercator y
-/// wrapped through `as u16` to ~65461. Their raw `x*512 + y` is not a safe index
-/// — with the real asset a track at 88°N resolves to tile (383,437), which is
-/// `Single(ATA)`, so the North Pole gets credited to Antarctica, and a track at
-/// 88°N/120°E indexes past the tile grid entirely.
+/// Polar grids must not alias Mercator cells. Arctic ocean credits nothing;
+/// the southern cap resolves to Antarctica and rolls up to its continent.
 #[test]
-fn track_past_the_mercator_limit_credits_nothing() {
+fn polar_tracks_credit_only_their_actual_land_regions() {
     let geo = GeoIndex::open(&test_utils::geo_asset("iso")).unwrap();
 
     for (lng, lat) in [(0.0, 88.0), (120.0, 88.0), (0.0, -87.0)] {
@@ -423,6 +419,11 @@ fn track_past_the_mercator_limit_credits_nothing() {
         bitmap.edit().add_line(lng, lat, lng + 0.01, lat + 0.01);
         let areas = attribution::attribute(&bitmap, &geo).unwrap();
         let credited = credited_codes(&areas, &geo);
-        assert!(credited.is_empty(), "({lng}, {lat}) credited {credited:?}");
+        let expected = if lat < 0.0 {
+            BTreeSet::from(["ATA".to_owned(), "AN".to_owned()])
+        } else {
+            BTreeSet::new()
+        };
+        assert_eq!(credited, expected, "({lng}, {lat})");
     }
 }

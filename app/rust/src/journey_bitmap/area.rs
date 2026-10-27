@@ -3,7 +3,7 @@ use super::geometry::{
     polar_rect_radius_bounds_squared, BITMAP_WIDTH, MERCATOR_WORLD_PIXEL_OFFSET, POLAR_DISK_RADIUS,
     TILE_WIDTH,
 };
-use super::{Block, JourneyBitmap, TileKey};
+use super::{Block, BlockKey, JourneyBitmap, TileKey};
 use crate::spherical_geometry::EARTH_RADIUS_METERS as EARTH_RADIUS;
 use crate::utils;
 use bitvec::{order::Msb0, view::BitView};
@@ -61,6 +61,18 @@ pub(crate) fn mercator_block_area_cm2(tile_y: u16, block_y: u8, bit_count: u32) 
 
     let bit_area_cm2 = (avg_width * height * CM2_PER_M2 as f64).round() as i64;
     bit_area_cm2 * bit_count as i64
+}
+
+/// Occupied area of a block, shared by global area and region attribution.
+/// Polar boundary blocks depend on set-bit positions, not only their count.
+pub(crate) fn occupied_block_area_cm2(tile: TileKey, key: BlockKey, block: &Block) -> i64 {
+    match tile {
+        TileKey::Mercator { y, .. } => mercator_block_area_cm2(y, key.y(), block.count()),
+        TileKey::NorthPolar { x, y } | TileKey::SouthPolar { x, y } => {
+            let (x, y) = block_pixel_bounds((x, y), (key.x(), key.y()));
+            polar_block_area_cm2(x, y, block, polar_pixel_area_cm2())
+        }
+    }
 }
 
 fn compute_tile(bitmap: &JourneyBitmap, key: &TileKey) -> i64 {
