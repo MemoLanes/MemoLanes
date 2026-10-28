@@ -5,7 +5,7 @@ use journey_kernel::FTA_COMPRESSION_ZSTD;
 use super::render_tile_cache::{CachedRenderTile, RenderTileCache, RenderTileCacheKey};
 use super::tile_rasterizer;
 use crate::journey_bitmap::area;
-use crate::journey_bitmap::{BitmapEditor, JourneyBitmap, TileKey};
+use crate::journey_bitmap::{BitmapEditor, BitmapPlane, JourneyBitmap, TileKey};
 use crate::utils;
 use crate::utils::MapBounds;
 use std::collections::HashMap;
@@ -17,6 +17,7 @@ pub struct MapRenderer {
     tile_area_cache: HashMap<TileKey, i64>,
     render_tile_cache: RenderTileCache,
     version: u64,
+    plane_versions: [u64; 3],
     current_area: Option<u64>,
 }
 
@@ -27,6 +28,7 @@ impl MapRenderer {
             tile_area_cache: HashMap::new(),
             render_tile_cache: RenderTileCache::default(),
             version: 0,
+            plane_versions: [0; 3],
             current_area: None,
         }
     }
@@ -47,6 +49,12 @@ impl MapRenderer {
         for tile in &changed_tiles {
             self.tile_area_cache.remove(tile);
         }
+        for plane in BitmapPlane::ALL {
+            if changed_tiles.iter().any(|key| key.plane() == plane) {
+                self.plane_versions[plane as usize] =
+                    self.plane_versions[plane as usize].wrapping_add(1);
+            }
+        }
         self.render_tile_cache
             .invalidate_changed_sources(&changed_tiles);
         self.mark_changed();
@@ -54,6 +62,9 @@ impl MapRenderer {
 
     pub fn replace(&mut self, journey_bitmap: JourneyBitmap) {
         self.journey_bitmap = journey_bitmap;
+        for version in &mut self.plane_versions {
+            *version = version.wrapping_add(1);
+        }
         self.tile_area_cache.clear();
         self.render_tile_cache.clear();
         self.mark_changed();
@@ -80,6 +91,13 @@ impl MapRenderer {
 
     pub fn matches_version(&self, client_version: Option<&str>) -> bool {
         client_version.and_then(Self::parse_version_string) == Some(self.version)
+    }
+
+    pub fn get_plane_version_string(&self, plane: BitmapPlane) -> String {
+        format!("{:x}", self.plane_versions[plane as usize])
+    }
+    pub fn matches_plane_version(&self, plane: BitmapPlane, version: Option<&str>) -> bool {
+        version.and_then(Self::parse_version_string) == Some(self.plane_versions[plane as usize])
     }
 
     pub fn peek_latest_bitmap(&self) -> &JourneyBitmap {
@@ -113,7 +131,36 @@ impl MapRenderer {
         height: i64,
         buffer_size_power: i16,
     ) -> Result<Vec<u8>, String> {
+        self.get_plane_tile_range_response(
+            BitmapPlane::Mercator,
+            x,
+            y,
+            z,
+            width,
+            height,
+            buffer_size_power,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn get_plane_tile_range_response(
+        &mut self,
+        plane: BitmapPlane,
+        x: i64,
+        y: i64,
+        z: i16,
+        width: i64,
+        height: i64,
+        buffer_size_power: i16,
+    ) -> Result<Vec<u8>, String> {
         validate_tile_range_request(y, z, width, height, buffer_size_power)?;
+        let bound = 1i64 << z;
+        if x < i32::MIN as i64 || x.checked_add(width).is_none_or(|end| end > i32::MAX as i64) {
+            return Err("tile range exceeds coordinate bounds".to_string());
+        }
+        if plane != BitmapPlane::Mercator && (x < 0 || x + width > bound || y + height > bound) {
+            return Err("polar tile range must stay inside its square chart".to_string());
+        }
 
         let zoom_coefficient = 1i64 << z;
         let mut encoder = TileRangeEncoder::new(
@@ -128,8 +175,13 @@ impl MapRenderer {
 
         for tile_y in y..(y + height) {
             for tile_x in x..(x + width) {
-                let tile_x_rounded = tile_x.rem_euclid(zoom_coefficient);
+                let tile_x_rounded = if plane == BitmapPlane::Mercator {
+                    tile_x.rem_euclid(zoom_coefficient)
+                } else {
+                    tile_x
+                };
                 let cache_key = RenderTileCacheKey {
+                    plane,
                     x: tile_x_rounded,
                     y: tile_y,
                     z,
@@ -139,8 +191,9 @@ impl MapRenderer {
                 if let Some(tile) = self.render_tile_cache.get(&cache_key) {
                     encoder.push(tile.as_bitmap())?;
                 } else {
-                    let bitmap = tile_rasterizer::render_tile_bitmap(
+                    let bitmap = tile_rasterizer::render_plane_tile_bitmap(
                         &mut self.journey_bitmap,
+                        plane,
                         tile_x_rounded,
                         tile_y,
                         z,

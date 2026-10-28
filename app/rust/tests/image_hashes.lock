@@ -17,5 +17,6 @@
   "journey_bitmap_vector_to_bitmap_laojunshan": "fce6f8602d9afd2040462e26ba1916553f0dd97f7bebd25a864e69678f86cb39",
   "journey_bitmap_vector_to_bitmap_nelson_to_wharariki_beach": "c9cc282d4f09e18d4519e246fdc53c5c94af58383b26078c05c458a47e47f742",
   "journey_bitmap_vector_to_bitmap_shenzhen_stationary": "7182e69132a2e9dd4de171ca158d088d33ed7421a02ec7c00554b79214515d91",
-  "map_renderer_basic": "abbe539fa93de6ddb86b53c8e0335d3a64eaf87cd16b6f1cc5b5b877e8c8536f"
+  "map_renderer_basic": "abbe539fa93de6ddb86b53c8e0335d3a64eaf87cd16b6f1cc5b5b877e8c8536f",
+  "map_renderer_polar_complex": "94798e97fe38c43c1830b0f83eafa358ceb9ec6a7c0dd4008815d3712f01bc57"
 }
