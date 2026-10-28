@@ -586,7 +586,9 @@ export class MapController {
   }
 
   private updatePolarProjectionMode(): void {
-    if (this.params.projection !== "globe" || !this.map.isStyleLoaded()) {
+    // getStyle() requires initialization; isStyleLoaded() also waits for tiles.
+    // Source downloads must not delay switching the camera to the sphere.
+    if (this.params.projection !== "globe" || !this.map.getStyle()) {
       return;
     }
     const shouldLock = resolvePolarGlobeLock(

@@ -13,3 +13,10 @@ export function waitForIdle(map) {
     map.triggerRepaint();
   });
 }
+
+export function waitForRender(map) {
+  return new Promise((resolve) => {
+    map.once("render", resolve);
+    map.triggerRepaint();
+  });
+}

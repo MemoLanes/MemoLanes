@@ -3,6 +3,7 @@ import { createReactiveParams } from "../../static/params";
 import {
   createMapContainer as container,
   waitForIdle as idle,
+  waitForRender,
 } from "./map-fixture";
 import { MAX_MAP_ZOOM } from "../../static/layer-config";
 
@@ -121,6 +122,41 @@ async function checkCamera(sign, check) {
       map.getPadding().bottom === 0 && map.getPadding().top === 0,
       "leaving journey focus restores the original viewport padding",
     );
+
+    // These real raster requests are held by the Playwright runner. Camera
+    // events must keep working while source tiles prevent the map going idle.
+    map.addSource("slow-basemap", {
+      type: "raster",
+      tiles: [`${new URL("slow-basemap/", location.href).href}{z}/{x}/{y}.png`],
+      tileSize: 256,
+    });
+    map.addLayer({
+      id: "slow-basemap",
+      type: "raster",
+      source: "slow-basemap",
+    });
+    map.jumpTo({ center: [0, sign * 79], zoom: 14 });
+    await waitForRender(map);
+    check(
+      !map.isStyleLoaded(),
+      "basemap tiles are pending before crossing 80 degrees",
+    );
+    for (const [latitude, projection] of [
+      [81, "vertical-perspective"],
+      [89, "vertical-perspective"],
+      [78, "vertical-perspective"],
+      [74, "globe"],
+    ]) {
+      // Raw MapLibre camera updates exercise the move listener used by
+      // gestures, without the programmatic navigation wrapper preparing it.
+      map.jumpTo({ center: [0, sign * latitude], zoom: 14 });
+      await waitForRender(map);
+      check(
+        map.getProjection().type === projection &&
+          Math.abs(map.getCenter().lat - sign * latitude) < 1e-6,
+        `pending basemap tiles must preserve ${sign * latitude} degrees and projection hysteresis, got ${map.getCenter().lat} with ${map.getProjection().type}`,
+      );
+    }
   } finally {
     controller.destroy();
     element.remove();
@@ -162,7 +198,7 @@ export async function checkPolarNavigation(check) {
   for (const sign of [1, -1]) {
     await checkCamera(sign, check);
     results.push(
-      `${sign > 0 ? "north" : "south"} camera navigation, projection hysteresis and journey bounds`,
+      `${sign > 0 ? "north" : "south"} camera navigation, slow basemap, projection hysteresis and journey bounds`,
     );
   }
   return results;

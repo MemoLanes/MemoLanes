@@ -18,6 +18,8 @@ try {
     }),
   );
   const page = await browser.newPage({ viewport: { width: 800, height: 600 } });
+  // Navigation regressions keep source tiles pending until their map is removed.
+  await page.route("**/slow-basemap/**", () => {});
   const failure = new Promise((_, reject) => page.on("pageerror", reject));
   await Promise.race([
     failure,

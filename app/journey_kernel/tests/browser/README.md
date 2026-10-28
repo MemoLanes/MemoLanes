@@ -12,6 +12,8 @@ The browser suite checks the production `MapController` with both hemispheres:
 jump/ease/fly destinations, globe projection hysteresis, initial journey bounds,
 asymmetric padding and restoration when leaving journey focus. It preserves the
 OSS zoom limit and uses no proprietary renderer, distance fields or Worker code.
+Pending raster basemap requests also exercise gesture-style camera updates:
+both poles remain reachable and projection hysteresis works before tiles load.
 
 Set `RENDER_TEST_BROWSER=webkit` to use an installed Playwright WebKit browser.
 `BENCHMARK_CHROMIUM_EXECUTABLE` and `BENCHMARK_CHROMIUM_ANGLE` can select a local
