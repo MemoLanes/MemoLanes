@@ -6,7 +6,7 @@ import { getTileRequestRange } from "../../static/layers/tile-request-policy";
 import { createMapContainer, waitForIdle } from "./map-fixture";
 import { encodeTileRangeResponse } from "../support/tile-range-fixture.js";
 
-/** Full OSS Canvas path: binary tiles -> WASM pixel queries -> Canvas -> globe. */
+/** Full Canvas path: binary tiles -> WASM pixel queries -> Canvas -> globe. */
 export async function checkPolarCanvas(check) {
   const originalFetch = window.fetch,
     previousParams = window.EXTERNAL_PARAMS;

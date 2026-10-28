@@ -166,7 +166,7 @@ them. The invalidation callback queues fresh data if a backend loses its source.
 Run `just journey-kernel-test` from `app` to build the WASM bindings and run
 both Rust (including the WASM-facing pixel queries) and frontend tests. After
 `yarn wasm:dev` or `yarn build`, `yarn test` runs the frontend suite alone.
-The provider integration tests use the generated OSS WASM package and deferred
+The provider integration tests use the generated WASM package and deferred
 backends to exercise stale responses, disposal and version negotiation.
 
 
@@ -183,9 +183,8 @@ without Mercator clipping. The shared source sampling policy also retains
 visible lower-latitude detail while the camera moves toward a pole.
 Canvas draws Mercator and polar track pixels through the same rasterizer. On a
 globe, a continuous image mesh joins all three charts at the Mercator limits;
-CPU projection keeps positions precise near the poles. Flat maps retain the
-MapLibre Canvas source. The small WebGL shader only places Canvas images: there
-is no distance-field, GL track renderer or Worker pipeline.
+CPU projection keeps positions precise near the poles, and a WebGL shader places
+the Canvas images on the globe. Flat maps retain the MapLibre Canvas source.
 
 Each cap downloads independently, retains its previous image while loading,
 and rejects stale responses after a camera change, forced refresh or disposal.

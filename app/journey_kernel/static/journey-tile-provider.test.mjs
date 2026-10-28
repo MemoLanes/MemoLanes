@@ -239,7 +239,7 @@ test("unchanged polling retains the source and backend invalidation bypasses ver
   assert.equal(f.provider.getLoadedTileBuffer().generation, 2);
 });
 
-test("Canvas backend decodes OSS WASM pixels and permits idempotent release", async () => {
+test("Canvas backend decodes WASM pixels and permits idempotent release", async () => {
   const wasm = await import("../pkg/journey_kernel.js");
   await wasm.default({
     module_or_path: await readFile(

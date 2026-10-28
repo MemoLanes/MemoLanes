@@ -44,4 +44,4 @@ reference it.
 `BENCHMARK_CHROMIUM_ANGLE` selects its ANGLE backend (for example `gl-egl`,
 `vulkan`, or `swiftshader-webgl`). Browser launch and subprocess handling live
 in `../tools/` and are shared with the [navigation regressions](../tests/browser/README.md).
-The benchmark still uses the OSS Canvas renderer.
+The benchmark uses the Canvas renderer.
