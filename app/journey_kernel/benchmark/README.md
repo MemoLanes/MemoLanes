@@ -38,3 +38,10 @@ so reports from different environments are easy to identify.
 Benchmark code is built only through the `benchmark:serve` script's separate
 webpack entry and output directory. The normal `yarn build` entry graph does not
 reference it.
+
+
+`BENCHMARK_CHROMIUM_EXECUTABLE` selects an installed Chromium and
+`BENCHMARK_CHROMIUM_ANGLE` selects its ANGLE backend (for example `gl-egl`,
+`vulkan`, or `swiftshader-webgl`). Browser launch and subprocess handling live
+in `../tools/` and are shared with the [navigation regressions](../tests/browser/README.md).
+The benchmark still uses the OSS Canvas renderer.

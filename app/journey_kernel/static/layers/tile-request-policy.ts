@@ -2,6 +2,7 @@ import type { Map as MaplibreMap } from "maplibre-gl";
 import { getScreenResolvedSourceTileZoom } from "./source-tile-zoom";
 import { getBoundedViewportPrefetchRange, type TileRange } from "./tile-range";
 import { getViewportTileRangeAtZoom } from "./utils";
+import { getMapSamplingZoom } from "./map-resolution";
 
 export interface ViewportPrefetchPolicy {
   padding: number;
@@ -27,7 +28,7 @@ export function getTileRequestRange(
   bufferSizePower: number,
   policy: TileRequestPolicy,
 ): TileRange {
-  const mapZoom = map.getZoom();
+  const mapZoom = getMapSamplingZoom(map);
   const sourceZoom =
     policy.maxSourceCellWidthCss === undefined
       ? Math.min(

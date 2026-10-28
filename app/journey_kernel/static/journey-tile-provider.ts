@@ -131,6 +131,8 @@ export class JourneyTileProvider {
   private zoomingOutInProgress: boolean;
   private disposed: boolean;
   private readonly unsubscribeRenderMode: () => void;
+  private readonly unsubscribeProjection: () => void;
+  private readonly refreshCallbacks = new Set<(force: boolean) => void>();
   private readonly handleMapMove = (): void => {
     this.tryUpdateViewRange();
   };
@@ -141,7 +143,7 @@ export class JourneyTileProvider {
   constructor(
     map: maplibregl.Map,
     params: ReactiveParams,
-    isGlobeProjection: boolean = false,
+    isGlobeProjection?: boolean,
   ) {
     this.map = map;
     this.params = params;
@@ -159,7 +161,7 @@ export class JourneyTileProvider {
     );
 
     // TODO: better handling of globe projection
-    this.isGlobeProjection = isGlobeProjection;
+    this.isGlobeProjection = isGlobeProjection ?? params.projection === "globe";
 
     this.tileBufferCallbacks = [];
 
@@ -174,6 +176,15 @@ export class JourneyTileProvider {
       const newBufferSizePower = this.getBufferSizePowerFromRenderMode(newMode);
       this.setBufferSizePower(newBufferSizePower);
     });
+
+    this.unsubscribeProjection = this.params.on(
+      "projection",
+      (newProjection) => {
+        this.isGlobeProjection = newProjection === "globe";
+        this.tryUpdateViewRange();
+        void this.pollForJourneyUpdates(true);
+      },
+    );
 
     this.map.on("move", this.handleMapMove);
     this.map.on("moveend", this.handleMapMoveEnd);
@@ -194,6 +205,7 @@ export class JourneyTileProvider {
     forceUpdate: boolean = false,
   ): Promise<boolean | null> {
     if (this.disposed) return null;
+    for (const callback of this.refreshCallbacks) callback(forceUpdate);
     // Periodic checks can wait for the next tick. Advancing demand while a
     // request is decoding or downloading would supersede useful work every
     // second on slow devices. Explicit refreshes must still queue a follow-up.
@@ -345,10 +357,20 @@ export class JourneyTileProvider {
     return this.viewRange;
   }
 
+  registerRefreshCallback(callback: (force: boolean) => void): void {
+    this.refreshCallbacks.add(callback);
+  }
+
+  unregisterRefreshCallback(callback: (force: boolean) => void): void {
+    this.refreshCallbacks.delete(callback);
+  }
+
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
     this.unsubscribeRenderMode();
+    this.unsubscribeProjection();
+    this.refreshCallbacks.clear();
     this.map.off("move", this.handleMapMove);
     this.map.off("moveend", this.handleMapMoveEnd);
     this.tileBufferCallbacks.length = 0;

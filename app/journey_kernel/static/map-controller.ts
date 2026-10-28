@@ -15,6 +15,13 @@ import type {
   MapContextEvent,
   RequestTransformFunction,
   ResourceType,
+  LngLatLike,
+  LngLatBoundsLike,
+  JumpToOptions,
+  EaseToOptions,
+  FlyToOptions,
+  FitBoundsOptions,
+  PaddingOptions,
 } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import {
@@ -35,6 +42,11 @@ import {
   StyleLoadRetry,
 } from "./style-load-retry";
 
+import {
+  createPolarCameraConstrain,
+  resolvePolarGlobeLock,
+} from "./polar-camera-policy";
+import { getPolarBoundsCamera } from "./polar-camera-bounds";
 const DATA_POLL_INTERVAL_MS = 1_000;
 
 interface WebGLContextMessageChannel {
@@ -78,6 +90,9 @@ export class MapController {
   private journeyTileProvider: JourneyTileProvider | null = null;
   private styleLoadRetry: StyleLoadRetry | null = null;
   private pollIntervalId: ReturnType<typeof setInterval> | null = null;
+  private polarGlobeLocked = false;
+  private polarCameraTargetLatitude: number | null = null;
+  private polarBoundsPadding: PaddingOptions | null = null;
   private webGLContextLost = false;
   private webGLContextLossCount = 0;
   private webGLContextLostAt: number | null = null;
@@ -86,6 +101,14 @@ export class MapController {
     this.params = config.params;
     this.mapLocale = detectMapLocale();
     this.DisableAutoRefresh = config.DisableAutoRefresh ?? false;
+    this.polarGlobeLocked = resolvePolarGlobeLock(
+      this.params.projection,
+      this.params.initialBounds
+        ? (this.params.initialBounds.south + this.params.initialBounds.north) /
+            2
+        : this.params.lat,
+      false,
+    );
 
     // Build transform request function for Mapbox styles
     const transformRequest = this.buildTransformRequest();
@@ -95,20 +118,25 @@ export class MapController {
       container: config.containerId,
       center: [this.params.lng, this.params.lat],
       zoom: this.params.zoom,
-      bounds: this.params.initialBounds
-        ? [
-            [this.params.initialBounds.west, this.params.initialBounds.south],
-            [this.params.initialBounds.east, this.params.initialBounds.north],
-          ]
-        : undefined,
-      fitBoundsOptions: this.params.initialBounds
-        ? {
-            padding: this.params.initialBoundsPadding,
-            maxZoom: MAX_MAP_ZOOM,
-            duration: 0,
-          }
-        : undefined,
+      bounds:
+        this.params.initialBounds && !this.polarGlobeLocked
+          ? [
+              [this.params.initialBounds.west, this.params.initialBounds.south],
+              [this.params.initialBounds.east, this.params.initialBounds.north],
+            ]
+          : undefined,
+      fitBoundsOptions:
+        this.params.initialBounds && !this.polarGlobeLocked
+          ? {
+              padding: this.params.initialBoundsPadding,
+              maxZoom: MAX_MAP_ZOOM,
+              duration: 0,
+            }
+          : undefined,
       maxZoom: MAX_MAP_ZOOM,
+      transformConstrain: this.polarGlobeLocked
+        ? createPolarCameraConstrain(0, MAX_MAP_ZOOM)
+        : null,
       style: {
         version: 8,
         metadata: { [PLACEHOLDER_STYLE_METADATA_KEY]: true },
@@ -122,7 +150,11 @@ export class MapController {
             },
           },
         ],
-        projection: { type: this.params.projection },
+        projection: {
+          type: this.polarGlobeLocked
+            ? "vertical-perspective"
+            : this.params.projection,
+        },
       },
       // TODO: maplibre brings more canvas settings, we may fine tune them later
       canvasContextAttributes: {
@@ -133,10 +165,35 @@ export class MapController {
       touchPitch: false,
       attributionControl: false,
     });
+    this.applyPolarCameraConstraint();
 
     // Disable rotation controls
     this.map.dragRotate.disable();
     this.map.touchZoomRotate.disableRotation();
+    this.map.on("move", () => this.updatePolarProjectionMode());
+    this.map.on("moveend", () => {
+      this.polarCameraTargetLatitude = null;
+      this.updatePolarProjectionMode();
+    });
+    this.map.on("idle", () => this.updatePolarProjectionMode());
+    if (this.params.initialBounds && this.polarGlobeLocked) {
+      const bounds = this.params.initialBounds;
+      // The built-in initial-bounds path shares Mercator's polar clipping.
+      // Run our spherical fit before initialize() starts loading journey data.
+      this.map.once("load", () =>
+        this.fitBounds(
+          [
+            [bounds.west, bounds.south],
+            [bounds.east, bounds.north],
+          ],
+          {
+            padding: this.params.initialBoundsPadding,
+            maxZoom: MAX_MAP_ZOOM,
+            duration: 0,
+          },
+        ),
+      );
+    }
     this.setupWebGLContextMonitoring();
   }
 
@@ -313,6 +370,71 @@ export class MapController {
     return this.map;
   }
 
+  /** Prepare the spherical camera before MapLibre computes a destination.
+   * Mercator animation helpers clamp polar coordinates during interpolation,
+   * even when a custom transform constraint preserves the original target. */
+  jumpTo(options: JumpToOptions): MaplibreMap {
+    this.restoreBoundsPadding();
+    this.preparePolarCamera(options.center);
+    return this.map.jumpTo(options);
+  }
+
+  easeTo(options: EaseToOptions): MaplibreMap {
+    this.restoreBoundsPadding();
+    this.preparePolarCamera(options.center);
+    return this.map.easeTo(options);
+  }
+
+  flyTo(options: FlyToOptions): MaplibreMap {
+    this.restoreBoundsPadding();
+    this.preparePolarCamera(options.center);
+    return this.map.flyTo(options);
+  }
+
+  fitBounds(bounds: LngLatBoundsLike, options?: FitBoundsOptions): MaplibreMap {
+    this.restoreBoundsPadding();
+    this.preparePolarCamera(
+      maplibregl.LngLatBounds.convert(bounds).getCenter(),
+    );
+    if (this.params.projection === "globe") {
+      const camera = getPolarBoundsCamera(this.map, bounds, options);
+      if (camera) {
+        this.polarBoundsPadding = this.map.getPadding();
+        const movement = { ...options, ...camera };
+        return options?.linear
+          ? this.map.easeTo(movement)
+          : this.map.flyTo(movement);
+      }
+    }
+    return this.map.fitBounds(bounds, options);
+  }
+
+  private restoreBoundsPadding(): void {
+    if (!this.polarBoundsPadding) return;
+    const padding = this.polarBoundsPadding;
+    this.polarBoundsPadding = null;
+    this.map.setPadding(padding);
+  }
+
+  private preparePolarCamera(center?: LngLatLike): void {
+    if (this.params.projection !== "globe" || !this.map.getStyle()) return;
+    // Finish the previous camera before its moveend can clear the new target.
+    this.map.stop();
+    this.polarCameraTargetLatitude = center
+      ? maplibregl.LngLat.convert(center).lat
+      : this.map.getCenter().lat;
+    this.setPolarGlobeLock(
+      resolvePolarGlobeLock(
+        this.params.projection,
+        Math.max(
+          Math.abs(this.polarCameraTargetLatitude),
+          Math.abs(this.map.getCenter().lat),
+        ),
+        this.polarGlobeLocked,
+      ),
+    );
+  }
+
   /** Wait for a displayable frame from whichever renderer is currently active. */
   waitForDisplay(): Promise<void> {
     return waitForRenderedFrame(this.map, () => {
@@ -453,8 +575,52 @@ export class MapController {
       console.log(
         `[MapController] projection changed: ${oldProjection} -> ${newProjection}`,
       );
+      this.polarGlobeLocked = resolvePolarGlobeLock(
+        newProjection,
+        this.map.getCenter().lat,
+        false,
+      );
+      this.applyPolarCameraConstraint();
       this.applyMapStyle();
     });
+  }
+
+  private updatePolarProjectionMode(): void {
+    if (this.params.projection !== "globe" || !this.map.isStyleLoaded()) {
+      return;
+    }
+    const shouldLock = resolvePolarGlobeLock(
+      this.params.projection,
+      Math.max(
+        Math.abs(this.polarCameraTargetLatitude ?? 0),
+        Math.abs(this.map.getCenter().lat),
+      ),
+      this.polarGlobeLocked,
+    );
+    this.setPolarGlobeLock(shouldLock);
+  }
+
+  private setPolarGlobeLock(shouldLock: boolean): void {
+    if (shouldLock === this.polarGlobeLocked) {
+      return;
+    }
+
+    this.polarGlobeLocked = shouldLock;
+    this.applyPolarCameraConstraint();
+    this.map.setProjection({
+      type: shouldLock ? "vertical-perspective" : "globe",
+    });
+  }
+
+  private applyPolarCameraConstraint(): void {
+    this.map.setTransformConstrain(
+      this.polarGlobeLocked
+        ? createPolarCameraConstrain(
+            this.map.getMinZoom(),
+            this.map.getMaxZoom(),
+          )
+        : null,
+    );
   }
 
   /**
@@ -495,6 +661,7 @@ export class MapController {
           nextStyle,
           this.params.projection,
           this.mapLocale,
+          this.polarGlobeLocked,
         ),
     });
   }

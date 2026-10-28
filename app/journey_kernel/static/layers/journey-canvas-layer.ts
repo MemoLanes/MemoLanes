@@ -1,3 +1,8 @@
+import {
+  createCanvasTrackColors,
+  drawCanvasTileRange,
+  type CanvasRaster,
+} from "./canvas-raster";
 import { tileXYToLngLat } from "./utils";
 import type * as maplibregl from "maplibre-gl";
 import type { CanvasSource, CanvasSourceSpecification } from "maplibre-gl";
@@ -6,7 +11,7 @@ import type { JourneyTileProvider } from "../journey-tile-provider";
 import { DEFAULT_FOG_RGBA } from "../fog-style";
 import { JOURNEY_LAYER_ID } from "./journey-layer-interface";
 import type { JourneyLayer, RGBAColor } from "./journey-layer-interface";
-import { CanvasPoleFoggyLayer } from "./canvas-pole-foggy-layer";
+import { CanvasGlobeLayer } from "./canvas-globe-layer";
 
 /**
  * Tile buffer callback function type
@@ -32,15 +37,11 @@ export class JourneyCanvasLayer implements JourneyLayer {
   private journeyTileProvider: JourneyTileProvider;
   private layerId: string;
   private sourceId: string;
-  private poleLayer: CanvasPoleFoggyLayer;
+  private globeLayer: CanvasGlobeLayer;
   private readonly trackColors: Uint32Array;
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
-  private raster?: {
-    image: ImageData;
-    pixels: Uint32Array;
-    coverage: Uint8Array;
-  };
+  private raster?: CanvasRaster;
   private _repaintCallback?: TileBufferCallback;
   private canvasPrepared = false;
 
@@ -55,31 +56,16 @@ export class JourneyCanvasLayer implements JourneyLayer {
     this.journeyTileProvider = journeyTileProvider;
     this.layerId = layerId;
     this.sourceId = `${layerId}-canvas-source`;
-    this.poleLayer = new CanvasPoleFoggyLayer(
+    this.globeLayer = new CanvasGlobeLayer(
       map,
-      `${layerId}-canvas-poles`,
+      `${layerId}-canvas-globe`,
+      layerId,
       bgColor,
+      fgColor,
+      journeyTileProvider,
     );
 
-    // A narrow feather around the original solid pixels softens stair steps
-    // without blurring away thin tracks. Mix premultiplied colors so both
-    // transparent tracks and custom translucent foregrounds keep their color.
-    const colors = new Uint8ClampedArray(256 * 4);
-    for (let index = 0; index < 256; index++) {
-      const coverage = index / 255;
-      const bgAlpha = bgColor[3] * (1 - coverage);
-      const fgAlpha = fgColor[3] * coverage;
-      const alpha = bgAlpha + fgAlpha;
-      for (let channel = 0; channel < 3; channel++) {
-        colors[index * 4 + channel] = alpha
-          ? (Math.round(bgColor[channel] * 255) * bgAlpha +
-              Math.round(fgColor[channel] * 255) * fgAlpha) /
-            alpha
-          : 0;
-      }
-      colors[index * 4 + 3] = alpha * 255;
-    }
-    this.trackColors = new Uint32Array(colors.buffer);
+    this.trackColors = createCanvasTrackColors(bgColor, fgColor);
 
     this.canvas = document.createElement("canvas");
     const ctx = this.canvas.getContext("2d");
@@ -100,10 +86,8 @@ export class JourneyCanvasLayer implements JourneyLayer {
       },
     });
 
-    // Canvas/Image sources deliberately disable MapLibre's globe pole mesh.
-    // The Canvas-owned pole mesh meets the texture exactly at the Mercator
-    // edge, avoiding a translucent overlap band.
-    this.map.addLayer(this.poleLayer);
+    // One Canvas globe mesh keeps all three charts joined at the seams.
+    this.map.addLayer(this.globeLayer);
 
     this._repaintCallback = (
       x: number,
@@ -169,105 +153,16 @@ export class JourneyCanvasLayer implements JourneyLayer {
 
     const [left, top, right, bottom] = [x, y, x + w, y + h];
 
-    const tileSize = Math.pow(2, bufferSizePower);
-
-    const n = Math.pow(2, z);
-    const width = tileSize * w;
-    const height = tileSize * h;
-    if (this.canvas.width !== width) this.canvas.width = width;
-    if (this.canvas.height !== height) this.canvas.height = height;
-    if (
-      this.raster?.image.width !== width ||
-      this.raster.image.height !== height
-    ) {
-      const image = this.ctx.createImageData(width, height);
-      this.raster = {
-        image,
-        pixels: new Uint32Array(image.data.buffer),
-        coverage: new Uint8Array(width * height),
-      };
-    }
-    // Panning usually keeps the same dimensions. Reuse only the current
-    // raster, avoiding repeated allocations without retaining old viewports.
-    const { image, pixels, coverage } = this.raster;
-    pixels.fill(this.trackColors[0]);
-    coverage.fill(0);
-    const addCoverage = (offset: number, weight: number): void => {
-      if (coverage[offset] !== 255) {
-        // Keep partially revealed cells distinct from solid track cores.
-        const level = Math.min(254, coverage[offset] + weight);
-        coverage[offset] = level;
-        pixels[offset] = this.trackColors[level];
-      }
-    };
-
-    for (let x = left; x < right; x++) {
-      for (let y = top; y < bottom; y++) {
-        if (y < 0 || y >= n) continue;
-
-        const dx = (x - left) * tileSize;
-        const dy = (y - top) * tileSize;
-
-        // Get pixels coordinates from journeyTileProvider
-        // TODO: we need smooth transition when x range jump in the center of the Pacific Ocean.
-        const pixelCoords = tileBuffer.get_tile_pixels(
-          x,
-          y,
-          z,
-          bufferSizePower,
-        );
-
-        if (pixelCoords && pixelCoords.length > 0) {
-          // Process pairs of coordinates (x,y)
-          for (let i = 0; i < pixelCoords.length; i += 2) {
-            const pointX = dx + pixelCoords[i];
-            const pointY = dy + pixelCoords[i + 1];
-            const center = pointY * width + pointX;
-            if (coverage[center] === 255) continue;
-            coverage[center] = 255;
-            pixels[center] = this.trackColors[255];
-            // A small, fixed 3x3 kernel fills diagonal notches more evenly
-            // than independent halos. Preserve solid cores and count each
-            // source pixel once, so duplicates and draw order have no effect.
-            // Canvas-space neighbors also keep internal tile seams invisible.
-            // Most points are interior: use fixed offsets to avoid checking
-            // canvas bounds and world wrapping for each of eight neighbors.
-            if (
-              pointX > 0 &&
-              pointX < width - 1 &&
-              pointY > 0 &&
-              pointY < height - 1
-            ) {
-              addCoverage(center - width - 1, 10);
-              addCoverage(center - width, 46);
-              addCoverage(center - width + 1, 10);
-              addCoverage(center - 1, 46);
-              addCoverage(center + 1, 46);
-              addCoverage(center + width - 1, 10);
-              addCoverage(center + width, 46);
-              addCoverage(center + width + 1, 10);
-              continue;
-            }
-            for (let oy = -1; oy <= 1; oy++) {
-              const py = pointY + oy;
-              if (py < 0 || py >= height) continue;
-              for (let ox = -1; ox <= 1; ox++) {
-                if (ox === 0 && oy === 0) continue;
-                let px = pointX + ox;
-                if (w === n) px = (px + width) % width;
-                else if (px < 0 || px >= width) continue;
-                // About 18% at edge neighbors and 4% at corners.
-                addCoverage(py * width + px, ox !== 0 && oy !== 0 ? 10 : 46);
-              }
-            }
-          }
-        }
-      }
-    }
-
-    // One upload at the existing resolution avoids per-point Canvas calls
-    // and does not increase the texture size sent to MapLibre.
-    this.ctx.putImageData(image, 0, 0);
+    this.raster = drawCanvasTileRange(
+      this.canvas,
+      this.ctx,
+      this.trackColors,
+      this.raster,
+      [x, y, w, h, z],
+      bufferSizePower,
+      tileBuffer,
+      w === 2 ** z,
+    );
 
     // This is a workaround for a maplibre 5.7.3 bug (or feature).
     //  for a map view of multi-worldview (map wrap arounds and lng may be out of -180 - 180 range),
@@ -297,6 +192,7 @@ export class JourneyCanvasLayer implements JourneyLayer {
     mainCanvasSource?.play();
     mainCanvasSource?.pause();
     this.canvasPrepared = !!mainCanvasSource;
+    this.globeLayer.setMercator(this.canvas, [x, y, w, h, z]);
   }
 
   remove(): void {
@@ -305,8 +201,8 @@ export class JourneyCanvasLayer implements JourneyLayer {
       this.map.removeLayer(this.layerId);
     }
 
-    if (this.map.getLayer(this.poleLayer.id)) {
-      this.map.removeLayer(this.poleLayer.id);
+    if (this.map.getLayer(this.globeLayer.id)) {
+      this.map.removeLayer(this.globeLayer.id);
     }
 
     if (this.map.getSource(this.sourceId)) {

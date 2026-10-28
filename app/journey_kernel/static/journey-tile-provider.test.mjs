@@ -178,7 +178,7 @@ test("disposal releases late decodes and detaches the provider exactly once", as
   await until(() => f.decodes[0].source.releases === 1);
   assert.equal(f.provider.getLoadedTileBuffer(), null);
   assert.equal(f.backendDisposals(), 1);
-  assert.equal(f.unsubscribeCount(), 1);
+  assert.equal(f.unsubscribeCount(), 2);
   assert.equal(f.map.listeners.size, 0);
 });
 

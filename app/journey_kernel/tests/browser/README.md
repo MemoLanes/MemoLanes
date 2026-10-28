@@ -1,0 +1,25 @@
+# Canvas globe regressions
+
+Run from `app/journey_kernel` after installing dependencies and building the OSS
+WASM package with `yarn wasm:dev`:
+
+```sh
+yarn benchmark:install
+BENCHMARK_HEADLESS=true yarn test:browser
+```
+
+The browser suite checks the production `MapController` with both hemispheres:
+jump/ease/fly destinations, globe projection hysteresis, initial journey bounds,
+asymmetric padding and restoration when leaving journey focus. It preserves the
+OSS zoom limit and uses no proprietary renderer, distance fields or Worker code.
+
+Set `RENDER_TEST_BROWSER=webkit` to use an installed Playwright WebKit browser.
+`BENCHMARK_CHROMIUM_EXECUTABLE` and `BENCHMARK_CHROMIUM_ANGLE` can select a local
+Chromium and ANGLE backend. Headless mode is opt-in.
+The shared bundler serves only temporary local assets and removes them on exit.
+The Canvas suite exercises binary tile decoding through the OSS WASM package,
+Canvas rasterization and actual browser pixels. It checks both poles, native
+zoom track positions (including close to the Mercator boundary), single-opacity
+seams at several zoom levels, independent cap downloads, forced refreshes and
+in-flight disposal. Synthetic tiles isolate known geographic marker positions;
+the Rust map-renderer tests separately cover a complex polar GPX fixture.

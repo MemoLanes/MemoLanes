@@ -42,6 +42,7 @@ function fixture(t, bg, fg) {
     isSourceLoaded: () => sourceLoaded,
     getLayer: () => undefined,
     removeSource() {},
+    triggerRepaint() {},
   };
   const layer = new JourneyCanvasLayer(map, {}, "canvas-test", bg, fg);
   return {

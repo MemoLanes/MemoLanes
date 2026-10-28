@@ -151,8 +151,8 @@ This command will:
 
 `JourneyTileProvider` owns viewport demand, version negotiation, response
 commit order and decoded-source lifetime. `layer-config.ts` registers renderer
-implementations and their request policies. Canvas keeps its 256-pixel tiles
-and source zoom up to 14.
+implementations and their request policies. Canvas keeps its 512-pixel tiles
+and source zoom up to 13.
 
 The default `MainThreadTileBufferBackend` decodes the shared WASM `TileBuffer`
 and exposes it to Canvas callbacks. Additional renderers may register a
@@ -168,3 +168,29 @@ both Rust (including the WASM-facing pixel queries) and frontend tests. After
 `yarn wasm:dev` or `yarn build`, `yarn test` runs the frontend suite alone.
 The provider integration tests use the generated OSS WASM package and deferred
 backends to exercise stale responses, disposal and version negotiation.
+
+
+### Polar maps
+
+The tile API accepts `plane=mercator`, `plane=north`, or `plane=south`; omitted
+`plane` means Mercator. Each plane has an independent cache version, and polar
+requests stay within their finite square chart instead of wrapping longitude.
+The Rust GPX example can serve these endpoints with `--gpx` (see
+[the examples](../rust/examples/README.md)).
+
+Globe navigation preserves polar destinations and fits polar journey bounds
+without Mercator clipping. The shared source sampling policy also retains
+visible lower-latitude detail while the camera moves toward a pole.
+Canvas draws Mercator and polar track pixels through the same rasterizer. On a
+globe, a continuous image mesh joins all three charts at the Mercator limits;
+CPU projection keeps positions precise near the poles. Flat maps retain the
+MapLibre Canvas source. The small WebGL shader only places Canvas images: there
+is no distance-field, GL track renderer or Worker pipeline.
+
+Each cap downloads independently, retains its previous image while loading,
+and rejects stale responses after a camera change, forced refresh or disposal.
+Polar image dimensions are bounded to 2048 pixels per side.
+
+After building WASM, run `yarn test:browser` for navigation, Canvas pixel and
+asynchronous update regressions. See [browser tests](tests/browser/README.md) and
+[the performance benchmark](benchmark/README.md) for their separate purposes.
