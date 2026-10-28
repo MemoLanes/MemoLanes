@@ -60,5 +60,24 @@ test("a close polar view does not fetch detail for invisible lower latitudes", (
       getNorthEast: () => ({ lat: sign > 0 ? 90 : -89.99 }),
     });
     assert.equal(getMapSamplingZoom(map), 14);
+    assert.equal(
+      getTileRequestRange(map, true, 9, { maxSourceZoom: 13 }),
+      null,
+    );
+  }
+});
+
+test("Mercator requests clip polar bounds and reduce LOD to the endpoint limit", () => {
+  for (const sign of [1, -1]) {
+    const map = view(sign * 85);
+    map.getZoom = () => 14;
+    map.getBounds = () => ({
+      getSouthWest: () => ({ lng: -180, lat: sign > 0 ? 84 : -90 }),
+      getNorthEast: () => ({ lng: 180, lat: sign > 0 ? 90 : -84 }),
+    });
+    const range = getTileRequestRange(map, true, 9, { maxSourceZoom: 13 });
+    assert.ok(range[2] <= 20 && range[3] <= 20);
+    assert.equal(range[2], 2 ** range[4], "all meridians remain covered");
+    assert.ok(range[3] < 2 ** range[4], "only the Mercator edge is fetched");
   }
 });

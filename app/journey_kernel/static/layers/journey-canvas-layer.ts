@@ -119,9 +119,11 @@ export class JourneyCanvasLayer implements JourneyLayer {
 
   isReadyForDisplay(): boolean {
     return (
-      this.canvasPrepared &&
-      !!this.map.getSource(this.sourceId) &&
-      this.map.isSourceLoaded(this.sourceId)
+      this.globeLayer.isReadyForDisplay() &&
+      (this.journeyTileProvider.getViewRange() === null ||
+        (this.canvasPrepared &&
+          !!this.map.getSource(this.sourceId) &&
+          this.map.isSourceLoaded(this.sourceId)))
     );
   }
 

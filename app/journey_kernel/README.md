@@ -190,6 +190,10 @@ is no distance-field, GL track renderer or Worker pipeline.
 Each cap downloads independently, retains its previous image while loading,
 and rejects stale responses after a camera change, forced refresh or disposal.
 Polar image dimensions are bounded to 2048 pixels per side.
+Mercator requests are clipped to their latitude band and bounded to the tile
+endpoint's 20-by-20 limit; polar-only views skip them. The first display waits
+for image coverage of every visible plane, while hidden caps can keep loading.
+Explicit refreshes wait for both the Mercator and polar update pipelines.
 
 After building WASM, run `yarn test:browser` for navigation, Canvas pixel and
 asynchronous update regressions. See [browser tests](tests/browser/README.md) and

@@ -44,7 +44,8 @@ function fixture(t, bg, fg) {
     removeSource() {},
     triggerRepaint() {},
   };
-  const layer = new JourneyCanvasLayer(map, {}, "canvas-test", bg, fg);
+  const provider = { getViewRange: () => [0, 0, 1, 1, 4] };
+  const layer = new JourneyCanvasLayer(map, provider, "canvas-test", bg, fg);
   return {
     layer,
     allocations: () => allocations,

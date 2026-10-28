@@ -34,18 +34,22 @@ const capProbes = {
 interface PolarRangeCache {
   key: string | null;
   points: [number, number][];
-  ranges: Partial<Record<PolarHemisphere, TileRange>>;
+  views: Partial<Record<PolarHemisphere, PolarCanvasView>>;
 }
 
 const rangeCache = new WeakMap<Map, PolarRangeCache>();
 
+export interface PolarCanvasView {
+  readonly range: TileRange;
+  readonly visible: boolean;
+}
+
 /** Screen-space samples choose chart coverage; a derivative chooses native LOD.
- * The overview is also a safe fallback when a cap is outside the viewport. */
-export function getPolarCanvasRange(
+ * Invisible caps retain an overview for prefetch, without blocking display. */
+export function getPolarCanvasView(
   map: Map,
   hemisphere: PolarHemisphere,
-): TileRange {
-  if (!map.project || !map.unproject || !map.getCanvas) return [0, 0, 1, 1, 0];
+): PolarCanvasView {
   const canvas = map.getCanvas();
   const width = canvas.clientWidth || canvas.width;
   const height = canvas.clientHeight || canvas.height;
@@ -74,15 +78,16 @@ export function getPolarCanvasRange(
     : null;
   const cached = key === null ? undefined : rangeCache.get(map);
   const entry: PolarRangeCache =
-    cached && cached.key === key ? cached : { key, points: [], ranges: {} };
-  const range = entry.ranges[hemisphere];
-  if (range) return range;
-  const remember = (range: TileRange): TileRange => {
+    cached && cached.key === key ? cached : { key, points: [], views: {} };
+  const view = entry.views[hemisphere];
+  if (view) return view;
+  const remember = (range: TileRange, visible: boolean): PolarCanvasView => {
+    const view = { range, visible };
     if (key !== null) {
-      entry.ranges[hemisphere] = range;
+      entry.views[hemisphere] = view;
       rangeCache.set(map, entry);
     }
-    return range;
+    return view;
   };
   const sign = hemisphere === "north" ? 1 : -1;
   const samples: [number, number][] = [];
@@ -113,7 +118,7 @@ export function getPolarCanvasRange(
     // project() also returns points behind the globe; reject that hemisphere.
     if (Math.abs(visible.lat - ll[1]) < 0.01) samples.push(uv);
   }
-  if (!samples.length) return remember([0, 0, 1, 1, 0]);
+  if (!samples.length) return remember([0, 0, 1, 1, 0], false);
   let density = 0;
   const delta = 1e-5;
   for (const [u, v] of samples) {
@@ -154,7 +159,7 @@ export function getPolarCanvasRange(
       (w * tileSide <= MAX_CANVAS_SIDE && h * tileSide <= MAX_CANVAS_SIDE) ||
       z === 0
     )
-      return remember([x, y, w, h, z]);
+      return remember([x, y, w, h, z], true);
     z--;
   }
 }

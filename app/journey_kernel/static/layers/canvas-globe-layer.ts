@@ -6,16 +6,38 @@ import type {
 import type { JourneyTileProvider } from "../journey-tile-provider";
 import type { RGBAColor } from "./journey-layer-interface";
 import type { TileRange } from "./tile-range";
-import { polarUV, POLAR_SEAM_LATITUDE } from "../polar-projection";
+import {
+  polarUV,
+  POLAR_SEAM_LATITUDE,
+  type PolarHemisphere,
+} from "../polar-projection";
 import { PolarCanvasProvider } from "../polar-canvas-provider";
 
 interface CanvasImage {
   canvas: HTMLCanvasElement;
   range: TileRange;
 }
-interface Surface {
-  texture: WebGLTexture;
+type CanvasPlane = "mercator" | PolarHemisphere;
+interface ChartSurface {
+  plane: CanvasPlane;
+  latitude: readonly [number, number];
+  texture: WebGLTexture | null;
   uploaded: CanvasImage | null;
+  vertexCount: number;
+}
+
+function createChart(
+  plane: CanvasPlane,
+  south: number,
+  north: number,
+): ChartSurface {
+  return {
+    plane,
+    latitude: [south, north],
+    texture: null,
+    uploaded: null,
+    vertexCount: 0,
+  };
 }
 
 /** All globe pixels come from the shared Canvas painter. This layer only places
@@ -28,9 +50,12 @@ export class CanvasGlobeLayer implements CustomLayerInterface {
   private buffer: WebGLBuffer | null = null;
   private data: PolarCanvasProvider | null = null;
   private mercator: CanvasImage | null = null;
-  private surfaces: Surface[] = [];
+  private readonly charts = [
+    createChart("south", -90, -POLAR_SEAM_LATITUDE),
+    createChart("mercator", -POLAR_SEAM_LATITUDE, POLAR_SEAM_LATITUDE),
+    createChart("north", POLAR_SEAM_LATITUDE, 90),
+  ];
   private meshKey = "";
-  private counts: number[] = [];
   private attributes: number[] = [];
   private uniforms: Record<string, WebGLUniformLocation | null> = {};
   private readonly map: MaplibreMap;
@@ -73,6 +98,16 @@ export class CanvasGlobeLayer implements CustomLayerInterface {
     this.map.triggerRepaint();
   }
 
+  isReadyForDisplay(): boolean {
+    return !this.globeVisible || this.data?.isReadyForDisplay() === true;
+  }
+
+  private getImage(plane: CanvasPlane): CanvasImage | null {
+    return plane === "mercator"
+      ? this.mercator
+      : (this.data?.get(plane) ?? null);
+  }
+
   onAdd(): void {
     this.data = new PolarCanvasProvider(
       this.map,
@@ -92,11 +127,6 @@ export class CanvasGlobeLayer implements CustomLayerInterface {
     if (args.shaderData.variantName !== "globe" || !this.globeVisible) return;
     if (!this.program) this.setup(gl);
     if (!this.program || !this.buffer) return;
-    const images = [
-      this.data?.get("south") ?? null,
-      this.mercator,
-      this.data?.get("north") ?? null,
-    ];
     const bounds = this.map.getBounds(),
       center = this.map.getCenter(),
       canvas = this.map.getCanvas();
@@ -111,16 +141,12 @@ export class CanvasGlobeLayer implements CustomLayerInterface {
       Object.values(this.map.getPadding()),
       canvas.clientWidth,
       canvas.clientHeight,
-      images.map((i) => i?.range),
+      this.charts.map((chart) => this.getImage(chart.plane)?.range),
       Array.from(args.defaultProjectionData.mainMatrix),
     ].join("/");
     gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
     if (key !== this.meshKey) {
-      gl.bufferData(
-        gl.ARRAY_BUFFER,
-        this.buildMesh(args, images),
-        gl.DYNAMIC_DRAW,
-      );
+      gl.bufferData(gl.ARRAY_BUFFER, this.buildMesh(args), gl.DYNAMIC_DRAW);
       this.meshKey = key;
     }
     gl.useProgram(this.program);
@@ -152,11 +178,10 @@ export class CanvasGlobeLayer implements CustomLayerInterface {
     }
     let offset = 0;
     try {
-      for (let i = 0; i < 3; i++) {
-        const surface = this.surfaces[i],
-          image = images[i];
-        gl.bindTexture(gl.TEXTURE_2D, surface.texture);
-        if (image && image !== surface.uploaded) {
+      for (const chart of this.charts) {
+        const image = this.getImage(chart.plane);
+        gl.bindTexture(gl.TEXTURE_2D, chart.texture);
+        if (image && image !== chart.uploaded) {
           const premultiplied = gl.getParameter(
               gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL,
             ),
@@ -173,15 +198,17 @@ export class CanvasGlobeLayer implements CustomLayerInterface {
           );
           gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, premultiplied);
           gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, flip);
-          surface.uploaded = image;
+          chart.uploaded = image;
         }
         gl.uniform1f(this.uniforms.hasImage, image ? 1 : 0);
         gl.uniform1f(
           this.uniforms.wrap,
-          i === 1 && image ? 2 ** image.range[4] / image.range[2] : 0,
+          chart.plane === "mercator" && image
+            ? 2 ** image.range[4] / image.range[2]
+            : 0,
         );
-        gl.drawArrays(gl.TRIANGLES, offset, this.counts[i]);
-        offset += this.counts[i];
+        gl.drawArrays(gl.TRIANGLES, offset, chart.vertexCount);
+        offset += chart.vertexCount;
       }
     } finally {
       if (depth) gl.enable(gl.DEPTH_TEST);
@@ -190,10 +217,7 @@ export class CanvasGlobeLayer implements CustomLayerInterface {
     }
   }
 
-  private buildMesh(
-    args: CustomRenderMethodInput,
-    images: (CanvasImage | null)[],
-  ): Float32Array {
+  private buildMesh(args: CustomRenderMethodInput): Float32Array {
     const bounds = this.map.getBounds(),
       canvas = this.map.getCanvas();
     const plane = args.defaultProjectionData.clippingPlane;
@@ -216,24 +240,14 @@ export class CanvasGlobeLayer implements CustomLayerInterface {
     }
     const cols = 128,
       rows = 48;
-    const bands = [
-      [south, Math.min(north, -POLAR_SEAM_LATITUDE)],
-      [
-        Math.max(south, -POLAR_SEAM_LATITUDE),
-        Math.min(north, POLAR_SEAM_LATITUDE),
-      ],
-      [Math.max(south, POLAR_SEAM_LATITUDE), north],
-    ];
     const vertices: number[] = [];
-    this.counts = [];
-    for (let band = 0; band < 3; band++) {
+    for (const chart of this.charts) {
       const start = vertices.length;
-      const [low, high] = bands[band];
-      if (high <= low) {
-        this.counts.push(0);
-        continue;
-      }
-      const target = images[band]?.range ?? [0, 0, 1, 1, 0],
+      const low = Math.max(south, chart.latitude[0]),
+        high = Math.min(north, chart.latitude[1]);
+      chart.vertexCount = 0;
+      if (high <= low) continue;
+      const target = this.getImage(chart.plane)?.range ?? [0, 0, 1, 1, 0],
         n = 2 ** target[4];
       const grid: number[][] = [];
       for (let j = 0; j <= rows; j++)
@@ -244,7 +258,7 @@ export class CanvasGlobeLayer implements CustomLayerInterface {
             radians = (lat * Math.PI) / 180,
             angle = (lng * Math.PI) / 180;
           let u: number, v: number;
-          if (band === 1) {
+          if (chart.plane === "mercator") {
             u = (lng + 180) / 360;
             v = (1 - Math.asinh(Math.tan(radians)) / Math.PI) / 2;
           } else [u, v] = polarUV(lng, lat);
@@ -266,7 +280,7 @@ export class CanvasGlobeLayer implements CustomLayerInterface {
           for (const index of [a, b, a + 1, a + 1, b, b + 1])
             vertices.push(...grid[index]);
         }
-      this.counts.push((vertices.length - start) / 5);
+      chart.vertexCount = (vertices.length - start) / 5;
     }
     return new Float32Array(vertices);
   }
@@ -319,7 +333,7 @@ export class CanvasGlobeLayer implements CustomLayerInterface {
     );
     for (const name of ["bg", "texture", "hasImage", "wrap"])
       this.uniforms[name] = gl.getUniformLocation(program, `u_${name}`);
-    for (let i = 0; i < 3; i++) {
+    for (const chart of this.charts) {
       const texture = gl.createTexture();
       if (!texture) throw new Error("Unable to allocate Canvas globe texture");
       gl.bindTexture(gl.TEXTURE_2D, texture);
@@ -338,7 +352,7 @@ export class CanvasGlobeLayer implements CustomLayerInterface {
         gl.UNSIGNED_BYTE,
         new Uint8Array(4),
       );
-      this.surfaces.push({ texture, uploaded: null });
+      chart.texture = texture;
     }
   }
 
@@ -349,8 +363,13 @@ export class CanvasGlobeLayer implements CustomLayerInterface {
     this.map.off("render", this.updateVisibility);
     this.data?.dispose();
     this.data = null;
-    for (const surface of this.surfaces) gl.deleteTexture(surface.texture);
-    this.surfaces = [];
+    for (const chart of this.charts) {
+      gl.deleteTexture(chart.texture);
+      chart.texture = null;
+      chart.uploaded = null;
+      chart.vertexCount = 0;
+    }
+    this.meshKey = "";
     gl.deleteBuffer(this.buffer);
     gl.deleteProgram(this.program);
     this.buffer = null;

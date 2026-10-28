@@ -113,9 +113,10 @@ export async function checkPolarCanvas(check) {
           const range = getTileRequestRange(map, true, 9, {
             maxSourceZoom: 13,
           });
-          layer.redrawCanvas(...range, 9, {
-            get_tile_pixels: () => new Uint16Array(),
-          });
+          if (range)
+            layer.redrawCanvas(...range, 9, {
+              get_tile_pixels: () => new Uint16Array(),
+            });
         }
         for (const fn of refresh) fn(true);
         await settle();

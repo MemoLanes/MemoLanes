@@ -23,3 +23,10 @@ zoom track positions (including close to the Mercator boundary), single-opacity
 seams at several zoom levels, independent cap downloads, forced refreshes and
 in-flight disposal. Synthetic tiles isolate known geographic marker positions;
 the Rust map-renderer tests separately cover a complex polar GPX fixture.
+
+The display suite runs `MapController.initialize()` with endpoint-validating
+binary responses and delayed individual planes. It verifies polar-only startup,
+Mercator/polar seam readiness, non-blocking hidden caps, explicit refresh
+completion and navigation between ordinary and polar-only views.
+Switching a polar-only view back to a flat projection must restore Mercator
+requests after MapLibre migrates the camera.

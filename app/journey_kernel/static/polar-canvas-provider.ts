@@ -6,10 +6,10 @@ import {
   drawCanvasTileRange,
 } from "./layers/canvas-raster";
 import type { RGBAColor } from "./layers/journey-layer-interface";
-import type { TileRange } from "./layers/tile-range";
+import { tileRangeContains, type TileRange } from "./layers/tile-range";
 import type { PolarHemisphere } from "./polar-projection";
 import {
-  getPolarCanvasRange,
+  getPolarCanvasView,
   POLAR_CANVAS_TILE_EXPONENT,
 } from "./polar-canvas-request";
 
@@ -49,6 +49,7 @@ export class PolarCanvasProvider {
   private readonly refresh = (force: boolean) => {
     if (force) this.epoch++;
     this.update(true);
+    return this.waitForUpdates();
   };
 
   private readonly map: Map;
@@ -77,6 +78,18 @@ export class PolarCanvasProvider {
     return this.caps[hemisphere].image;
   }
 
+  /** Require image coverage only for caps that are actually on screen. */
+  isReadyForDisplay(): boolean {
+    if (this.disposed) return false;
+    return (Object.keys(this.caps) as PolarHemisphere[]).every((hemisphere) => {
+      const { visible, range } = getPolarCanvasView(this.map, hemisphere);
+      const image = this.caps[hemisphere].image;
+      return (
+        !visible || (image !== null && tileRangeContains(image.range, range))
+      );
+    });
+  }
+
   async waitForUpdates(): Promise<void> {
     await Promise.all(Object.values(this.caps).map((cap) => cap.pending));
   }
@@ -89,7 +102,7 @@ export class PolarCanvasProvider {
     if (this.disposed || !this.isGlobe()) return;
     for (const hemisphere of ["north", "south"] as const) {
       const cap = this.caps[hemisphere];
-      const range = getPolarCanvasRange(this.map, hemisphere);
+      const { range } = getPolarCanvasView(this.map, hemisphere);
       const demand = `${this.epoch}/${range.join("/")}`;
       if (cap.pending && cap.demand === demand) continue;
       if (!checkVersion && cap.demand === demand) continue;
@@ -105,13 +118,13 @@ export class PolarCanvasProvider {
       while (cap.queued && !this.disposed && this.isGlobe()) {
         cap.queued = false;
         const epoch = this.epoch;
-        const range = getPolarCanvasRange(this.map, hemisphere);
+        const { range } = getPolarCanvasView(this.map, hemisphere);
         const [x, y, width, height, z] = range;
         const current = () =>
           !this.disposed &&
           this.isGlobe() &&
           epoch === this.epoch &&
-          getPolarCanvasRange(this.map, hemisphere).every(
+          getPolarCanvasView(this.map, hemisphere).range.every(
             (v, i) => v === range[i],
           );
         const url = new URL(this.endpoint);
