@@ -77,7 +77,9 @@ export class FlutterBridge {
     this.locationMarker = new maplibregl.Marker({
       element: el,
     });
-    this.locationFollowController = new LocationFollowController(this.map);
+    this.locationFollowController = new LocationFollowController(this.map, {
+      camera: this.mapController,
+    });
   }
 
   /**
@@ -204,7 +206,7 @@ export class FlutterBridge {
     window.flyToBounds = (bounds, padding) => {
       // MapLibre's initial-bounds path calls fitBounds with the same padding
       // and zoom cap. fitBounds calculates the camera, then calls flyTo.
-      this.map.fitBounds(
+      this.mapController.fitBounds(
         [
           [bounds.west, bounds.south],
           [bounds.east, bounds.north],
@@ -215,7 +217,7 @@ export class FlutterBridge {
 
     // Return from journey details to the camera saved before opening them.
     window.flyToView = (view) => {
-      this.map.flyTo({
+      this.mapController.flyTo({
         center: [view.lng, view.lat],
         zoom: view.zoom,
         duration: 900,
