@@ -1,10 +1,15 @@
 import { LngLat, type Map as MaplibreMap } from "maplibre-gl";
 import type { TileRange } from "./tile-range";
+import { POLAR_SEAM_LATITUDE } from "../polar-projection";
 
 export function lngLatToTileXY(lngLat: LngLat, zoom: number): [number, number] {
   const n = Math.pow(2, zoom);
   const x = Math.floor(((lngLat.lng + 180) / 360) * n);
-  const latRad = (lngLat.lat * Math.PI) / 180;
+  const latitude = Math.max(
+    -POLAR_SEAM_LATITUDE,
+    Math.min(POLAR_SEAM_LATITUDE, lngLat.lat),
+  );
+  const latRad = (latitude * Math.PI) / 180;
   const y = Math.floor(
     ((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * n,
   );
@@ -29,7 +34,7 @@ export function getViewportTileRange(
   map: MaplibreMap,
   isGlobeProjection: boolean,
   maxZ?: number,
-): TileRange {
+): TileRange | null {
   // Get the current zoom level
   // Apply maxZ cap only if maxZ is provided
   const rawZ = Math.max(0, Math.floor(map.getZoom()));
@@ -37,18 +42,21 @@ export function getViewportTileRange(
   return getViewportTileRangeAtZoom(map, isGlobeProjection, z);
 }
 
-/** Get the viewport range at an explicitly selected source-data zoom. */
+/** Mercator coverage at a source-data zoom; polar-only views need no tiles. */
 export function getViewportTileRangeAtZoom(
   map: MaplibreMap,
   isGlobeProjection: boolean,
   sourceZoom: number,
-): TileRange {
+): TileRange | null {
   const z = Math.max(0, Math.floor(sourceZoom));
 
   // Get the bounds of the map
   const bounds = map.getBounds();
   const sw = bounds.getSouthWest();
   const ne = bounds.getNorthEast();
+  if (sw.lat > POLAR_SEAM_LATITUDE || ne.lat < -POLAR_SEAM_LATITUDE) {
+    return null;
+  }
 
   // Convert to tile coordinates
   const [swX, swY] = lngLatToTileXY(sw, z);

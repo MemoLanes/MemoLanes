@@ -45,7 +45,7 @@ use memolanes_core::{
 };
 use tempdir::TempDir;
 
-const EARTH_RADIUS: f64 = 6_371_000.0; // must match journey_area_utils
+const EARTH_RADIUS: f64 = 6_371_000.0; // must match journey_bitmap::area
 const BIT_OFFSET: i32 = (MAP_WIDTH_OFFSET + TILE_WIDTH_OFFSET + BITMAP_WIDTH_OFFSET) as i32; // 22
 const BLOCK_OFFSET: i32 = (MAP_WIDTH_OFFSET + TILE_WIDTH_OFFSET) as i32; // 16 -> 65536 blocks
 const BITS_PER_TILE: i32 = 128 * 64; // blocks-per-tile * bits-per-block
@@ -119,7 +119,7 @@ fn block_of(lng: f64, lat: f64) -> (TileKey, BlockKey) {
     let y = (1.0 - ((lat_rad.tan() + 1.0 / lat_rad.cos()).ln() / std::f64::consts::PI)) / 2.0 * n;
     let (bx, by) = (x as u32, y as u32);
     (
-        TileKey::new((bx / 128) as u16, (by / 128) as u16),
+        TileKey::mercator((bx / 128) as u16, (by / 128) as u16),
         BlockKey::from_x_y((bx % 128) as u8, (by % 128) as u8),
     )
 }
@@ -136,7 +136,10 @@ fn bit_y_to_lat(gy: i32) -> f64 {
 /// Exact area (m²) of the centered PATCH in `(tile, block)`, by the closed-form
 /// spherical-zone integral — independent of the core's area method.
 fn expected_patch_area(tile: TileKey, block: BlockKey) -> f64 {
-    let base_y = tile.y as i32 * BITS_PER_TILE + block.y() as i32 * 64;
+    let TileKey::Mercator { y, .. } = tile else {
+        panic!("spherical-zone oracle requires a Mercator tile, got {tile:?}");
+    };
+    let base_y = y as i32 * BITS_PER_TILE + block.y() as i32 * 64;
     let ncols = (PATCH_HI - PATCH_LO) as f64;
     let dlon_rad = 2.0 * std::f64::consts::PI / f64::powi(2.0, BIT_OFFSET); // per bit column
     let mut area = 0.0;
@@ -157,7 +160,7 @@ fn patch_journey(tile: TileKey, block: BlockKey) -> JourneyBitmap {
             b.set_point(x, y, true);
         }
     }
-    bm.get_tile_mut_or_insert_empty(&tile).set(&block, b);
+    bm.edit().get_tile_mut_or_insert_empty(&tile).set(&block, b);
     bm
 }
 
@@ -417,7 +420,7 @@ fn track_past_the_mercator_limit_credits_nothing() {
 
     for (lng, lat) in [(0.0, 88.0), (120.0, 88.0), (0.0, -87.0)] {
         let mut bitmap = JourneyBitmap::new();
-        bitmap.add_line(lng, lat, lng + 0.01, lat + 0.01);
+        bitmap.edit().add_line(lng, lat, lng + 0.01, lat + 0.01);
         let areas = attribution::attribute(&bitmap, &geo).unwrap();
         let credited = credited_codes(&areas, &geo);
         assert!(credited.is_empty(), "({lng}, {lat}) credited {credited:?}");

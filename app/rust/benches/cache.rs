@@ -43,7 +43,7 @@ fn make_synthetic_bitmap(seed: u32) -> JourneyBitmap {
     let end_lng = 151.0 + ((h >> 16) & 0xFF) as f64 / 255.0 * 0.5;
     let end_lat = -34.0 + ((h >> 24) & 0xFF) as f64 / 255.0 * 0.5;
     let mut bm = JourneyBitmap::new();
-    bm.add_line(start_lng, start_lat, end_lng, end_lat);
+    bm.edit().add_line(start_lng, start_lat, end_lng, end_lat);
     bm
 }
 
@@ -129,7 +129,7 @@ fn load_sample_bitmap() -> JourneyBitmap {
     )
     .unwrap();
     let mut bitmap = JourneyBitmap::new();
-    bitmap.merge_vector(&vector);
+    bitmap.edit().merge_vector(&vector);
     bitmap
 }
 

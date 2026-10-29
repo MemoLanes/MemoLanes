@@ -35,7 +35,7 @@ fn block_of(lng: f64, lat: f64) -> (TileKey, BlockKey) {
     let y = (1.0 - ((lat_rad.tan() + 1.0 / lat_rad.cos()).ln() / std::f64::consts::PI)) / 2.0 * n;
     let (bx, by) = (x as u32, y as u32);
     (
-        TileKey::new((bx / 128) as u16, (by / 128) as u16),
+        TileKey::mercator((bx / 128) as u16, (by / 128) as u16),
         BlockKey::from_x_y((bx % 128) as u8, (by % 128) as u8),
     )
 }
