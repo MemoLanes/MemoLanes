@@ -274,11 +274,14 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     if (!changed) return;
     _basemapRequestId++;
     final controller = _webViewController;
-    if (controller == null || _webGlRecoveryReloadInProgress) return;
+    if (controller == null) return;
+    // Recovery must not drop configuration changes. A reloading page either
+    // receives this update or gets the latest snapshot during initialization.
     unawaited(
-      controller.evaluateJavascript(
-        source:
-            '''
+      controller
+          .evaluateJavascript(
+            source:
+                '''
       (() => {
         const config = ${jsonEncode(_basemapConfig)};
         window.EXTERNAL_PARAMS = {...window.EXTERNAL_PARAMS, basemap: config};
@@ -287,7 +290,14 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
         }
       })();
     ''',
-      ),
+          )
+          .catchError((Object error, StackTrace stackTrace) {
+            log.error(
+              '[base_map_webview] Map style sync failed: $error',
+              stackTrace,
+            );
+            return null;
+          }),
     );
   }
 

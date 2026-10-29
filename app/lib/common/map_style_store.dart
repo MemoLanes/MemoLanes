@@ -107,13 +107,14 @@ class MapStyleStore extends ChangeNotifier {
   void recordSourceAttributions(MapStyle style, Iterable<String> entries) {
     if (!style.isCustom) return;
     if (!findById(style.id).hasSameRenderer(style)) return;
+    // Maps report metadata at different times. Keep credits already observed
+    // for this renderer; renderer changes and deletion invalidate the cache.
     _sourceAttributions[style.id] = (
       style: style,
-      entries: entries
-          .map((entry) => entry.trim())
-          .where((e) => e.isNotEmpty)
-          .toSet()
-          .toList(),
+      entries: {
+        ...copyrightEntries(style),
+        ...entries.map((entry) => entry.trim()).where((e) => e.isNotEmpty),
+      }.toList(),
     );
   }
 

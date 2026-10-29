@@ -108,9 +108,18 @@ void main() {
       ]);
       expect(store.copyrightEntries(first), ['Source credit']);
 
+      // A newly opened map may report no metadata, then only some sources.
+      store.recordSourceAttributions(first, []);
+      expect(store.copyrightEntries(first), ['Source credit']);
+      store.recordSourceAttributions(first, ['Other source']);
+      expect(store.copyrightEntries(first), ['Source credit', 'Other source']);
+
       final renamed = _custom(name: 'Renamed map');
       store.save(renamed);
-      expect(store.copyrightEntries(renamed), ['Source credit']);
+      expect(store.copyrightEntries(renamed), [
+        'Source credit',
+        'Other source',
+      ]);
 
       final edited = _custom(url: 'https://other.example.com/style.json');
       store.save(edited);
