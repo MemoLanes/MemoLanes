@@ -11,6 +11,7 @@
 
 import * as maplibregl from "maplibre-gl";
 import type {
+  ErrorEvent,
   Map as MaplibreMap,
   MapContextEvent,
   RequestTransformFunction,
@@ -38,10 +39,6 @@ import { JOURNEY_LAYER_ID } from "./layers/journey-layer-interface";
 import type { JourneyLayer } from "./layers/journey-layer-interface";
 import { MAX_MAP_ZOOM } from "./layer-config";
 import { waitForRenderedFrame } from "./display-ready";
-import {
-  PLACEHOLDER_STYLE_METADATA_KEY,
-  BasemapLoadGuard,
-} from "./style-load-retry";
 import { BASEMAP_REQUEST_ID_METADATA_KEY } from "./map-attribution";
 
 const DATA_POLL_INTERVAL_MS = 1_000;
@@ -86,9 +83,7 @@ export class MapController {
   private currentJourneyLayer: JourneyLayer | null = null;
   private journeyTileProvider: JourneyTileProvider | null = null;
   private basemapRetryTimer: ReturnType<typeof setTimeout> | null = null;
-  private basemapLoadGuard: BasemapLoadGuard | null = null;
   private basemapRequest: AbortController | null = null;
-  private readonly basemapSourceIds = new Set<string>();
   private pollIntervalId: ReturnType<typeof setInterval> | null = null;
   private webGLContextLost = false;
   private webGLContextLossCount = 0;
@@ -123,7 +118,6 @@ export class MapController {
       maxZoom: MAX_MAP_ZOOM,
       style: {
         version: 8,
-        metadata: { [PLACEHOLDER_STYLE_METADATA_KEY]: true },
         sources: {},
         layers: [
           {
@@ -328,23 +322,7 @@ export class MapController {
     const basemap = this.params.basemap;
     const request = new AbortController();
     this.basemapRequest = request;
-    this.basemapSourceIds.clear();
-    const guard = basemap.id.startsWith("custom:")
-      ? new BasemapLoadGuard(
-          this.map,
-          () => {
-            if (request.signal.aborted || this.params.basemap !== basemap)
-              return;
-            request.abort();
-            window.onBasemapLoadFailed?.postMessage(
-              JSON.stringify({ requestId: basemap.requestId }),
-            );
-          },
-          this.basemapSourceIds,
-        )
-      : null;
-    this.basemapLoadGuard = guard;
-    void this.applyMapStyle(basemap, request, guard);
+    void this.applyMapStyle(basemap, request);
   }
 
   private cancelBasemapLoad(): void {
@@ -354,8 +332,38 @@ export class MapController {
       clearTimeout(this.basemapRetryTimer);
       this.basemapRetryTimer = null;
     }
-    this.basemapLoadGuard?.dispose();
-    this.basemapLoadGuard = null;
+  }
+
+  private reportBasemapFailure(
+    basemap: BasemapConfig,
+    request: AbortController,
+  ): void {
+    if (request.signal.aborted || this.params.basemap !== basemap) return;
+    request.abort();
+    window.onBasemapLoadFailed?.postMessage(
+      JSON.stringify({ requestId: basemap.requestId }),
+    );
+  }
+
+  /** Watch SDK validation only; tile availability must not reset settings. */
+  private watchStyleValidation(
+    basemap: BasemapConfig,
+    request: AbortController,
+  ): void {
+    const onError = (event: ErrorEvent & { sourceId?: string }): void => {
+      if (event.sourceId) return;
+      cleanup();
+      // Leave SDK event dispatch before Flutter changes the selected style.
+      queueMicrotask(() => this.reportBasemapFailure(basemap, request));
+    };
+    const cleanup = (): void => {
+      this.map.off("error", onError);
+      this.map.off("style.load", cleanup);
+      request.signal.removeEventListener("abort", cleanup);
+    };
+    this.map.on("error", onError);
+    this.map.on("style.load", cleanup);
+    request.signal.addEventListener("abort", cleanup, { once: true });
   }
 
   /** Wait for a displayable frame from whichever renderer is currently active. */
@@ -540,7 +548,6 @@ export class MapController {
   private async applyMapStyle(
     basemap: BasemapConfig,
     request: AbortController,
-    guard: BasemapLoadGuard | null,
   ): Promise<void> {
     try {
       let style: StyleSpecification;
@@ -572,11 +579,9 @@ export class MapController {
       }
       if (request.signal.aborted || this.params.basemap !== basemap) return;
 
-      // Capture only the provider's sources, before the fog layer is added.
-      for (const id of Object.keys(style.sources || {})) {
-        this.basemapSourceIds.add(id);
+      if (basemap.id.startsWith("custom:")) {
+        this.watchStyleValidation(basemap, request);
       }
-      guard?.watchStyle();
       this.map.setStyle(
         {
           ...transformStyleWithProjection(
@@ -596,8 +601,8 @@ export class MapController {
     } catch (error) {
       if (request.signal.aborted || this.params.basemap !== basemap) return;
       console.warn("[MapController] Basemap load failed:", error);
-      if (guard) {
-        guard.fail();
+      if (basemap.id.startsWith("custom:")) {
+        this.reportBasemapFailure(basemap, request);
       } else {
         // Only a failed built-in style request retries. Slow SDK tiles must
         // not schedule another style replacement after they become usable.

@@ -80,19 +80,16 @@ Source attribution loaded from styles or TileJSON is sent to Flutter through
 `window.onMapAttributionChanged` as `{requestId, entries}` JSON containing Markdown strings.
 The request ID comes from the applied style's metadata, so pending selections
 cannot receive attribution from an older style that is still displayed.
-`window.onBasemapLoadFailed` sends `{requestId}` if the initial custom basemap
-fails or takes over 20 seconds. Flutter saves the default selection, notifies
-all mounted maps through `window.updateBasemap`, and shows a user message.
-The renderer observes basemap changes through `ReactiveParams`. The failed
-configuration stays in the list for editing. A successfully loaded tile or idle
-style ends the initial-load guard; vector 404s converted to empty tiles do not
-count as success. Custom maps use one load attempt with the 20-second guard.
+`window.onBasemapLoadFailed` sends `{requestId}` when a custom style file cannot
+be fetched or parsed, or fails SDK style validation. Flutter saves the default
+selection, notifies all mounted maps through `window.updateBasemap`, and shows
+a user message. The renderer observes basemap changes through `ReactiveParams`.
+The failed configuration stays in the list for editing. Tile availability,
+source metadata, sprite/font errors and slow loading do not reset the selection.
 Failed built-in style requests retry after 8 seconds, even when an older style
-remains visible. Built-in maps have no custom tile-load timeout; slow requests
-and SDK tiles are not interrupted by the retry timer. Style URL
-fetches, JSON parsing and SDK application belong to the same cancellable load.
-Superseded responses and errors cannot affect the selected basemap. Partial tile,
-sprite and font failures do not replace a working basemap.
+remains visible. Slow requests and SDK tiles are not interrupted by the retry
+timer. Style URL fetches, JSON parsing and SDK application belong to the same
+cancellable load. Superseded responses and errors cannot affect the selection.
 
 ## Web Development
 
