@@ -238,3 +238,124 @@ fn country_area_is_the_sum_of_its_leaf_blocks_at_any_depth() {
         );
     }
 }
+
+#[test]
+fn region_totals_include_polar_boundary_fractions_and_ancestors() {
+    use bitmap_geometry::{block_pixel_bounds, polar_rectangle_area_cm2, BitmapPlane};
+    use geo_data_format::PlaneRaster;
+    use geo_rasterizer::area::populate_total_areas_planes;
+
+    let entity = |id, kind, parent: Option<u32>| GeoEntity {
+        id: GeoEntityId(id),
+        kind,
+        canonical_code: format!("E{id}"),
+        iso_a3_eh: None,
+        name_key: format!("e.{id}"),
+        parent_id: parent.map(GeoEntityId),
+        total_area_m2: 0,
+    };
+    let mut model = EntityModel {
+        entities: vec![
+            entity(0, GeoEntityKind::Continent, None),
+            entity(1, GeoEntityKind::Admin0, Some(0)),
+        ],
+        geometry_for_country: BTreeMap::new(),
+        geometry_for_province: BTreeMap::new(),
+        province_ids: BTreeMap::new(),
+        province_declared_adm0: BTreeMap::new(),
+        demoted: BTreeMap::new(),
+    };
+    let mut tiles = vec![TileMembership::None; 128 * 128];
+    tiles[64 * 128] = TileMembership::Border;
+    let mut cells = vec![NO_ENTITY; geo_data_format::CELLS_PER_TILE];
+    cells[0] = 1;
+    let blocks = BTreeMap::from([((64, 0), cells)]);
+    let (x, y) = block_pixel_bounds((64, 0), (0, 0));
+    let area = polar_rectangle_area_cm2(x, y);
+    populate_total_areas_planes(
+        &mut model,
+        &[PlaneRaster {
+            plane: BitmapPlane::SouthPolar,
+            tiles: &tiles,
+            blocks: &blocks,
+        }],
+    );
+    assert_eq!(
+        model.entities[0].total_area_m2,
+        ((area + 5000) / 10000) as u64
+    );
+    assert_eq!(
+        model.entities[1].total_area_m2,
+        model.entities[0].total_area_m2
+    );
+}
+
+#[test]
+fn polar_totals_do_not_depend_on_single_or_border_tile_encoding() {
+    use bitmap_geometry::BitmapPlane;
+    use geo_data_format::PlaneRaster;
+    use geo_rasterizer::area::populate_total_areas_planes;
+
+    let model = || EntityModel {
+        entities: vec![GeoEntity {
+            id: GeoEntityId(0),
+            kind: GeoEntityKind::Admin0,
+            canonical_code: "AAA".into(),
+            iso_a3_eh: None,
+            name_key: "country.AAA".into(),
+            parent_id: None,
+            total_area_m2: 0,
+        }],
+        geometry_for_country: BTreeMap::new(),
+        geometry_for_province: BTreeMap::new(),
+        province_ids: BTreeMap::new(),
+        province_declared_adm0: BTreeMap::new(),
+        demoted: BTreeMap::new(),
+    };
+    let mut mercator = vec![TileMembership::None; geo_data_format::TILE_COUNT];
+    // A large existing Mercator area amplifies floating-point reassociation.
+    for tx in 0..512 {
+        mercator[tx * 512 + 255] = TileMembership::Single(GeoEntityId(0));
+    }
+    let empty = BTreeMap::new();
+    let mut polar = vec![TileMembership::None; 128 * 128];
+    polar[64 * 128 + 64] = TileMembership::Single(GeoEntityId(0));
+    let mut single = model();
+    populate_total_areas_planes(
+        &mut single,
+        &[
+            PlaneRaster {
+                plane: BitmapPlane::Mercator,
+                tiles: &mercator,
+                blocks: &empty,
+            },
+            PlaneRaster {
+                plane: BitmapPlane::SouthPolar,
+                tiles: &polar,
+                blocks: &empty,
+            },
+        ],
+    );
+    polar[64 * 128 + 64] = TileMembership::Border;
+    let blocks = BTreeMap::from([((64, 64), vec![0; geo_data_format::CELLS_PER_TILE])]);
+    let mut border = model();
+    populate_total_areas_planes(
+        &mut border,
+        &[
+            PlaneRaster {
+                plane: BitmapPlane::Mercator,
+                tiles: &mercator,
+                blocks: &empty,
+            },
+            PlaneRaster {
+                plane: BitmapPlane::SouthPolar,
+                tiles: &polar,
+                blocks: &blocks,
+            },
+        ],
+    );
+    assert_eq!(
+        single.entities[0].total_area_m2,
+        border.entities[0].total_area_m2
+    );
+}

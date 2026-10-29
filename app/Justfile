@@ -45,6 +45,13 @@ journey-kernel-fmt:
     @echo "✅ Code formatting completed"
 
 [group: 'utils']
+[working-directory: 'rust/bitmap_geometry']
+bitmap-geometry-fmt:
+    @echo "🛠️  Formatting bitmap_geometry code"
+    @cargo fmt --all
+    @echo "✅ bitmap_geometry code formatting completed"
+
+[group: 'utils']
 [working-directory: 'rust/geo_data_format']
 geo-data-format-fmt:
     @echo "🛠️  Formatting code"
@@ -98,6 +105,15 @@ journey-kernel-check:
     @echo "✅ Journey Kernel code check completed"
 
 [group: 'utils']
+[working-directory: 'rust/bitmap_geometry']
+bitmap-geometry-check:
+    @echo "🔍 Checking bitmap_geometry code"
+    @cargo check --all-targets
+    @cargo fmt --all -- --check
+    @cargo clippy --all-targets -- -D warnings
+    @echo "✅ bitmap_geometry code check completed"
+
+[group: 'utils']
 [working-directory: 'rust/geo_data_format']
 geo-data-format-check:
     @echo "🔍 Checking geo_data_format code"
@@ -130,6 +146,13 @@ journey-kernel-test:
     @cargo test --features wasm -- --nocapture
     @yarn test
     @echo "✅ Journey Kernel tests completed"
+
+[group: 'utils']
+[working-directory: 'rust/bitmap_geometry']
+bitmap-geometry-test:
+    @echo "🧪 Running bitmap_geometry tests"
+    @cargo test -- --nocapture
+    @echo "✅ bitmap_geometry tests completed"
 
 [group: 'utils']
 [working-directory: 'rust/geo_data_format']
@@ -185,6 +208,7 @@ check:
     @echo "🛠️  Checking all code"
     just rust-check
     just journey-kernel-check
+    just bitmap-geometry-check
     just geo-data-format-check
     just geo-rasterizer-check
     just flutter-check
@@ -196,6 +220,7 @@ check:
 test-geo:
     @echo "🧪 Running geo tooling tests"
     just rasterize-geo
+    just bitmap-geometry-test
     just geo-data-format-test
     just geo-rasterizer-test
     @echo "✅ Geo tooling tests completed"
@@ -224,6 +249,7 @@ format:
     @echo "🛠️  Running code format"
     just journey-kernel-fmt
     just rust-fmt
+    just bitmap-geometry-fmt
     just geo-data-format-fmt
     just geo-rasterizer-fmt
     just flutter-fmt

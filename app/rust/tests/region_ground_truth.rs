@@ -30,7 +30,6 @@ use std::fs;
 use chrono::NaiveDate;
 use geo_data_format::{GeoEntityId, GeoEntityKind, Worldview};
 use memolanes_core::{
-    achievement::attribution::{self, AreaCm2ByEntity},
     achievement::layer::AchievementLayer,
     achievement::region::{self, region_levels, RegionKind},
     geo::{GeoIndex, GeoLookup},
@@ -185,16 +184,6 @@ fn sub(dir: &TempDir, s: &str) -> String {
     let p = dir.path().join(s);
     fs::create_dir_all(&p).unwrap();
     p.into_os_string().into_string().unwrap()
-}
-
-/// Canonical codes of every credited entity, any kind.
-fn credited_codes(areas: &AreaCm2ByEntity, geo: &dyn GeoLookup) -> BTreeSet<String> {
-    let ids: Vec<_> = areas.keys().copied().collect();
-    geo.describe(&ids)
-        .unwrap()
-        .into_values()
-        .map(|e| e.canonical_code)
-        .collect()
 }
 
 /// The `Country`-kind entity for a leaf: the leaf itself when it is a country,
@@ -406,23 +395,4 @@ fn region_api_reports_correct_countries_and_areas() {
             Ok(())
         })
         .unwrap();
-}
-
-/// Past the Mercator limit (±85.0511°) `add_line` produces tile keys outside the
-/// 512×512 grid: y ≥ 512 in the south, and in the north a negative Mercator y
-/// wrapped through `as u16` to ~65461. Their raw `x*512 + y` is not a safe index
-/// — with the real asset a track at 88°N resolves to tile (383,437), which is
-/// `Single(ATA)`, so the North Pole gets credited to Antarctica, and a track at
-/// 88°N/120°E indexes past the tile grid entirely.
-#[test]
-fn track_past_the_mercator_limit_credits_nothing() {
-    let geo = GeoIndex::open(&test_utils::geo_asset("iso")).unwrap();
-
-    for (lng, lat) in [(0.0, 88.0), (120.0, 88.0), (0.0, -87.0)] {
-        let mut bitmap = JourneyBitmap::new();
-        bitmap.edit().add_line(lng, lat, lng + 0.01, lat + 0.01);
-        let areas = attribution::attribute(&bitmap, &geo).unwrap();
-        let credited = credited_codes(&areas, &geo);
-        assert!(credited.is_empty(), "({lng}, {lat}) credited {credited:?}");
-    }
 }

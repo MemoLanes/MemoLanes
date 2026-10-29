@@ -7,8 +7,8 @@ use std::sync::Mutex;
 
 use anyhow::Result;
 use geo_data_format::{
-    tile_index, GeoData, GeoEntity, GeoEntityId, GeoEntityKind, PackedTile, TileEntry,
-    TileMembership, TILE_GRID_WIDTH,
+    plane_tile_index, GeoData, GeoEntity, GeoEntityId, GeoEntityKind, PackedTile, TileEntry,
+    TileMembership,
 };
 
 use crate::journey_bitmap::{BlockKey, TileKey};
@@ -109,13 +109,11 @@ impl GeoIndex {
     }
 
     fn tile_entry(&self, tile: TileKey) -> TileEntry {
-        let TileKey::Mercator { x, y } = tile else {
-            return TileEntry::None;
-        };
-        if x as usize >= TILE_GRID_WIDTH || y as usize >= TILE_GRID_WIDTH {
-            return TileEntry::None;
-        }
-        self.data.tile_index.get(tile_index(x, y))
+        let (TileKey::Mercator { x, y }
+        | TileKey::NorthPolar { x, y }
+        | TileKey::SouthPolar { x, y }) = tile;
+        plane_tile_index(tile.plane(), x, y)
+            .map_or(TileEntry::None, |idx| self.data.tile_index.get(idx))
     }
 
     pub fn worldview_id(&self) -> &str {

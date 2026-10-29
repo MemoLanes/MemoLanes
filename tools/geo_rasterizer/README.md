@@ -294,6 +294,35 @@ gate (`tests/names_coverage.rs`): every entity in every worldview must resolve t
 a non-empty name in every locale. Commit only the `.toml` — the JSON are
 git-ignored build artifacts.
 
+## Polar achievement coverage
+
+Projections and clipped pixel-area calculations are shared with the runtime
+through the std-only `app/rust/bitmap_geometry` crate.
+
+Geo assets contain three independent tile indices aligned with the journey
+bitmap grids: Mercator (512×512 tiles), north LAEA and south LAEA (128×128 each).
+Each tile still has 128×128 region blocks. The polar squares are clipped to
+positive-area intersections with their cap disks; square corners are ocean.
+Total region areas include all three planes, with polar boundary pixels using
+the same fractional-area and cm² quantization rules as journey bitmaps.
+
+The existing Natural Earth longitude/latitude polygons are the source for every
+plane. Polar preparation clips to the corresponding hemisphere, then adaptively
+densifies source edges before projecting them. This preserves pole closures,
+dateline cuts and polygon holes without replacing the source dataset or
+hardcoding Antarctica. With today's sources the north cap has no land.
+
+Province parenting and refinement remain Mercator-only, with country masks
+authoritative and the existing block-majority behavior unchanged. Polar planes
+use country ownership directly. No retained province currently reaches either
+cap: the whole-country Antarctica admin-1 placeholder is dropped by policy.
+Generation fails if a future source or policy introduces a retained polar
+province, rather than silently omitting its coverage.
+
+This is region/achievement data only; it does not enable polar map rendering.
+Run `just rasterize-geo` after changes. The geo-data version participates in
+provenance and must change when projection, ownership or area semantics change.
+
 ## Future work
 
 - **Per-worldview names.** The worldview-scoped override path

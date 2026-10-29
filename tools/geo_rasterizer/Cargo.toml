@@ -12,6 +12,7 @@ name = "geo_rasterizer"
 path = "src/main.rs"
 
 [dependencies]
+bitmap_geometry = { path = "../../app/rust/bitmap_geometry" }
 anyhow = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
