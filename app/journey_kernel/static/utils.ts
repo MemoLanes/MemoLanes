@@ -5,6 +5,7 @@
  * moved to platform.ts for better organization.
  */
 
+import type { StyleSpecification } from "maplibre-gl";
 import type { MapLocale } from "./map-locale";
 import type { ProjectionType } from "./params";
 
@@ -12,6 +13,36 @@ const RUNTIME_LANGUAGE_METADATA_KEY = "memolanes:runtime-language";
 
 function isRecord(value: unknown): value is Record<string, any> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+/** Resolve a fetched style's resource URLs before applying it as an object. */
+export function resolveStyleResourceUrls(
+  style: StyleSpecification,
+  styleUrl: string,
+): void {
+  const resolve = (url: string): string =>
+    /^[a-z][a-z\d+.-]*:/i.test(url)
+      ? url
+      : new URL(url, styleUrl).href.replace(/%7B/gi, "{").replace(/%7D/gi, "}");
+
+  if (style.glyphs) style.glyphs = resolve(style.glyphs);
+  if (typeof style.sprite === "string") {
+    style.sprite = resolve(style.sprite);
+  } else if (style.sprite) {
+    style.sprite = style.sprite.map((sprite) => ({
+      ...sprite,
+      url: resolve(sprite.url),
+    }));
+  }
+  for (const source of Object.values(style.sources || {})) {
+    if ("url" in source && source.url) source.url = resolve(source.url);
+    if ("tiles" in source && source.tiles)
+      source.tiles = source.tiles.map(resolve);
+    if (source.type === "geojson" && typeof source.data === "string") {
+      source.data = resolve(source.data);
+    }
+    if (source.type === "video") source.urls = source.urls.map(resolve);
+  }
 }
 
 /**

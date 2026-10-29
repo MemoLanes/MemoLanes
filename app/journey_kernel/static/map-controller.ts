@@ -11,29 +11,35 @@
 
 import * as maplibregl from "maplibre-gl";
 import type {
+  ErrorEvent,
   Map as MaplibreMap,
   MapContextEvent,
   RequestTransformFunction,
   ResourceType,
+  StyleSpecification,
 } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import {
   isMapboxURL,
   transformMapboxUrl,
 } from "maplibregl-mapbox-request-transformer";
-import { AVAILABLE_LAYERS, type ReactiveParams } from "./params";
+import {
+  AVAILABLE_LAYERS,
+  type BasemapConfig,
+  type ReactiveParams,
+} from "./params";
 import { JourneyTileProvider } from "./journey-tile-provider";
 import { getFogStyle } from "./fog-style";
 import { detectMapLocale, type MapLocale } from "./map-locale";
-import { transformStyleWithProjection } from "./utils";
+import {
+  resolveStyleResourceUrls,
+  transformStyleWithProjection,
+} from "./utils";
 import { JOURNEY_LAYER_ID } from "./layers/journey-layer-interface";
 import type { JourneyLayer } from "./layers/journey-layer-interface";
 import { MAX_MAP_ZOOM } from "./layer-config";
 import { waitForRenderedFrame } from "./display-ready";
-import {
-  PLACEHOLDER_STYLE_METADATA_KEY,
-  StyleLoadRetry,
-} from "./style-load-retry";
+import { BASEMAP_REQUEST_ID_METADATA_KEY } from "./map-attribution";
 
 const DATA_POLL_INTERVAL_MS = 1_000;
 
@@ -76,7 +82,8 @@ export class MapController {
   private DisableAutoRefresh: boolean;
   private currentJourneyLayer: JourneyLayer | null = null;
   private journeyTileProvider: JourneyTileProvider | null = null;
-  private styleLoadRetry: StyleLoadRetry | null = null;
+  private basemapRetryTimer: ReturnType<typeof setTimeout> | null = null;
+  private basemapRequest: AbortController | null = null;
   private pollIntervalId: ReturnType<typeof setInterval> | null = null;
   private webGLContextLost = false;
   private webGLContextLossCount = 0;
@@ -111,7 +118,6 @@ export class MapController {
       maxZoom: MAX_MAP_ZOOM,
       style: {
         version: 8,
-        metadata: { [PLACEHOLDER_STYLE_METADATA_KEY]: true },
         sources: {},
         layers: [
           {
@@ -148,6 +154,7 @@ export class MapController {
     this.webGLContextLossCount++;
     this.webGLContextLostAt = Date.now();
     this.webGLContextLost = true;
+    this.cancelBasemapLoad();
     // MapLibre destroys the old style (and invokes custom-layer onRemove)
     // before emitting this event. Do not call remove() on that dead context.
     this.currentJourneyLayer = null;
@@ -283,12 +290,7 @@ export class MapController {
         }
 
         // Apply the actual map style (deferred until journey layer is added)
-        this.styleLoadRetry = new StyleLoadRetry(
-          this.map,
-          () => this.applyMapStyle(),
-          () => !this.webGLContextLost,
-        );
-        this.applyMapStyle();
+        this.startBasemapLoad();
 
         // The provider has already started loading. Let the basemap load
         // overlap tile-buffer preparation before waiting for the initial data.
@@ -311,6 +313,57 @@ export class MapController {
    */
   getMap(): MaplibreMap {
     return this.map;
+  }
+
+  private startBasemapLoad(): void {
+    this.cancelBasemapLoad();
+    if (this.webGLContextLost) return;
+
+    const basemap = this.params.basemap;
+    const request = new AbortController();
+    this.basemapRequest = request;
+    void this.applyMapStyle(basemap, request);
+  }
+
+  private cancelBasemapLoad(): void {
+    this.basemapRequest?.abort();
+    this.basemapRequest = null;
+    if (this.basemapRetryTimer !== null) {
+      clearTimeout(this.basemapRetryTimer);
+      this.basemapRetryTimer = null;
+    }
+  }
+
+  private reportBasemapFailure(
+    basemap: BasemapConfig,
+    request: AbortController,
+  ): void {
+    if (request.signal.aborted || this.params.basemap !== basemap) return;
+    request.abort();
+    window.onBasemapLoadFailed?.postMessage(
+      JSON.stringify({ requestId: basemap.requestId }),
+    );
+  }
+
+  /** Watch SDK validation only; tile availability must not reset settings. */
+  private watchStyleValidation(
+    basemap: BasemapConfig,
+    request: AbortController,
+  ): void {
+    const onError = (event: ErrorEvent & { sourceId?: string }): void => {
+      if (event.sourceId) return;
+      cleanup();
+      // Leave SDK event dispatch before Flutter changes the selected style.
+      queueMicrotask(() => this.reportBasemapFailure(basemap, request));
+    };
+    const cleanup = (): void => {
+      this.map.off("error", onError);
+      this.map.off("style.load", cleanup);
+      request.signal.removeEventListener("abort", cleanup);
+    };
+    this.map.on("error", onError);
+    this.map.on("style.load", cleanup);
+    request.signal.addEventListener("abort", cleanup, { once: true });
   }
 
   /** Wait for a displayable frame from whichever renderer is currently active. */
@@ -424,6 +477,10 @@ export class MapController {
    * These hooks automatically respond to changes in rendering and map properties.
    */
   private registerParamsHooks(): void {
+    // Initial loading reads the latest params, including changes received
+    // before these hooks are registered. Later changes preserve this map.
+    this.params.on("basemap", () => this.startBasemapLoad());
+
     // Hook for renderMode changes - switch rendering layer
     this.params.on("renderMode", (newMode, oldMode) => {
       console.log(
@@ -453,7 +510,7 @@ export class MapController {
       console.log(
         `[MapController] projection changed: ${oldProjection} -> ${newProjection}`,
       );
-      this.applyMapStyle();
+      this.startBasemapLoad();
     });
   }
 
@@ -488,15 +545,74 @@ export class MapController {
   /**
    * Apply the map style with projection transform
    */
-  private applyMapStyle(): void {
-    this.map.setStyle(this.params.mapStyle, {
-      transformStyle: (_previousStyle: any, nextStyle: any) =>
-        transformStyleWithProjection(
-          nextStyle,
-          this.params.projection,
-          this.mapLocale,
-        ),
-    });
+  private async applyMapStyle(
+    basemap: BasemapConfig,
+    request: AbortController,
+  ): Promise<void> {
+    try {
+      let style: StyleSpecification;
+      if (typeof basemap.style === "string") {
+        // Own the URL fetch and JSON parsing so their failures cannot arrive
+        // as unscoped MapLibre errors for a newer selection.
+        const transformed = await this.buildTransformRequest()(
+          basemap.style,
+          "Style" as ResourceType,
+        );
+        if (request.signal.aborted) return;
+        const headers = new Headers(transformed?.headers);
+        if (!headers.has("Accept")) headers.set("Accept", "application/json");
+        const response = await fetch(transformed?.url ?? basemap.style, {
+          ...transformed,
+          headers,
+          signal: request.signal,
+        });
+        if (!response.ok) throw new Error(`Basemap HTTP ${response.status}`);
+        style = await response.json();
+        resolveStyleResourceUrls(
+          style,
+          response.url ||
+            new URL(transformed?.url ?? basemap.style, window.location.href)
+              .href,
+        );
+      } else {
+        style = basemap.style;
+      }
+      if (request.signal.aborted || this.params.basemap !== basemap) return;
+
+      if (basemap.id.startsWith("custom:")) {
+        this.watchStyleValidation(basemap, request);
+      }
+      this.map.setStyle(
+        {
+          ...transformStyleWithProjection(
+            style,
+            this.params.projection,
+            this.mapLocale,
+          ),
+          metadata: {
+            ...(style.metadata as Record<string, unknown>),
+            [BASEMAP_REQUEST_ID_METADATA_KEY]: basemap.requestId,
+          },
+        },
+        // Replace the SDK style to detach old source/font events and cancel
+        // queued style application. The map and its camera stay in place.
+        { diff: false },
+      );
+    } catch (error) {
+      if (request.signal.aborted || this.params.basemap !== basemap) return;
+      console.warn("[MapController] Basemap load failed:", error);
+      if (basemap.id.startsWith("custom:")) {
+        this.reportBasemapFailure(basemap, request);
+      } else {
+        // Only a failed built-in style request retries. Slow SDK tiles must
+        // not schedule another style replacement after they become usable.
+        request.abort();
+        this.basemapRetryTimer = setTimeout(
+          () => this.startBasemapLoad(),
+          8_000,
+        );
+      }
+    }
   }
 
   /**
@@ -558,8 +674,7 @@ export class MapController {
   destroy(): void {
     this.map.off("webglcontextlost", this.handleWebGLContextLost);
     this.map.off("webglcontextrestored", this.handleWebGLContextRestored);
-    this.styleLoadRetry?.dispose();
-    this.styleLoadRetry = null;
+    this.cancelBasemapLoad();
     this.clearAutoRefreshInterval();
     if (this.currentJourneyLayer) {
       this.currentJourneyLayer.remove();

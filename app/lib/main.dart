@@ -23,7 +23,6 @@ import 'package:memolanes/common/component/map_controls/map_copyright_button.dar
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/duo_device.dart';
 import 'package:memolanes/common/log.dart';
-import 'package:memolanes/common/map_style.dart';
 import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/utils/nav_helper.dart';
 import 'package:memolanes/common/update_notifier.dart';
@@ -320,10 +319,6 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final mapCopyrightTextMarkdown = MapStyle.findById(
-      MMKVUtil.getString(MMKVKey.mapStyle),
-    ).copyright;
-
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (bool didPop, dynamic result) async {
@@ -345,7 +340,7 @@ class _MyHomePageState extends State<MyHomePage> {
               .hasUpdateNotification,
         ),
         bottomTrailingOverlay: _selectedIndex <= 2
-            ? MapCopyrightButton(textMarkdown: mapCopyrightTextMarkdown)
+            ? const MapCopyrightButton()
             : null,
       ),
     );

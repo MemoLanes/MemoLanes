@@ -14,6 +14,7 @@ class AppOptionTile extends StatelessWidget {
     this.iconWidget,
     this.subtitle,
     this.selected = false,
+    this.action,
     this.trailing = AppOptionTileTrailing.chevron,
     this.backgroundAlpha = 0.76,
   }) : assert(icon == null || iconWidget == null),
@@ -26,6 +27,7 @@ class AppOptionTile extends StatelessWidget {
   final Widget? iconWidget;
   final String? subtitle;
   final bool selected;
+  final Widget? action;
   final AppOptionTileTrailing trailing;
   final double backgroundAlpha;
 
@@ -111,6 +113,7 @@ class AppOptionTile extends StatelessWidget {
               ],
             ),
           ),
+          if (action != null) ...[const SizedBox(width: 8), action!],
           if (trailingWidget != null) ...[
             const SizedBox(width: 10),
             trailingWidget,
