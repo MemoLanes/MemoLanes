@@ -11,11 +11,12 @@ use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::Path;
 
+use bitmap_geometry::BitmapPlane;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    tile_xy, GeoEntity, GeoEntityId, PackedTile, TileMembership, MAGIC, PROVENANCE_HASH_END,
-    TILE_COUNT,
+    GeoEntity, GeoEntityId, PackedTile, TileMembership, ALL_PLANE_TILE_COUNT, MAGIC,
+    PROVENANCE_HASH_END,
 };
 
 /// magic(4) + provenance_hash(32) + 4 sections × (u32 offset, u32 len).
@@ -62,7 +63,7 @@ pub struct TileIndex {
 
 impl TileIndex {
     fn from_raw(tile_raw: &[u8]) -> anyhow::Result<Self> {
-        let words = TILE_COUNT / TILES_PER_WORD;
+        let words = ALL_PLANE_TILE_COUNT / TILES_PER_WORD;
         let mut present = vec![0u64; words];
         let mut rank = vec![0u32; words];
         let mut entries = Vec::new();
@@ -216,41 +217,81 @@ pub fn write_geo_data(
     block_lookup: &BTreeMap<(u16, u16), Vec<u32>>,
     provenance_hash: [u8; 32],
 ) -> anyhow::Result<Vec<u8>> {
-    anyhow::ensure!(
-        tile_lookup.len() == TILE_COUNT,
-        "tile_lookup must have {TILE_COUNT} entries, got {}",
-        tile_lookup.len()
-    );
+    write_geo_data_planes(
+        entities,
+        worldview_id,
+        &[PlaneRaster {
+            plane: BitmapPlane::Mercator,
+            tiles: tile_lookup,
+            blocks: block_lookup,
+        }],
+        provenance_hash,
+    )
+}
 
-    let mut tile_index_raw = Vec::with_capacity(TILE_COUNT * 5);
+pub struct PlaneRaster<'a> {
+    pub plane: BitmapPlane,
+    pub tiles: &'a [TileMembership],
+    pub blocks: &'a BTreeMap<(u16, u16), Vec<u32>>,
+}
+
+pub fn write_geo_data_planes(
+    entities: &[GeoEntity],
+    worldview_id: &str,
+    rasters: &[PlaneRaster<'_>],
+    provenance_hash: [u8; 32],
+) -> anyhow::Result<Vec<u8>> {
+    for (i, raster) in rasters.iter().enumerate() {
+        let width = raster.plane.grid_width() as usize;
+        anyhow::ensure!(
+            raster.tiles.len() == width * width,
+            "wrong tile count for {:?}",
+            raster.plane
+        );
+        anyhow::ensure!(
+            !rasters[..i].iter().any(|r| r.plane == raster.plane),
+            "duplicate plane {:?}",
+            raster.plane
+        );
+    }
+    let mut tile_index_raw = Vec::with_capacity(ALL_PLANE_TILE_COUNT * 5);
     let mut blobs: Vec<Vec<u8>> = Vec::new();
-    for (idx, m) in tile_lookup.iter().enumerate() {
-        let (tag, payload): (u8, u32) = match m {
-            TileMembership::None => (0, 0),
-            TileMembership::Single(id) => {
-                check_tile_payload("entity id", id.0)?;
-                (1, id.0)
-            }
-            TileMembership::Border => {
-                let (tx, ty) = tile_xy(idx);
-                let cells = block_lookup.get(&(tx, ty)).ok_or_else(|| {
-                    anyhow::anyhow!("border tile ({tx},{ty}) missing block_lookup entry")
-                })?;
-                let cells: Vec<Option<GeoEntityId>> = cells
-                    .iter()
-                    .map(|&v| (v != crate::NO_ENTITY).then_some(GeoEntityId(v)))
-                    .collect();
-                let blob = PackedTile::try_from_dense(&cells)
-                    .map_err(|e| e.context(format!("border tile ({tx},{ty})")))?
-                    .to_compressed_bytes();
-                let blob_idx = blobs.len() as u32;
-                check_tile_payload("border blob index", blob_idx)?;
-                blobs.push(blob);
-                (3, blob_idx)
-            }
-        };
-        tile_index_raw.push(tag);
-        tile_index_raw.extend_from_slice(&payload.to_le_bytes());
+    for plane in BitmapPlane::ALL {
+        let width = plane.grid_width() as usize;
+        let raster = rasters.iter().find(|r| r.plane == plane);
+        for idx in 0..width * width {
+            let m = raster.map_or(&TileMembership::None, |r| &r.tiles[idx]);
+            let (tag, payload): (u8, u32) = match m {
+                TileMembership::None => (0, 0),
+                TileMembership::Single(id) => {
+                    check_tile_payload("entity id", id.0)?;
+                    (1, id.0)
+                }
+                TileMembership::Border => {
+                    let (tx, ty) = ((idx / width) as u16, (idx % width) as u16);
+                    let cells = raster
+                        .and_then(|r| r.blocks.get(&(tx, ty)))
+                        .ok_or_else(|| {
+                            anyhow::anyhow!(
+                                "border tile {plane:?} ({tx},{ty}) missing block_lookup entry"
+                            )
+                        })?;
+                    let cells: Vec<Option<GeoEntityId>> = cells
+                        .iter()
+                        .map(|&v| (v != crate::NO_ENTITY).then_some(GeoEntityId(v)))
+                        .collect();
+                    let blob = PackedTile::try_from_dense(&cells)
+                        .map_err(|e| e.context(format!("border tile ({tx},{ty})")))?
+                        .to_compressed_bytes();
+                    let blob_idx = blobs.len() as u32;
+                    check_tile_payload("border blob index", blob_idx)?;
+                    blobs.push(blob);
+                    (3, blob_idx)
+                }
+            };
+            tile_index_raw.push(tag);
+            tile_index_raw.extend_from_slice(&payload.to_le_bytes());
+        }
     }
 
     let meta = MetaSection {
@@ -380,10 +421,10 @@ impl GeoData {
 
         let tile_raw = zstd::decode_all(read(header.tile_index)?.as_slice())?;
         anyhow::ensure!(
-            tile_raw.len() == TILE_COUNT * 5,
+            tile_raw.len() == ALL_PLANE_TILE_COUNT * 5,
             "geo_data: tile index size {} != {}",
             tile_raw.len(),
-            TILE_COUNT * 5
+            ALL_PLANE_TILE_COUNT * 5
         );
         let tile_index = TileIndex::from_raw(&tile_raw)?;
 

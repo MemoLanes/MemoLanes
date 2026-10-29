@@ -10,6 +10,7 @@ pub mod download;
 pub mod entities;
 pub mod names;
 pub mod overrides;
+pub mod polar;
 pub mod policy;
 pub mod projection;
 pub mod rasterize;

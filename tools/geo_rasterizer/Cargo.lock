@@ -131,6 +131,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3ded4057c258ba199e2d26386d3af3780957ecaee6c4ef4041c6b4b8b97c0b06"
 
 [[package]]
+name = "bitmap_geometry"
+version = "0.1.0"
+
+[[package]]
 name = "block-buffer"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -465,6 +469,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "bitcode",
+ "bitmap_geometry",
  "serde",
  "sha2",
  "zstd",
@@ -475,6 +480,7 @@ name = "geo_rasterizer"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "bitmap_geometry",
  "clap",
  "geo",
  "geo-types",

@@ -1,82 +1,103 @@
-//! Per-entity total area accumulation. Mirrors the trapezoidal-spherical
-//! formula used by `compute_one_tile` in
-//! `app/rust/src/journey_area_utils.rs:38-46`.
+//! Total region areas over the same classified cells used by attribution.
+//! Mercator accumulation retains its historical order/formula. Polar areas
+//! use the journey grid's equal-area pixels, clipped and quantized at the seam.
 
-use std::collections::BTreeMap;
-
-use geo_data_format::{
-    cell_index, tile_index, GeoEntityId, TileMembership, NO_ENTITY, TILE_GRID_WIDTH,
+use crate::{
+    entities::EntityModel,
+    projection::{block_area_m2, BLOCK_GRID_SIZE},
 };
-
-use crate::entities::EntityModel;
-use crate::projection::block_area_m2;
-
-const TILE_WIDTH: usize = 128;
+use bitmap_geometry::{block_pixel_bounds, polar_rectangle_area_cm2, BitmapPlane, BITMAP_WIDTH};
+use geo_data_format::{
+    cell_index, GeoEntityId, PlaneRaster, TileMembership, NO_ENTITY, TILE_WIDTH,
+};
+use std::collections::BTreeMap;
 
 pub fn populate_total_areas(
     model: &mut EntityModel,
-    tile_lookup: &[TileMembership],
-    block_lookup: &BTreeMap<(u16, u16), Vec<u32>>,
+    tiles: &[TileMembership],
+    blocks: &BTreeMap<(u16, u16), Vec<u32>>,
 ) {
-    // `block_area_m2(x, y)` is independent of `x`: in the projection `lng` is
-    // linear in `x` (so the per-block longitude span is constant) and `lat`
-    // depends only on `y`. Precompute one area per grid row once (65_536 evals)
-    // instead of re-evaluating sinh/atan/cos for every cell of every tile
-    // (~1.8 B evals per worldview). The lookup feeds the same accumulation order, so
-    // the result is bit-identical to the per-cell computation.
-    let row_area: Vec<f64> = (0..TILE_GRID_WIDTH as i64 * TILE_WIDTH as i64)
+    populate_total_areas_planes(
+        model,
+        &[PlaneRaster {
+            plane: BitmapPlane::Mercator,
+            tiles,
+            blocks,
+        }],
+    );
+}
+
+pub fn populate_total_areas_planes(model: &mut EntityModel, rasters: &[PlaneRaster<'_>]) {
+    let mercator_row_area_m2: Vec<f64> = (0..BLOCK_GRID_SIZE)
         .map(|by| block_area_m2(0, by))
         .collect();
-
     let slots = model.entities.iter().map(|e| e.id.0).max().unwrap_or(0) as usize + 1;
-    let mut parent_of: Vec<Option<GeoEntityId>> = vec![None; slots];
-    let mut is_entity: Vec<bool> = vec![false; slots];
+    let mut parent_of = vec![None; slots];
+    let mut is_entity = vec![false; slots];
     for e in &model.entities {
         parent_of[e.id.0 as usize] = e.parent_id;
         is_entity[e.id.0 as usize] = true;
     }
-
-    let mut acc: Vec<f64> = vec![0.0; slots];
-    let credit = |acc: &mut Vec<f64>, leaf: GeoEntityId, area: f64| {
-        debug_assert!(
+    let mut mercator_acc_m2 = vec![0.0; slots];
+    let mut polar_acc_cm2 = vec![0_i64; slots];
+    let mut credit = |leaf: GeoEntityId, mercator_m2: f64, polar_cm2: i64| {
+        assert!(
             is_entity.get(leaf.0 as usize).copied().unwrap_or(false),
-            "raster leaf {leaf:?} has no entry in the entity model — every id a raster can \
-             produce must exist in `model.entities`, or its area silently vanishes"
+            "raster leaf {leaf:?} has no entity"
         );
         let mut cur = Some(leaf);
         while let Some(id) = cur {
-            acc[id.0 as usize] += area;
+            mercator_acc_m2[id.0 as usize] += mercator_m2;
+            polar_acc_cm2[id.0 as usize] += polar_cm2;
             cur = parent_of[id.0 as usize];
         }
     };
-
-    for tx in 0..TILE_GRID_WIDTH {
-        for ty in 0..TILE_GRID_WIDTH {
-            let tile_idx = tile_index(tx as u16, ty as u16);
-            match &tile_lookup[tile_idx] {
-                TileMembership::None => {}
-                TileMembership::Single(id) => {
-                    let mut tile_area = 0.0;
-                    for byo in 0..TILE_WIDTH {
-                        let by = ty * TILE_WIDTH + byo;
-                        for _bxo in 0..TILE_WIDTH {
-                            tile_area += row_area[by];
-                        }
+    for raster in rasters {
+        let width = raster.plane.grid_width() as usize;
+        assert_eq!(raster.tiles.len(), width * width);
+        for tx in 0..width {
+            for ty in 0..width {
+                match raster.tiles[tx * width + ty] {
+                    TileMembership::None => {}
+                    TileMembership::Single(id) => {
+                        let (mercator_m2, polar_cm2) = if raster.plane == BitmapPlane::Mercator {
+                            let mut tile_area_m2 = 0.0;
+                            for byo in 0..TILE_WIDTH {
+                                for _ in 0..TILE_WIDTH {
+                                    tile_area_m2 += mercator_row_area_m2[ty * TILE_WIDTH + byo];
+                                }
+                            }
+                            (tile_area_m2, 0)
+                        } else {
+                            let side = TILE_WIDTH as i64 * BITMAP_WIDTH;
+                            let x = tx as i64 * side;
+                            let y = ty as i64 * side;
+                            (0.0, polar_rectangle_area_cm2(x..x + side, y..y + side))
+                        };
+                        credit(id, mercator_m2, polar_cm2);
                     }
-                    credit(&mut acc, *id, tile_area);
-                }
-                TileMembership::Border => {
-                    let blocks = match block_lookup.get(&(tx as u16, ty as u16)) {
-                        Some(b) => b,
-                        None => continue,
-                    };
-                    for byo in 0..TILE_WIDTH {
-                        let by = ty * TILE_WIDTH + byo;
-                        for bxo in 0..TILE_WIDTH {
-                            // Weight by row `byo`, so index the cell at (x=bxo, y=byo).
-                            let cell = blocks[cell_index(bxo as u8, byo as u8)];
-                            if cell != NO_ENTITY {
-                                credit(&mut acc, GeoEntityId(cell), row_area[by]);
+                    TileMembership::Border => {
+                        let cells = raster
+                            .blocks
+                            .get(&(tx as u16, ty as u16))
+                            .expect("missing border cells");
+                        for byo in 0..TILE_WIDTH {
+                            for bxo in 0..TILE_WIDTH {
+                                let id = cells[cell_index(bxo as u8, byo as u8)];
+                                if id == NO_ENTITY {
+                                    continue;
+                                }
+                                let (mercator_m2, polar_cm2) =
+                                    if raster.plane == BitmapPlane::Mercator {
+                                        (mercator_row_area_m2[ty * TILE_WIDTH + byo], 0)
+                                    } else {
+                                        let (x, y) = block_pixel_bounds(
+                                            (tx as u16, ty as u16),
+                                            (bxo as u8, byo as u8),
+                                        );
+                                        (0.0, polar_rectangle_area_cm2(x, y))
+                                    };
+                                credit(GeoEntityId(id), mercator_m2, polar_cm2);
                             }
                         }
                     }
@@ -84,8 +105,9 @@ pub fn populate_total_areas(
             }
         }
     }
-
     for entity in &mut model.entities {
-        entity.total_area_m2 = acc[entity.id.0 as usize].round() as u64;
+        let index = entity.id.0 as usize;
+        entity.total_area_m2 =
+            (mercator_acc_m2[index] + polar_acc_cm2[index] as f64 / 10_000.0).round() as u64;
     }
 }
