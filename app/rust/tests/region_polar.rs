@@ -57,6 +57,7 @@ fn antarctica_attribution_matches_global_area_through_seams_poles_and_dateline()
             ((180.0, -90.0), (180.0, -90.0)),
             ((-180.0, -90.0), (180.0, -90.0)),
             ((-180.0, -88.0), (180.0, -88.0)),
+            ((0.0, -87.0), (0.01, -86.99)),
             ((45.0, -87.0), (45.01, -87.01)),
             (
                 (45.0, -MERCATOR_MAX_LATITUDE + 0.001),
@@ -87,12 +88,22 @@ fn antarctica_attribution_matches_global_area_through_seams_poles_and_dateline()
                 worldview.spec().id
             );
         }
-        for lng in [-180.0, 0.0, 120.0, 179.9, 180.0] {
-            for lat in [88.0, 90.0] {
-                let bitmap = point(lng, lat);
-                assert!(journey_bitmap_area_cm2(&bitmap, None) > 0);
-                assert!(attribution::attribute(&bitmap, &geo).unwrap().is_empty());
-            }
+        let arctic_points = [-180.0, 0.0, 120.0, 179.9, 180.0]
+            .into_iter()
+            .flat_map(|lng| [88.0, 90.0].map(|lat| ((lng, lat), (lng, lat))));
+        let arctic_tracks = [
+            ((0.0, 88.0), (0.01, 88.01)),
+            ((120.0, 88.0), (120.01, 88.01)),
+        ];
+        for (a, b) in arctic_points.chain(arctic_tracks) {
+            let mut bitmap = JourneyBitmap::new();
+            bitmap.edit().add_line(a.0, a.1, b.0, b.1);
+            assert!(journey_bitmap_area_cm2(&bitmap, None) > 0);
+            assert!(
+                attribution::attribute(&bitmap, &geo).unwrap().is_empty(),
+                "{} Arctic {a:?} {b:?}",
+                worldview.spec().id
+            );
         }
         let mut poles = point(-180.0, -90.0);
         for (lng, lat) in [(180.0, -90.0), (-180.0, 90.0), (180.0, 90.0)] {

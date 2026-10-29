@@ -311,9 +311,17 @@ fn rasterize_one(
         .filter(|e| matches!(e.kind, GeoEntityKind::Admin0))
         .map(|e| (e.canonical_code.clone(), e.id))
         .collect();
-    let country_rasters = BitmapPlane::ALL
-        .map(|plane| rasterize_in_plane(&model.geometry_for_country, &country_ids, plane));
-    let country_raster = &country_rasters[BitmapPlane::Mercator as usize];
+    let mut mercator_raster = rasterize(&model.geometry_for_country, &country_ids);
+    let north_polar_raster = rasterize_in_plane(
+        &model.geometry_for_country,
+        &country_ids,
+        BitmapPlane::NorthPolar,
+    );
+    let south_polar_raster = rasterize_in_plane(
+        &model.geometry_for_country,
+        &country_ids,
+        BitmapPlane::SouthPolar,
+    );
 
     // Zero-block gate: a merge whose land the country mask does not cover is silently clipped by `refine`
     if !merged.is_empty() {
@@ -325,7 +333,10 @@ fn rasterize_one(
             probe_ids.insert(m.code.clone(), GeoEntityId(base + i as u32));
         }
         let probe = rasterize(&probe_geoms, &probe_ids);
-        let cov = measure_coverage((&country_raster.0, &country_raster.1), (&probe.0, &probe.1));
+        let cov = measure_coverage(
+            (&mercator_raster.0, &mercator_raster.1),
+            (&probe.0, &probe.1),
+        );
         for (i, m) in merged.iter().enumerate() {
             let declared = model
                 .province_declared_adm0
@@ -354,35 +365,32 @@ fn rasterize_one(
 
     eprintln!("[geo_rasterizer] resolving province parents...");
     let tally = measure_coverage(
-        (&country_raster.0, &country_raster.1),
+        (&mercator_raster.0, &mercator_raster.1),
         (&province_raster.0, &province_raster.1),
     );
     let province_blocks = block_counts((&province_raster.0, &province_raster.1));
     let parents = resolve_province_parents(&model, &tally, &province_blocks, worldview)?;
     attach_province_entities(&mut model, &parents);
     validate_tier_order(&model.entities)?;
-    let mercator = refine_raster(
-        (&country_raster.0, &country_raster.1),
+    mercator_raster = refine_raster(
+        (&mercator_raster.0, &mercator_raster.1),
         (&province_raster.0, &province_raster.1),
         &parents,
     );
-    let mut refined = country_rasters;
-    refined[BitmapPlane::Mercator as usize] = mercator;
-    let rasters: Vec<_> = BitmapPlane::ALL
-        .into_iter()
-        .map(|plane| {
-            let r = &refined[plane as usize];
-            PlaneRaster {
-                plane,
-                tiles: &r.0,
-                blocks: &r.1,
-            }
-        })
-        .collect();
+    let rasters = [
+        (BitmapPlane::Mercator, &mercator_raster),
+        (BitmapPlane::NorthPolar, &north_polar_raster),
+        (BitmapPlane::SouthPolar, &south_polar_raster),
+    ]
+    .map(|(plane, raster)| PlaneRaster {
+        plane,
+        tiles: &raster.0,
+        blocks: &raster.1,
+    });
     eprintln!(
         "[geo_rasterizer] merged: {} entities, {} border tiles",
         model.entities.len(),
-        refined.iter().map(|r| r.1.len()).sum::<usize>()
+        rasters.iter().map(|r| r.blocks.len()).sum::<usize>()
     );
 
     // 5. Areas.

@@ -10,6 +10,8 @@ use bitmap_geometry::{project_polar_laea, BitmapPlane, BITMAP_WIDTH, MERCATOR_MA
 use geo::{BooleanOps, BoundingRect};
 use geo_types::{Coord, LineString, MultiPolygon, Polygon, Rect};
 
+use crate::projection::BlockGeometry;
+
 /// Run after province policy and geometry merges, so dropped whole-country
 /// placeholders (such as Antarctica's) do not trigger this guard.
 pub fn validate_no_polar_provinces(
@@ -33,10 +35,10 @@ pub fn validate_no_polar_provinces(
     Ok(())
 }
 
-pub fn project_geometries(
-    geometries: &BTreeMap<String, MultiPolygon<f64>>,
+pub(crate) fn prepare_geometry(
+    geometry: &MultiPolygon<f64>,
     plane: BitmapPlane,
-) -> BTreeMap<String, MultiPolygon<f64>> {
+) -> Option<BlockGeometry> {
     assert_ne!(plane, BitmapPlane::Mercator);
     // Clip away the opposite hemisphere before projection to avoid the LAEA
     // antipode singularity. This artificial boundary is far outside the cap;
@@ -47,44 +49,42 @@ pub fn project_geometries(
         (-90.0, 0.0)
     };
     let hemisphere = Rect::new(Coord { x: -180.0, y: lo }, Coord { x: 180.0, y: hi }).to_polygon();
-    geometries
+    let relevant: Vec<_> = geometry
+        .0
         .iter()
-        .filter_map(|(code, geometry)| {
-            let relevant: Vec<_> = geometry
-                .0
-                .iter()
-                .filter(|polygon| {
-                    polygon.bounding_rect().is_some_and(|b| match plane {
-                        BitmapPlane::NorthPolar => b.max().y > MERCATOR_MAX_LATITUDE,
-                        BitmapPlane::SouthPolar => b.min().y < -MERCATOR_MAX_LATITUDE,
-                        BitmapPlane::Mercator => unreachable!(),
-                    })
-                })
-                .cloned()
-                .collect();
-            if relevant.is_empty() {
-                return None;
-            }
-            let clipped = MultiPolygon(relevant).intersection(&hemisphere);
-            let projected = MultiPolygon(
-                clipped
-                    .0
-                    .iter()
-                    .map(|polygon| {
-                        Polygon::new(
-                            project_ring(polygon.exterior(), plane),
-                            polygon
-                                .interiors()
-                                .iter()
-                                .map(|r| project_ring(r, plane))
-                                .collect(),
-                        )
-                    })
-                    .collect(),
-            );
-            Some((code.clone(), projected))
+        .filter(|polygon| {
+            polygon.bounding_rect().is_some_and(|b| match plane {
+                BitmapPlane::NorthPolar => b.max().y > MERCATOR_MAX_LATITUDE,
+                BitmapPlane::SouthPolar => b.min().y < -MERCATOR_MAX_LATITUDE,
+                BitmapPlane::Mercator => unreachable!(),
+            })
         })
-        .collect()
+        .cloned()
+        .collect();
+    if relevant.is_empty() {
+        return None;
+    }
+    let clipped = MultiPolygon(relevant).intersection(&hemisphere);
+    let projected = MultiPolygon(
+        clipped
+            .0
+            .iter()
+            .map(|polygon| {
+                Polygon::new(
+                    project_ring(polygon.exterior(), plane),
+                    polygon
+                        .interiors()
+                        .iter()
+                        .map(|r| project_ring(r, plane))
+                        .collect(),
+                )
+            })
+            .collect(),
+    );
+    BlockGeometry::from_projected_blocks(
+        &projected,
+        plane.grid_width() * bitmap_geometry::TILE_WIDTH,
+    )
 }
 
 fn project(lnglat: Coord<f64>, plane: BitmapPlane) -> Coord<f64> {

@@ -30,7 +30,6 @@ use std::fs;
 use chrono::NaiveDate;
 use geo_data_format::{GeoEntityId, GeoEntityKind, Worldview};
 use memolanes_core::{
-    achievement::attribution::{self, AreaCm2ByEntity},
     achievement::layer::AchievementLayer,
     achievement::region::{self, region_levels, RegionKind},
     geo::{GeoIndex, GeoLookup},
@@ -185,16 +184,6 @@ fn sub(dir: &TempDir, s: &str) -> String {
     let p = dir.path().join(s);
     fs::create_dir_all(&p).unwrap();
     p.into_os_string().into_string().unwrap()
-}
-
-/// Canonical codes of every credited entity, any kind.
-fn credited_codes(areas: &AreaCm2ByEntity, geo: &dyn GeoLookup) -> BTreeSet<String> {
-    let ids: Vec<_> = areas.keys().copied().collect();
-    geo.describe(&ids)
-        .unwrap()
-        .into_values()
-        .map(|e| e.canonical_code)
-        .collect()
 }
 
 /// The `Country`-kind entity for a leaf: the leaf itself when it is a country,
@@ -406,24 +395,4 @@ fn region_api_reports_correct_countries_and_areas() {
             Ok(())
         })
         .unwrap();
-}
-
-/// Polar grids must not alias Mercator cells. Arctic ocean credits nothing;
-/// the southern cap resolves to Antarctica and rolls up to its continent.
-#[test]
-fn polar_tracks_credit_only_their_actual_land_regions() {
-    let geo = GeoIndex::open(&test_utils::geo_asset("iso")).unwrap();
-
-    for (lng, lat) in [(0.0, 88.0), (120.0, 88.0), (0.0, -87.0)] {
-        let mut bitmap = JourneyBitmap::new();
-        bitmap.edit().add_line(lng, lat, lng + 0.01, lat + 0.01);
-        let areas = attribution::attribute(&bitmap, &geo).unwrap();
-        let credited = credited_codes(&areas, &geo);
-        let expected = if lat < 0.0 {
-            BTreeSet::from(["ATA".to_owned(), "AN".to_owned()])
-        } else {
-            BTreeSet::new()
-        };
-        assert_eq!(credited, expected, "({lng}, {lat})");
-    }
 }

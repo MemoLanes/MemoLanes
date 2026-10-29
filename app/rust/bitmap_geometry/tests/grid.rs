@@ -39,22 +39,3 @@ fn disk_clipping_retains_intersecting_cells_and_excludes_corners() {
         (8384..8448, 16640..16704)
     );
 }
-
-#[test]
-fn rectangle_area_matches_individually_quantized_pixels() {
-    let r = POLAR_DISK_RADIUS;
-    for angle in [0.0_f64, 0.01, 0.3, 0.78, 1.2, 1.56] {
-        let x = r + (r as f64 * angle.cos()) as i64 - 32;
-        let y = r + (r as f64 * angle.sin()) as i64 - 32;
-        let xr = x.clamp(0, 2 * r - 64)..(x.clamp(0, 2 * r - 64) + 64);
-        let yr = y.clamp(0, 2 * r - 64)..(y.clamp(0, 2 * r - 64) + 64);
-        let mut expected = 0;
-        for px in xr.clone() {
-            for py in yr.clone() {
-                expected +=
-                    (polar_pixel_fraction(px, py) * polar_pixel_area_cm2() as f64).round() as i64;
-            }
-        }
-        assert_eq!(polar_rectangle_area_cm2(xr, yr), expected, "angle {angle}");
-    }
-}

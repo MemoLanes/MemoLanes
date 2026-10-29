@@ -2,12 +2,15 @@
 //! Mercator accumulation retains its historical order/formula. Polar areas
 //! use the journey grid's equal-area pixels, clipped and quantized at the seam.
 
-use crate::{entities::EntityModel, projection::block_area_m2};
+use crate::{
+    entities::EntityModel,
+    projection::{block_area_m2, BLOCK_GRID_SIZE},
+};
 use bitmap_geometry::{block_pixel_bounds, polar_rectangle_area_cm2, BitmapPlane, BITMAP_WIDTH};
-use geo_data_format::{cell_index, GeoEntityId, PlaneRaster, TileMembership, NO_ENTITY};
+use geo_data_format::{
+    cell_index, GeoEntityId, PlaneRaster, TileMembership, NO_ENTITY, TILE_WIDTH,
+};
 use std::collections::BTreeMap;
-
-const TILE_WIDTH: usize = 128;
 
 pub fn populate_total_areas(
     model: &mut EntityModel,
@@ -25,7 +28,9 @@ pub fn populate_total_areas(
 }
 
 pub fn populate_total_areas_planes(model: &mut EntityModel, rasters: &[PlaneRaster<'_>]) {
-    let row_area: Vec<f64> = (0..65536).map(|by| block_area_m2(0, by)).collect();
+    let mercator_row_area_m2: Vec<f64> = (0..BLOCK_GRID_SIZE)
+        .map(|by| block_area_m2(0, by))
+        .collect();
     let slots = model.entities.iter().map(|e| e.id.0).max().unwrap_or(0) as usize + 1;
     let mut parent_of = vec![None; slots];
     let mut is_entity = vec![false; slots];
@@ -33,7 +38,7 @@ pub fn populate_total_areas_planes(model: &mut EntityModel, rasters: &[PlaneRast
         parent_of[e.id.0 as usize] = e.parent_id;
         is_entity[e.id.0 as usize] = true;
     }
-    let mut acc = vec![0.0; slots];
+    let mut mercator_acc_m2 = vec![0.0; slots];
     let mut polar_acc_cm2 = vec![0_i64; slots];
     let mut credit = |leaf: GeoEntityId, mercator_m2: f64, polar_cm2: i64| {
         assert!(
@@ -42,7 +47,7 @@ pub fn populate_total_areas_planes(model: &mut EntityModel, rasters: &[PlaneRast
         );
         let mut cur = Some(leaf);
         while let Some(id) = cur {
-            acc[id.0 as usize] += mercator_m2;
+            mercator_acc_m2[id.0 as usize] += mercator_m2;
             polar_acc_cm2[id.0 as usize] += polar_cm2;
             cur = parent_of[id.0 as usize];
         }
@@ -56,13 +61,13 @@ pub fn populate_total_areas_planes(model: &mut EntityModel, rasters: &[PlaneRast
                     TileMembership::None => {}
                     TileMembership::Single(id) => {
                         let (mercator_m2, polar_cm2) = if raster.plane == BitmapPlane::Mercator {
-                            let mut area = 0.0;
+                            let mut tile_area_m2 = 0.0;
                             for byo in 0..TILE_WIDTH {
                                 for _ in 0..TILE_WIDTH {
-                                    area += row_area[ty * TILE_WIDTH + byo];
+                                    tile_area_m2 += mercator_row_area_m2[ty * TILE_WIDTH + byo];
                                 }
                             }
-                            (area, 0)
+                            (tile_area_m2, 0)
                         } else {
                             let side = TILE_WIDTH as i64 * BITMAP_WIDTH;
                             let x = tx as i64 * side;
@@ -84,7 +89,7 @@ pub fn populate_total_areas_planes(model: &mut EntityModel, rasters: &[PlaneRast
                                 }
                                 let (mercator_m2, polar_cm2) =
                                     if raster.plane == BitmapPlane::Mercator {
-                                        (row_area[ty * TILE_WIDTH + byo], 0)
+                                        (mercator_row_area_m2[ty * TILE_WIDTH + byo], 0)
                                     } else {
                                         let (x, y) = block_pixel_bounds(
                                             (tx as u16, ty as u16),
@@ -102,6 +107,7 @@ pub fn populate_total_areas_planes(model: &mut EntityModel, rasters: &[PlaneRast
     }
     for entity in &mut model.entities {
         let index = entity.id.0 as usize;
-        entity.total_area_m2 = (acc[index] + polar_acc_cm2[index] as f64 / 10_000.0).round() as u64;
+        entity.total_area_m2 =
+            (mercator_acc_m2[index] + polar_acc_cm2[index] as f64 / 10_000.0).round() as u64;
     }
 }

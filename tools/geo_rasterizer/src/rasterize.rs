@@ -4,7 +4,7 @@
 //! at block-grid resolution, followed by per-tile aggregation.
 //!
 //! Phase 1 (per entity): rasterize each polygon ring at block resolution.
-//!   * Edge endpoints are projected to the 65 536 × 65 536 block grid.
+//!   * Edge endpoints are prepared in the plane's block grid.
 //!   * Edge cells are marked via DDA scan-conversion (border_blocks).
 //!   * Interior cells are filled via even-odd scanline: for every integer
 //!     scan-line y, collect all edge crossings, sort by x, pair them up,
@@ -30,19 +30,18 @@
 use std::collections::BTreeMap;
 use std::time::Instant;
 
-use geo::algorithm::BoundingRect;
-use geo_data_format::{cell_index, GeoEntityId, TileMembership, NO_ENTITY};
-use geo_types::MultiPolygon;
+use geo_data_format::{
+    cell_index, GeoEntityId, TileMembership, CELLS_PER_TILE, NO_ENTITY, TILE_WIDTH,
+};
+use geo_types::{Coord, MultiPolygon, Rect};
 use rayon::prelude::*;
 
-use crate::projection::{lng_lat_to_block_xy, BLOCK_GRID_SIZE};
+use crate::projection::{BlockGeometry, BlockVertex, BLOCK_GRID_SIZE};
 use bitmap_geometry::{
-    polar_rect_radius_bounds_squared, BitmapPlane, BITMAP_WIDTH, POLAR_DISK_RADIUS,
+    polar_rect_radius_bounds_squared, BitmapPlane, BITMAP_WIDTH, POLAR_DISK_RADIUS, POLAR_MAP_WIDTH,
 };
 
-const TILE_WIDTH: usize = 128;
-const BLOCKS_PER_TILE: usize = TILE_WIDTH * TILE_WIDTH;
-const TILE_BITMAP_WORDS: usize = BLOCKS_PER_TILE / 64; // 256 u64s
+const TILE_BITMAP_WORDS: usize = CELLS_PER_TILE / 64; // 256 u64s
 
 /// Per-tile membership classifications, indexed by `geo_data_format::tile_index`
 /// (x-major), matching the runtime's `BlockKey::index()` convention.
@@ -52,6 +51,38 @@ pub type TileLookup = Vec<TileMembership>;
 /// The internal `TileBitmap` is y-major; the transpose happens once, where this
 /// vector is emitted (phase 2 border branch).
 pub type BlockLookup = BTreeMap<(u16, u16), Vec<u32>>;
+
+/// Geometry stays attached to its projection until the rasterization dispatch.
+enum PreparedGeometry {
+    Mercator(BlockGeometry),
+    NorthPolar(BlockGeometry),
+    SouthPolar(BlockGeometry),
+}
+
+impl PreparedGeometry {
+    fn prepare(lnglat: &MultiPolygon<f64>, plane: BitmapPlane) -> Option<Self> {
+        match plane {
+            BitmapPlane::Mercator => BlockGeometry::prepare_mercator(lnglat).map(Self::Mercator),
+            BitmapPlane::NorthPolar => {
+                crate::polar::prepare_geometry(lnglat, BitmapPlane::NorthPolar)
+                    .map(Self::NorthPolar)
+            }
+            BitmapPlane::SouthPolar => {
+                crate::polar::prepare_geometry(lnglat, BitmapPlane::SouthPolar)
+                    .map(Self::SouthPolar)
+            }
+        }
+    }
+
+    fn bounds(&self) -> Rect<u32> {
+        match self {
+            Self::Mercator(geometry) | Self::NorthPolar(geometry) | Self::SouthPolar(geometry) => {
+                geometry.bounds
+            }
+        }
+    }
+}
+
 /// 128×128 packed bitmap, indexed `byo * TILE_WIDTH + bxo`.
 #[derive(Clone)]
 struct TileBitmap {
@@ -101,40 +132,22 @@ pub fn rasterize_in_plane(
     plane: BitmapPlane,
 ) -> (TileLookup, BlockLookup) {
     let started = Instant::now();
-    let projected;
-    let geometry_for_code = if plane == BitmapPlane::Mercator {
-        geometry_for_code
-    } else {
-        projected = crate::polar::project_geometries(geometry_for_code, plane);
-        &projected
-    };
     let width = plane.grid_width() as usize;
-    let grid_size = (width * TILE_WIDTH) as i64;
 
     // Phase 1: per-entity scanline rasterization.
     let mut entity_rasters: Vec<EntityRaster> = geometry_for_code
         .par_iter()
-        .filter_map(|(code, geom)| {
+        .filter_map(|(code, lnglat)| {
             let id = *id_for_code.get(code)?;
-            let bbox_lnglat = geom.bounding_rect()?;
-            let ((min_x, min_y), (max_x, max_y)) = if plane == BitmapPlane::Mercator {
-                (
-                    lng_lat_to_block_xy(bbox_lnglat.min().x, bbox_lnglat.max().y),
-                    lng_lat_to_block_xy(bbox_lnglat.max().x, bbox_lnglat.min().y),
-                )
-            } else {
-                let clamp = |v: f64| v.floor().clamp(0.0, (grid_size - 1) as f64) as u32;
-                (
-                    (clamp(bbox_lnglat.min().x), clamp(bbox_lnglat.min().y)),
-                    (clamp(bbox_lnglat.max().x), clamp(bbox_lnglat.max().y)),
-                )
-            };
+            let geometry = PreparedGeometry::prepare(lnglat, plane)?;
+            let bounds = geometry.bounds();
+            let (min, max) = (bounds.min(), bounds.max());
             let bbox_area_blocks =
-                (max_x as i64 - min_x as i64).max(1) * (max_y as i64 - min_y as i64).max(1);
+                (max.x as i64 - min.x as i64).max(1) * (max.y as i64 - min.y as i64).max(1);
             Some(EntityRaster {
                 id,
                 code: code.as_str(),
-                tiles: rasterize_entity(geom, min_x, min_y, max_x, max_y, plane),
+                tiles: rasterize_entity(&geometry),
                 bbox_area_blocks,
             })
         })
@@ -197,7 +210,7 @@ pub fn rasterize_in_plane(
             // else: leave as None.
         } else {
             // Border. Per-block fill: smallest candidate with bit set wins.
-            let mut blocks: Vec<u32> = vec![NO_ENTITY; BLOCKS_PER_TILE];
+            let mut blocks: Vec<u32> = vec![NO_ENTITY; CELLS_PER_TILE];
             // Iterate candidates in sorted (smaller-first) order. Since
             // tile_candidates was built by iterating entity_rasters in
             // sorted order, cand_indices is already ascending → smaller
@@ -258,14 +271,43 @@ pub fn rasterize_in_plane(
 /// Per-entity scanline rasterization. Produces a `BTreeMap<(tx, ty), TileBitmap>`
 /// giving, for each tile the polygon contributes to, a 128×128 bitmap of
 /// inside blocks plus a `has_edge` flag.
-fn rasterize_entity(
-    geom: &MultiPolygon<f64>,
-    bbox_min_x: u32,
-    bbox_min_y: u32,
-    bbox_max_x: u32,
-    bbox_max_y: u32,
-    plane: BitmapPlane,
+fn rasterize_entity(geometry: &PreparedGeometry) -> BTreeMap<(u16, u16), TileBitmap> {
+    match geometry {
+        PreparedGeometry::Mercator(geometry) => rasterize_mercator(geometry),
+        PreparedGeometry::NorthPolar(geometry) | PreparedGeometry::SouthPolar(geometry) => {
+            rasterize_polar(geometry)
+        }
+    }
+}
+
+fn rasterize_mercator(geometry: &BlockGeometry) -> BTreeMap<(u16, u16), TileBitmap> {
+    // Keep the legacy behavior: out-of-grid DDA samples land on the grid edge.
+    scan_blocks(geometry, BLOCK_GRID_SIZE, |cell| {
+        Some(Coord {
+            x: cell.x.clamp(0, BLOCK_GRID_SIZE - 1),
+            y: cell.y.clamp(0, BLOCK_GRID_SIZE - 1),
+        })
+    })
+}
+
+fn rasterize_polar(geometry: &BlockGeometry) -> BTreeMap<(u16, u16), TileBitmap> {
+    let grid_size = POLAR_MAP_WIDTH * TILE_WIDTH as i64;
+    let mut tiles = scan_blocks(geometry, grid_size, |cell| {
+        ((0..grid_size).contains(&cell.x) && (0..grid_size).contains(&cell.y)).then_some(cell)
+    });
+    clip_polar_tiles(&mut tiles);
+    tiles
+}
+
+/// Shared scan conversion in block space. The projection-specific entry point
+/// selects the grid size and how out-of-grid border samples are handled.
+fn scan_blocks(
+    geom: &BlockGeometry,
+    grid_size: i64,
+    map_border_cell: impl Fn(Coord<i64>) -> Option<Coord<i64>>,
 ) -> BTreeMap<(u16, u16), TileBitmap> {
+    let (min, max) = (geom.bounds.min(), geom.bounds.max());
+    let (bbox_min_x, bbox_min_y, bbox_max_x, bbox_max_y) = (min.x, min.y, max.x, max.y);
     let mut tiles: BTreeMap<(u16, u16), TileBitmap> = BTreeMap::new();
 
     // Step 1: scan-convert all edges to mark border blocks AND collect
@@ -281,40 +323,16 @@ fn rasterize_entity(
     }
     let mut edges: Vec<Edge> = Vec::new();
 
-    let mut process_ring = |ring: &geo_types::LineString<f64>, edges: &mut Vec<Edge>| {
-        let pts = &ring.0;
+    let mut process_ring = |pts: &[BlockVertex], edges: &mut Vec<Edge>| {
         if pts.len() < 2 {
             return;
         }
         for window in pts.windows(2) {
-            let a = window[0];
-            let b = window[1];
-            let project = |p: geo_types::Coord<f64>| {
-                if plane == BitmapPlane::Mercator {
-                    lng_lat_to_block_xy_float(p.x, p.y)
-                } else {
-                    (p.x, p.y)
-                }
-            };
-            let (ax_f, ay_f) = project(a);
-            let (bx_f, by_f) = project(b);
-            let (ax_u, ay_u, bx_u, by_u) = if plane == BitmapPlane::Mercator {
-                // Preserve integer endpoint clamping before DDA. In particular,
-                // floor(float projection) can equal the grid width at ±180°
-                // or the latitude seam, changing the edge walk by one block.
-                let (ax, ay) = lng_lat_to_block_xy(a.x, a.y);
-                let (bx, by) = lng_lat_to_block_xy(b.x, b.y);
-                (ax as i64, ay as i64, bx as i64, by as i64)
-            } else {
-                (
-                    ax_f.floor() as i64,
-                    ay_f.floor() as i64,
-                    bx_f.floor() as i64,
-                    by_f.floor() as i64,
-                )
-            };
+            let (a, b) = (&window[0], &window[1]);
+            let (ax_f, ay_f) = (a.position.x, a.position.y);
+            let (bx_f, by_f) = (b.position.x, b.position.y);
             // Mark border blocks via DDA on integer coords.
-            mark_border_blocks(ax_u, ay_u, bx_u, by_u, plane, &mut |bx, by| {
+            mark_border_blocks(a.dda_cell, b.dda_cell, &map_border_cell, &mut |bx, by| {
                 let tx = (bx / TILE_WIDTH as i64) as u16;
                 let ty = (by / TILE_WIDTH as i64) as u16;
                 let tile = tiles.entry((tx, ty)).or_insert_with(TileBitmap::new);
@@ -381,11 +399,8 @@ fn rasterize_entity(
         }
     };
 
-    for poly in &geom.0 {
-        process_ring(poly.exterior(), &mut edges);
-        for hole in poly.interiors() {
-            process_ring(hole, &mut edges);
-        }
+    for ring in &geom.rings {
+        process_ring(ring, &mut edges);
     }
 
     // Step 2: scanline fill. For each integer y in [bbox_min_y, bbox_max_y],
@@ -449,11 +464,9 @@ fn rasterize_entity(
             let center_lo = (x_in - 0.5).floor() as i64 + 1;
             let center_hi = (x_out - 0.5).ceil() as i64 - 1;
             let bx_start = center_lo.max(bbox_min_x as i64).max(0);
-            let bx_end = center_hi
-                .min(bbox_max_x as i64)
-                .min(plane.grid_width() * TILE_WIDTH as i64 - 1);
+            let bx_end = center_hi.min(bbox_max_x as i64).min(grid_size - 1);
             if bx_start <= bx_end {
-                fill_blocks_row(&mut tiles, bx_start, bx_end, y);
+                fill_blocks_row(&mut tiles, bx_start, bx_end, y, grid_size);
             }
             i += 2;
         }
@@ -464,9 +477,6 @@ fn rasterize_entity(
         }
     }
 
-    if plane != BitmapPlane::Mercator {
-        clip_polar_tiles(&mut tiles);
-    }
     tiles
 }
 
@@ -509,8 +519,9 @@ fn fill_blocks_row(
     bx_start: i64,
     bx_end: i64,
     y: i64,
+    grid_size: i64,
 ) {
-    if !(0..BLOCK_GRID_SIZE).contains(&y) {
+    if !(0..grid_size).contains(&y) {
         return;
     }
     let ty = (y / TILE_WIDTH as i64) as u16;
@@ -555,53 +566,35 @@ fn fill_blocks_row(
     }
 }
 
-/// DDA: walk integer block coords from (ax, ay) to (bx, by), invoking
-/// `f(x, y)` for each block touched (including endpoints). Clamps to
-/// the [0, BLOCK_GRID_SIZE) range.
+/// DDA over prepared integer endpoints. The supplied mapping clamps or discards
+/// border samples before invoking `f(x, y)`, preserving the order of deduplication.
 fn mark_border_blocks(
-    ax: i64,
-    ay: i64,
-    bx: i64,
-    by: i64,
-    plane: BitmapPlane,
+    a: Coord<i64>,
+    b: Coord<i64>,
+    map_border_cell: &impl Fn(Coord<i64>) -> Option<Coord<i64>>,
     f: &mut impl FnMut(i64, i64),
 ) {
-    let dx = bx - ax;
-    let dy = by - ay;
+    let dx = b.x - a.x;
+    let dy = b.y - a.y;
     let steps = dx.abs().max(dy.abs()).max(1) as usize;
     let inv = 1.0 / steps as f64;
     let fx_step = dx as f64 * inv;
     let fy_step = dy as f64 * inv;
-    let mut fx = ax as f64;
-    let mut fy = ay as f64;
+    let mut fx = a.x as f64;
+    let mut fy = a.y as f64;
     let mut last: Option<(i64, i64)> = None;
     for _ in 0..=steps {
-        let n = plane.grid_width() * TILE_WIDTH as i64;
-        let mut x = fx.round() as i64;
-        let mut y = fy.round() as i64;
-        if plane == BitmapPlane::Mercator {
-            x = x.clamp(0, n - 1);
-            y = y.clamp(0, n - 1);
-        }
-        if (0..n).contains(&x) && (0..n).contains(&y) && Some((x, y)) != last {
-            f(x, y);
-            last = Some((x, y));
+        if let Some(cell) = map_border_cell(Coord {
+            x: fx.round() as i64,
+            y: fy.round() as i64,
+        }) {
+            let point = (cell.x, cell.y);
+            if Some(point) != last {
+                f(point.0, point.1);
+                last = Some(point);
+            }
         }
         fx += fx_step;
         fy += fy_step;
     }
-}
-
-/// Float-precision projection of (lng, lat) to block coords, mirrors
-/// `projection::lng_lat_to_block_xy` but without flooring.
-fn lng_lat_to_block_xy_float(lng: f64, lat: f64) -> (f64, f64) {
-    use std::f64::consts::PI;
-    let n = (BLOCK_GRID_SIZE) as f64;
-    let lat_rad = lat.to_radians();
-    let x = ((lng + 180.0) / 360.0) * n;
-    let y = (1.0 - ((lat_rad.tan() + 1.0 / lat_rad.cos()).ln() / PI)) / 2.0 * n;
-    (
-        x.clamp(0.0, n - f64::EPSILON),
-        y.clamp(0.0, n - f64::EPSILON),
-    )
 }

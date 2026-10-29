@@ -75,10 +75,13 @@ fn rectangles_round_per_pixel_not_after_summing_fractions() {
 }
 
 #[test]
-fn accelerated_rectangles_equal_pixel_sums_and_are_exactly_additive() {
+fn rectangles_match_pixel_sums_and_are_exactly_additive() {
     let r = POLAR_DISK_RADIUS as f64;
-    for i in 0..32 {
-        let angle = std::f64::consts::TAU * (i as f64 + 0.25) / 32.0;
+    let angles = (0..32)
+        .map(|i| std::f64::consts::TAU * (i as f64 + 0.25) / 32.0)
+        // Include explicit axial and near-axis boundary cases.
+        .chain([0.0, 0.01, 0.3, 0.78, 1.2, 1.56]);
+    for angle in angles {
         for size in [1, 2, 3, 7, 16, 64, 129] {
             let x = ((r + r * angle.cos()).floor() as i64 - size / 2)
                 .clamp(0, POLAR_WORLD_PIXEL_WIDTH - size);
