@@ -2,6 +2,7 @@ import { MapController } from "../../static/map-controller";
 import { createReactiveParams } from "../../static/params";
 import { POLAR_SEAM_LATITUDE } from "../../static/polar-projection";
 import { createMapContainer, waitForIdle } from "./map-fixture";
+import { checkFogFrames } from "./fog-frames";
 import { encodeTileRangeResponse } from "../support/tile-range-fixture.js";
 
 function deferred() {
@@ -152,7 +153,16 @@ export async function checkPolarDisplay(check) {
           controller.getTileProvider().getViewRange() !== null,
           "ordinary navigation restores Mercator demand",
         );
-        controller.jumpTo({ center: [0, sign * 89], zoom: 14 });
+        // Observe the first polar frame as well as the settled view. An opaque
+        // basemap would hide missing fog from the alpha checks.
+        map.setPaintProperty("base", "background-opacity", 0);
+        await waitForIdle(map);
+        await checkFogFrames(
+          map,
+          () => controller.jumpTo({ center: [0, sign * 89], zoom: 14 }),
+          check,
+          `${hemisphere} navigation from Mercator into the cap`,
+        );
         await controller.waitForDisplay();
         check(
           controller.getTileProvider().getViewRange() === null,
