@@ -240,6 +240,53 @@ export async function checkPolarCanvas(check) {
     check(overview[3] === 0, "globe Canvas does not draw over the sky");
     results.push("Canvas Mercator tracks, antimeridian and globe horizon");
 
+    // Keep the same empty world image throughout the zoom so only the
+    // raster/globe handoff can change fog opacity, independent of tile updates.
+    map.setProjection({ type: "globe" });
+    layer.redrawCanvas(0, 0, 1, 1, 0, 9, {
+      get_tile_pixels: () => new Uint16Array(),
+    });
+    const transitions = [];
+    for (const [from, to, duration] of [
+      [10.9, 12.1, 500],
+      [12.1, 10.9, 500],
+      [10.9, 12.1, 0],
+      [12.1, 10.9, 0],
+    ]) {
+      map.jumpTo({ center: [0, 0], zoom: from });
+      await settle();
+      const alphas = [];
+      const sample = () => {
+        const pixel = new Uint8Array(4);
+        gl.readPixels(128, 128, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
+        alphas.push(pixel[3]);
+      };
+      map.on("render", sample);
+      try {
+        map.easeTo({ zoom: to, duration, easing: (t) => t });
+        await waitForIdle(map);
+      } finally {
+        map.off("render", sample);
+      }
+      transitions.push({
+        from,
+        to,
+        duration,
+        frames: alphas.length,
+        min: Math.min(...alphas),
+        max: Math.max(...alphas),
+      });
+    }
+    check(
+      transitions.every(
+        ({ frames, min, max }) => frames > 0 && min >= 126 && max <= 130,
+      ),
+      `Canvas fog must cover once on every frame: ${JSON.stringify(transitions)}`,
+    );
+    results.push(
+      "Canvas fog opacity through animated and instant zoom handoffs",
+    );
+
     const data = layer.globeLayer.data;
     const tileFetch = window.fetch;
     let releaseNorth;

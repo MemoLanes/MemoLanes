@@ -83,6 +83,7 @@ export class JourneyCanvasLayer implements JourneyLayer {
       type: "raster",
       paint: {
         "raster-fade-duration": 0,
+        "raster-opacity-transition": { duration: 0, delay: 0 },
       },
     });
 

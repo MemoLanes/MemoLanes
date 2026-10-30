@@ -23,8 +23,10 @@ The Canvas suite exercises binary tile decoding through the WASM package,
 Canvas rasterization and actual browser pixels. It checks both poles, native
 zoom track positions (including close to the Mercator boundary), single-opacity
 seams at several zoom levels, independent cap downloads, forced refreshes and
-in-flight disposal. Synthetic tiles isolate known geographic marker positions;
-the Rust map-renderer tests separately cover a complex polar GPX fixture.
+in-flight disposal. Frame-by-frame pixel checks cover fog opacity during animated
+and instant globe/raster zoom handoffs. Synthetic tiles isolate known geographic
+marker positions; the Rust map-renderer tests separately cover a complex polar
+GPX fixture.
 
 The display suite runs `MapController.initialize()` with endpoint-validating
 binary responses and delayed individual planes. It verifies polar-only startup,

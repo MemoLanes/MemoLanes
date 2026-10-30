@@ -65,6 +65,8 @@ export class CanvasGlobeLayer implements CustomLayerInterface {
   private readonly fg: RGBAColor;
   private readonly tracks: JourneyTileProvider;
   private globeVisible = false;
+  // Queue the handoff after painting: MapLibre applies the new raster opacity
+  // at the start of the next frame, before render() uses the matching flag.
   private readonly updateVisibility = () => {
     const visible = (this.map.style?.projection?.transitionState ?? 0) > 0.98;
     if (visible === this.globeVisible) return;
@@ -123,8 +125,9 @@ export class CanvasGlobeLayer implements CustomLayerInterface {
     gl: WebGLRenderingContext | WebGL2RenderingContext,
     args: CustomRenderMethodInput,
   ): void {
-    this.updateVisibility();
-    if (args.shaderData.variantName !== "globe" || !this.globeVisible) return;
+    // map.project() also supports the first Mercator frame after a zoom jump,
+    // while the raster is still hidden and its handoff is queued for next frame.
+    if (!this.globeVisible) return;
     if (!this.program) this.setup(gl);
     if (!this.program || !this.buffer) return;
     const bounds = this.map.getBounds(),
