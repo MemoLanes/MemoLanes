@@ -272,7 +272,8 @@
     },
     "region_list": {
       "country_title": "Countries & Regions",
-      "region_empty": "No regions unlocked in this country yet.",
+      "region_empty": "No subdivisions unlocked yet.",
+      "region_unsupported": "Subdivision statistics are not yet available for this region.",
       "error": "Could not load region data.",
       "retry": "Retry",
       "view_all": "View all",
@@ -424,7 +425,8 @@
       "system": "Follow system",
       "chinese": "Simplified Chinese",
       "english": "English"
-    }
+    },
+    "data_attribution": "Map boundary data © OpenStreetMap contributors, via Overture Maps (ODbL)."
   },
   "beta_testing_notice": {
     "title": "Welcome to MemoLanes Public Beta",

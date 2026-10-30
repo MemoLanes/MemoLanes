@@ -55,6 +55,7 @@ fn reg() -> Registry {
             point: None,
         }],
         provinces: vec![],
+        admin2: vec![],
     }
 }
 
@@ -119,6 +120,7 @@ fn chn_worldview_demotes_hong_kong_and_macau_into_provinces_of_china() {
             },
         ],
         provinces: vec![],
+        admin2: vec![],
     };
     let mut m = assemble_entities(&features, &reg).unwrap();
 
@@ -242,6 +244,7 @@ fn assemble_collapses_duplicate_adm0_a3() {
             point: None,
         }],
         provinces: vec![],
+        admin2: vec![],
     };
     let model = assemble_entities(&features, &registry).unwrap();
     let fra = model
@@ -295,6 +298,7 @@ fn single_feature_uses_own_iso_a3_eh_even_when_adm0_differs() {
             point: None,
         }],
         provinces: vec![],
+        admin2: vec![],
     };
     let model = assemble_entities(&features, &registry).unwrap();
     let psx = model
@@ -341,6 +345,7 @@ fn collapsed_group_without_sovereign_member_is_none() {
             point: None,
         }],
         provinces: vec![],
+        admin2: vec![],
     };
     let model = assemble_entities(&features, &registry).unwrap();
     let ioa = model
@@ -690,6 +695,7 @@ fn crimea_model() -> EntityModel {
             id: 3,
             point: None,
         }],
+        admin2: vec![],
     };
     let features = [feat("RUS", "Asia"), feat("UKR", "Asia")];
     let mut model = assemble_entities(&features, &registry).unwrap();

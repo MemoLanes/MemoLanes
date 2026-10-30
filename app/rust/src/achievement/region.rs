@@ -1,5 +1,5 @@
 use crate::geo::GeoLookup;
-use anyhow::Result;
+use anyhow::{bail, Result};
 use geo_data_format::{GeoEntityId, GeoEntityKind};
 use std::collections::HashMap;
 
@@ -41,6 +41,7 @@ pub struct RegionEntity {
     pub kind: RegionKind,
     pub name_key: RegionNameKey,
     pub iso_a3_eh: Option<String>,
+    pub has_children: bool,
     pub visited_area_m2: u64,
     pub total_area_m2: u64,
 }
@@ -62,19 +63,14 @@ pub struct RegionDetail {
     pub children: HashMap<GeoEntityId, RegionEntity>,
 }
 
-pub fn level_scope(
-    geo: &dyn GeoLookup,
-    level: RegionKind,
-    parent: Option<GeoEntityId>,
-) -> Vec<GeoEntityId> {
-    let ids = geo.entities_of_kind(level.to_geo());
-    match parent {
-        None => ids.to_vec(),
-        Some(parent) => ids
-            .iter()
-            .copied()
-            .filter(|&id| geo.node(id).map(|n| n.parent_id) == Some(Some(parent)))
-            .collect(),
+pub fn level_scope(geo: &dyn GeoLookup, level: RegionKind) -> Result<Vec<GeoEntityId>> {
+    match level {
+        RegionKind::Continent | RegionKind::Admin0 => {
+            Ok(geo.entities_of_kind(level.to_geo()).to_vec())
+        }
+        RegionKind::Admin1 | RegionKind::Admin2 => {
+            bail!("{level:?} regions are listed only under their parent, not world-wide")
+        }
     }
 }
 
@@ -99,6 +95,7 @@ fn region_entities(
                     value: entity.name_key,
                 },
                 iso_a3_eh: entity.iso_a3_eh,
+                has_children: !geo.children(id).is_empty(),
                 visited_area_m2: areas.get(&id).copied().unwrap_or(0),
                 total_area_m2: entity.total_area_m2,
             };
@@ -108,18 +105,13 @@ fn region_entities(
 }
 
 pub fn region_levels(geo: &dyn GeoLookup) -> HashMap<RegionKind, LevelSummary> {
-    [
-        GeoEntityKind::Continent,
-        GeoEntityKind::Admin0,
-        GeoEntityKind::Admin1,
-        GeoEntityKind::Admin2,
-    ]
-    .into_iter()
-    .filter_map(|kind| {
-        let region_count = geo.entities_of_kind(kind).len() as u32;
-        (region_count > 0).then_some((kind.into(), LevelSummary { region_count }))
-    })
-    .collect()
+    [RegionKind::Continent, RegionKind::Admin0]
+        .into_iter()
+        .filter_map(|level| {
+            let region_count = geo.entities_of_kind(level.to_geo()).len() as u32;
+            (region_count > 0).then_some((level, LevelSummary { region_count }))
+        })
+        .collect()
 }
 
 pub fn level_view(

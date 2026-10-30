@@ -20,6 +20,7 @@ fn registry_dir(marker: &str) -> tempfile::TempDir {
         format!("schema = 1\n# {marker}\n"),
     )
     .unwrap();
+    std::fs::write(dir.path().join("admin2.toml"), "schema = 1\n").unwrap();
     dir
 }
 
@@ -29,6 +30,7 @@ struct Inputs {
     admin1: tempfile::NamedTempFile,
     reg: tempfile::TempDir,
     policy: tempfile::NamedTempFile,
+    admin2: tempfile::NamedTempFile,
 }
 
 fn inputs() -> Inputs {
@@ -37,6 +39,7 @@ fn inputs() -> Inputs {
         admin1: write_tmp(b"beta"),
         reg: registry_dir("gamma"),
         policy: write_tmp(b"policy"),
+        admin2: write_tmp(b"admin2"),
     }
 }
 
@@ -46,13 +49,15 @@ fn hash(i: &Inputs, worldview: &str) -> [u8; 32] {
         i.admin1.path(),
         i.reg.path(),
         i.policy.path(),
+        &[i.admin2.path().to_path_buf()],
         worldview,
     )
     .unwrap()
 }
 
 fn hash_at(i: &Inputs, admin1: &Path, reg: &Path, policy: &Path, worldview: &str) -> [u8; 32] {
-    compute_provenance_hash(i.geo.path(), admin1, reg, policy, worldview).unwrap()
+    let admin2 = [i.admin2.path().to_path_buf()];
+    compute_provenance_hash(i.geo.path(), admin1, reg, policy, &admin2, worldview).unwrap()
 }
 
 #[test]
@@ -72,6 +77,7 @@ fn compute_provenance_hash_changes_with_each_input() {
     let admin1_b = write_tmp(b"beta-2");
     let reg_b = registry_dir("gamma-2");
     let policy_b = write_tmp(b"policy-2");
+    let admin2_b = write_tmp(b"admin2-2");
     let p = |f: &tempfile::NamedTempFile| PathBuf::from(f.path());
     for (name, changed) in [
         (
@@ -85,6 +91,18 @@ fn compute_provenance_hash_changes_with_each_input() {
         (
             "geo_policy.toml",
             hash_at(&i, i.admin1.path(), i.reg.path(), &p(&policy_b), "iso"),
+        ),
+        (
+            "an admin-2 source file",
+            compute_provenance_hash(
+                i.geo.path(),
+                i.admin1.path(),
+                i.reg.path(),
+                i.policy.path(),
+                &[p(&admin2_b)],
+                "iso",
+            )
+            .unwrap(),
         ),
     ] {
         assert_ne!(base, changed, "changing {name} must invalidate the cache");

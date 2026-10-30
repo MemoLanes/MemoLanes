@@ -9,37 +9,25 @@ import 'package:memolanes/src/rust/achievement/region.dart';
 import 'package:memolanes/src/rust/api/achievement.dart' as achievement_api;
 import 'package:memolanes/utils/nav_helper.dart';
 
-typedef AchievementRegionViewLoader = Future<RegionLevelView> Function();
-
-// The geo hierarchy API renamed these enum cases from country/province to
-// admin0/admin1. Resolve by name so this UI remains compatible with both APIs.
-final achievementCountryRegionKind = _regionKindNamed('admin0', 'country');
-final achievementProvinceRegionKind = _regionKindNamed('admin1', 'province');
-
-RegionKind _regionKindNamed(String name, String legacyName) {
-  return RegionKind.values.singleWhere(
-    (kind) => kind.name == name || kind.name == legacyName,
-  );
-}
-
 class AchievementRegionListPage extends StatefulWidget {
-  const AchievementRegionListPage({
+  const AchievementRegionListPage.countries({
     super.key,
     required this.title,
-    required this.level,
     required this.emptyText,
-    this.parent,
-    this.showCountryFlags = false,
-    this.loadRegionView,
+  }) : parent = null,
+       worldviewId = null;
+
+  const AchievementRegionListPage.childrenOf({
+    super.key,
+    required this.title,
+    required this.emptyText,
+    required achievement_api.GeoEntityId this.parent,
     this.worldviewId,
   });
 
   final String title;
-  final RegionKind level;
   final String emptyText;
   final achievement_api.GeoEntityId? parent;
-  final bool showCountryFlags;
-  final AchievementRegionViewLoader? loadRegionView;
   final String? worldviewId;
 
   @override
@@ -48,8 +36,10 @@ class AchievementRegionListPage extends StatefulWidget {
 }
 
 class _AchievementRegionListPageState extends State<AchievementRegionListPage> {
-  RegionLevelView? _view;
+  Map<achievement_api.GeoEntityId, RegionEntity>? _regions;
   Object? _error;
+
+  bool get _isCountryList => widget.parent == null;
 
   @override
   void initState() {
@@ -59,21 +49,14 @@ class _AchievementRegionListPageState extends State<AchievementRegionListPage> {
 
   Future<void> _load() async {
     setState(() {
-      _view = null;
+      _regions = null;
       _error = null;
     });
 
     try {
-      final customLoader = widget.loadRegionView;
-      final view = await (customLoader != null
-          ? customLoader()
-          : achievement_api.regionLevelView(
-              layer: AchievementLayer.default_,
-              level: widget.level,
-              parent: widget.parent,
-            ));
+      final regions = await _fetchRegions();
       if (!mounted) return;
-      setState(() => _view = view);
+      setState(() => _regions = regions);
     } catch (error, stackTrace) {
       log.error('load achievement regions failed: $error', stackTrace);
       if (!mounted) return;
@@ -81,24 +64,47 @@ class _AchievementRegionListPageState extends State<AchievementRegionListPage> {
     }
   }
 
+  Future<Map<achievement_api.GeoEntityId, RegionEntity>> _fetchRegions() async {
+    final parent = widget.parent;
+    if (parent == null) {
+      final view = await achievement_api.regionLevelView(
+        layer: AchievementLayer.default_,
+        level: RegionKind.admin0,
+      );
+      return view.entries;
+    }
+    final detail = await achievement_api.regionDetail(
+      entityId: parent,
+      layer: AchievementLayer.default_,
+    );
+    if (detail == null) {
+      throw StateError('Achievement region is unavailable: $parent');
+    }
+    return detail.children;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final view = _view;
+    final regions = _regions;
     return AchievementRegionAreaListPage(
       title: widget.title,
-      items: view == null ? const [] : _items(view),
-      emptyText: widget.emptyText,
-      isLoading: view == null && _error == null,
+      items: regions == null ? const [] : _items(regions),
+      emptyText: !_isCountryList && regions?.isEmpty == true
+          ? context.tr('achievement.region_list.region_unsupported')
+          : widget.emptyText,
+      isLoading: regions == null && _error == null,
       onRetry: _error == null ? null : _load,
-      showIcons: widget.level != achievementProvinceRegionKind,
-      skeletonShowsChevron: widget.level == achievementCountryRegionKind,
+      showIcons: _isCountryList,
+      skeletonShowsChevron: _isCountryList,
     );
   }
 
-  List<AchievementRegionAreaListItem> _items(RegionLevelView view) {
+  List<AchievementRegionAreaListItem> _items(
+    Map<achievement_api.GeoEntityId, RegionEntity> regions,
+  ) {
     final worldviewId =
         widget.worldviewId ?? WorldviewManager.instance.currentWorldview.id;
-    return view.entries.entries
+    return regions.entries
         .where((entry) => entry.value.visitedAreaM2 > BigInt.zero)
         .map((entry) {
           final entity = entry.value;
@@ -107,14 +113,13 @@ class _AchievementRegionListPageState extends State<AchievementRegionListPage> {
             name: regionName,
             visitedKm2: entity.visitedAreaM2.toDouble() / 1000000,
             totalKm2: entity.totalAreaM2.toDouble() / 1000000,
-            flagCountryCode: widget.showCountryFlags ? entity.isoA3Eh : null,
+            flagCountryCode: _isCountryList ? entity.isoA3Eh : null,
             sortKey: entity.isoA3Eh ?? entity.nameKey.value,
-            onTap: widget.level == achievementCountryRegionKind
+            onTap: entity.hasChildren
                 ? () => navigatorPush(
                     context,
-                    page: AchievementRegionListPage(
+                    page: AchievementRegionListPage.childrenOf(
                       title: regionName,
-                      level: achievementProvinceRegionKind,
                       parent: entry.key,
                       emptyText: context.tr(
                         'achievement.region_list.region_empty',

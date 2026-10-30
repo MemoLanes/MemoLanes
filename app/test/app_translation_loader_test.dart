@@ -11,6 +11,7 @@ RegionEntity _entity({required String nameKey, String? isoA3Eh}) =>
       kind: RegionKind.admin0,
       nameKey: RegionNameKey(value: nameKey),
       isoA3Eh: isoA3Eh,
+      hasChildren: false,
       visitedAreaM2: BigInt.zero,
       totalAreaM2: BigInt.one,
     );

@@ -760,6 +760,15 @@ class _AboutSettingsPageState extends State<AboutSettingsPage> {
             ],
           ),
           const ContactUsSection(),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 12, 8, 0),
+            child: Text(
+              context.tr('settings.data_attribution'),
+              style: AppTypography.caption.copyWith(
+                color: context.appColors.mutedInkColor,
+              ),
+            ),
+          ),
         ],
       ),
     );

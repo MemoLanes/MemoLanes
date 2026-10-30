@@ -37,8 +37,8 @@ merge = [
 ]
 
 # Countries whose admin-1 rows are the local-government tier, not the tier a
-# user means by "state" or "province". Dropped until an ADM2 tier exists; the
-# country leaf carries their land. Registry ids stay frozen.
+# user means by "state" or "province". Dropped until an admin-2 tier covers
+# them; the country leaf carries their land. Registry ids stay frozen.
 #
 # Keyed by country because the tier is a property of the country, never of
 # `TYPE_EN`: `County` is first-order in Sweden, Romania and Norway and

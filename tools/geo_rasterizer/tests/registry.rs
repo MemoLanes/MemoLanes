@@ -20,6 +20,7 @@ fn sample() -> Registry {
         continents: vec![entry("AS", 0, None)],
         countries: vec![entry("USA", 7, Some([-97.0, 40.0]))],
         provinces: vec![],
+        admin2: vec![],
     }
 }
 
@@ -39,6 +40,7 @@ fn duplicate_id_rejected() {
         continents: vec![entry("AS", 5, None)],
         countries: vec![entry("USA", 5, None)],
         provinces: vec![],
+        admin2: vec![],
     };
     assert!(r.validate_unique_ids().is_err());
 }
@@ -165,6 +167,20 @@ province = [{ code = "AAA-001", id = 2, point = [0.5, 0.75] }]
         err.contains("registry_gen"),
         "error must say how to fix it: {err}"
     );
+}
+
+#[test]
+fn admin2_namespace_loads_and_resolves() {
+    let dir = tempfile::tempdir().unwrap();
+    sample().write(dir.path()).unwrap();
+    std::fs::write(
+        dir.path().join("admin2.toml"),
+        "schema = 1\n\nadmin2 = [\n  { code = \"CN-4403\", id = 9000, point = [114.0, 22.5] },\n]\n",
+    )
+    .unwrap();
+    let reg = Registry::load(dir.path()).unwrap();
+    assert_eq!(reg.id_for_admin2("CN-4403").unwrap(), GeoEntityId(9000));
+    assert!(reg.id_for_admin2("CN-0000").is_err());
 }
 
 #[test]
