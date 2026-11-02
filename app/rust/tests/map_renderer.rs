@@ -407,3 +407,246 @@ fn rasterized_tile_ranges_match_snapshot() {
         assert_eq!(hex::encode(digest.finalize()), expected, "zoom {zoom}");
     }
 }
+
+#[test]
+fn polar_complex_gpx_renders_both_caps() {
+    use image::{Rgba, RgbaImage};
+    use journey_kernel::bitmap2d::BitMap2D;
+    use journey_kernel::tile_range::decode_tile_range_response;
+    use memolanes_core::{import_data, journey_bitmap::BitmapPlane};
+    use std::io::Cursor;
+
+    let (raw_data, _) = import_data::gpx::load_gpx("./tests/data/polar_complex.gpx").unwrap();
+    let vector = import_data::conversion::journey_vector_from_raw_data_with_gps_preprocessor(
+        &raw_data, None,
+    )
+    .unwrap();
+    let mut bitmap = JourneyBitmap::new();
+    bitmap.edit().merge_vector(&vector);
+    let mut renderer = MapRenderer::new(bitmap);
+
+    // The compact fixture's roses are only 600 m across. Render the four
+    // regional tiles surrounding each pole so the image actually resolves the
+    // petals, rather than reducing each whole cap to a single occupied pixel.
+    const SIDE: u32 = 1024;
+    let mut image = RgbaImage::new(SIDE * 2, SIDE);
+    for (index, plane) in [BitmapPlane::NorthPolar, BitmapPlane::SouthPolar]
+        .into_iter()
+        .enumerate()
+    {
+        let response = renderer
+            .get_plane_tile_range_response(plane, 511, 511, 10, 2, 2, 9)
+            .unwrap();
+        let tiles = decode_tile_range_response(&response).unwrap();
+        assert!(!tiles.is_empty(), "{plane:?} must contain rendered tracks");
+        let mut cap = BitMap2D::new(10);
+        for (tile_x, tile_y, tile) in tiles {
+            for y in 0..tile.side() {
+                for x in 0..tile.side() {
+                    if tile.get(x, y) {
+                        cap.set(
+                            (tile_x - 511) as usize * tile.side() + x,
+                            (tile_y - 511) as usize * tile.side() + y,
+                            true,
+                        );
+                    }
+                }
+            }
+        }
+        assert!(
+            cap.get(512, 512),
+            "{plane:?} must include the pole crossings"
+        );
+
+        for y in 0..SIDE {
+            for x in 0..SIDE {
+                let color = if cap.get(x as usize, y as usize) {
+                    Rgba([0, 100, 160, 255])
+                } else {
+                    Rgba([255, 255, 255, 255])
+                };
+                image.put_pixel(index as u32 * SIDE + x, y, color);
+            }
+        }
+    }
+
+    let mut png = Vec::new();
+    image
+        .write_to(&mut Cursor::new(&mut png), image::ImageFormat::Png)
+        .unwrap();
+    test_utils::verify_image("map_renderer_polar_complex", &png);
+}
+
+#[test]
+fn polar_updates_invalidate_versions_and_area_without_changing_mercator_tiles() {
+    use memolanes_core::journey_bitmap::BitmapPlane;
+    for (latitude, plane) in [
+        (89.0, BitmapPlane::NorthPolar),
+        (-89.0, BitmapPlane::SouthPolar),
+    ] {
+        let mut renderer = MapRenderer::new(JourneyBitmap::new());
+        let mercator = renderer.get_tile_range_response(0, 0, 0, 1, 1, 6).unwrap();
+        let empty_cap = renderer
+            .get_plane_tile_range_response(plane, 0, 0, 0, 1, 1, 6)
+            .unwrap();
+        assert_eq!(renderer.get_current_area(), 0);
+        renderer.update(|editor| {
+            editor.add_line(10.0, latitude, 11.0, latitude);
+        });
+        assert_eq!(renderer.get_current_version(), 1);
+        let area = renderer.get_current_area();
+        assert!(area > 0);
+        let cap = renderer
+            .get_plane_tile_range_response(plane, 0, 0, 0, 1, 1, 6)
+            .unwrap();
+        assert_ne!(cap, empty_cap);
+        assert_eq!(
+            renderer.get_tile_range_response(0, 0, 0, 1, 1, 6).unwrap(),
+            mercator
+        );
+
+        renderer.update(|editor| {
+            editor.add_line(10.0, latitude, 11.0, latitude);
+        });
+        assert_eq!(
+            renderer.get_current_version(),
+            1,
+            "duplicate polar fixes are no-ops"
+        );
+        assert_eq!(renderer.get_current_area(), area);
+        assert_eq!(
+            renderer
+                .get_plane_tile_range_response(plane, 0, 0, 0, 1, 1, 6)
+                .unwrap(),
+            cap
+        );
+
+        renderer.update(|editor| {
+            editor.add_line(40.0, latitude, 50.0, latitude);
+        });
+        assert_eq!(renderer.get_current_version(), 2);
+        assert!(renderer.get_current_area() > area);
+        assert_ne!(
+            renderer
+                .get_plane_tile_range_response(plane, 0, 0, 0, 1, 1, 6)
+                .unwrap(),
+            cap
+        );
+    }
+}
+
+#[test]
+fn plane_versions_and_render_cache_follow_plane_qualified_writes() {
+    use memolanes_core::journey_bitmap::BitmapPlane;
+    let mut renderer = MapRenderer::new(JourneyBitmap::new());
+    let mercator = renderer.get_plane_version_string(BitmapPlane::Mercator);
+    let north = renderer.get_plane_version_string(BitmapPlane::NorthPolar);
+    renderer.update(|editor| editor.add_line(45.0, -88.0, 45.01, -88.01));
+    assert_eq!(
+        renderer.get_plane_version_string(BitmapPlane::Mercator),
+        mercator
+    );
+    assert_eq!(
+        renderer.get_plane_version_string(BitmapPlane::NorthPolar),
+        north
+    );
+    assert!(!renderer.matches_plane_version(BitmapPlane::SouthPolar, Some("0")));
+    let cap = renderer
+        .get_plane_tile_range_response(BitmapPlane::NorthPolar, 0, 0, 0, 1, 1, 6)
+        .unwrap();
+    let mut delta = JourneyBitmap::new();
+    delta.edit().add_line(0.0, 89.0, 0.01, 89.01);
+    renderer.update(|editor| editor.merge(delta));
+    assert_ne!(
+        renderer
+            .get_plane_tile_range_response(BitmapPlane::NorthPolar, 0, 0, 0, 1, 1, 6)
+            .unwrap(),
+        cap,
+        "merge must invalidate even a previously empty cached cap"
+    );
+    assert_eq!(
+        renderer.get_plane_version_string(BitmapPlane::Mercator),
+        mercator
+    );
+    assert!(renderer
+        .get_plane_tile_range_response(BitmapPlane::NorthPolar, -1, 0, 1, 1, 1, 6)
+        .is_err());
+    assert!(renderer
+        .get_plane_tile_range_response(BitmapPlane::NorthPolar, 1, 1, 1, 2, 2, 6)
+        .is_err());
+}
+
+#[test]
+fn regional_polar_tiles_preserve_native_pixels() {
+    use journey_kernel::tile_range::decode_tile_range_response;
+    use memolanes_core::journey_bitmap::{BitmapPlane, MERCATOR_MAX_LATITUDE};
+    for plane in [BitmapPlane::NorthPolar, BitmapPlane::SouthPolar] {
+        let sign = if plane == BitmapPlane::NorthPolar {
+            1.0
+        } else {
+            -1.0
+        };
+        let mut bitmap = JourneyBitmap::new();
+        bitmap.edit().add_line(90.0, sign * 88.0, 90.0, sign * 88.0);
+        let mut renderer = MapRenderer::new(bitmap);
+        let radius = (1.0_f64.to_radians()).sin()
+            / ((90.0 - MERCATOR_MAX_LATITUDE).to_radians() / 2.0).sin();
+        let native_x = ((0.5 + 0.5 * radius) * (1 << 20) as f64).round() as usize;
+        let native_y = 1 << 19;
+        let x = (native_x / 1024) as i64;
+        let y = (native_y / 1024) as i64;
+        let response = renderer
+            .get_plane_tile_range_response(plane, x, y, 10, 1, 1, 10)
+            .unwrap();
+        let tiles = decode_tile_range_response(&response).unwrap();
+        assert_eq!(tiles.len(), 1);
+        assert_eq!((tiles[0].0, tiles[0].1), (x as i32, y as i32));
+        assert!(
+            tiles[0].2.get(native_x % 1024, native_y % 1024),
+            "fine polar tiles must retain the original metre-scale pixel"
+        );
+    }
+}
+
+#[test]
+fn equal_tile_coordinates_in_different_planes_keep_independent_caches() {
+    use journey_kernel::tile_range::decode_tile_range_response;
+    use memolanes_core::journey_bitmap::{BitmapPlane, Block, BlockKey, Tile, TileKey};
+
+    let mut renderer = MapRenderer::new(JourneyBitmap::new());
+    let query = |renderer: &mut MapRenderer, plane: BitmapPlane| {
+        renderer
+            .get_plane_tile_range_response(plane, 64, 64, plane.source_tile_zoom(), 1, 1, 10)
+            .unwrap()
+    };
+    let mut responses = BitmapPlane::ALL.map(|plane| query(&mut renderer, plane));
+    for (index, plane) in BitmapPlane::ALL.into_iter().enumerate() {
+        let versions = BitmapPlane::ALL.map(|p| renderer.get_plane_version_string(p));
+        let mut block = Block::new();
+        block.set_point(8 + index as u8 * 16, 16, true);
+        let mut tile = Tile::new();
+        tile.set(&BlockKey::from_x_y(0, 0), block);
+        renderer.update(|editor| editor.insert_tile(&TileKey::new(plane, 64, 64), tile));
+
+        for (other_index, other) in BitmapPlane::ALL.into_iter().enumerate() {
+            let response = query(&mut renderer, other);
+            if other == plane {
+                assert_ne!(
+                    renderer.get_plane_version_string(other),
+                    versions[other_index]
+                );
+                let decoded = decode_tile_range_response(&response).unwrap();
+                assert_eq!(decoded.len(), 1);
+                assert!(decoded[0].2.get(1 + index * 2, 2));
+                assert_ne!(response, responses[other_index]);
+            } else {
+                assert_eq!(
+                    renderer.get_plane_version_string(other),
+                    versions[other_index]
+                );
+                assert_eq!(response, responses[other_index]);
+            }
+            responses[other_index] = response;
+        }
+    }
+}

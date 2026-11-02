@@ -1,6 +1,6 @@
 //! Projection-independent geometry for interpolating sparse GPS/flight fixes.
 
-pub(crate) const EARTH_RADIUS_METERS: f64 = 6_371_000.0;
+pub(crate) use bitmap_geometry::EARTH_RADIUS_METERS;
 
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct UnitPoint {

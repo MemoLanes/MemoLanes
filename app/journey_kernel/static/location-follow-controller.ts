@@ -4,6 +4,7 @@ interface LocationFollowOptions {
   minUpdateIntervalMs?: number;
   animationDurationMs?: number;
   minMovementPixels?: number;
+  camera?: Pick<MaplibreMap, "flyTo" | "easeTo">;
 }
 
 /**
@@ -20,6 +21,7 @@ interface LocationFollowOptions {
  */
 export class LocationFollowController {
   private readonly map: MaplibreMap;
+  private readonly camera: Pick<MaplibreMap, "flyTo" | "easeTo">;
   private pendingCenter: [number, number] | null = null;
   private following = false;
   private ownAnimationActive = false;
@@ -36,6 +38,7 @@ export class LocationFollowController {
 
   constructor(map: MaplibreMap, options: LocationFollowOptions = {}) {
     this.map = map;
+    this.camera = options.camera ?? map;
     this.minUpdateIntervalMs = options.minUpdateIntervalMs ?? 400;
     this.animationDurationMs = options.animationDurationMs ?? 900;
     this.minMovementPixels = options.minMovementPixels ?? 1.5;
@@ -112,7 +115,7 @@ export class LocationFollowController {
     const targetZoom = currentZoom < 11 ? 14 : currentZoom;
     if (currentZoom < 11 || screenDistance >= this.longFlightThresholdPx()) {
       // Let MapLibre derive duration from distance so locate-me stays a flight.
-      this.map.flyTo({
+      this.camera.flyTo({
         center,
         zoom: targetZoom,
         essential: true,
@@ -120,7 +123,7 @@ export class LocationFollowController {
       return;
     }
 
-    this.map.easeTo({
+    this.camera.easeTo({
       center,
       duration: this.animationDurationMs,
       easing: easeOutQuad,

@@ -1,7 +1,6 @@
 use journey_kernel::bitmap2d::BitMap2D;
 
-use super::SOURCE_TILE_ZOOM;
-use crate::journey_bitmap::{Block, BlockKey, JourneyBitmap, TileKey};
+use crate::journey_bitmap::{BitmapPlane, Block, BlockKey, JourneyBitmap, TileKey};
 use crate::journey_bitmap::{BITMAP_WIDTH, BITMAP_WIDTH_OFFSET, TILE_WIDTH_OFFSET};
 
 /// Maps a selected part of a source tile or block into the output bitmap.
@@ -26,15 +25,16 @@ fn scale_by_power_of_two(value: i64, exponent: i16) -> i64 {
     }
 }
 
-pub(super) fn render_tile_bitmap(
+pub(super) fn render_plane_tile_bitmap(
     journey_bitmap: &mut JourneyBitmap,
+    plane: BitmapPlane,
     view_x: i64,
     view_y: i64,
     zoom: i16,
     buffer_size_power: i16,
 ) -> BitMap2D {
     let mut bitmap = BitMap2D::new(buffer_size_power as u8);
-    let zoom_diff = zoom - SOURCE_TILE_ZOOM;
+    let zoom_diff = zoom - plane.source_tile_zoom();
     let tile_x = scale_by_power_of_two(view_x, -zoom_diff);
     let tile_y = scale_by_power_of_two(view_y, -zoom_diff);
 
@@ -49,7 +49,7 @@ pub(super) fn render_tile_bitmap(
 
     for i in 0..tile_span {
         for j in 0..tile_span {
-            let tile_key = TileKey::mercator((tile_x + i) as u16, (tile_y + j) as u16);
+            let tile_key = TileKey::new(plane, (tile_x + i) as u16, (tile_y + j) as u16);
             if !journey_bitmap.contains_tile(&tile_key) {
                 continue;
             }

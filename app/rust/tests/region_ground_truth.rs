@@ -30,7 +30,6 @@ use std::fs;
 use chrono::NaiveDate;
 use geo_data_format::{GeoEntityId, GeoEntityKind, Worldview};
 use memolanes_core::{
-    achievement::attribution::{self, AreaCm2ByEntity},
     achievement::layer::AchievementLayer,
     achievement::region::{self, region_levels, RegionKind},
     geo::{GeoIndex, GeoLookup},
@@ -187,16 +186,6 @@ fn sub(dir: &TempDir, s: &str) -> String {
     p.into_os_string().into_string().unwrap()
 }
 
-/// Canonical codes of every credited entity, any kind.
-fn credited_codes(areas: &AreaCm2ByEntity, geo: &dyn GeoLookup) -> BTreeSet<String> {
-    let ids: Vec<_> = areas.keys().copied().collect();
-    geo.describe(&ids)
-        .unwrap()
-        .into_values()
-        .map(|e| e.canonical_code)
-        .collect()
-}
-
 /// The `Country`-kind entity for a leaf: the leaf itself when it is a country,
 /// otherwise the country among its ancestors. Cities sit inside provinces, so
 /// the raster leaf under one is a province and its country is one level up.
@@ -277,7 +266,7 @@ fn region_api_reports_correct_countries_and_areas() {
 
     // The two scopes this test renders: every country, and every ancestor of a
     // placement (for the rollup check). Both come from the geo tree, not coverage.
-    let country_ids = region::level_scope(&geo_index, RegionKind::Admin0, None);
+    let country_ids = region::level_scope(&geo_index, RegionKind::Admin0).unwrap();
     let ancestor_ids: Vec<_> = placements
         .iter()
         .flat_map(|(_, tile, block, _)| {
@@ -377,8 +366,8 @@ fn region_api_reports_correct_countries_and_areas() {
                     .find(|a| geo.node(*a).map(|n| n.kind) == Some(GeoEntityKind::Continent))
                     .expect("FR has a continent ancestor")
             };
-            let ids = region::level_scope(store.geo()?, RegionKind::Admin0, Some(continent));
-            let areas = store.region_areas(All, &ids)?;
+            let continent_ids = region::detail_scope(store.geo()?, continent);
+            let continent_areas = store.region_areas(All, &continent_ids)?;
             let detail_ids = region::detail_scope(store.geo()?, fr);
             let detail_areas = store.region_areas(Default, &detail_ids)?;
 
@@ -394,10 +383,10 @@ fn region_api_reports_correct_countries_and_areas() {
             assert!(levels.contains_key(&RegionKind::Continent));
 
             // France is listed and visited among its continent's countries.
-            let view = region::level_view(geo, RegionKind::Admin0, &ids, &areas)?;
-            let fr_entry = view.entries.get(&fr).expect("FR listed");
+            let continent_detail = region::detail_view(geo, continent, &continent_areas)?.unwrap();
+            let fr_entry = continent_detail.children.get(&fr).expect("FR listed");
             assert!(fr_entry.visited_area_m2 > 0, "FR should be visited");
-            assert!(view.visited_count >= 1 && view.visited_count <= view.region_count);
+            assert!(fr_entry.has_children, "FR drills down to its provinces");
 
             // Detail of France (Default layer): area matches the raw coverage read.
             let detail = region::detail_view(geo, fr, &detail_areas)?.unwrap();
@@ -406,23 +395,4 @@ fn region_api_reports_correct_countries_and_areas() {
             Ok(())
         })
         .unwrap();
-}
-
-/// Past the Mercator limit (±85.0511°) `add_line` produces tile keys outside the
-/// 512×512 grid: y ≥ 512 in the south, and in the north a negative Mercator y
-/// wrapped through `as u16` to ~65461. Their raw `x*512 + y` is not a safe index
-/// — with the real asset a track at 88°N resolves to tile (383,437), which is
-/// `Single(ATA)`, so the North Pole gets credited to Antarctica, and a track at
-/// 88°N/120°E indexes past the tile grid entirely.
-#[test]
-fn track_past_the_mercator_limit_credits_nothing() {
-    let geo = GeoIndex::open(&test_utils::geo_asset("iso")).unwrap();
-
-    for (lng, lat) in [(0.0, 88.0), (120.0, 88.0), (0.0, -87.0)] {
-        let mut bitmap = JourneyBitmap::new();
-        bitmap.edit().add_line(lng, lat, lng + 0.01, lat + 0.01);
-        let areas = attribution::attribute(&bitmap, &geo).unwrap();
-        let credited = credited_codes(&areas, &geo);
-        assert!(credited.is_empty(), "({lng}, {lat}) credited {credited:?}");
-    }
 }
