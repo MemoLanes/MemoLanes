@@ -142,22 +142,27 @@ class AppLayout {
   Axis get mapControlsAxis =>
       _mapControlsRegion.height < 260 ? Axis.horizontal : Axis.vertical;
 
-  /// The screenshot affordance shares the tools' clear pane and circle size.
+  /// Prefer the top-right corner, sharing the existing tools' clear pane.
+  /// Short windows can push those tools upward, so reserve their hit targets
+  /// before choosing a position for the screenshot button.
   Rect get screenshotControlBounds {
     final available = geometry.insetRect(
       _mapControlsRegion,
       const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
     );
-    final extent = math.min(
-      StyleConstants.mapControlSize,
-      math.min(available.width, available.height),
-    );
-    return Rect.fromLTWH(
-      available.right - extent,
-      available.top,
-      extent,
-      extent,
-    );
+    const extent = StyleConstants.mapControlSize;
+    const gap = StyleConstants.mapControlSpacing;
+    final candidates = geometry
+        .clearRegions(available, [
+          mapControlsBounds.inflate(gap),
+          primaryNavigationBounds.inflate(gap),
+          if (!navigationBounds.isEmpty) navigationBounds.inflate(gap),
+        ])
+        .where((region) => region.width >= extent && region.height >= extent)
+        .toList();
+    if (candidates.isEmpty) return Rect.zero;
+    final region = geometry.nearestRegion(candidates, available.topRight);
+    return Rect.fromLTWH(region.right - extent, region.top, extent, extent);
   }
 
   Rect get mapControlsBounds {

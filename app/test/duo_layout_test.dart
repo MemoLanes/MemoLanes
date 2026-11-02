@@ -60,21 +60,39 @@ void main() {
         expect(button.overlaps(fold.frame), isFalse);
         expect(button.overlaps(resolved.navigationBounds), isFalse);
         expect(button.overlaps(resolved.primaryNavigationBounds), isFalse);
+        expect(button.overlaps(resolved.mapControlsBounds), isFalse);
       }
     }
   });
 
-  test('phone screenshot keeps its top-right margin', () {
-    final resolved = layout(
-      size: const Size(393, 852),
-      fold: DuoHardware.none,
-      edge: DuoBarEdge.horizontal,
-      padding: const EdgeInsets.only(top: 59, bottom: 34),
-    );
-    expect(
-      resolved.screenshotControlBounds,
-      const Rect.fromLTWH(333, 73, 44, 44),
-    );
+  test('phone screenshot clears map tools in portrait and short landscape', () {
+    for (final size in [
+      const Size(393, 852),
+      const Size(640, 320),
+      const Size(640, 284),
+      const Size(640, 260),
+    ]) {
+      for (final navigation in [true, false]) {
+        final resolved = layout(
+          size: size,
+          fold: DuoHardware.none,
+          edge: DuoBarEdge.horizontal,
+          padding: const EdgeInsets.only(top: 24),
+          platform: TargetPlatform.android,
+          navigation: navigation,
+        );
+        final button = resolved.screenshotControlBounds;
+        contained(button, resolved.safeBounds);
+        expect(button.size, const Size.square(StyleConstants.mapControlSize));
+        expect(
+          button.overlaps(resolved.mapControlsBounds),
+          isFalse,
+          reason: 'size: $size, navigation: $navigation',
+        );
+        expect(button.overlaps(resolved.primaryNavigationBounds), isFalse);
+        expect(button.overlaps(resolved.navigationBounds), isFalse);
+      }
+    }
   });
 
   test('content widths preserve centering and phone navigation scale', () {

@@ -17,6 +17,7 @@ import 'package:memolanes/common/component/map_overlay_panel.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/loading_manager.dart';
 import 'package:memolanes/common/screenshot.dart';
+import 'package:memolanes/body/map/screenshot/screenshot_preview_page.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/common/utils.dart';
@@ -384,13 +385,14 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
         mode != MapMode.journeys ||
         (widget.journeys.session != null &&
             widget.journeys.phase == JourneyPhase.viewing);
+    final screenshotBounds = layout.screenshotControlBounds;
 
     final children = <Widget>[
       _buildMapLayer(),
       _buildOverlay(context, mode),
-      if (showScreenshot && layout.chromeReady)
+      if (showScreenshot && layout.chromeReady && !screenshotBounds.isEmpty)
         Positioned.fromRect(
-          rect: layout.screenshotControlBounds,
+          rect: screenshotBounds,
           child: PointerInterceptor(
             child: MapScreenshotButton(
               key: ValueKey((mode, widget.journeys.session?.journey.id)),
