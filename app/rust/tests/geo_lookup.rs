@@ -71,7 +71,7 @@ fn entity_of_block_resolves_single_border_and_none() {
     let (_dir, geo) = synthetic_geo();
 
     // Single tile: every block resolves to the tile's one owner.
-    let single = TileKey::new(0, 0);
+    let single = TileKey::mercator(0, 0);
     assert_eq!(
         geo.entity_of_block(single, BlockKey::from_x_y(0, 0))
             .unwrap(),
@@ -84,7 +84,7 @@ fn entity_of_block_resolves_single_border_and_none() {
     );
 
     // Border tile: per-block owners, x-major; unfilled cells are ocean.
-    let border = TileKey::new(1, 0);
+    let border = TileKey::mercator(1, 0);
     assert_eq!(
         geo.entity_of_block(border, BlockKey::from_x_y(2, 3))
             .unwrap(),
@@ -103,30 +103,42 @@ fn entity_of_block_resolves_single_border_and_none() {
 
     // None tile: nothing.
     assert_eq!(
-        geo.entity_of_block(TileKey::new(2, 0), BlockKey::from_x_y(1, 1))
+        geo.entity_of_block(TileKey::mercator(2, 0), BlockKey::from_x_y(1, 1))
             .unwrap(),
         None
     );
+    // Local coordinates overlap, but polar tiles must never resolve through
+    // the Mercator-only region index.
+    for tile in [
+        TileKey::NorthPolar { x: 0, y: 0 },
+        TileKey::SouthPolar { x: 1, y: 0 },
+    ] {
+        assert_eq!(
+            geo.entity_of_block(tile, BlockKey::from_x_y(2, 3)).unwrap(),
+            None
+        );
+        assert_eq!(geo.tile_membership(tile), TileMembership::None);
+    }
 }
 
 #[test]
 fn tile_membership_does_not_decode() {
     let (_dir, geo) = synthetic_geo();
     assert_eq!(
-        geo.tile_membership(TileKey::new(0, 0)),
+        geo.tile_membership(TileKey::mercator(0, 0)),
         TileMembership::Single(GeoEntityId(2))
     );
     assert_eq!(
-        geo.tile_membership(TileKey::new(1, 0)),
+        geo.tile_membership(TileKey::mercator(1, 0)),
         TileMembership::Border
     );
     assert_eq!(
-        geo.tile_membership(TileKey::new(2, 0)),
+        geo.tile_membership(TileKey::mercator(2, 0)),
         TileMembership::None
     );
 }
 
-/// Tile keys real `add_line` calls produce past the Mercator latitude limit
+/// Legacy tile keys produced by `add_line` past the Mercator latitude limit
 /// (±85.0511°): `journey_bitmap` masks tile x to the map width but never masks
 /// tile y, and nothing clamps latitude. South of the limit y runs off the
 /// 512-tile grid; north of it the Mercator y goes negative and `as u16` wraps.
@@ -145,7 +157,7 @@ const OUT_OF_GRID_ALIASING: [(u16, u16); 2] = [
 fn out_of_grid_tile_key_does_not_index_past_the_tile_grid() {
     let (_dir, geo) = synthetic_geo();
     for (x, y) in OUT_OF_GRID_PAST_END {
-        let key = TileKey::new(x, y);
+        let key = TileKey::mercator(x, y);
         assert_eq!(
             geo.entity_of_block(key, BlockKey::from_x_y(0, 0)).unwrap(),
             None,
@@ -170,7 +182,7 @@ fn out_of_grid_tile_key_is_not_aliased_onto_an_in_grid_tile() {
     let (_dir, geo) = synthetic_geo_with_singles_at(&aliased);
 
     for (x, y) in OUT_OF_GRID_ALIASING {
-        let key = TileKey::new(x, y);
+        let key = TileKey::mercator(x, y);
         assert_eq!(
             geo.entity_of_block(key, BlockKey::from_x_y(0, 0)).unwrap(),
             None,
@@ -190,7 +202,7 @@ fn out_of_grid_tile_x_resolves_to_none() {
     // import file, so x can be out of the grid too — no projection involved.
     let (_dir, geo) = synthetic_geo();
     for (x, y) in [(TILE_GRID_WIDTH as u16, 0), (u16::MAX, u16::MAX)] {
-        let key = TileKey::new(x, y);
+        let key = TileKey::mercator(x, y);
         assert_eq!(
             geo.entity_of_block(key, BlockKey::from_x_y(0, 0)).unwrap(),
             None,
@@ -279,8 +291,8 @@ fn interleaved_tile_lookups_do_not_leak_across_tiles() {
     let dir = TempDir::new("geo_lookup").unwrap();
     let geo = test_utils::geo_index_from_bytes(&dir, &bytes);
 
-    let border_tile_a = TileKey::new(1, 0);
-    let border_tile_b = TileKey::new(2, 0);
+    let border_tile_a = TileKey::mercator(1, 0);
+    let border_tile_b = TileKey::mercator(2, 0);
     let block = BlockKey::from_x_y(3, 5);
 
     let from_a = geo.entity_of_block(border_tile_a, block).unwrap();

@@ -178,8 +178,37 @@ test("disposal releases late decodes and detaches the provider exactly once", as
   await until(() => f.decodes[0].source.releases === 1);
   assert.equal(f.provider.getLoadedTileBuffer(), null);
   assert.equal(f.backendDisposals(), 1);
-  assert.equal(f.unsubscribeCount(), 1);
+  assert.equal(f.unsubscribeCount(), 2);
   assert.equal(f.map.listeners.size, 0);
+});
+
+test("a polar-only viewport cancels queued Mercator work and can resume later", async (t) => {
+  const f = fixture(t);
+  const ordinaryBounds = f.map.getBounds;
+  f.map.x = 110;
+  f.provider.tryUpdateViewRange();
+  f.map.getBounds = () => ({
+    getSouthWest: () => ({ lng: -180, lat: 89.99 }),
+    getNorthEast: () => ({ lng: 180, lat: 90 }),
+  });
+  assert.equal(f.provider.tryUpdateViewRange(), null);
+  f.respond(0);
+  await f.provider.waitForTileBufferUpdate();
+  await f.provider.pollForJourneyUpdates(true);
+  assert.equal(
+    f.requests.length,
+    1,
+    "obsolete queued coverage must not be fetched",
+  );
+  assert.equal(f.decodes.length, 0, "a late Mercator response must not commit");
+
+  f.map.getBounds = ordinaryBounds;
+  f.provider.tryUpdateViewRange();
+  f.respond(1);
+  await until(() => f.decodes.length === 1);
+  f.decodes[0].resolve(f.decodes[0].source);
+  await f.provider.waitForTileBufferUpdate();
+  assert.equal(f.provider.getLoadedTileBuffer().range[0], 110);
 });
 
 test("unchanged polling retains the source and backend invalidation bypasses version caching", async (t) => {
@@ -210,7 +239,7 @@ test("unchanged polling retains the source and backend invalidation bypasses ver
   assert.equal(f.provider.getLoadedTileBuffer().generation, 2);
 });
 
-test("Canvas backend decodes OSS WASM pixels and permits idempotent release", async () => {
+test("Canvas backend decodes WASM pixels and permits idempotent release", async () => {
   const wasm = await import("../pkg/journey_kernel.js");
   await wasm.default({
     module_or_path: await readFile(

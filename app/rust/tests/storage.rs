@@ -6,7 +6,6 @@ use memolanes_core::{
     cache_db::LayerKind,
     gps::{ExtendedRawGPSPoint, Point, RawGPSPoint},
     gps_processor::ProcessResult,
-    import_data,
     journey_bitmap::JourneyBitmap,
     journey_data::JourneyData,
     journey_header::JourneyKind,
@@ -17,51 +16,82 @@ use tempdir::TempDir;
 
 #[test]
 fn storage_for_main_map_renderer() {
-    let temp_dir = TempDir::new("storage_for_main_map_renderer-basic").unwrap();
-    println!("temp dir: {:?}", temp_dir.path());
+    setup_storage_for_test(|storage| {
+        let record = |index: i64, latitude, longitude| {
+            let timestamp_ms = 1_700_000_000_000 + index * 1_000;
+            storage.record_gps_data(
+                &ExtendedRawGPSPoint {
+                    raw_gps_point: RawGPSPoint {
+                        point: Point {
+                            latitude,
+                            longitude,
+                        },
+                        timestamp_ms: Some(timestamp_ms),
+                        accuracy: None,
+                        altitude: None,
+                        speed: None,
+                    },
+                    received_timestamp_ms: timestamp_ms,
+                },
+                ProcessResult::Append,
+            );
+        };
+        let assert_map = |include_ongoing, expected: &JourneyBitmap| {
+            assert_eq!(
+                &storage
+                    .get_latest_bitmap_for_main_map_renderer(&Some(LayerKind::All), include_ongoing)
+                    .unwrap(),
+                expected,
+                "include_ongoing={include_ongoing}"
+            );
+        };
+        let empty = JourneyBitmap::new();
+        assert_map(false, &empty);
+        assert_map(true, &empty);
 
-    let sub_folder = |sub| {
-        let path = temp_dir.path().join(sub);
-        fs::create_dir(&path).unwrap();
-        path.into_os_string().into_string().unwrap()
-    };
+        record(0, 31.230, 121.473);
+        let mut first = JourneyBitmap::new();
+        first.edit().add_line(121.473, 31.230, 121.473, 31.230);
+        assert_map(true, &first);
+        assert_map(false, &empty);
 
-    let storage = Storage::init(
-        sub_folder("temp/"),
-        sub_folder("doc/"),
-        sub_folder("support/"),
-        sub_folder("cache/"),
-    )
-    .unwrap();
+        record(1, 31.231, 121.474);
+        first = JourneyBitmap::new();
+        first.edit().add_line(121.473, 31.230, 121.474, 31.231);
+        assert_map(true, &first);
+        assert_map(false, &empty);
 
-    let (raw_data_groups, _preprocessor) =
-        import_data::gpx::load_gpx("./tests/data/raw_gps_shanghai.gpx").unwrap();
-    for (i, raw_data) in raw_data_groups.iter().flatten().enumerate() {
-        storage.record_gps_data(
-            &ExtendedRawGPSPoint {
-                raw_gps_point: raw_data.clone(),
-                received_timestamp_ms: raw_data.timestamp_ms.unwrap(),
-            },
-            ProcessResult::Append,
+        assert!(storage.finalize_ongoing_journey().unwrap());
+        assert_map(false, &first);
+        assert_map(true, &first);
+
+        // A new ongoing journey overlays the cached finalized coverage without
+        // connecting its first point to the previous journey's last point.
+        record(2, 31.250, 121.490);
+        record(3, 31.251, 121.491);
+        let mut second = JourneyBitmap::new();
+        second.edit().add_line(121.490, 31.250, 121.491, 31.251);
+        let mut combined = first.clone();
+        combined.edit().merge(second.clone());
+        assert_map(false, &first);
+        assert_map(true, &combined);
+        assert_eq!(
+            storage
+                .get_latest_bitmap_for_main_map_renderer(&None, true)
+                .unwrap(),
+            second
         );
-        if i == 1000 {
-            let _: JourneyBitmap = storage
-                .get_latest_bitmap_for_main_map_renderer(&Some(LayerKind::All), true)
-                .unwrap();
-        } else if i == 1005 {
-            // TODO: reimplement the assert under new api
-            // assert!(!storage.main_map_renderer_need_to_reload());
-        } else if i == 1010 {
-            let _: bool = storage.finalize_ongoing_journey().unwrap();
-        } else if i == 1020 {
-            // assert!(storage.main_map_renderer_need_to_reload());
-            let _: JourneyBitmap = storage
-                .get_latest_bitmap_for_main_map_renderer(&Some(LayerKind::All), true)
-                .unwrap();
-        } else if i == 1025 {
-            // assert!(!storage.main_map_renderer_need_to_reload());
-        }
-    }
+
+        assert!(storage.finalize_ongoing_journey().unwrap());
+        assert_map(false, &combined);
+        assert_map(true, &combined);
+        assert!(storage
+            .get_latest_bitmap_for_main_map_renderer(&None, true)
+            .unwrap()
+            .is_empty());
+        assert!(!storage.finalize_ongoing_journey().unwrap());
+        assert_map(true, &combined);
+    });
 }
 
 fn setup_storage_for_test<F>(f: F)
@@ -220,7 +250,7 @@ fn assert_cache(storage: &Storage, default: &JourneyBitmap, flight: &JourneyBitm
         flight
     );
     let mut all = default.clone();
-    all.merge(flight.clone());
+    all.edit().merge(flight.clone());
     assert_eq!(
         storage
             .get_latest_bitmap_for_main_map_renderer(&Some(LayerKind::All), true)
@@ -240,8 +270,8 @@ fn increment_journey_and_verify_cache_same_kind() {
         draw_line2(&mut journey_bitmap2);
 
         let mut total_bitmap = JourneyBitmap::new();
-        total_bitmap.merge(journey_bitmap1.clone());
-        total_bitmap.merge(journey_bitmap2.clone());
+        total_bitmap.edit().merge(journey_bitmap1.clone());
+        total_bitmap.edit().merge(journey_bitmap2.clone());
 
         assert_cache(&storage, &empty_bitmap, &empty_bitmap);
 
@@ -602,7 +632,7 @@ fn get_range_bitmap_works() {
             .unwrap();
 
         let mut expected = bitmap_jan.clone();
-        expected.merge(bitmap_mar.clone());
+        expected.edit().merge(bitmap_mar.clone());
         assert_eq!(result, expected);
 
         // Range Jan only for Flight
@@ -624,7 +654,7 @@ fn get_range_bitmap_works() {
             )
             .unwrap();
         let mut expected_all = bitmap_jan;
-        expected_all.merge(bitmap_flight);
+        expected_all.edit().merge(bitmap_flight);
         assert_eq!(all_result, expected_all);
     });
 }
@@ -818,7 +848,7 @@ fn multiple_inserts_in_sequence_final_state_correct() {
             )
             .unwrap();
         let mut expected2 = bitmap1.clone();
-        expected2.merge(bitmap2.clone());
+        expected2.edit().merge(bitmap2.clone());
         assert_eq!(result2, expected2);
 
         storage
@@ -844,8 +874,8 @@ fn multiple_inserts_in_sequence_final_state_correct() {
             )
             .unwrap();
         let mut expected3 = bitmap1.clone();
-        expected3.merge(bitmap2.clone());
-        expected3.merge(bitmap3.clone());
+        expected3.edit().merge(bitmap2.clone());
+        expected3.edit().merge(bitmap3.clone());
         assert_eq!(result3, expected3);
 
         // Delete middle one
@@ -859,7 +889,7 @@ fn multiple_inserts_in_sequence_final_state_correct() {
             )
             .unwrap();
         let mut expected_final = bitmap1;
-        expected_final.merge(bitmap3);
+        expected_final.edit().merge(bitmap3);
         assert_eq!(final_result, expected_final);
     });
 }
@@ -1065,7 +1095,7 @@ fn explored_area_per_layer_is_consistent() {
                 .with_journey_snapshot(|snapshot| {
                     let bitmap = snapshot.finalized_bitmap(&layer_kind, None)?;
                     Ok(
-                        memolanes_core::journey_area_utils::journey_bitmap_area_m2_rounded(
+                        memolanes_core::journey_bitmap::area::journey_bitmap_area_m2_rounded(
                             &bitmap, None,
                         ),
                     )

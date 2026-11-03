@@ -13,13 +13,12 @@ use render_utils::*;
 use tempdir::TempDir;
 
 use image::RgbaImage;
-use serde_json;
 use sha2::{Digest, Sha256};
 use std::cmp::{max, min};
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
-use std::{fs::File, io::Write};
+use std::sync::LazyLock;
 
 pub const START_LNG: f64 = 151.1435370795134;
 pub const START_LAT: f64 = -33.793291910360125;
@@ -55,42 +54,53 @@ pub fn geo_index_from_bytes(dir: &TempDir, bytes: &[u8]) -> GeoIndex {
     GeoIndex::open(&path).unwrap()
 }
 
-pub fn verify_image(name: &str, image: &Vec<u8>) {
-    let hash_table_path = "tests/image_hashes.lock";
-    let mut hash_table: BTreeMap<String, String> = if Path::new(hash_table_path).exists() {
-        let hash_table_content =
-            fs::read_to_string(hash_table_path).expect("Failed to read hash table file");
-        serde_json::from_str(&hash_table_content).unwrap_or_else(|_| BTreeMap::new())
-    } else {
-        BTreeMap::new()
-    };
+static IMAGE_HASHES: LazyLock<BTreeMap<String, String>> =
+    LazyLock::new(|| serde_json::from_str(include_str!("../image_hashes.lock")).unwrap());
+static GPX_HASHES: LazyLock<BTreeMap<String, String>> =
+    LazyLock::new(|| serde_json::from_str(include_str!("../gpx_hashes.lock")).unwrap());
 
-    // Calculate hash of the current image
-    let mut hasher = Sha256::new();
-    hasher.update(image);
-    let current_hash = hex::encode(hasher.finalize());
+pub fn verify_image(name: &str, image: &[u8]) {
+    check_image(name, image).unwrap_or_else(|error| panic!("{error}"));
+}
 
-    if let Some(stored_hash) = hash_table.get(name) {
-        // Entry exists, compare hashes
-        assert_eq!(
-            &current_hash, stored_hash,
-            "Image hash mismatch for {name}. Expected: {stored_hash}, Got: {current_hash}. If you have updated the image, please delete the image_hashes.lock file and re-run the tests."
-        );
-        println!("Verified image hash for: {name}");
-    } else {
-        // No entry exists, add new entry
-        hash_table.insert(name.to_string(), current_hash.clone());
-        let hash_table_content =
-            serde_json::to_string_pretty(&hash_table).expect("Failed to serialize hash table");
-        fs::write(hash_table_path, hash_table_content).expect("Failed to write hash table file");
-        println!("Added new hash entry for: {name}");
+/// Return a mismatch instead of panicking, allowing a suite to inspect every case.
+pub fn check_image(name: &str, image: &[u8]) -> Result<(), String> {
+    check_snapshot(name, "png", image, &IMAGE_HASHES, "image_hashes.lock")
+}
+
+pub fn check_gpx(name: &str, gpx: &[u8]) -> Result<(), String> {
+    check_snapshot(name, "gpx", gpx, &GPX_HASHES, "gpx_hashes.lock")
+}
+
+/// Save failed snapshots before reporting the mismatch. Set GENERATE_INSPECTION_FILES=1
+/// to also save passing snapshots. Baselines are never created or updated by tests.
+fn check_snapshot(
+    name: &str,
+    extension: &str,
+    bytes: &[u8],
+    hashes: &BTreeMap<String, String>,
+    baseline: &str,
+) -> Result<(), String> {
+    let actual = hex::encode(Sha256::digest(bytes));
+    let expected = hashes.get(name);
+    let matches = expected == Some(&actual);
+    let export = std::env::var("GENERATE_INSPECTION_FILES").is_ok_and(|value| value == "1");
+    let output = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/for_inspection")
+        .join(format!("{name}.{extension}"));
+    if !matches || export {
+        fs::create_dir_all(output.parent().unwrap()).unwrap();
+        fs::write(&output, bytes).unwrap();
     }
-
-    // Always save the image file
-    let output_path = format!("tests/for_inspection/{name}.png");
-    let mut file = File::create(&output_path).expect("Failed to create file");
-    file.write_all(image).expect("Failed to write to file");
-    println!("Saved image file: {output_path}");
+    if matches {
+        Ok(())
+    } else {
+        Err(format!(
+            "Snapshot {name}.{extension} changed (expected {expected:?}). Inspect {} before \
+             updating tests/{baseline}. Actual entry: \"{name}\": \"{actual}\"",
+            output.display(),
+        ))
+    }
 }
 
 pub fn render_map_overlay(
@@ -149,24 +159,24 @@ fn render_map_overlay_internal(
         .unwrap();
 
     let mut image = RgbaImage::new(tile_size * width_by_tile, tile_size * height_by_tile);
+    // Rendering lazily populates bitmap caches, so use a private test copy
+    // instead of borrowing `MapRenderer::update` for a non-update operation.
+    let mut journey_bitmap = map_renderer.peek_latest_bitmap().clone();
 
     for x in 0..width_by_tile {
         for y in 0..height_by_tile {
-            map_renderer.update(|journey_bitmap, _change_callback| {
-                // No actual change here
-                TileShader::render_on_image(
-                    &mut image,
-                    x * tile_size,
-                    y * tile_size,
-                    journey_bitmap,
-                    render_area.left_idx as i64 + x as i64,
-                    render_area.top_idx as i64 + y as i64,
-                    render_area.zoom as i16,
-                    DEFAULT_TILE_SIZE.power(), // 9
-                    DEFAULT_BG_COLOR,
-                    DEFAULT_FG_COLOR,
-                );
-            });
+            TileShader::render_on_image(
+                &mut image,
+                x * tile_size,
+                y * tile_size,
+                &mut journey_bitmap,
+                render_area.left_idx as i64 + x as i64,
+                render_area.top_idx as i64 + y as i64,
+                render_area.zoom as i16,
+                DEFAULT_TILE_SIZE.power(), // 9
+                DEFAULT_BG_COLOR,
+                DEFAULT_FG_COLOR,
+            );
         }
     }
 
@@ -192,16 +202,24 @@ fn render_map_overlay_internal(
 }
 
 pub fn draw_line1(journey_bitmap: &mut JourneyBitmap) {
-    journey_bitmap.add_line(START_LNG, START_LAT, END_LNG, END_LAT)
+    journey_bitmap
+        .edit()
+        .add_line(START_LNG, START_LAT, END_LNG, END_LAT)
 }
 pub fn draw_line2(journey_bitmap: &mut JourneyBitmap) {
-    journey_bitmap.add_line(START_LNG, END_LAT, END_LNG, START_LAT);
+    journey_bitmap
+        .edit()
+        .add_line(START_LNG, END_LAT, END_LNG, START_LAT);
 }
 pub fn draw_line3(journey_bitmap: &mut JourneyBitmap) {
-    journey_bitmap.add_line(MID_LNG, START_LAT, MID_LNG, END_LAT)
+    journey_bitmap
+        .edit()
+        .add_line(MID_LNG, START_LAT, MID_LNG, END_LAT)
 }
 pub fn draw_line4(journey_bitmap: &mut JourneyBitmap) {
-    journey_bitmap.add_line(START_LNG, MID_LAT, END_LNG, MID_LAT)
+    journey_bitmap
+        .edit()
+        .add_line(START_LNG, MID_LAT, END_LNG, MID_LAT)
 }
 
 pub fn draw_sample_bitmap() -> JourneyBitmap {

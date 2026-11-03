@@ -103,11 +103,11 @@ struct FoWSnapshotTile {
 }
 
 impl FoWSnapshotTile {
-    fn from_journey_tile(tile_key: &TileKey, tile: &crate::journey_bitmap::Tile) -> Self {
+    fn from_mercator_tile(x: u16, y: u16, tile: &crate::journey_bitmap::Tile) -> Self {
         let mut snapshot_tile = Self {
             coord: FoWSnapshotCoord {
-                x: tile_key.x,
-                y: tile_key.y,
+                x,
+                y,
                 z: FOW_SNAPSHOT_BASE_TILE_Z,
             },
             blocks: BTreeMap::new(),
@@ -338,13 +338,23 @@ fn serialize_fow_snapshot_tile_index(
 }
 
 #[auto_context]
+/// Export the Mercator portion of a bitmap. FoW cannot represent polar tiles;
+/// those tiles are omitted as part of this format's lossy export.
 pub fn journey_bitmap_to_fwss_file<T: Write + Seek>(
     journey_bitmap: &JourneyBitmap,
     writer: &mut T,
 ) -> Result<()> {
-    if journey_bitmap.is_empty() {
+    let mut tile_coordinates = Vec::with_capacity(journey_bitmap.tile_count());
+    for key in journey_bitmap.all_tile_keys() {
+        match *key {
+            TileKey::Mercator { x, y } => tile_coordinates.push((x, y)),
+            TileKey::NorthPolar { .. } | TileKey::SouthPolar { .. } => continue,
+        }
+    }
+    if tile_coordinates.is_empty() {
         bail!("No Fog of World data to export");
     }
+    tile_coordinates.sort();
 
     let mut zip = zip::ZipWriter::new(writer);
     // The official app writes Deflated zip entries, but every FWSS entry payload
@@ -354,17 +364,16 @@ pub fn journey_bitmap_to_fwss_file<T: Write + Seek>(
         .compression_method(zip::CompressionMethod::Stored)
         .system(zip::System::Dos);
 
-    let mut tile_keys = journey_bitmap.all_tile_keys().copied().collect::<Vec<_>>();
-    tile_keys.sort();
     let mut pending_layers: BTreeMap<(i32, u16, u16), FoWSnapshotTile> = BTreeMap::new();
     let mut tile_index = [0_u8; FOW_SNAPSHOT_TILE_BITSET_SIZE];
     let mut total_area_square_meters = 0_u64;
 
-    for tile_key in tile_keys {
+    for (x, y) in tile_coordinates {
+        let tile_key = TileKey::Mercator { x, y };
         let Some(snapshot_tile) =
             journey_bitmap.peek_tile_without_updating_cache(&tile_key, |tile| match tile {
                 Some(tile) if !tile.is_empty() => {
-                    Some(FoWSnapshotTile::from_journey_tile(&tile_key, tile))
+                    Some(FoWSnapshotTile::from_mercator_tile(x, y, tile))
                 }
                 _ => None,
             })
@@ -386,11 +395,10 @@ pub fn journey_bitmap_to_fwss_file<T: Write + Seek>(
 
         // The official snapshot index is a z9 512x512 tile bitset using
         // low-bit-first ordering within each byte.
-        let tile_index_offset =
-            ((tile_key.y as usize * MAP_WIDTH as usize) + tile_key.x as usize) / 8;
-        tile_index[tile_index_offset] |= 1 << (tile_key.x % 8);
+        let tile_index_offset = ((y as usize * MAP_WIDTH as usize) + x as usize) / 8;
+        tile_index[tile_index_offset] |= 1 << (x % 8);
 
-        let tile_area = fow_tile_row_area_square_meters(tile_key.y);
+        let tile_area = fow_tile_row_area_square_meters(y);
         total_area_square_meters += ((tile_area * snapshot_tile.count_pixels() as f64)
             / FOW_PIXELS_PER_BASE_TILE as f64) as u64;
 
@@ -461,6 +469,6 @@ pub fn journey_vector_to_fwss_file<T: Write + Seek>(
     writer: &mut T,
 ) -> Result<()> {
     let mut journey_bitmap = JourneyBitmap::new();
-    journey_bitmap.merge_vector(journey_vector);
+    journey_bitmap.edit().merge_vector(journey_vector);
     journey_bitmap_to_fwss_file(&journey_bitmap, writer)
 }

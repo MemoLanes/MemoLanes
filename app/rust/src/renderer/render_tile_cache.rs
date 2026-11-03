@@ -1,8 +1,7 @@
 use journey_kernel::bitmap2d::BitMap2D;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
-use super::SOURCE_TILE_ZOOM;
-use crate::journey_bitmap::TileKey;
+use crate::journey_bitmap::{BitmapPlane, TileKey};
 
 // Per-renderer limits, not a total map memory budget. The byte limit covers
 // owned base/LOD bitmap allocations; the entry limit also bounds empty tiles.
@@ -12,6 +11,7 @@ const RENDER_TILE_CACHE_MAX_BYTES: usize = 16 * 1024 * 1024;
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub(super) struct RenderTileCacheKey {
+    pub(super) plane: BitmapPlane,
     pub(super) x: i64,
     pub(super) y: i64,
     pub(super) z: i16,
@@ -106,7 +106,7 @@ impl RenderTileCache {
         );
     }
 
-    pub(super) fn invalidate_changed_sources(&mut self, changed_tiles: &[TileKey]) {
+    pub(super) fn invalidate_changed_sources(&mut self, changed_tiles: &HashSet<TileKey>) {
         if changed_tiles.is_empty() || self.entries.is_empty() {
             return;
         }
@@ -133,19 +133,26 @@ impl RenderTileCache {
 }
 
 fn render_tile_overlaps_source(key: &RenderTileCacheKey, source: TileKey) -> bool {
-    let source_x = i64::from(source.x);
-    let source_y = i64::from(source.y);
-    let source_width = 1i64 << SOURCE_TILE_ZOOM;
+    if key.plane != source.plane() {
+        return false;
+    }
+    let (source_x, source_y) = match source {
+        TileKey::Mercator { x, y }
+        | TileKey::NorthPolar { x, y }
+        | TileKey::SouthPolar { x, y } => (i64::from(x), i64::from(y)),
+    };
+    let source_tile_zoom = source.plane().source_tile_zoom();
+    let source_width = 1i64 << source_tile_zoom;
     if !(0..source_width).contains(&source_x) || !(0..source_width).contains(&source_y) {
         return false;
     }
 
-    if key.z >= SOURCE_TILE_ZOOM {
-        let shift = (key.z - SOURCE_TILE_ZOOM) as u32;
+    if key.z >= source_tile_zoom {
+        let shift = (key.z - source_tile_zoom) as u32;
         return key.x >> shift == source_x && key.y >> shift == source_y;
     }
 
-    let shift = (SOURCE_TILE_ZOOM - key.z) as u32;
+    let shift = (source_tile_zoom - key.z) as u32;
     source_x >> shift == key.x && source_y >> shift == key.y
 }
 
@@ -153,8 +160,12 @@ fn render_tile_overlaps_source(key: &RenderTileCacheKey, source: TileKey) -> boo
 mod tests {
     use super::*;
 
+    // The Mercator source grid contains 512 × 512 tiles.
+    const SOURCE_TILE_ZOOM: i16 = 9;
+
     fn key(x: i64, buffer_size_power: i16) -> RenderTileCacheKey {
         RenderTileCacheKey {
+            plane: BitmapPlane::Mercator,
             x,
             y: 0,
             z: SOURCE_TILE_ZOOM,
@@ -199,10 +210,35 @@ mod tests {
 
         let before = cache.byte_len;
         cache.insert(key(capacity as i64, 11), CachedRenderTile::Empty);
-        cache.invalidate_changed_sources(&[TileKey::new(capacity as u16 - 1, 0)]);
+        cache.invalidate_changed_sources(&HashSet::from([TileKey::mercator(
+            capacity as u16 - 1,
+            0,
+        )]));
         assert_eq!(cache.byte_len, before - 2 * tile_bytes);
         cache.clear();
         assert_eq!(cache.byte_len, 0);
         assert!(cache.entries.is_empty());
+    }
+
+    #[test]
+    fn mixed_projection_changes_invalidate_only_dependent_render_tiles() {
+        let mut cache = RenderTileCache::default();
+        cache.insert(key(0, 10), CachedRenderTile::Empty);
+        cache.insert(key(1, 10), CachedRenderTile::Empty);
+
+        cache.invalidate_changed_sources(&HashSet::from([
+            TileKey::NorthPolar { x: 0, y: 0 },
+            TileKey::SouthPolar { x: 1, y: 0 },
+        ]));
+        assert!(cache.get(&key(0, 10)).is_some());
+        assert!(cache.get(&key(1, 10)).is_some());
+
+        cache.invalidate_changed_sources(&HashSet::from([
+            TileKey::Mercator { x: 0, y: 0 },
+            TileKey::NorthPolar { x: 1, y: 0 },
+            TileKey::SouthPolar { x: 0, y: 0 },
+        ]));
+        assert!(cache.get(&key(0, 10)).is_none());
+        assert!(cache.get(&key(1, 10)).is_some());
     }
 }

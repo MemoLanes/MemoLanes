@@ -1,20 +1,26 @@
-use crate::utils;
-use anyhow::Result;
+use super::{BITMAP_WIDTH, BITMAP_WIDTH_OFFSET, TILE_WIDTH};
 use bitvec::prelude::*;
 use std::cell::RefCell;
 use std::io::{Read, Write};
-use std::{clone::Clone, collections::HashMap, mem::take};
+use std::mem::take;
+use std::ops::Range;
 
-// NOTE: Interface here can be weird in some cases, these are for journey bitmap v2.
-
-pub const TILE_WIDTH_OFFSET: i16 = 7;
-pub const MAP_WIDTH_OFFSET: i16 = 9;
-pub const MAP_WIDTH: i64 = 1 << MAP_WIDTH_OFFSET;
-pub const TILE_WIDTH: i64 = 1 << TILE_WIDTH_OFFSET;
-pub const BITMAP_WIDTH_OFFSET: i16 = 6;
-pub const BITMAP_WIDTH: i64 = 1 << BITMAP_WIDTH_OFFSET;
 pub const BITMAP_SIZE: usize = (BITMAP_WIDTH * BITMAP_WIDTH / 8) as usize;
 const MIPMAP_LEVELS: [usize; 6] = [32, 16, 8, 4, 2, 1];
+
+// Indexed by z (level width = 2^z), while the packed levels run largest first.
+const MIPMAP_OFFSETS: [usize; MIPMAP_LEVELS.len()] = {
+    let mut offsets = [0; MIPMAP_LEVELS.len()];
+    let mut offset = 0;
+    let mut i = 0;
+    while i < MIPMAP_LEVELS.len() {
+        let dim = MIPMAP_LEVELS[i];
+        offsets[dim.ilog2() as usize] = offset;
+        offset += dim * dim;
+        i += 1;
+    }
+    offsets
+};
 
 pub const MIPMAP_BIT_SIZE: usize = {
     let mut sum = 0;
@@ -27,383 +33,7 @@ pub const MIPMAP_BIT_SIZE: usize = {
     sum
 };
 
-const ALL_OFFSET: i16 = TILE_WIDTH_OFFSET + BITMAP_WIDTH_OFFSET;
 const TILE_ZSTD_COMPRESS_LEVEL: i32 = 3;
-
-fn interpolate_x_at_y(x0: i32, y0: i32, x1: i32, y1: i32, y: i32) -> i32 {
-    debug_assert_ne!(y0, y1);
-    let t = (y as f64 - y0 as f64) / (y1 as f64 - y0 as f64);
-    (x0 as f64 + (x1 as f64 - x0 as f64) * t).round() as i32
-}
-
-#[derive(PartialEq, Eq, Debug, Clone, Copy, Hash, PartialOrd, Ord)]
-pub struct TileKey {
-    pub x: u16,
-    pub y: u16,
-}
-
-impl TileKey {
-    pub fn new(x: u16, y: u16) -> Self {
-        TileKey { x, y }
-    }
-
-    fn is_in_bounds(self) -> bool {
-        self.x < MAP_WIDTH as u16 && self.y < MAP_WIDTH as u16
-    }
-}
-
-// we have 512*512 tiles, 128*128 blocks and a single block contains
-// a 64*64 bitmap.
-#[derive(Debug, Clone, Default)]
-pub struct JourneyBitmap {
-    tiles: HashMap<TileKey, Tile>,
-}
-
-impl PartialEq for JourneyBitmap {
-    fn eq(&self, other: &Self) -> bool {
-        self.tiles == other.tiles
-    }
-}
-
-impl Eq for JourneyBitmap {}
-
-impl JourneyBitmap {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.tiles.is_empty()
-    }
-
-    // `validate` should be called immediately after when using this on imported data.
-    pub fn of_tile_bytes_without_validation(data: Vec<(TileKey, Vec<u8>)>) -> Result<Self> {
-        let mut journey_bitmap = Self::new();
-        for (key, serialized_bytes) in data {
-            if !key.is_in_bounds() {
-                warn!(
-                    "Discarding out-of-bounds journey bitmap tile ({}, {}); grid width is {}",
-                    key.x, key.y, MAP_WIDTH
-                );
-                continue;
-            }
-            journey_bitmap
-                .tiles
-                .insert(key, Tile::deserialize(&serialized_bytes)?);
-        }
-        Ok(journey_bitmap)
-    }
-
-    pub fn tile_count(&self) -> usize {
-        self.tiles.len()
-    }
-
-    pub fn contains_tile(&self, key: &TileKey) -> bool {
-        self.tiles.contains_key(key)
-    }
-
-    pub fn get_tile(&mut self, key: &TileKey) -> Option<&Tile> {
-        self.tiles.get(key)
-    }
-
-    pub fn get_tile_mut(&mut self, key: &TileKey) -> Option<&mut Tile> {
-        self.tiles.get_mut(key)
-    }
-
-    pub fn get_tile_mut_or_insert_empty(&mut self, key: &TileKey) -> &mut Tile {
-        assert!(
-            key.is_in_bounds(),
-            "journey bitmap tile ({}, {}) is outside the {}x{} grid",
-            key.x,
-            key.y,
-            MAP_WIDTH,
-            MAP_WIDTH
-        );
-        self.tiles.entry(*key).or_default()
-    }
-
-    pub fn peek_tile_without_updating_cache<F, R>(&self, key: &TileKey, mut f: F) -> R
-    where
-        F: FnMut(Option<&Tile>) -> R,
-    {
-        match self.tiles.get(key) {
-            None => f(None),
-            Some(tile) => f(Some(tile)),
-        }
-    }
-
-    pub fn get_tile_summary(&mut self, key: &TileKey) -> Option<TileSummary<'_>> {
-        self.tiles.get(key).map(TileSummary::Tile)
-    }
-
-    pub fn get_tile_bytes(&mut self, key: &TileKey) -> Option<Vec<u8>> {
-        self.tiles.get(key).map(|tile| tile.serialize())
-    }
-
-    pub fn all_tile_keys(&self) -> impl Iterator<Item = &TileKey> {
-        self.tiles.keys()
-    }
-
-    pub fn insert_tile(&mut self, key: &TileKey, tile: Tile) {
-        if !key.is_in_bounds() {
-            warn!(
-                "Discarding out-of-bounds journey bitmap tile ({}, {}); grid width is {}",
-                key.x, key.y, MAP_WIDTH
-            );
-            return;
-        }
-        self.tiles.insert(*key, tile);
-    }
-
-    /// Validate that all serialized tiles can be deserialized successfully.
-    /// This is necessary when importing data. Other parts of the code assume
-    /// deserialization will always succeed.
-    /// We also try to remove empty tiles and blocks here. This is not strictly
-    /// necessary, but we are aware that some users have "invalid" data like this
-    /// which are created by old versions of this app.
-    pub fn validate(&mut self) -> anyhow::Result<()> {
-        // Actually nothing needs to be done here.
-        self.tiles.retain(|_, tile| {
-            for block in &mut tile.blocks {
-                if block.as_ref().is_some_and(|b| b.is_empty()) {
-                    *block = None;
-                }
-            }
-            !tile.is_empty()
-        });
-
-        Ok(())
-    }
-
-    // NOTE: `add_line` is cherry picked from: https://github.com/tavimori/fogcore/blob/d0888508e25652164742db8e7d879e651b6607d7/src/fogmaps.rs
-    // TODO: clean up the code:
-    //       - make sure we are using the consistent and correct one of `u64`/`i64`/`i32`.
-    //       - better variable naming.
-
-    pub fn add_line(&mut self, start_lng: f64, start_lat: f64, end_lng: f64, end_lat: f64) {
-        self.add_line_with_change_callback(start_lng, start_lat, end_lng, end_lat, |_| {});
-    }
-
-    pub fn add_line_with_change_callback<F>(
-        &mut self,
-        start_lng: f64,
-        start_lat: f64,
-        end_lng: f64,
-        end_lat: f64,
-        mut tile_changed: F,
-    ) where
-        F: FnMut(TileKey),
-    {
-        use std::f64::consts::PI;
-
-        if !start_lng.is_finite()
-            || !end_lng.is_finite()
-            || !(-90.0..=90.0).contains(&start_lat)
-            || !(-90.0..=90.0).contains(&end_lat)
-        {
-            return;
-        }
-        let wrap_lng = |lng: f64| (lng + 180.0).rem_euclid(360.0) - 180.0;
-        let start_lng = wrap_lng(start_lng);
-        let end_lng = wrap_lng(end_lng);
-
-        let (mut x0, mut y0) = utils::lng_lat_to_tile_x_y(
-            start_lng,
-            start_lat,
-            (ALL_OFFSET + MAP_WIDTH_OFFSET) as i32,
-        );
-        let (mut x1, mut y1) =
-            utils::lng_lat_to_tile_x_y(end_lng, end_lat, (ALL_OFFSET + MAP_WIDTH_OFFSET) as i32);
-
-        let (x_half, _) =
-            utils::lng_lat_to_tile_x_y(0.0, 0.0, (ALL_OFFSET + MAP_WIDTH_OFFSET) as i32);
-
-        if x1 - x0 > x_half {
-            x0 += 2 * x_half;
-        } else if x0 - x1 > x_half {
-            x1 += 2 * x_half;
-        }
-
-        let bitmap_pixel_width = (MAP_WIDTH << ALL_OFFSET) as i32;
-        if (y0 < 0 && y1 < 0) || (y0 >= bitmap_pixel_width && y1 >= bitmap_pixel_width) {
-            return;
-        }
-        let max_y = bitmap_pixel_width - 1;
-        let (original_x0, original_y0, original_x1, original_y1) = (x0, y0, x1, y1);
-        if !(0..=max_y).contains(&y0) {
-            y0 = y0.clamp(0, max_y);
-            x0 = interpolate_x_at_y(original_x0, original_y0, original_x1, original_y1, y0);
-        }
-        if !(0..=max_y).contains(&y1) {
-            y1 = y1.clamp(0, max_y);
-            x1 = interpolate_x_at_y(original_x0, original_y0, original_x1, original_y1, y1);
-        }
-
-        // Calculate line deltas
-        let dx = x1 as i64 - x0 as i64;
-        let dy = y1 as i64 - y0 as i64;
-        // Create a positive copy of deltas (makes iterating easier)
-        let dx0 = dx.abs();
-        let dy0 = dy.abs();
-        // Calculate error intervals for both axis
-        let px = 2 * dy0 - dx0;
-        let py = 2 * dx0 - dy0;
-
-        let xaxis = dy0 <= dx0;
-        let quadrants13 = (dx < 0 && dy < 0) || (dx > 0 && dy > 0);
-
-        // Ensure we always draw in the positive primary direction
-        let primary_delta = if xaxis { dx } else { dy };
-        let ((mut x, mut y), (end_x, end_y)) = if primary_delta >= 0 {
-            ((x0 as i64, y0 as i64), (x1 as i64, y1 as i64))
-        } else {
-            ((x1 as i64, y1 as i64), (x0 as i64, y0 as i64))
-        };
-        let end = if xaxis { end_x } else { end_y };
-        let mut p = if xaxis { px } else { py };
-
-        loop {
-            // tile_x is not rounded, it may exceed the antimeridian
-            let (tile_x, tile_y) = (x >> ALL_OFFSET, y >> ALL_OFFSET);
-            let tile_lat = utils::tile_y_to_lat(y as i32, (ALL_OFFSET + MAP_WIDTH_OFFSET) as i32);
-            let latirad = tile_lat * PI / 180.0;
-            let width: u8 = (1.0 / latirad.cos()).round() as u8;
-
-            let tile_key = TileKey::new(tile_x.rem_euclid(MAP_WIDTH) as u16, tile_y as u16);
-            let (tile_x_offset, tile_y_offset) = (tile_x << ALL_OFFSET, tile_y << ALL_OFFSET);
-            let (next, changed) = {
-                let tile = self.get_tile_mut_or_insert_empty(&tile_key);
-                tile.add_line(
-                    x - tile_x_offset,
-                    y - tile_y_offset,
-                    end - if xaxis { tile_x_offset } else { tile_y_offset },
-                    p,
-                    dx0,
-                    dy0,
-                    xaxis,
-                    quadrants13,
-                    width,
-                )
-            };
-            (x, y, p) = next;
-            if changed {
-                tile_changed(tile_key);
-            }
-
-            x += tile_x_offset;
-            y += tile_y_offset;
-
-            if (if xaxis { x } else { y }) >= end {
-                break;
-            }
-        }
-    }
-
-    pub fn merge_vector(&mut self, journey_vector: &crate::journey_vector::JourneyVector) {
-        for track_segment in &journey_vector.track_segments {
-            match track_segment.track_points.as_slice() {
-                [] => {}
-                [point] => self.add_line(
-                    point.longitude,
-                    point.latitude,
-                    point.longitude,
-                    point.latitude,
-                ),
-                points => {
-                    for pair in points.windows(2) {
-                        self.add_line(
-                            pair[0].longitude,
-                            pair[0].latitude,
-                            pair[1].longitude,
-                            pair[1].latitude,
-                        );
-                    }
-                }
-            }
-        }
-    }
-
-    pub fn merge(&mut self, other_journey_bitmap: JourneyBitmap) {
-        for (key, other_tile) in other_journey_bitmap.tiles {
-            match self.tiles.get_mut(&key) {
-                None => {
-                    self.tiles.insert(key, other_tile);
-                }
-                Some(self_tile) => {
-                    self_tile.merge(other_tile);
-                }
-            }
-        }
-    }
-
-    pub fn merge_with_partial_clone(&mut self, other_journey_bitmap: &JourneyBitmap) {
-        for (key, other_tile) in &other_journey_bitmap.tiles {
-            match self.tiles.get_mut(key) {
-                None => {
-                    self.tiles.insert(*key, other_tile.clone());
-                }
-                Some(self_tile) => {
-                    self_tile.merge_with_partial_clone(other_tile);
-                }
-            }
-        }
-    }
-
-    pub fn difference(&mut self, other_journey_bitmap: &JourneyBitmap) {
-        for (tile_key, other_tile) in &other_journey_bitmap.tiles {
-            if let Some(tile) = self.tiles.get_mut(tile_key) {
-                for i in 0..other_tile.blocks.len() {
-                    match &other_tile.blocks[i] {
-                        None => (),
-                        Some(other_block) => {
-                            if let Some(block) = &mut tile.blocks[i] {
-                                // subtract other_block from block
-                                block.difference_with(other_block.as_ref());
-                                if block.is_empty() {
-                                    tile.blocks[i] = None;
-                                }
-                            }
-                        }
-                    }
-                }
-
-                if tile.is_empty() {
-                    self.tiles.remove(tile_key);
-                }
-            }
-        }
-    }
-
-    pub fn intersection(&mut self, other_journey_bitmap: &JourneyBitmap) {
-        self.tiles.retain(
-            |tile_key, tile| match other_journey_bitmap.tiles.get(tile_key) {
-                None => false,
-                Some(other_tile) => {
-                    for i in 0..other_tile.blocks.len() {
-                        match &other_tile.blocks[i] {
-                            None => tile.blocks[i] = None,
-                            Some(other_block) => {
-                                if let Some(block) = &mut tile.blocks[i] {
-                                    // intersect block with other_block
-                                    block.intersect_with(other_block.as_ref());
-                                    if block.is_empty() {
-                                        tile.blocks[i] = None;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    !tile.is_empty()
-                }
-            },
-        );
-    }
-
-    pub fn check_invariant_and_debug_log(&mut self) {
-        let total_tiles = self.tiles.len();
-        info!("total tiles: {}", total_tiles);
-    }
-}
 
 #[derive(PartialEq, Eq, Debug, Clone, Copy)]
 pub struct BlockKey(usize);
@@ -436,7 +66,7 @@ impl BlockKey {
 const BLOCK_KEYS_SIZE: usize = (TILE_WIDTH * TILE_WIDTH / 8) as usize;
 
 #[derive(Debug, Clone)]
-pub struct BlockKeyBitset([u8; BLOCK_KEYS_SIZE]);
+pub(super) struct BlockKeyBitset(pub(super) [u8; BLOCK_KEYS_SIZE]);
 
 impl BlockKeyBitset {
     fn new() -> Self {
@@ -448,7 +78,7 @@ impl BlockKeyBitset {
         self.0[i / 8] |= 1 << (i % 8);
     }
 
-    fn iter(&self) -> impl Iterator<Item = BlockKey> + '_ {
+    pub(super) fn iter(&self) -> impl Iterator<Item = BlockKey> + '_ {
         self.0.iter().enumerate().flat_map(|(byte_index, &byte)| {
             let mut remaining = byte;
             std::iter::from_fn(move || {
@@ -467,35 +97,16 @@ impl BlockKeyBitset {
         Ok(())
     }
 
-    fn read_from<R: Read>(reader: &mut R) -> anyhow::Result<Self> {
+    pub(super) fn read_from<R: Read>(reader: &mut R) -> anyhow::Result<Self> {
         let mut bitset = BlockKeyBitset::new();
         reader.read_exact(&mut bitset.0)?;
         Ok(bitset)
     }
 }
 
-/// A lightweight tile that only provides information about which blocks are not empty.
-pub enum TileSummary<'a> {
-    Tile(&'a Tile),
-}
-
-impl<'a> TileSummary<'a> {
-    pub fn contains_block(&self, block_key: &BlockKey) -> bool {
-        match self {
-            TileSummary::Tile(tile) => tile.blocks[block_key.index()].is_some(),
-        }
-    }
-
-    pub(crate) fn iter_blocks(&self) -> impl Iterator<Item = BlockKey> + '_ {
-        match self {
-            TileSummary::Tile(tile) => tile.iter().map(|(key, _)| key),
-        }
-    }
-}
-
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct Tile {
-    blocks: [Option<Box<Block>>; (TILE_WIDTH * TILE_WIDTH) as usize],
+    pub(super) blocks: [Option<Box<Block>>; (TILE_WIDTH * TILE_WIDTH) as usize],
 }
 
 impl Default for Tile {
@@ -544,7 +155,18 @@ impl Tile {
         true
     }
 
-    fn merge(&mut self, mut other_tile: Tile) {
+    pub(super) fn remove_empty_blocks(&mut self) -> bool {
+        let mut changed = false;
+        for block in &mut self.blocks {
+            if block.as_ref().is_some_and(|block| block.is_empty()) {
+                *block = None;
+                changed = true;
+            }
+        }
+        changed
+    }
+
+    pub(super) fn merge(&mut self, mut other_tile: Tile) {
         for i in 0..other_tile.blocks.len() {
             match take(&mut other_tile.blocks[i]) {
                 None => (),
@@ -560,7 +182,7 @@ impl Tile {
         }
     }
 
-    fn merge_with_partial_clone(&mut self, other_tile: &Tile) {
+    pub(super) fn merge_with_partial_clone(&mut self, other_tile: &Tile) {
         for i in 0..other_tile.blocks.len() {
             match &other_tile.blocks[i] {
                 None => (),
@@ -576,8 +198,24 @@ impl Tile {
         }
     }
 
+    pub(super) fn fill_rect(&mut self, x: Range<i64>, y: Range<i64>) -> bool {
+        let mut changed = false;
+        for block_x in x.start / BITMAP_WIDTH..=(x.end - 1) / BITMAP_WIDTH {
+            for block_y in y.start / BITMAP_WIDTH..=(y.end - 1) / BITMAP_WIDTH {
+                let key = BlockKey::from_x_y(block_x as u8, block_y as u8);
+                let block = self.blocks[key.index()].get_or_insert_with(|| Box::new(Block::new()));
+                let (origin_x, origin_y) = (block_x * BITMAP_WIDTH, block_y * BITMAP_WIDTH);
+                changed |= block.fill_rect(
+                    (x.start - origin_x).max(0)..(x.end - origin_x).min(BITMAP_WIDTH),
+                    (y.start - origin_y).max(0)..(y.end - origin_y).min(BITMAP_WIDTH),
+                );
+            }
+        }
+        changed
+    }
+
     #[allow(clippy::too_many_arguments)]
-    fn add_line(
+    pub(super) fn add_line(
         &mut self,
         x: i64,
         y: i64,
@@ -635,7 +273,13 @@ impl Tile {
             x += block_x_offset;
             y += block_y_offset;
 
-            if (if xaxis { x } else { y }) >= e {
+            // At a block boundary the walker returns the next, undrawn pixel.
+            // Reaching the endpoint only finishes the stroke if this block
+            // actually drew it; otherwise let the next block stamp it.
+            if (if xaxis { x } else { y }) >= e
+                && x >> BITMAP_WIDTH_OFFSET == block_x
+                && y >> BITMAP_WIDTH_OFFSET == block_y
+            {
                 break;
             }
         }
@@ -685,7 +329,7 @@ type Mipmap = BitArr!(for MIPMAP_BIT_SIZE, in u8, Msb0);
 #[derive(Debug, Clone)]
 pub struct Block {
     data: [u8; BITMAP_SIZE],
-    mipmap: RefCell<Option<Mipmap>>,
+    mipmap: RefCell<Option<Box<Mipmap>>>,
 }
 
 impl PartialEq for Block {
@@ -727,6 +371,42 @@ impl Block {
 
     pub fn raw_data(&self) -> &[u8; BITMAP_SIZE] {
         &self.data
+    }
+
+    pub(super) fn fill_rect(&mut self, x: Range<i64>, y: Range<i64>) -> bool {
+        debug_assert!(0 <= x.start && x.start < x.end && x.end <= BITMAP_WIDTH);
+        debug_assert!(0 <= y.start && y.start < y.end && y.end <= BITMAP_WIDTH);
+        // Each 64-pixel row is an MSB-first word, matching the bitmap layout.
+        let mask = (u64::MAX >> x.start) & (u64::MAX << (BITMAP_WIDTH - x.end));
+        let mut changed = false;
+        for row in self.data[y.start as usize * 8..y.end as usize * 8]
+            .as_chunks_mut::<8>()
+            .0
+        {
+            let old = u64::from_be_bytes(*row);
+            let filled = old | mask;
+            changed |= old != filled;
+            *row = filled.to_be_bytes();
+        }
+        if changed {
+            if let Some(mipmap) = self.mipmap.get_mut() {
+                // OR-downsampling maps a filled rectangle to a filled rectangle
+                // at each level. Keep cached mipmaps current without point writes.
+                let mut x = x.start as usize..x.end as usize;
+                let mut y = y.start as usize..y.end as usize;
+                let mut offset = 0;
+                for dim in MIPMAP_LEVELS {
+                    x = x.start / 2..x.end.div_ceil(2);
+                    y = y.start / 2..y.end.div_ceil(2);
+                    for row in y.clone() {
+                        let row_offset = offset + row * dim;
+                        mipmap[row_offset + x.start..row_offset + x.end].fill(true);
+                    }
+                    offset += dim * dim;
+                }
+            }
+        }
+        changed
     }
 
     /// Merge `other` into `self` (bitwise OR). Incrementally updates mipmap if cached.
@@ -875,23 +555,10 @@ impl Block {
             return self.is_visited(x as u8, y as u8);
         }
 
-        // TODO: This could be implemented with const expressions with `MIPMAP_LEVELS`,
-        // so we don't have to hardcode the offsets here. But I am too lazy to do it now.
-
-        // For z=0 to z=5, read from mipmap if it exists
-        // Note: Block2's mipmap does NOT include the original 64x64 data
-        let offset = match z {
-            0 => 1024 + 256 + 64 + 16 + 4, // 1x1 at bit 1364
-            1 => 1024 + 256 + 64 + 16,     // 2x2 at bit 1360
-            2 => 1024 + 256 + 64,          // 4x4 at bit 1344
-            3 => 1024 + 256,               // 8x8 at bit 1280
-            4 => 1024,                     // 16x16 at bit 1024
-            5 => 0,                        // 32x32 at bit 0
-            _ => panic!("Invalid mipmap level: z={}", z),
-        };
+        let offset = MIPMAP_OFFSETS[z];
 
         let mut mipmap_cell = self.mipmap.borrow_mut();
-        let mipmap = mipmap_cell.get_or_insert_with(|| self.regenerate_mipmaps());
+        let mipmap = mipmap_cell.get_or_insert_with(|| Box::new(self.regenerate_mipmaps()));
         let index = offset + y * size + x;
         mipmap[index]
     }
@@ -997,7 +664,7 @@ impl Block {
 
     // a modified Bresenham algorithm with initialized error from upper layer
     #[allow(clippy::too_many_arguments)]
-    fn add_line(
+    pub(super) fn add_line(
         &mut self,
         x: i64,
         y: i64,
@@ -1052,110 +719,46 @@ impl Block {
 
 #[cfg(test)]
 mod tests {
-    use crate::journey_bitmap::{Block, BlockKey, BITMAP_SIZE, MIPMAP_LEVELS};
+    use super::*;
 
     #[test]
-    fn regenerated_mipmaps_preserve_every_single_pixel() {
-        for index in 0..4096 {
-            let mut data = [0; BITMAP_SIZE];
-            data[index / 8] = 1 << (7 - index % 8);
-            let block = Block::new_with_data(data);
-            let mipmap = block.regenerate_mipmaps();
-            // Exactly one occupied ancestor in each level, with no stray bits.
-            assert_eq!(mipmap.count_ones(), MIPMAP_LEVELS.len(), "pixel={index}");
-            let mut offset = 0;
-            for dim in MIPMAP_LEVELS {
-                let x = (index % 64) * dim / 64;
-                let y = (index / 64) * dim / 64;
-                assert!(mipmap[offset + y * dim + x], "pixel={index}, dim={dim}");
-                offset += dim * dim;
-            }
-        }
-    }
-
-    #[test]
-    fn regenerated_mipmaps_match_source_regions_at_varied_densities() {
-        // Include both sides of the 128-pixel cutoff, empty and full blocks,
-        // and clustered/dispersed inputs with exactly the requested occupancy.
-        for occupied in [0, 1, 127, 128, 129, 2048, 4096] {
-            for clustered in [false, true] {
-                let mut data = [0; BITMAP_SIZE];
-                for i in 0..occupied {
-                    let index = if clustered { i } else { (i * 7919) % 4096 };
-                    data[index / 8] |= 1 << (7 - index % 8);
-                }
-                let block = Block::new_with_data(data);
-                assert_eq!(block.count(), occupied as u32);
-                let mipmap = block.regenerate_mipmaps();
-                let mut offset = 0;
-                for dim in MIPMAP_LEVELS {
-                    let scale = 64 / dim;
-                    for y in 0..dim {
-                        for x in 0..dim {
-                            // Read the original footprint independently of all
-                            // generated levels, rather than repeating either path.
-                            let expected = (y * scale..(y + 1) * scale).any(|sy| {
-                                (x * scale..(x + 1) * scale)
-                                    .any(|sx| block.is_visited(sx as u8, sy as u8))
-                            });
-                            assert_eq!(
-                                mipmap[offset + y * dim + x],
-                                expected,
-                                "occupied={occupied}, clustered={clustered}, dim={dim}, x={x}, y={y}"
-                            );
-                        }
-                    }
-                    offset += dim * dim;
-                }
-            }
-        }
-    }
-
-    #[test]
-    fn block_key_conversion() {
-        let test = |(x, y), index| {
-            assert_eq!(BlockKey::from_x_y(x, y), BlockKey::from_index(index));
-            assert_eq!(BlockKey::from_x_y(x, y).index(), index);
-        };
-        test((0, 0), 0);
-        test((127, 127), 16383);
-        test((64, 17), 8209);
-    }
-
-    #[test]
-    fn block_mipmap() {
-        // Verify mipmap correctness at every level for point (10, 10).
-        // Each level downsamples by 2x from the original 64×64:
-        //   z=6 (64×64): direct data read
-        //   z=5 (32×32): (10,10) → (5,5)
-        //   z=4 (16×16): → (2,2), z=3 (8×8): → (1,1)
-        //   z=2 (4×4):   → (0,0), z=1 (2×2): → (0,0), z=0 (1×1): → (0,0)
+    fn rectangle_fill_matches_point_writes_with_cached_mipmaps() {
         let mut block = Block::new();
-        block.set_point(10, 10, true);
-        assert!(block.get_at_level(10, 10, 6));
-        assert!(!block.get_at_level(11, 10, 6));
-        assert!(block.get_at_level(5, 5, 5) && !block.get_at_level(4, 5, 5));
-        assert!(block.get_at_level(2, 2, 4) && !block.get_at_level(3, 2, 4));
-        assert!(block.get_at_level(1, 1, 3) && !block.get_at_level(0, 1, 3));
-        assert!(block.get_at_level(0, 0, 2) && !block.get_at_level(1, 0, 2));
-        assert!(block.get_at_level(0, 0, 1) && !block.get_at_level(1, 0, 1));
-        assert!(block.get_at_level(0, 0, 0));
+        let mut expected = Block::new();
+        for (x, y) in [
+            (7..10, 8..12),
+            (8..12, 9..13),
+            (0..64, 1..2),
+            (62..64, 62..64),
+            (0..1, 0..64),
+            (0..64, 0..64),
+        ] {
+            block.get_at_level(0, 0, 0); // Cache mipmaps before each mutation.
+            let mut changed = false;
+            for y in y.clone() {
+                for x in x.clone() {
+                    changed |= !expected.is_visited(x as u8, y as u8);
+                    expected.set_point(x as u8, y as u8, true);
+                }
+            }
+            assert_eq!(block.fill_rect(x.clone(), y.clone()), changed);
+            assert_eq!(block, expected);
+            assert_mipmap_matches_regenerated(&block);
+            assert!(!block.fill_rect(x, y));
+            assert_mipmap_matches_regenerated(&block);
+        }
+    }
 
-        // Results reflect updates (set_point, merge_with, difference_with, intersect_with)
-        block.set_point(10, 10, false);
-        assert!(!block.get_at_level(0, 0, 0));
+    #[test]
+    fn block_key_bitset_iterates_only_set_bits_in_order() {
+        let expected = [0, 1, 7, 8, 127, 128, 8_209, 16_383];
+        let mut bitset = super::BlockKeyBitset::new();
+        for &index in &expected {
+            bitset.set(BlockKey::from_index(index));
+        }
 
-        let mut other = Block::new();
-        other.set_point(20, 20, true);
-        block.merge_with(&other);
-        assert!(block.get_at_level(0, 0, 0));
-
-        block.difference_with(&other);
-        assert!(!block.get_at_level(0, 0, 0));
-
-        block.merge_with(&other);
-        block.intersect_with(&Block::new());
-        assert!(!block.get_at_level(0, 0, 0));
+        let actual = bitset.iter().map(|key| key.index()).collect::<Vec<_>>();
+        assert_eq!(actual, expected);
     }
 
     fn assert_mipmap_matches_regenerated(block: &Block) {
@@ -1163,7 +766,7 @@ mod tests {
         let cached = cached.as_ref().expect("mipmap should be cached");
         let fresh = block.regenerate_mipmaps();
         assert_eq!(
-            *cached, fresh,
+            **cached, fresh,
             "incremental mipmap does not match regenerated mipmap"
         );
     }

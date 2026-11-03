@@ -7,7 +7,7 @@ use crate::achievement::attribution;
 use crate::achievement::layer::AchievementLayer;
 use crate::achievement::{AchievementReader, GEO_NOT_INSTALLED};
 use crate::geo::GeoLookup;
-use crate::journey_area_utils::{cm2_to_m2_rounded, journey_bitmap_area_m2_rounded};
+use crate::journey_bitmap::area::{cm2_to_m2_rounded, journey_bitmap_area_m2_rounded};
 use crate::journey_snapshot::JourneySnapshot;
 
 pub fn explored_areas_from_snapshot(

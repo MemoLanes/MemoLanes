@@ -21,7 +21,7 @@ pub const HASH_A: [u8; 32] = [0xA5; 32];
 pub const HASH_B: [u8; 32] = [0x5A; 32];
 pub const EU: GeoEntityId = GeoEntityId(1);
 pub const FR: GeoEntityId = GeoEntityId(2);
-pub const BORDER_TILE: TileKey = TileKey { x: 1, y: 0 };
+pub const BORDER_TILE: TileKey = TileKey::Mercator { x: 1, y: 0 };
 
 pub fn fr_block() -> BlockKey {
     BlockKey::from_x_y(5, 5)
@@ -50,13 +50,16 @@ pub fn asset(provenance_hash: [u8; 32]) -> Vec<u8> {
             total_area_m2: 1,
         },
     ];
+    let TileKey::Mercator { x, y } = BORDER_TILE else {
+        panic!("geo fixture requires a Mercator border tile");
+    };
     let mut tiles = vec![TileMembership::None; TILE_COUNT];
     tiles[tile_index(0, 0)] = TileMembership::Single(FR);
-    tiles[tile_index(BORDER_TILE.x, BORDER_TILE.y)] = TileMembership::Border;
+    tiles[tile_index(x, y)] = TileMembership::Border;
     let mut cells = vec![NO_ENTITY; CELLS_PER_TILE];
     cells[fr_block().index()] = FR.0;
     let mut blocks = BTreeMap::new();
-    blocks.insert((BORDER_TILE.x, BORDER_TILE.y), cells);
+    blocks.insert((x, y), cells);
     write_geo_data(
         &entities,
         Worldview::Iso.spec().id,
@@ -92,6 +95,7 @@ pub fn insert_border_journey(storage: &Storage, day: u32, bits: u32) -> anyhow::
     }
     let mut bitmap = JourneyBitmap::new();
     bitmap
+        .edit()
         .get_tile_mut_or_insert_empty(&BORDER_TILE)
         .set(&fr_block(), block);
     storage.with_db_txn(|txn| {

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>Arctic coverage gap</name>
+    <Placemark><Point><coordinates>-55.791492,73.623962</coordinates></Point></Placemark>
+    <Placemark><Point><coordinates>-55.692101,73.693268</coordinates></Point></Placemark>
+    <Placemark><Point><coordinates>-54.151440,74.692955</coordinates></Point></Placemark>
+    <Placemark><Point><coordinates>82.201324,72.745468</coordinates></Point></Placemark>
+    <Placemark><Point><coordinates>82.340126,72.683083</coordinates></Point></Placemark>
+    <Placemark><Point><coordinates>82.470932,72.623817</coordinates></Point></Placemark>
+  </Document>
+</kml>

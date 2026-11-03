@@ -1,5 +1,5 @@
 use crate::journey_bitmap::{
-    self, Block, BlockKey, JourneyBitmap, TileKey, BITMAP_SIZE, MAP_WIDTH, TILE_WIDTH,
+    self, BitmapEditor, Block, BlockKey, JourneyBitmap, TileKey, BITMAP_SIZE, MAP_WIDTH, TILE_WIDTH,
 };
 use anyhow::{Context, Result};
 use auto_context::auto_context;
@@ -38,7 +38,7 @@ impl FoWTileId {
 fn parse_fow_bitmap_file<R: Read>(
     file: R,
     filename: &str,
-    journey_bitmap: &mut JourneyBitmap,
+    editor: &mut BitmapEditor<'_>,
     warnings: &mut Vec<String>,
 ) -> Result<()> {
     const TILE_HEADER_LEN: i64 = TILE_WIDTH * TILE_WIDTH;
@@ -73,7 +73,7 @@ fn parse_fow_bitmap_file<R: Read>(
                 }
             }
             if !tile.is_empty() {
-                journey_bitmap.insert_tile(&TileKey::new(id.x, id.y), tile);
+                editor.insert_tile(&TileKey::mercator(id.x, id.y), tile);
             }
         }
     }
@@ -94,6 +94,7 @@ pub fn load_fow_sync_data(mldx_file_path: &str) -> Result<(JourneyBitmap, Option
     }
 
     let mut journey_bitmap = JourneyBitmap::new();
+    let mut editor = journey_bitmap.edit();
     for i in 0..zip.len() {
         let file = zip.by_index(i)?;
         let filename = file.name()?.to_lowercase();
@@ -108,7 +109,7 @@ pub fn load_fow_sync_data(mldx_file_path: &str) -> Result<(JourneyBitmap, Option
         if filename.is_empty() || filename.starts_with('.') || file.is_dir() {
             continue;
         }
-        parse_fow_bitmap_file(file, filename, &mut journey_bitmap, &mut warnings)?;
+        parse_fow_bitmap_file(file, filename, &mut editor, &mut warnings)?;
     }
 
     let warnings = if warnings.is_empty() {
@@ -147,7 +148,7 @@ pub fn load_fow_snapshot_data(fwss_file_path: &str) -> Result<(JourneyBitmap, Op
         if filename.is_empty() || filename.starts_with('.') || file.is_dir() {
             continue;
         }
-        parse_fow_bitmap_file(file, filename, &mut journey_bitmap, &mut warnings)?;
+        parse_fow_bitmap_file(file, filename, &mut journey_bitmap.edit(), &mut warnings)?;
     }
 
     let warnings = if warnings.is_empty() {

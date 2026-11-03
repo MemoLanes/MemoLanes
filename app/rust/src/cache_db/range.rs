@@ -15,9 +15,10 @@ pub fn compute(
         LayerKind::All => None,
         LayerKind::JourneyKind(kind) => Some(*kind),
     };
+    let mut editor = bitmap.edit();
     for journey_id in txn.query_journey_ids_in_date_range(from, to, journey_kind)? {
         let data = txn.get_journey_data(&journey_id)?;
-        data.merge_into(&mut bitmap);
+        data.merge_into(&mut editor);
     }
     Ok(bitmap)
 }

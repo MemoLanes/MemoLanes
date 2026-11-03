@@ -107,7 +107,7 @@ pub fn one_block(tile: TileKey, block: BlockKey, bits: u32) -> JourneyBitmap {
     for i in 0..bits {
         b.set_point((i % 64) as u8, (i / 64) as u8, true);
     }
-    bm.get_tile_mut_or_insert_empty(&tile).set(&block, b);
+    bm.edit().get_tile_mut_or_insert_empty(&tile).set(&block, b);
     bm
 }
 
@@ -143,10 +143,10 @@ pub fn read_on_demand(storage: &Storage, geo: &dyn GeoLookup) -> Answers {
 /// country holds the whole coverage.
 pub fn journey_plan() -> [(TileKey, JourneyKind, u32, u32); 4] {
     [
-        (TileKey::new(0, 0), JourneyKind::DefaultKind, 1, 30),
-        (TileKey::new(2, 0), JourneyKind::DefaultKind, 2, 17),
-        (TileKey::new(3, 0), JourneyKind::Flight, 3, 41),
-        (TileKey::new(1, 0), JourneyKind::DefaultKind, 4, 9),
+        (TileKey::mercator(0, 0), JourneyKind::DefaultKind, 1, 30),
+        (TileKey::mercator(2, 0), JourneyKind::DefaultKind, 2, 17),
+        (TileKey::mercator(3, 0), JourneyKind::Flight, 3, 41),
+        (TileKey::mercator(1, 0), JourneyKind::DefaultKind, 4, 9),
     ]
 }
 

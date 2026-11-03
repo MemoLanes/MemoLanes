@@ -66,15 +66,15 @@ fn one_block(tile: TileKey, block: BlockKey, bits: u32) -> JourneyBitmap {
     for i in 0..bits {
         b.set_point((i % 64) as u8, (i / 64) as u8, true);
     }
-    bm.get_tile_mut_or_insert_empty(&tile).set(&block, b);
+    bm.edit().get_tile_mut_or_insert_empty(&tile).set(&block, b);
     bm
 }
 
 #[test]
 fn attributes_area_with_rollup() {
     let (_dir, geo) = synthetic_geo();
-    let fr_block = one_block(TileKey::new(0, 0), BlockKey::from_x_y(3, 4), 20);
-    let de_block = one_block(TileKey::new(1, 0), BlockKey::from_x_y(7, 7), 20);
+    let fr_block = one_block(TileKey::mercator(0, 0), BlockKey::from_x_y(3, 4), 20);
+    let de_block = one_block(TileKey::mercator(1, 0), BlockKey::from_x_y(7, 7), 20);
 
     let fr_only = attribution::attribute(&fr_block, &geo).unwrap();
     assert!(fr_only.contains_key(&FR));
@@ -83,7 +83,7 @@ fn attributes_area_with_rollup() {
     assert_eq!(fr_only[&EU], fr_only[&FR]);
 
     let mut union = fr_block.clone();
-    union.merge(de_block.clone());
+    union.edit().merge(de_block.clone());
     let both = attribution::attribute(&union, &geo).unwrap();
 
     // Subtree-inclusive: EU is credited each block alongside its owner, so its
@@ -118,7 +118,7 @@ fn a_province_block_credits_its_country_and_continent() {
     let geo = test_utils::geo_index_from_bytes(&dir, &bytes);
 
     let by_entity = attribution::attribute(
-        &one_block(TileKey::new(0, 0), BlockKey::from_x_y(3, 4), 20),
+        &one_block(TileKey::mercator(0, 0), BlockKey::from_x_y(3, 4), 20),
         &geo,
     )
     .unwrap();
@@ -139,7 +139,7 @@ fn ocean_blocks_are_ignored() {
     let (_dir, geo) = synthetic_geo();
     // Border tile (1,0), but a block with no geo owner.
     let states = attribution::attribute(
-        &one_block(TileKey::new(1, 0), BlockKey::from_x_y(0, 0), 10),
+        &one_block(TileKey::mercator(1, 0), BlockKey::from_x_y(0, 0), 10),
         &geo,
     )
     .unwrap();

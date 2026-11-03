@@ -94,17 +94,17 @@ fn adm1_code_is_unique() {
 /// These are the parsed counts minus the editorial drops (geo_policy.toml
 /// `drop_admin1_in` −1075 everywhere; the coextensive sole-unit dedup −28 iso /
 /// −33 chn / −35 usa) and minus the provinces whose parent country holds none
-/// of their land (geo_policy.toml `unparented`): iso drops 9 and usa drops 1,
-/// because Natural Earth's iso admin-0 excises disputed land from both
-/// claimants — minus chn's two `merge` rows into Hainan, plus the two
+/// or only a minority of their land (geo_policy.toml `unparented`): iso drops
+/// 14 and usa drops 2, because Natural Earth's iso admin-0 excises disputed
+/// land from both claimants — minus chn's two `merge` rows into Hainan, plus the two
 /// territories it demotes (Hong Kong, Macau) and its synthesized Taiwan entity.
 #[test]
 fn shipped_bins_carry_the_expected_province_counts() {
     use geo_data_format::{GeoData, GeoEntityKind};
 
     for (worldview, expected) in [
-        (Worldview::Iso, 3475usize),
-        (Worldview::Usa, 3476),
+        (Worldview::Iso, 3470usize),
+        (Worldview::Usa, 3475),
         (Worldview::Chn, 3427),
     ] {
         let path = Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -438,7 +438,6 @@ fn coextensive_whole_country_units_are_deduplicated() {
         (Worldview::Iso, "SOL+00?", "SOM"),
         (Worldview::Iso, "CYN+00?", "CYP"),
         (Worldview::Iso, "KAB+00?", "KAZ"),
-        (Worldview::Iso, "USG+00?", "CUB"),
     ] {
         assert_eq!(shipped_parent(worldview, code).as_deref(), Some(expected));
     }
@@ -478,6 +477,29 @@ fn a_contested_province_ships_under_the_country_that_declares_it() {
     assert_eq!(shipped_parent(Worldview::Iso, "GUY-675"), None);
 }
 
+/// A province whose declared code is no country here goes to the block
+/// majority only if that country holds most of it. These lie mostly in land the
+/// worldview's admin-0 leaves to no country, so the "majority" was a sliver —
+/// 1–2% of Siachen went to China — and they are dropped instead.
+#[test]
+fn a_province_mostly_outside_every_country_is_dropped() {
+    for (worldview, code) in [
+        (Worldview::Iso, "KAS+00?"),  // Siachen Glacier, not CHN
+        (Worldview::Usa, "KAS+00?"),  // Siachen Glacier, not CHN
+        (Worldview::Iso, "WSB-5133"), // Akrotiri, not CYP
+        (Worldview::Iso, "ESB-5132"), // Dhekelia, not CYP
+        (Worldview::Iso, "USG+00?"),  // Guantanamo Bay Naval Base, not CUB
+        (Worldview::Iso, "CSI+00?"),  // Coral Sea Islands, not AUS
+    ] {
+        assert_eq!(
+            shipped_parent(worldview, code),
+            None,
+            "{}/{code}",
+            worldview.spec().id
+        );
+    }
+}
+
 /// The two ways a province reaches a country other than the one it declares:
 /// a reviewed override where the mask covers it in full, and block majority
 /// where the declared code is no country in that worldview.
@@ -495,11 +517,6 @@ fn a_province_reaches_another_country_only_by_review_or_by_absence() {
         (Worldview::Iso, "SOL+00?", "SOM"),
         (Worldview::Iso, "CYN+00?", "CYP"),
         (Worldview::Iso, "KAB+00?", "KAZ"),
-        (Worldview::Iso, "USG+00?", "CUB"),
-        (Worldview::Iso, "WSB-5133", "CYP"),
-        (Worldview::Iso, "ESB-5132", "CYP"),
-        (Worldview::Iso, "CSI+00?", "AUS"),
-        (Worldview::Iso, "KAS+00?", "CHN"),
     ] {
         assert_eq!(
             shipped_parent(worldview, code).as_deref(),

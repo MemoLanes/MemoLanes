@@ -3,16 +3,16 @@ pub mod test_utils;
 use memolanes_core::flight_track_processor;
 use memolanes_core::gps::{Point, RawGPSPoint};
 use memolanes_core::{export_data, import_data};
-use sha2::{Digest, Sha256};
-use std::collections::BTreeMap;
-use std::fs::{self, File};
-use std::io::Write;
-use std::path::Path;
+use std::fs::File;
 
 fn raw_data(longitude: f64) -> RawGPSPoint {
+    raw_data_at(longitude, 0.0)
+}
+
+fn raw_data_at(longitude: f64, latitude: f64) -> RawGPSPoint {
     RawGPSPoint {
         point: Point {
-            latitude: 0.0,
+            latitude,
             longitude,
         },
         timestamp_ms: None,
@@ -77,29 +77,19 @@ fn preserves_single_and_repeated_source_points() {
 }
 
 #[test]
-fn run_tests() {
+fn real_flights_preserve_observations_and_roundtrip_through_gpx() {
     let temp = tempdir::TempDir::new("flight-track-export").unwrap();
     for name in &[
         "CHH7867_XIAN_HANGZHOU",
         "interpolate_cross_180",
         "tokyo_hawaii",
         "TV9882-3bf27ed6",
+        "arctic_gap",
     ] {
-        const GENERATE_RESULT_GPX_FOR_INSPECTION: bool = false;
-
         let (loaded_data, _preprocessor) =
             import_data::kml::load_kml(&format!("./tests/data/flight_{name}.kml")).unwrap();
         let result = flight_track_processor::process(&loaded_data).unwrap();
-        let input_point_count: usize = loaded_data.iter().map(Vec::len).sum();
-        let output_point_count: usize = result
-            .track_segments
-            .iter()
-            .map(|segment| segment.track_points.len())
-            .sum();
-        assert!(
-            output_point_count >= input_point_count,
-            "{name}: flight track interpolation removed points ({input_point_count} -> {output_point_count})"
-        );
+        assert_preserved_points_and_spacing(&loaded_data, &result);
         let path = temp.path().join(format!("{name}.gpx"));
         export_data::gpx::journeys_to_gpx_file(
             &[test_utils::vector_export(result.clone())],
@@ -120,46 +110,128 @@ fn run_tests() {
                 assert!((exported.point.longitude - source.longitude).abs() < 1e-12);
             }
         }
-        let gpx = fs::read(path).unwrap();
-        verify_gpx(name, &gpx);
-        if GENERATE_RESULT_GPX_FOR_INSPECTION {
-            let mut file = File::create(format!(
-                "./tests/for_inspection/flight_track_processor_{name}.gpx"
-            ))
-            .unwrap();
-            file.write_all(&gpx).unwrap();
+    }
+}
+
+fn assert_preserved_points_and_spacing(
+    raw: &[Vec<RawGPSPoint>],
+    result: &memolanes_core::journey_vector::JourneyVector,
+) {
+    let mut output = result
+        .track_segments
+        .iter()
+        .flat_map(|segment| &segment.track_points);
+    for source in raw.iter().flatten() {
+        assert!(
+            output.any(|point| point.latitude == source.point.latitude
+                && point.longitude == source.point.longitude),
+            "every original observation, including duplicates, must survive in order: {:?}",
+            source.point,
+        );
+    }
+    for segment in &result.track_segments {
+        for pair in segment.track_points.windows(2) {
+            let a = Point {
+                longitude: pair[0].longitude,
+                latitude: pair[0].latitude,
+            };
+            let b = Point {
+                longitude: pair[1].longitude,
+                latitude: pair[1].latitude,
+            };
+            let step = a.haversine_distance(&b);
+            // Generated coordinates are rounded to six decimal places.
+            assert!(step <= 1_000.2, "interpolation left a {step}-metre gap");
         }
     }
 }
 
-fn verify_gpx(name: &str, gpx_data: &[u8]) {
-    let hash_table_path = "tests/gpx_hashes.lock";
-    let mut hash_table: BTreeMap<String, String> = if Path::new(hash_table_path).exists() {
-        let hash_table_content =
-            fs::read_to_string(hash_table_path).expect("Failed to read hash table file");
-        serde_json::from_str(&hash_table_content).unwrap_or_else(|_| BTreeMap::new())
-    } else {
-        BTreeMap::new()
-    };
+#[test]
+fn dateline_and_pole_crossings_are_continuous_on_the_sphere() {
+    for source in [
+        vec![raw_data_at(170.0, 88.0), raw_data_at(-170.0, 88.2)],
+        vec![raw_data_at(179.9, 70.0), raw_data_at(-179.9, 70.0)],
+        vec![raw_data_at(0.0, 89.0), raw_data_at(180.0, 89.0)],
+        vec![raw_data_at(0.0, -89.0), raw_data_at(180.0, -89.0)],
+        vec![raw_data_at(0.0, 0.0), raw_data_at(180.0, 0.0)],
+    ] {
+        let result = flight_track_processor::process(std::slice::from_ref(&source)).unwrap();
+        assert_preserved_points_and_spacing(std::slice::from_ref(&source), &result);
+        assert!(result
+            .track_segments
+            .iter()
+            .flat_map(|s| &s.track_points)
+            .all(|p| p.latitude.is_finite()
+                && p.longitude.is_finite()
+                && p.latitude.abs() <= 90.0));
+    }
+}
 
-    // Calculate hash of the gpx file
-    let mut hasher = Sha256::new();
-    hasher.update(gpx_data);
-    let current_hash = hex::encode(hasher.finalize());
+#[test]
+fn spherical_interpolation_keeps_source_segment_breaks() {
+    assert!(flight_track_processor::process(&[vec![]]).is_none());
+    let raw = vec![
+        vec![],
+        vec![raw_data(0.0), raw_data(0.02)],
+        vec![raw_data(100.0), raw_data(100.02)],
+    ];
+    let result = flight_track_processor::process(&raw).unwrap();
+    assert_preserved_points_and_spacing(&raw, &result);
+    assert_eq!(result.track_segments.len(), 2);
+}
 
-    if let Some(stored_hash) = hash_table.get(name) {
-        // Entry exists, compare hashes
-        assert_eq!(
-            &current_hash, stored_hash,
-            "Gpx file hash mismatch for {name}. Expected: {stored_hash}, Got: {current_hash}. If you have updated the gpx file, please delete the gpx_hashes.lock file and re-run the tests."
-        );
-        println!("Verified gpx file hash for: {name}");
-    } else {
-        // No entry exists, add new entry
-        hash_table.insert(name.to_string(), current_hash.clone());
-        let hash_table_content =
-            serde_json::to_string_pretty(&hash_table).expect("Failed to serialize hash table");
-        fs::write(hash_table_path, hash_table_content).expect("Failed to write hash table file");
-        println!("Added new hash entry for: {name}");
+#[test]
+fn dateline_splits_preserve_source_points_and_share_spherical_endpoints() {
+    for (start, end) in [
+        ((179.99, 0.0), (-179.99, 0.0)),
+        ((-179.999, 70.0), (179.999, 70.001)),
+        ((170.0, 88.0), (-170.0, 88.2)),
+        ((180.0, 10.0), (-179.99, 10.01)),
+        ((179.99, -10.0), (-180.0, -10.01)),
+    ] {
+        for (start, end) in [(start, end), (end, start)] {
+            let source = vec![raw_data_at(start.0, start.1), raw_data_at(end.0, end.1)];
+            let result = flight_track_processor::process(std::slice::from_ref(&source)).unwrap();
+            assert_eq!(result.track_segments.len(), 2);
+            assert_preserved_points_and_spacing(std::slice::from_ref(&source), &result);
+            let before = result.track_segments[0].track_points.last().unwrap();
+            let after = &result.track_segments[1].track_points[0];
+            assert_eq!(before.longitude.abs(), 180.0);
+            assert_eq!(after.longitude, -before.longitude);
+            assert_eq!(before.latitude, after.latitude);
+            for segment in &result.track_segments {
+                assert!(segment
+                    .track_points
+                    .windows(2)
+                    .all(|pair| { (pair[1].longitude - pair[0].longitude).abs() <= 180.0 }));
+            }
+        }
+    }
+}
+
+#[test]
+fn spherical_smoothing_handles_repeated_and_antipodal_observations() {
+    for source in [
+        vec![
+            raw_data_at(0.0, 0.0),
+            raw_data_at(180.0, 0.0),
+            raw_data_at(179.0, 1.0),
+        ],
+        vec![
+            raw_data_at(0.0, 0.0),
+            raw_data_at(1.0, 1.0),
+            raw_data_at(1.0, 1.0),
+            raw_data_at(2.0, 1.0),
+        ],
+    ] {
+        let result = flight_track_processor::process(std::slice::from_ref(&source)).unwrap();
+        assert_preserved_points_and_spacing(std::slice::from_ref(&source), &result);
+        assert!(result
+            .track_segments
+            .iter()
+            .flat_map(|segment| &segment.track_points)
+            .all(|point| point.latitude.is_finite()
+                && point.longitude.is_finite()
+                && point.latitude.abs() <= 90.0));
     }
 }

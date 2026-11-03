@@ -75,6 +75,14 @@ fn flatten(
 
 #[test]
 fn every_entity_has_a_name_in_every_locale() {
+    let admin2_keys: BTreeSet<_> =
+        geo_rasterizer::admin2::load(&geo_rasterizer::admin2::default_dir())
+            .unwrap()
+            .into_iter()
+            .map(|f| format!("admin2.{}", f.canonical_code))
+            .collect();
+    assert_eq!(admin2_keys.len(), 364, "admin-2 source membership moved");
+
     for &locale in Locale::ALL {
         let map = names(locale);
         assert!(!map.is_empty(), "{}: empty region names", locale.spec().tag);
@@ -89,6 +97,17 @@ fn every_entity_has_a_name_in_every_locale() {
             assert!(
                 keys.iter().any(|k| k.starts_with("province.")),
                 "{}: bin has no provinces — asset looks wrong",
+                worldview.spec().id
+            );
+            let shipped_admin2: BTreeSet<_> = keys
+                .iter()
+                .filter(|k| k.starts_with("admin2."))
+                .cloned()
+                .collect();
+            assert_eq!(
+                shipped_admin2,
+                admin2_keys,
+                "{}: admin-2 entities differ from the snapshot",
                 worldview.spec().id
             );
 
@@ -230,7 +249,7 @@ fn cldr_supplies_the_english_province_names_it_is_pinned_for() {
     // broke, not that the data moved: both sides are hash-verified.
     assert_eq!(
         (from_cldr, from_ne, from_override),
-        (3095, 369, 18),
+        (3095, 365, 18),
         "(named by CLDR, fell through to Natural Earth, named by an English override)"
     );
 }

@@ -60,7 +60,7 @@ fn one_block(tile: TileKey, block: BlockKey, bits: u32) -> JourneyBitmap {
     for i in 0..bits {
         b.set_point((i % 64) as u8, (i / 64) as u8, true);
     }
-    bm.get_tile_mut_or_insert_empty(&tile).set(&block, b);
+    bm.edit().get_tile_mut_or_insert_empty(&tile).set(&block, b);
     bm
 }
 
@@ -138,13 +138,13 @@ fn on_demand_areas_and_region_areas() {
         &storage,
         (2025, 1, 1),
         JourneyKind::DefaultKind,
-        one_block(TileKey::new(0, 0), BlockKey::from_x_y(3, 4), 25),
+        one_block(TileKey::mercator(0, 0), BlockKey::from_x_y(3, 4), 25),
     );
     insert(
         &storage,
         (2025, 1, 2),
         JourneyKind::Flight,
-        one_block(TileKey::new(0, 0), BlockKey::from_x_y(5, 6), 40),
+        one_block(TileKey::mercator(0, 0), BlockKey::from_x_y(5, 6), 40),
     );
 
     // On-demand reads against the same worldview geo.
@@ -187,7 +187,7 @@ fn on_demand_area_without_geo() {
         &storage,
         (2025, 1, 1),
         JourneyKind::DefaultKind,
-        one_block(TileKey::new(0, 0), BlockKey::from_x_y(3, 4), 25),
+        one_block(TileKey::mercator(0, 0), BlockKey::from_x_y(3, 4), 25),
     );
 
     // Area needs no worldview installed; regions do (see `cache_db_v1.rs`).

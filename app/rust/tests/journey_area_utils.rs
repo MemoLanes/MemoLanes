@@ -1,5 +1,11 @@
 pub mod test_utils;
-use memolanes_core::{import_data, journey_area_utils, journey_bitmap::JourneyBitmap, renderer::*};
+use memolanes_core::journey_bitmap::{
+    BitmapPlane, Block, BlockKey, Tile, TileKey, BITMAP_WIDTH, BITMAP_WIDTH_OFFSET,
+    MERCATOR_MAX_LATITUDE, POLAR_MAP_WIDTH_OFFSET, TILE_WIDTH, TILE_WIDTH_OFFSET,
+};
+use memolanes_core::{
+    import_data, journey_bitmap::area, journey_bitmap::JourneyBitmap, renderer::*,
+};
 
 const START_LNG: f64 = 151.1435370795134;
 const START_LAT: f64 = -33.793291910360125;
@@ -10,7 +16,7 @@ const END_LAT: f64 = -55.793291910360125;
 fn test_journey_bitmap_area_m2_rounded() {
     let (bitmap_import, _warnings) =
         import_data::fow::load_fow_sync_data("./tests/data/fow_1.zip").unwrap();
-    let calculated_area = journey_area_utils::journey_bitmap_area_m2_rounded(&bitmap_import, None);
+    let calculated_area = area::journey_bitmap_area_m2_rounded(&bitmap_import, None);
     assert_eq!(calculated_area, 3035670); // area unit: m^2
 }
 
@@ -19,20 +25,20 @@ fn partial_update_use_cached_and_recompute_touched_tiles_only() {
     let journey_bitmap = JourneyBitmap::new();
     let mut map_renderer = MapRenderer::new(journey_bitmap);
 
-    map_renderer.update(|bitmap, cb| {
-        bitmap.add_line_with_change_callback(START_LNG, START_LAT, END_LNG, END_LAT, cb)
-    });
+    map_renderer.update(|editor| editor.add_line(START_LNG, START_LAT, END_LNG, END_LAT));
     let _ = map_renderer.get_current_area();
 
-    map_renderer.update(|bitmap, cb| {
-        bitmap.add_line_with_change_callback(START_LNG, END_LAT, END_LNG, START_LAT, cb)
-    });
+    map_renderer.update(|editor| editor.add_line(START_LNG, END_LAT, END_LNG, START_LAT));
     let update_area = map_renderer.get_current_area();
 
     let mut full_journey_bitmap = JourneyBitmap::new();
-    full_journey_bitmap.add_line(START_LNG, START_LAT, END_LNG, END_LAT);
-    full_journey_bitmap.add_line(START_LNG, END_LAT, END_LNG, START_LAT);
-    let full_area = journey_area_utils::journey_bitmap_area_m2_rounded(&full_journey_bitmap, None);
+    full_journey_bitmap
+        .edit()
+        .add_line(START_LNG, START_LAT, END_LNG, END_LAT);
+    full_journey_bitmap
+        .edit()
+        .add_line(START_LNG, END_LAT, END_LNG, START_LAT);
+    let full_area = area::journey_bitmap_area_m2_rounded(&full_journey_bitmap, None);
 
     println!("update_area = {update_area}");
     println!("full_area = {full_area}");
@@ -83,7 +89,7 @@ fn area_is_order_independent_under_many_sequential_accumulations() {
     for &lat in &lats {
         for &lng in &lngs {
             let mut bitmap = JourneyBitmap::new();
-            bitmap.add_line(lng, lat, lng + 0.4, lat + 0.4);
+            bitmap.edit().add_line(lng, lat, lng + 0.4, lat + 0.4);
             bitmaps.push(bitmap);
         }
     }
@@ -94,10 +100,10 @@ fn area_is_order_independent_under_many_sequential_accumulations() {
     let mut running_bit_count: u32 = 0;
     let mut merged = JourneyBitmap::new();
     for bitmap in bitmaps {
-        running_total_cm2 += journey_area_utils::journey_bitmap_area_cm2(&bitmap, None);
-        naive_rounded_total += journey_area_utils::journey_bitmap_area_m2_rounded(&bitmap, None);
+        running_total_cm2 += area::journey_bitmap_area_cm2(&bitmap, None);
+        naive_rounded_total += area::journey_bitmap_area_m2_rounded(&bitmap, None);
         running_bit_count += total_bit_count(&bitmap);
-        merged.merge(bitmap);
+        merged.edit().merge(bitmap);
     }
 
     assert_eq!(
@@ -107,13 +113,10 @@ fn area_is_order_independent_under_many_sequential_accumulations() {
          area equality below would hold for the wrong reason"
     );
 
-    let merged_cm2 = journey_area_utils::journey_bitmap_area_cm2(&merged, None);
-    let merged_m2 = journey_area_utils::journey_bitmap_area_m2_rounded(&merged, None);
+    let merged_cm2 = area::journey_bitmap_area_cm2(&merged, None);
+    let merged_m2 = area::journey_bitmap_area_m2_rounded(&merged, None);
     assert_eq!(running_total_cm2, merged_cm2);
-    assert_eq!(
-        journey_area_utils::cm2_to_m2_rounded(running_total_cm2),
-        merged_m2
-    );
+    assert_eq!(area::cm2_to_m2_rounded(running_total_cm2), merged_m2);
     assert!(merged_m2 > 0);
 
     // Pins that the sweep still exercises the hazard: rounding per call — the
@@ -129,8 +132,8 @@ fn validate_area_after_map_renderer_replace() {
     let journey_bitmap = JourneyBitmap::new();
     let mut map_renderer = MapRenderer::new(journey_bitmap);
 
-    map_renderer.update(|bitmap, changed| {
-        bitmap.add_line_with_change_callback(START_LNG, START_LAT, END_LNG, END_LAT, changed);
+    map_renderer.update(|editor| {
+        editor.add_line(START_LNG, START_LAT, END_LNG, END_LAT);
     });
 
     assert!(map_renderer.get_current_area() > 0);
@@ -140,7 +143,7 @@ fn validate_area_after_map_renderer_replace() {
 
     map_renderer.replace(bitmap_import.clone());
 
-    let calculated_area = journey_area_utils::journey_bitmap_area_m2_rounded(&bitmap_import, None);
+    let calculated_area = area::journey_bitmap_area_m2_rounded(&bitmap_import, None);
     assert_eq!(map_renderer.get_current_area(), calculated_area); // area unit: m^2
 }
 
@@ -156,7 +159,7 @@ fn cm2_area_is_identical_whether_merged_at_once_or_in_chunks() {
     for &lat in &lats {
         for &lng in &lngs {
             let mut bitmap = JourneyBitmap::new();
-            bitmap.add_line(lng, lat, lng + 0.4, lat + 0.4);
+            bitmap.edit().add_line(lng, lat, lng + 0.4, lat + 0.4);
             pieces.push(bitmap);
         }
     }
@@ -166,9 +169,9 @@ fn cm2_area_is_identical_whether_merged_at_once_or_in_chunks() {
     let mut running_bit_count: u32 = 0;
     for piece in &pieces {
         running_bit_count += total_bit_count(piece);
-        merged.merge(piece.clone());
+        merged.edit().merge(piece.clone());
     }
-    let whole_cm2 = journey_area_utils::journey_bitmap_area_cm2(&merged, None);
+    let whole_cm2 = area::journey_bitmap_area_cm2(&merged, None);
     assert!(whole_cm2 > 0);
 
     // Summing the pieces is only the same coverage as the merge if no two
@@ -183,7 +186,7 @@ fn cm2_area_is_identical_whether_merged_at_once_or_in_chunks() {
 
     let incremental_cm2: i64 = pieces
         .iter()
-        .map(|p| journey_area_utils::journey_bitmap_area_cm2(p, None))
+        .map(|p| area::journey_bitmap_area_cm2(p, None))
         .sum();
 
     assert_eq!(
@@ -196,7 +199,7 @@ fn cm2_area_is_identical_whether_merged_at_once_or_in_chunks() {
 /// from the design's rejected alternative of quantizing a rounded f64
 /// per-block total: with disjoint pieces every block appears exactly once on
 /// both sides, so `Σ_b round(P·c_b)` is the same sum either way. This test
-/// exercises the incremental-merge pattern — `delta.difference(before)` —
+/// exercises the incremental-merge pattern — `delta.edit().difference(before)` —
 /// against pieces that share blocks, so some blocks fill up gradually across
 /// several merges. Per-bit quantization (a bit's cm2 area times `bit_count`)
 /// distributes over that split by construction, since it never rounds a
@@ -222,7 +225,7 @@ fn cm2_area_is_identical_when_a_block_fills_across_several_merges() {
         (0.2, 1.0, 0.8, 0.0),
     ] {
         let mut bitmap = JourneyBitmap::new();
-        bitmap.add_line(
+        bitmap.edit().add_line(
             lng + x1 * side,
             lat + y1 * side,
             lng + x2 * side,
@@ -240,9 +243,9 @@ fn cm2_area_is_identical_when_a_block_fills_across_several_merges() {
     let mut incremental: i64 = 0;
     for piece in &pieces {
         let mut delta = piece.clone();
-        delta.difference(&union);
-        incremental += journey_area_utils::journey_bitmap_area_cm2(&delta, None);
-        union.merge(piece.clone());
+        delta.edit().difference(&union);
+        incremental += area::journey_bitmap_area_cm2(&delta, None);
+        union.edit().merge(piece.clone());
     }
 
     let merged_bit_count = total_bit_count(&union);
@@ -251,7 +254,7 @@ fn cm2_area_is_identical_when_a_block_fills_across_several_merges() {
         "pieces must overlap for this test to exercise partial-block quantization"
     );
 
-    let whole_cm2 = journey_area_utils::journey_bitmap_area_cm2(&union, None);
+    let whole_cm2 = area::journey_bitmap_area_cm2(&union, None);
     assert!(whole_cm2 > 0);
     assert_eq!(
         incremental, whole_cm2,
@@ -270,39 +273,121 @@ fn cm2_area_is_independent_of_insertion_order() {
     for &lat in &lats {
         for &lng in &lngs {
             let mut bitmap = JourneyBitmap::new();
-            bitmap.add_line(lng, lat, lng + 0.4, lat + 0.4);
+            bitmap.edit().add_line(lng, lat, lng + 0.4, lat + 0.4);
             pieces.push(bitmap);
         }
     }
 
     let mut forward = JourneyBitmap::new();
     for piece in pieces.iter() {
-        forward.merge(piece.clone());
+        forward.edit().merge(piece.clone());
     }
     let mut backward = JourneyBitmap::new();
     for piece in pieces.iter().rev() {
-        backward.merge(piece.clone());
+        backward.edit().merge(piece.clone());
     }
 
-    let forward_cm2 = journey_area_utils::journey_bitmap_area_cm2(&forward, None);
-    let backward_cm2 = journey_area_utils::journey_bitmap_area_cm2(&backward, None);
+    let forward_cm2 = area::journey_bitmap_area_cm2(&forward, None);
+    let backward_cm2 = area::journey_bitmap_area_cm2(&backward, None);
     assert!(forward_cm2 > 0);
     assert_eq!(forward_cm2, backward_cm2);
 }
 
-/// `add_line` does not clamp latitude, so a line drawn past the Mercator limit
-/// produces a `tile_key.y` outside the in-range 0..512 grid (e.g. lat -89 gives
-/// tile_y 642). The row arithmetic that turns a tile/block position into an
-/// absolute latitude band must degrade gracefully there rather than overflow.
+/// Mirrored tracks must cover the same area on the two equal-area planes.
 #[test]
-fn extreme_latitudes_do_not_panic_and_produce_finite_area() {
-    for &lat in &[-89.0, -86.0, 86.0, 89.0] {
-        let mut bitmap = JourneyBitmap::new();
-        bitmap.add_line(10.0, lat, 10.4, lat + 0.1);
-        let area = journey_area_utils::journey_bitmap_area_m2_rounded(&bitmap, None);
-        assert!(
-            area < 1_000_000_000_000,
-            "a single line's area must stay small, got {area} at lat {lat}"
+fn mirrored_polar_tracks_have_the_same_positive_area() {
+    for latitude in [86.0, 89.0] {
+        let areas = [1.0, -1.0].map(|sign| {
+            let mut bitmap = JourneyBitmap::new();
+            bitmap
+                .edit()
+                .add_line(10.0, sign * latitude, 10.4, sign * (latitude + 0.1));
+            area::journey_bitmap_area_cm2(&bitmap, None)
+        });
+        assert!(areas[0] > 0, "polar lines must contribute area");
+        assert_eq!(areas[0], areas[1], "mirrored tracks at ±{latitude}°");
+    }
+}
+
+/// Coordinates are native pixel offsets from the centre of the polar disk.
+fn single_polar_pixel(plane: BitmapPlane, x: i64, y: i64) -> JourneyBitmap {
+    let radius = 1 << (POLAR_MAP_WIDTH_OFFSET + TILE_WIDTH_OFFSET + BITMAP_WIDTH_OFFSET - 1);
+    let (x, y) = (x + radius, y + radius);
+    let tile_side = TILE_WIDTH * BITMAP_WIDTH;
+    let tile_key = TileKey::new(plane, (x / tile_side) as u16, (y / tile_side) as u16);
+    let block_key = BlockKey::from_x_y(
+        ((x / BITMAP_WIDTH) % TILE_WIDTH) as u8,
+        ((y / BITMAP_WIDTH) % TILE_WIDTH) as u8,
+    );
+    let mut block = Block::new();
+    block.set_point((x % BITMAP_WIDTH) as u8, (y % BITMAP_WIDTH) as u8, true);
+    let mut tile = Tile::new();
+    tile.set(&block_key, block);
+    let mut bitmap = JourneyBitmap::new();
+    bitmap.edit().insert_tile(&tile_key, tile);
+    bitmap
+}
+
+#[test]
+fn polar_area_counts_only_the_fraction_inside_the_cap() {
+    // Circle/square intersection areas at radius 524288, rounded per pixel to
+    // cm² (one full pixel = 11010 cm²). Boundary fractions were independently
+    // integrated at 60 decimal digits: .62499967714, .68015143925, .00097529303.
+    let cases = [
+        (0, 0, 11010),           // inside an interior block
+        (314571, 419429, 11010), // inside a boundary block
+        (314573, 419431, 0),     // outside, in the same boundary block
+        (500000, 500000, 0),     // entirely outside block
+        (314572, 419430, 6881),  // boundary pixel whose centre is inside
+        (370727, 370727, 7488),  // diagonal
+        (1023, 524287, 11),      // tiny sliver whose centre is outside
+        (0, 524287, 11010),      // near the axis
+    ];
+    for plane in [BitmapPlane::NorthPolar, BitmapPlane::SouthPolar] {
+        for (x, y, expected) in cases {
+            // Pixel reflections use -x-1, since each pixel spans [x,x+1].
+            for (x, y) in [(x, y), (y, x), (-x - 1, y), (x, -y - 1), (-x - 1, -y - 1)] {
+                let bitmap = single_polar_pixel(plane, x, y);
+                assert_eq!(
+                    area::journey_bitmap_area_cm2(&bitmap, None),
+                    expected,
+                    "{plane:?} pixel ({x}, {y})"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn seam_area_stays_additive_and_cached_across_overlapping_merges() {
+    let mut pieces = Vec::new();
+    for sign in [-1.0, 1.0] {
+        for offset in [-0.000001, 0.000001, 0.00001] {
+            let lat = sign * (MERCATOR_MAX_LATITUDE + offset);
+            let mut bitmap = JourneyBitmap::new();
+            bitmap.edit().add_line(45.123, lat, 45.123, lat);
+            pieces.push(bitmap);
+        }
+    }
+
+    let mut merged = JourneyBitmap::new();
+    let mut renderer = MapRenderer::new(JourneyBitmap::new());
+    let mut incremental_cm2 = 0;
+    // Repeat the pieces to exercise overlapping bits, including partial pixels
+    // in the same boundary block, and an identical journey imported twice.
+    for piece in pieces.iter().chain(pieces.iter()) {
+        let mut delta = piece.clone();
+        delta.edit().difference(&merged);
+        incremental_cm2 += area::journey_bitmap_area_cm2(&delta, None);
+        merged.edit().merge(piece.clone());
+        renderer.update(|editor| editor.merge(piece.clone()));
+        assert_eq!(
+            incremental_cm2,
+            area::journey_bitmap_area_cm2(&merged, None)
+        );
+        assert_eq!(
+            renderer.get_current_area(),
+            area::cm2_to_m2_rounded(incremental_cm2)
         );
     }
 }

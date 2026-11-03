@@ -138,6 +138,10 @@ impl MapServer {
         })
     }
 
+    pub fn get_api_endpoint(&self) -> String {
+        format!("http://{}:{}", get_dev_server_host(), self.port)
+    }
+
     pub fn get_http_url(&self) -> String {
         let dev_server =
             std::env::var("DEV_SERVER").unwrap_or_else(|_| "http://localhost:8080".to_string());

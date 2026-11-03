@@ -1,11 +1,10 @@
 //! Refine a coarser entity raster with a finer one.
 //!
 //! Both operations here are level-agnostic — they take a coarse raster and a
-//! fine one and never look at which admin level either is. Today that is
-//! countries refined by provinces; an admin-2 level would reuse them unchanged,
-//! with the province raster as the coarse side. Only the parenting policy in
-//! `entities` is level-specific, because it reads a particular Natural Earth
-//! column.
+//! fine one and never look at which admin level either is: countries refined
+//! by provinces, then provinces by the admin-2 tier. Only the parenting
+//! policy in `entities` is level-specific, because it reads a particular
+//! Natural Earth column.
 //!
 //! The coarse mask is authoritative: a block's leaf is the fine entity only
 //! when that entity's parent is the coarse one the block already belongs to.
@@ -31,7 +30,8 @@ use crate::rasterize::{BlockLookup, TileLookup};
 
 /// How many of each fine entity's blocks fall inside each coarse entity's mask,
 /// indexed by the fine entity's id: `coverage[fine.0] = coarse id → block
-/// count`. Blocks no coarse entity covers are not counted at all.
+/// count`. Blocks no coarse entity covers are not counted at all;
+/// [`block_counts`] gives each fine entity's total.
 ///
 /// A `Vec` rather than a map because the registry allocates entity ids densely
 /// from zero, and this is written once per covered cell — order 10^8 times. The
@@ -115,6 +115,31 @@ pub fn measure_coverage(
         started.elapsed()
     );
     tally
+}
+
+pub fn block_counts(raster: (&TileLookup, &BlockLookup)) -> Vec<u64> {
+    let mut counts: Vec<u64> = Vec::new();
+    let mut add = |id: GeoEntityId, blocks: u64| {
+        let slot = id.0 as usize;
+        if slot >= counts.len() {
+            counts.resize(slot + 1, 0);
+        }
+        counts[slot] += blocks;
+    };
+    for tx in 0..TILE_GRID_WIDTH as u16 {
+        for ty in 0..TILE_GRID_WIDTH as u16 {
+            match cells_at(raster.0, raster.1, tx, ty) {
+                TileCells::Empty => {}
+                TileCells::Uniform(id) => add(id, CELLS_PER_TILE as u64),
+                TileCells::Dense(cells) => {
+                    for &cell in cells.iter().filter(|&&cell| cell != NO_ENTITY) {
+                        add(GeoEntityId(cell), 1);
+                    }
+                }
+            }
+        }
+    }
+    counts
 }
 
 /// The country covering the most of one province's blocks. Ties break on the

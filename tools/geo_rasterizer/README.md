@@ -28,15 +28,16 @@ country-level diff is not drowned by the ~4.6k provinces:
 - `countries.toml` — keyed by [ADM0_A3](https://en.wikipedia.org/wiki/ISO_3166-1_alpha-3)
   country code (the `ADM0_A3` field in the Natural Earth source)
 - `provinces.toml` — keyed by `adm1_code` (the admin-1 source's own code)
+- `admin2.toml` — keyed by the admin-2 unit's canonical code (`CN-<adcode>`)
 
-Each **country** and **province** entry also stores a `point` — a `[lon, lat]`
+Each **country**, **province** and **admin-2** entry also stores a `point` — a `[lon, lat]`
 representative point (the entity's **union centroid**: its geometry merged across
 every worldview), rounded to 4 decimals. It is informational, not a gate — it makes
 the committed registry diff carry an identity signal (see [below](#why-it-exists)).
 Continents carry no `point` — a continent's identity is its code.
 
 Each file is a standalone document: a `schema` key (format version, currently `1`;
-all three must agree) plus one array of inline tables, one line per entity.
+all files must agree) plus one array of inline tables, one line per entity.
 
 ```toml
 # countries.toml
@@ -169,9 +170,11 @@ tables:
   contributes no block under the target's country mask fails the build (the
   zero-block gate in `main.rs`) — merged features no longer take the parenting
   path where the landless check would have caught them.
-- **`drop_admin2`** — admin-2 features present in the admin-1 source (Hong
-  Kong's 18 districts) with no tier to live in until ADM2 data ships. Their
-  registry ids stay frozen for later re-use.
+- **`drop_admin1_in`** — countries whose admin-1 rows are the
+  local-government tier rather than the first-order one (France's
+  departments, Britain's local authorities, Hong Kong's 18 districts). All of
+  a country's rows drop and the country is the leaf. Their registry ids stay
+  frozen for later re-use.
 - **`unparented`** / **`overrule`** — the parenting escape hatches; see the
   ladder below.
 
@@ -212,7 +215,8 @@ Which country owns a province, in precedence order:
    full;
 2. the declared `adm0_a3` where it names a country here — for a demoted or
    synthesized territory this is its policy-row `into`;
-3. `block_majority` over the country mask;
+3. `block_majority` over the country mask, when that country holds more than
+   half of the province's blocks;
 4. landless — dropped if listed in `unparented`, a hard error otherwise.
 
 ## Region names (`geo_names_overrides.toml`)
@@ -293,6 +297,35 @@ gate (`tests/names_coverage.rs`): every entity in every worldview must resolve t
 a non-empty name in every locale. Commit only the `.toml` — the JSON are
 git-ignored build artifacts.
 
+## Polar achievement coverage
+
+Projections and clipped pixel-area calculations are shared with the runtime
+through the std-only `app/rust/bitmap_geometry` crate.
+
+Geo assets contain three independent tile indices aligned with the journey
+bitmap grids: Mercator (512×512 tiles), north LAEA and south LAEA (128×128 each).
+Each tile still has 128×128 region blocks. The polar squares are clipped to
+positive-area intersections with their cap disks; square corners are ocean.
+Total region areas include all three planes, with polar boundary pixels using
+the same fractional-area and cm² quantization rules as journey bitmaps.
+
+The existing Natural Earth longitude/latitude polygons are the source for every
+plane. Polar preparation clips to the corresponding hemisphere, then adaptively
+densifies source edges before projecting them. This preserves pole closures,
+dateline cuts and polygon holes without replacing the source dataset or
+hardcoding Antarctica. With today's sources the north cap has no land.
+
+Province parenting and refinement remain Mercator-only, with country masks
+authoritative and the existing block-majority behavior unchanged. Polar planes
+use country ownership directly. No retained province currently reaches either
+cap: the whole-country Antarctica admin-1 placeholder is dropped by policy.
+Generation fails if a future source or policy introduces a retained polar
+province, rather than silently omitting its coverage.
+
+This is region/achievement data only; it does not enable polar map rendering.
+Run `just rasterize-geo` after changes. The geo-data version participates in
+provenance and must change when projection, ownership or area semantics change.
+
 ## Future work
 
 - **Per-worldview names.** The worldview-scoped override path
@@ -300,7 +333,7 @@ git-ignored build artifacts.
   implemented but **unused** — no shipped name differs by worldview yet. It
   exists for disputed regions that legitimately carry a different name per
   political view (e.g. Arunachal Pradesh vs Zangnan in the chn worldview).
-- **ADM2.** The tier below admin-1 (`GeoEntityKind::Admin2`) is plumbed but
-  empty — no source ships. Landing it re-adds `drop_admin2`'s Hong Kong
-  districts under their frozen ids and reuses the tier-agnostic refine/area
-  machinery with the admin-1 raster as the coarse side.
+- **Admin-2 beyond China.** Only China ships an admin-2 tier, from the
+  committed Overture snapshot (`tools/geo_admin2_snapshot`). Another country
+  needs a source selected per country; a `drop_admin1_in` country's dropped
+  rows can return as its admin-2 under their frozen ids.

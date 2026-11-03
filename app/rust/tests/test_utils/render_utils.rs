@@ -95,8 +95,8 @@ impl TileShader {
             for j in 0..(1 << std::cmp::max(-zoom_diff_view_to_tile, 0)) {
                 // draw tile tile_x+i, tile_y+j
 
-                if let Some(tile) =
-                    journey_bitmap.get_tile(&TileKey::new((tile_x + i) as u16, (tile_y + j) as u16))
+                if let Some(tile) = journey_bitmap
+                    .get_tile(&TileKey::mercator((tile_x + i) as u16, (tile_y + j) as u16))
                 {
                     // if zoom_diff_view_to_tile > 0, view zoom larger, view region smaller, draw a portion of a single tile.
                     // if zoom_diff_view_to_tile < 0, view zoom smaller, view region larger, draw the full tile at given location of view.

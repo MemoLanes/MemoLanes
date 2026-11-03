@@ -216,6 +216,29 @@ fn vector_fixtures_roundtrip() {
 }
 
 #[test]
+fn polar_gpx_roundtrip_preserves_segment_breaks_and_poles() {
+    const IMPORT_PATH: &str = "./tests/data/polar_complex.gpx";
+    const EXPORT_PATH: &str = "./tests/for_inspection/polar_complex.gpx";
+
+    let (points, journey_info, preprocessor) = run_vector_integrity_check(IMPORT_PATH, EXPORT_PATH);
+
+    assert_eq!(points.len(), 252);
+    assert!(matches!(preprocessor, ImportPreprocessor::None));
+    assert_eq!(journey_info.start_time, None);
+    assert_eq!(journey_info.end_time, None);
+
+    // Keep the two hemispheres in separate segments through the roundtrip.
+    let (segments, _) = import_data::gpx::load_gpx(EXPORT_PATH).unwrap();
+    assert_eq!(
+        segments.iter().map(Vec::len).collect::<Vec<_>>(),
+        [25, 101, 25, 101]
+    );
+
+    assert!(points.iter().any(|point| point.latitude == 90.0));
+    assert!(points.iter().any(|point| point.latitude == -90.0));
+}
+
+#[test]
 fn test_normalize_times() {
     let input = "2025-07-02 18:07:33 +0000";
     let normalized = normalize_generic_time(input).unwrap();
@@ -612,7 +635,7 @@ fn check_journey_detail_and_mldx_analysis(path: &Path, db: &mut MainDb) {
         panic!("Expected a detail renderer");
     };
     let mut expected_bitmap = JourneyBitmap::new();
-    export_test_vector(1.0).merge_into(&mut expected_bitmap);
+    export_test_vector(1.0).merge_into(&mut expected_bitmap.edit());
     assert_eq!(
         renderer.lock().unwrap().peek_latest_bitmap(),
         &expected_bitmap
@@ -728,7 +751,7 @@ fn check_vector_exports(temp: &Path, db: &mut MainDb) {
         import_data::fow::load_fow_snapshot_data(fwss_path.to_str().unwrap()).unwrap();
     let mut expected_bitmap = JourneyBitmap::new();
     for offset in [1.0, 10.0, 20.0] {
-        export_test_vector(offset).merge_into(&mut expected_bitmap);
+        export_test_vector(offset).merge_into(&mut expected_bitmap.edit());
     }
     assert_eq!(bitmap, expected_bitmap);
     assert!(warnings.is_none());

@@ -23,7 +23,6 @@ pub enum GeoEntityKind {
     Continent,
     Admin0,
     Admin1,
-    /// Empty until ADM2 data ships.
     Admin2,
 }
 

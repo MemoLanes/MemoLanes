@@ -3,6 +3,7 @@ use std::collections::BTreeMap;
 use geo_data_format::{Locale, Worldview};
 use geo_rasterizer::admin0::Admin0Feature;
 use geo_rasterizer::admin1::Admin1Feature;
+use geo_rasterizer::admin2::Admin2Feature;
 use geo_rasterizer::names::{build_region_names, write_region_names};
 use geo_rasterizer::overrides::Overrides;
 use geo_types::{Coord, LineString, MultiPolygon, Polygon};
@@ -59,6 +60,7 @@ fn names_resolve_from_cldr_and_overrides() {
     let out = build_region_names(
         &by,
         &[],
+        &[],
         &cldr(&[("AA", "Aaa", "甲国")]),
         &BTreeMap::new(),
         &ov,
@@ -81,6 +83,7 @@ fn diverging_iso_a2_across_worldviews_is_an_error() {
     let err = build_region_names(
         &by,
         &[],
+        &[],
         &cldr(&[("AA", "Aaa", "甲国"), ("AB", "Abb", "乙国")]),
         &BTreeMap::new(),
         &ov,
@@ -100,6 +103,7 @@ fn a_cldr_miss_without_override_is_an_error() {
     let err = build_region_names(
         &by,
         &[],
+        &[],
         &cldr(&[("AA", "Aaa", "甲国")]),
         &BTreeMap::new(),
         &ov,
@@ -117,6 +121,7 @@ fn a_worldview_agnostic_override_beats_cldr() {
     let by = vec![(Worldview::Iso, vec![feat("AAA", "AA")])];
     let out = build_region_names(
         &by,
+        &[],
         &[],
         &cldr(&[("AA", "Aaa", "甲国")]),
         &BTreeMap::new(),
@@ -141,6 +146,7 @@ fn a_scoped_override_emits_a_prefixed_key() {
     let out = build_region_names(
         &by,
         &[],
+        &[],
         &cldr(&[("AA", "Aaa", "甲国")]),
         &BTreeMap::new(),
         &ov,
@@ -162,6 +168,7 @@ fn a_dead_override_key_is_an_error() {
     let by = vec![(Worldview::Iso, vec![feat("AAA", "AA")])];
     let err = build_region_names(
         &by,
+        &[],
         &[],
         &cldr(&[("AA", "Aaa", "甲国")]),
         &BTreeMap::new(),
@@ -187,6 +194,7 @@ fn no_sovereign_and_no_override_is_an_error() {
     let err = build_region_names(
         &by,
         &[],
+        &[],
         &cldr(&[("BB", "Bbb", "乙国")]),
         &BTreeMap::new(),
         &ov,
@@ -207,6 +215,7 @@ fn region_names_are_written_as_nested_json() {
     ];
     let out = build_region_names(
         &by,
+        &[],
         &[],
         &cldr(&[("AA", "Aaa", "甲国")]),
         &BTreeMap::new(),
@@ -248,6 +257,7 @@ fn build_names_for_test(
     build_region_names(
         &[(Worldview::Iso, vec![])],
         &[(Worldview::Iso, provinces)],
+        &[],
         &empty_cldr_territories(),
         &cldr_subdivisions,
         &Overrides::default(),
@@ -262,6 +272,7 @@ fn build_names_for_test_err(
     build_region_names(
         &[(Worldview::Iso, vec![])],
         &[(Worldview::Iso, provinces)],
+        &[],
         &empty_cldr_territories(),
         &cldr_subdivisions,
         &Overrides::default(),
@@ -284,6 +295,7 @@ fn build_names_for_test_by_worldview(
     build_region_names(
         &[(Worldview::Iso, vec![])],
         &admin1_by_worldview,
+        &[],
         &empty_cldr_territories(),
         &cldr_subdivisions,
         &Overrides::default(),
@@ -366,4 +378,51 @@ fn ambiguity_is_judged_over_the_union_of_worldviews_not_per_worldview() {
     );
 
     assert_eq!(names[&Locale::EnUs]["province.XX-001"], "Southern Darfur");
+}
+
+fn admin2(code: &str, en: &str, zh: &str) -> Admin2Feature {
+    Admin2Feature {
+        canonical_code: code.into(),
+        parent_adm1: "AAA-001".into(),
+        name_en: en.into(),
+        name_zh: zh.into(),
+        geometry: sq(),
+    }
+}
+
+#[test]
+fn admin2_names_come_from_the_source_per_locale() {
+    let ov = Overrides::from_toml_str(OVERRIDES).unwrap();
+    let by = vec![(Worldview::Iso, vec![feat("AAA", "AA")])];
+    let out = build_region_names(
+        &by,
+        &[],
+        &[admin2("CN-4403", "Shenzhen", "深圳市")],
+        &cldr(&[("AA", "Aaa", "甲国")]),
+        &BTreeMap::new(),
+        &ov,
+    )
+    .unwrap();
+    assert_eq!(out[&Locale::EnUs]["admin2.CN-4403"], "Shenzhen");
+    assert_eq!(out[&Locale::ZhCn]["admin2.CN-4403"], "深圳市");
+}
+
+#[test]
+fn an_admin2_override_beats_the_source_name() {
+    // Also proves the tier's keys are minted: an override on a key no entity
+    // mints would trip the dead-override gate instead.
+    let toml = format!("{OVERRIDES}\n[\"admin2.CN-4404\"]\nen-US = \"Zhuhai\"\n");
+    let ov = Overrides::from_toml_str(&toml).unwrap();
+    let by = vec![(Worldview::Iso, vec![feat("AAA", "AA")])];
+    let out = build_region_names(
+        &by,
+        &[],
+        &[admin2("CN-4404", "Zhuhai City", "珠海市")],
+        &cldr(&[("AA", "Aaa", "甲国")]),
+        &BTreeMap::new(),
+        &ov,
+    )
+    .unwrap();
+    assert_eq!(out[&Locale::EnUs]["admin2.CN-4404"], "Zhuhai");
+    assert_eq!(out[&Locale::ZhCn]["admin2.CN-4404"], "珠海市");
 }

@@ -37,6 +37,7 @@ import {
 } from "./tile-buffer-request-state";
 
 const WORLD_SIZE_CHANGE_EPSILON = 1e-6;
+type RefreshCallback = (force: boolean) => void | Promise<void>;
 
 /**
  * A deserialized tile buffer together with the range it was fetched for.
@@ -115,8 +116,6 @@ export class JourneyTileProvider {
   private params: ReactiveParams;
   private currentVersion: string | null; // Store the current version
   private viewRange: TileRange | null; // Store the current viewport tile range [x, y, w, h, z]
-  // TODO: evaluate whether we need to make this public (also the bufferSizePower)
-  tileBuffer: TileBuffer | null; // Store the tile buffer data
   private loadedTileBuffer: LoadedTileBuffer | null;
   private dataGeneration: number;
   private generationAdvancePending: boolean;
@@ -124,7 +123,7 @@ export class JourneyTileProvider {
   private tileBufferRequestState: TileBufferRequestState;
   private readonly tileBufferBackends = new Map<string, TileBufferBackend>();
   private nextTileBufferSourceId: number;
-  bufferSizePower: number;
+  private requestedBufferSizePower: number;
   private isGlobeProjection: boolean; // Flag indicating if globe projection is used
   private tileBufferCallbacks: TileBufferCallback[]; // Array to store tile buffer update callbacks
   private cgiEndpoint: string;
@@ -133,6 +132,8 @@ export class JourneyTileProvider {
   private zoomingOutInProgress: boolean;
   private disposed: boolean;
   private readonly unsubscribeRenderMode: () => void;
+  private readonly unsubscribeProjection: () => void;
+  private readonly refreshCallbacks = new Set<RefreshCallback>();
   private readonly handleMapMove = (): void => {
     this.tryUpdateViewRange();
   };
@@ -143,13 +144,12 @@ export class JourneyTileProvider {
   constructor(
     map: maplibregl.Map,
     params: ReactiveParams,
-    isGlobeProjection: boolean = false,
+    isGlobeProjection?: boolean,
   ) {
     this.map = map;
     this.params = params;
     this.currentVersion = null;
     this.viewRange = null;
-    this.tileBuffer = null;
     this.loadedTileBuffer = null;
     this.dataGeneration = 0;
     this.generationAdvancePending = false;
@@ -157,12 +157,12 @@ export class JourneyTileProvider {
     this.tileBufferRequestState = createTileBufferRequestState();
     this.nextTileBufferSourceId = 1;
 
-    this.bufferSizePower = this.getBufferSizePowerFromRenderMode(
+    this.requestedBufferSizePower = this.getBufferSizePowerFromRenderMode(
       params.renderMode,
     );
 
     // TODO: better handling of globe projection
-    this.isGlobeProjection = isGlobeProjection;
+    this.isGlobeProjection = isGlobeProjection ?? params.projection === "globe";
 
     this.tileBufferCallbacks = [];
 
@@ -176,11 +176,21 @@ export class JourneyTileProvider {
     this.unsubscribeRenderMode = this.params.on("renderMode", (newMode) => {
       const newBufferSizePower = this.getBufferSizePowerFromRenderMode(newMode);
       this.setBufferSizePower(newBufferSizePower);
-      // TODO: should we also refresh the tile buffer?
     });
+
+    this.unsubscribeProjection = this.params.on(
+      "projection",
+      (newProjection) => {
+        this.isGlobeProjection = newProjection === "globe";
+        this.tryUpdateViewRange();
+        void this.pollForJourneyUpdates(true);
+      },
+    );
 
     this.map.on("move", this.handleMapMove);
     this.map.on("moveend", this.handleMapMoveEnd);
+    // Projection migration can change geographic bounds without a move event.
+    this.map.on("projectiontransition", this.handleMapMove);
     this.tryUpdateViewRange();
   }
 
@@ -198,23 +208,22 @@ export class JourneyTileProvider {
     forceUpdate: boolean = false,
   ): Promise<boolean | null> {
     if (this.disposed) return null;
-    // Periodic checks can wait for the next tick. Advancing demand while a
-    // request is decoding or downloading would supersede useful work every
-    // second on slow devices. Explicit refreshes must still queue a follow-up.
-    if (!forceUpdate && this.tileBufferUpdatePromise) return false;
     try {
-      // console.log("Checking for journey updates via tile buffer");
-
-      // Force update view range and fetch tile buffer
-      // A forced poll is an explicit data/proxy refresh. Keep this separate
-      // from viewport-triggered forced downloads, which do not represent a
-      // newer data generation.
+      const refreshes = Array.from(this.refreshCallbacks, (callback) =>
+        callback(forceUpdate),
+      );
       if (forceUpdate) {
         this.generationAdvancePending = true;
       }
-      this.queueTileBufferUpdate();
-      const tileBufferUpdated = await this.checkAndFetchTileBuffer(forceUpdate);
-
+      // Periodic polls must not supersede useful in-flight Mercator work.
+      // Other planes still refresh independently, and explicit refreshes wait
+      // for every plane even when this viewport has no Mercator coverage.
+      let update = Promise.resolve(false);
+      if (this.viewRange && (forceUpdate || !this.tileBufferUpdatePromise)) {
+        this.queueTileBufferUpdate();
+        update = this.checkAndFetchTileBuffer(forceUpdate);
+      }
+      const [tileBufferUpdated] = await Promise.all([update, ...refreshes]);
       return tileBufferUpdated;
     } catch (error) {
       console.error("Error while checking for journey updates:", error);
@@ -227,6 +236,11 @@ export class JourneyTileProvider {
     await this.checkAndFetchTileBuffer(true);
   }
 
+  /** Requested resolution, which may differ from the currently loaded buffer. */
+  get bufferSizePower(): number {
+    return this.requestedBufferSizePower;
+  }
+
   setBufferSizePower(bufferSizePower: number): void {
     if (this.disposed || this.bufferSizePower === bufferSizePower) {
       return;
@@ -235,7 +249,7 @@ export class JourneyTileProvider {
     console.log(
       `Switching buffer size power: ${this.bufferSizePower} -> ${bufferSizePower}`,
     );
-    this.bufferSizePower = bufferSizePower;
+    this.requestedBufferSizePower = bufferSizePower;
     this.pollForJourneyUpdates(true);
   }
 
@@ -262,6 +276,20 @@ export class JourneyTileProvider {
       this.bufferSizePower,
       this.getLayerConfig(this.params.renderMode).tileRequestPolicy,
     );
+    if (!currentViewRange) {
+      if (this.viewRange) {
+        this.viewRange = null;
+        this.viewportUpdateDeferred = false;
+        this.tileBufferRequestState = {
+          ...advanceTileBufferDemand(this.tileBufferRequestState, {
+            queueRequest: false,
+            activeRequest: "supersede",
+          }),
+          requestQueued: false,
+        };
+      }
+      return null;
+    }
     const [x, y, w, h, z] = currentViewRange;
 
     const rangeUnchanged =
@@ -344,12 +372,28 @@ export class JourneyTileProvider {
     return this.viewRange;
   }
 
+  /** The current Mercator demand, or null when the viewport is polar-only. */
+  getViewRange(): TileRange | null {
+    return this.viewRange;
+  }
+
+  registerRefreshCallback(callback: RefreshCallback): void {
+    this.refreshCallbacks.add(callback);
+  }
+
+  unregisterRefreshCallback(callback: RefreshCallback): void {
+    this.refreshCallbacks.delete(callback);
+  }
+
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
     this.unsubscribeRenderMode();
+    this.unsubscribeProjection();
+    this.refreshCallbacks.clear();
     this.map.off("move", this.handleMapMove);
     this.map.off("moveend", this.handleMapMoveEnd);
+    this.map.off("projectiontransition", this.handleMapMove);
     this.tileBufferCallbacks.length = 0;
     this.tileBufferRequestState = {
       ...this.tileBufferRequestState,
@@ -363,7 +407,6 @@ export class JourneyTileProvider {
     }
     this.releaseTileBufferSource(this.loadedTileBuffer?.source ?? null);
     this.loadedTileBuffer = null;
-    this.tileBuffer = null;
     for (const backend of this.tileBufferBackends.values()) backend.dispose();
     this.tileBufferBackends.clear();
   }
@@ -393,7 +436,11 @@ export class JourneyTileProvider {
   ): Promise<boolean> {
     let tileBufferUpdated = false;
 
-    while (!this.disposed && this.tileBufferRequestState.requestQueued) {
+    while (
+      !this.disposed &&
+      this.viewRange &&
+      this.tileBufferRequestState.requestQueued
+    ) {
       if (await this.fetchTileBuffer(forceUpdate)) {
         tileBufferUpdated = true;
       }
@@ -592,7 +639,6 @@ export class JourneyTileProvider {
       }
 
       this.releaseTileBufferSource(previousSource);
-      this.tileBuffer = source.mainThreadBuffer;
       this.loadedTileBuffer = {
         source,
         generation: this.dataGeneration,
@@ -678,6 +724,7 @@ export class JourneyTileProvider {
   private queueTileBufferUpdate(
     activeRequest: ActiveRequestDisposition = "supersede",
   ): void {
+    if (!this.viewRange) return;
     this.tileBufferRequestState = advanceTileBufferDemand(
       this.tileBufferRequestState,
       {

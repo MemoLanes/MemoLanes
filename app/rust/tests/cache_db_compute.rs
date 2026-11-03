@@ -73,7 +73,7 @@ fn basic() {
         })
         .unwrap();
 
-    journey_bitmap.merge(journey_bitmap_flight);
+    journey_bitmap.edit().merge(journey_bitmap_flight);
     assert_eq!(
         main_db
             .with_txn(|txn| cache_db.get_or_compute(txn, &LayerKind::All, None))
@@ -191,7 +191,7 @@ fn range_cross_month() {
         .unwrap();
 
     let mut expected = bitmap_mar.clone();
-    expected.merge(bitmap_apr.clone());
+    expected.edit().merge(bitmap_apr.clone());
     assert_eq!(result, expected);
 }
 
@@ -240,8 +240,8 @@ fn range_partial_start_full_middle_partial_end() {
         .unwrap();
 
     let mut expected = bitmap_jan.clone();
-    expected.merge(bitmap_feb.clone());
-    expected.merge(bitmap_mar.clone());
+    expected.edit().merge(bitmap_feb.clone());
+    expected.edit().merge(bitmap_mar.clone());
     assert_eq!(result, expected);
 }
 
@@ -341,7 +341,7 @@ fn range_cross_year() {
         .unwrap();
 
     let mut expected = bitmap_dec.clone();
-    expected.merge(bitmap_jan.clone());
+    expected.edit().merge(bitmap_jan.clone());
     assert_eq!(result, expected);
 }
 
@@ -416,7 +416,7 @@ fn range_all_kinds() {
         .unwrap();
 
     let mut expected = bitmap_default.clone();
-    expected.merge(bitmap_flight.clone());
+    expected.edit().merge(bitmap_flight.clone());
     assert_eq!(result, expected);
 }
 
@@ -513,7 +513,7 @@ fn full_repeated_returns_the_same_answer() {
     assert_eq!(result1, result2);
 
     let mut expected = bitmap_jan;
-    expected.merge(bitmap_mar);
+    expected.edit().merge(bitmap_mar);
     assert_eq!(result1, expected);
 }
 
@@ -580,7 +580,7 @@ fn range_after_insert_and_invalidation() {
         .unwrap();
 
     let mut expected = bitmap_a;
-    expected.merge(bitmap_b);
+    expected.edit().merge(bitmap_b);
     assert_eq!(result, expected);
 }
 
@@ -677,9 +677,9 @@ fn full_cache_aggregates_across_queries() {
         .unwrap();
 
     let mut expected = bitmap_jan;
-    expected.merge(bitmap_feb);
-    expected.merge(bitmap_mar);
-    expected.merge(bitmap_apr);
+    expected.edit().merge(bitmap_feb);
+    expected.edit().merge(bitmap_mar);
+    expected.edit().merge(bitmap_apr);
     assert_eq!(
         result, expected,
         "Full query must return aggregated data from all months"
@@ -748,7 +748,7 @@ fn get_or_compute_explicit_range() {
         })
         .unwrap();
     let mut expected = bitmap_mar;
-    expected.merge(bitmap_apr);
+    expected.edit().merge(bitmap_apr);
     assert_eq!(result2, expected);
 }
 
@@ -798,8 +798,8 @@ fn repeated_multi_month_query_uses_monthly_cache() {
         .unwrap();
 
     let mut expected = bitmap_jan;
-    expected.merge(bitmap_feb);
-    expected.merge(bitmap_mar);
+    expected.edit().merge(bitmap_feb);
+    expected.edit().merge(bitmap_mar);
     assert_eq!(result1, expected);
 
     // Second call: same range — monthly caches serve the data
@@ -874,7 +874,7 @@ fn all_rebuilds_from_per_kind_monthly_caches() {
         .unwrap();
 
     let mut expected = bitmap_default;
-    expected.merge(bitmap_flight);
+    expected.edit().merge(bitmap_flight);
     assert_eq!(result, expected, "All should merge per-kind monthly caches");
 }
 
@@ -951,9 +951,9 @@ fn all_rebuilds_from_per_kind_multi_month() {
         .unwrap();
 
     let mut expected = bitmap_default_mar;
-    expected.merge(bitmap_default_apr);
-    expected.merge(bitmap_flight_mar);
-    expected.merge(bitmap_flight_apr);
+    expected.edit().merge(bitmap_default_apr);
+    expected.edit().merge(bitmap_flight_mar);
+    expected.edit().merge(bitmap_flight_apr);
     assert_eq!(result, expected);
 }
 
@@ -1130,7 +1130,7 @@ fn merge_journey_visible_in_later_query() {
         .with_txn(|txn| cache_db.get_or_compute(txn, &layer_kind, None))
         .unwrap();
     let mut expected = bitmap1;
-    expected.merge(bitmap2);
+    expected.edit().merge(bitmap2);
     assert_eq!(result, expected);
 }
 

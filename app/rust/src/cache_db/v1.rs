@@ -62,7 +62,7 @@ impl CacheDb for CacheDbV1 {
                     LayerKind::All => {
                         let mut bm = JourneyBitmap::new();
                         for jk in JourneyKind::iter() {
-                            bm.merge(self.get_or_compute(
+                            bm.edit().merge(self.get_or_compute(
                                 txn,
                                 &LayerKind::JourneyKind(jk),
                                 None,
@@ -100,7 +100,7 @@ impl CacheDb for CacheDbV1 {
 
         // Merge into the per-kind full cache if it exists.
         if let Some(mut bm) = full_table::get(&self.conn, &layer_kind)? {
-            data.merge_into_with_partial_clone(&mut bm);
+            data.merge_into_with_partial_clone(&mut bm.edit());
             full_table::set(&self.conn, &layer_kind, &mut bm)?;
         }
 

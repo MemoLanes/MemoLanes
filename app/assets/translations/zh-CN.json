@@ -272,7 +272,8 @@
     },
     "region_list": {
       "country_title": "国家与地区",
-      "region_empty": "还没有点亮这个国家的下辖地区。",
+      "region_empty": "还没有点亮下辖地区。",
+      "region_unsupported": "暂不支持该地区的下辖地区统计。",
       "error": "无法加载地区数据。",
       "retry": "重试",
       "view_all": "查看全部",
@@ -424,7 +425,8 @@
       "system": "跟随系统",
       "chinese": "简体中文",
       "english": "English"
-    }
+    },
+    "data_attribution": "地图边界数据 © OpenStreetMap 贡献者（经 Overture Maps，ODbL 许可）。"
   },
   "beta_testing_notice": {
     "title": "欢迎体验「迹忆」公测版",
