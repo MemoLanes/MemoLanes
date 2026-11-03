@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use auto_context::auto_context;
 use chrono::{DateTime, NaiveDate, Utc};
 use flutter_rust_bridge::frb;
-use protobuf::EnumOrUnknown;
+use protobuf::{EnumOrUnknown, MessageField};
 use strum_macros::EnumIter;
 
 use crate::{journey_attributes::JourneyAttributes, protos, utils};
@@ -130,6 +130,7 @@ impl JourneyHeader {
             .type_
             .enum_value()
             .map_err(|x| anyhow!("Unknown proto journey type: {x}"))?;
+        let MessageField(attributes) = proto.attributes;
         Ok(JourneyHeader {
             id: proto.id,
             revision: proto.revision,
@@ -152,10 +153,7 @@ impl JourneyHeader {
             note: proto.note,
             postprocessor_algo: proto.postprocessor_algo,
             has_raw_data: proto.has_raw_data,
-            attributes: proto
-                .attributes
-                .take()
-                .map(|proto| JourneyAttributes { proto }),
+            attributes: attributes.map(|proto| JourneyAttributes { proto }),
         })
     }
 
@@ -212,11 +210,11 @@ impl JourneyHeader {
         proto.end__timestamp_sec = end.map(|x| x.timestamp());
         proto.start__timestamp_sec = start.map(|x| x.timestamp());
         proto.type_ = EnumOrUnknown::new(journey_type.to_proto());
-        proto.kind.0 = Some(Box::new(journey_kind.to_proto()));
+        proto.kind = MessageField::some(journey_kind.to_proto());
         proto.note = note;
         proto.postprocessor_algo = postprocessor_algo;
         proto.has_raw_data = has_raw_data;
-        proto.attributes = attributes.map(|attributes| attributes.proto).into();
+        proto.attributes = MessageField(attributes.map(|attributes| attributes.proto));
         proto
     }
 }

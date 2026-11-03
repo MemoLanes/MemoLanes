@@ -20,6 +20,10 @@ fn flight() -> JourneyAttributes {
     )
 }
 
+fn train() -> JourneyAttributes {
+    JourneyAttributes::train(Some("のぞみ12号".into()), Some("JR東海".into()))
+}
+
 fn journey(attributes: Option<JourneyAttributes>) -> JourneyHeader {
     JourneyHeader {
         id: "flight".into(),
@@ -78,6 +82,20 @@ fn typed_attributes_exposes_optional_display_fields() {
         })
     );
     assert_eq!(JourneyAttributes::default().details(), None);
+    assert_eq!(
+        train().details(),
+        Some(JourneyAttributesView::Train {
+            service_name: Some("のぞみ12号".into()),
+            operator_name: Some("JR東海".into()),
+        })
+    );
+    assert_eq!(
+        JourneyAttributes::train(None, Some(String::new())).details(),
+        Some(JourneyAttributesView::Train {
+            service_name: None,
+            operator_name: Some(String::new()),
+        })
+    );
 }
 
 #[test]
@@ -92,8 +110,19 @@ fn optional_attributes_survives_mldx_roundtrip() {
             None,
             None,
         )),
+        Some(train()),
+        Some(JourneyAttributes::train(None, None)),
+        Some(JourneyAttributes::train(None, Some(String::new()))),
+        Some(JourneyAttributes::train(Some(String::new()), None)),
     ] {
-        let header = journey(attributes);
+        let is_train = matches!(
+            attributes.as_ref().and_then(JourneyAttributes::details),
+            Some(JourneyAttributesView::Train { .. })
+        );
+        let mut header = journey(attributes);
+        if is_train {
+            header.journey_kind = JourneyKind::DefaultKind;
+        }
         let mut reader = MldxReader::open(encode(header.clone())).unwrap();
         let (loaded, _, _) = reader
             .load_single_journey_with_raw_data(&header.id)
@@ -105,12 +134,20 @@ fn optional_attributes_survives_mldx_roundtrip() {
 
 #[test]
 fn attributes_unknown_fields_and_categories_survive_import_edit_export_and_reimport() {
-    for attributes in [flight(), JourneyAttributes::default()] {
-        let mut expected = journey(Some(attributes)).to_proto();
+    for (attributes, kind) in [
+        (flight(), JourneyKind::Flight),
+        (train(), JourneyKind::DefaultKind),
+        (JourneyAttributes::default(), JourneyKind::DefaultKind),
+    ] {
+        let mut header = journey(Some(attributes));
+        header.journey_kind = kind;
+        let mut expected = header.to_proto();
         let attributes = expected.attributes.as_mut().unwrap();
         add_future_fields(attributes.special_fields.mut_unknown_fields());
         if attributes.has_flight() {
             add_future_fields(attributes.mut_flight().special_fields.mut_unknown_fields());
+        } else if attributes.has_train() {
+            add_future_fields(attributes.mut_train().special_fields.mut_unknown_fields());
         } else {
             // Future oneof variant: CruiseAttributes { string ship_name = 1; }.
             attributes
@@ -120,7 +157,9 @@ fn attributes_unknown_fields_and_categories_survive_import_edit_export_and_reimp
         }
         let bytes = expected.write_to_bytes().unwrap();
         let header = JourneyHeader::of_proto(Message::parse_from_bytes(&bytes).unwrap()).unwrap();
-        if !expected.attributes.as_ref().unwrap().has_flight() {
+        if !expected.attributes.as_ref().unwrap().has_flight()
+            && !expected.attributes.as_ref().unwrap().has_train()
+        {
             assert_eq!(header.attributes.as_ref().unwrap().details(), None);
         }
 
