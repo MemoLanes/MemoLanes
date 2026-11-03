@@ -55,6 +55,5 @@ message Header {
   optional string postprocessor_algo = 11;
   // Whether this stored or exported journey includes a raw-data attachment.
   bool has_raw_data = 12;
-  // Adding display information does not change the MLDX container version.
   JourneyAttributes attributes = 13;
 }
