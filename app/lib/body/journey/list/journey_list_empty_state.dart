@@ -4,7 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:memolanes/common/component/app_button.dart';
 import 'package:memolanes/constants/app_typography.dart';
 
-enum JourneyListEmptyType { all, filtered, month }
+enum JourneyListEmptyType { all, filtered, day }
 
 class JourneyListEmptyState extends StatelessWidget {
   final JourneyListEmptyType type;
@@ -33,9 +33,9 @@ class JourneyListEmptyState extends StatelessWidget {
         'journey.list.empty_filtered_description',
         Icons.layers_clear_outlined,
       ),
-      JourneyListEmptyType.month => (
-        'journey.list.empty_month_title',
-        'journey.list.empty_month_description',
+      JourneyListEmptyType.day => (
+        'journey.list.empty_day_title',
+        'journey.list.empty_day_description',
         Icons.calendar_month_outlined,
       ),
     };
