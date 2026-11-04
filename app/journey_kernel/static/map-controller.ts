@@ -41,12 +41,12 @@ import {
   PLACEHOLDER_STYLE_METADATA_KEY,
   StyleLoadRetry,
 } from "./style-load-retry";
+
 import {
   createPolarCameraConstrain,
   resolvePolarGlobeLock,
 } from "./polar-camera-policy";
 import { getPolarBoundsCamera } from "./polar-camera-bounds";
-
 const DATA_POLL_INTERVAL_MS = 1_000;
 
 interface WebGLContextMessageChannel {
@@ -169,7 +169,6 @@ export class MapController {
         ? { "AttributionControl.ToggleAttribution": config.attributionLabel }
         : undefined,
     });
-
     this.applyPolarCameraConstraint();
 
     // Disable rotation controls
@@ -665,7 +664,7 @@ export class MapController {
    */
   private applyMapStyle(): void {
     this.map.setStyle(this.params.mapStyle, {
-      transformStyle: (_previousStyle, nextStyle) =>
+      transformStyle: (_previousStyle: any, nextStyle: any) =>
         transformStyleWithProjection(
           nextStyle,
           this.params.projection,

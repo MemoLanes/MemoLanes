@@ -7,7 +7,6 @@
     "end_journey_message": "Are you sure you want to end your current journey?",
     "double_back_exit": "Press back again to exit the app",
     "map_data_source_copyright_title": "Data Source",
-    "map_data_source_unavailable": "Map data sources are currently unavailable.",
     "gps_accuracy": "Accuracy",
     "gps_signal": {
       "excellent": "Strong",

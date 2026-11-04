@@ -40,7 +40,6 @@ Flutter injects parameters via JavaScript after page load, then calls `trySetup(
 window.EXTERNAL_PARAMS = {
   cgi_endpoint: "flutter://TileProviderChannel",
   render: "canvas",
-  map_style: "https://tiles.openfreemap.org/styles/liberty",
   // ... other params
 };
 trySetup();

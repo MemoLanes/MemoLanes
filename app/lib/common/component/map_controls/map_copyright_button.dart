@@ -21,12 +21,15 @@ class MapCopyrightButton extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: () async {
         final attribution = await readAttribution();
-        if (!context.mounted || ModalRoute.of(context)?.isCurrent != true) {
+        if (attribution == null ||
+            attribution.trim().isEmpty ||
+            !context.mounted ||
+            ModalRoute.of(context)?.isCurrent != true) {
           return;
         }
         await showCommonDialog(
           context,
-          attribution ?? context.tr("home.map_data_source_unavailable"),
+          attribution,
           title: context.tr("home.map_data_source_copyright_title"),
         );
       },

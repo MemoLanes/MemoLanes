@@ -444,8 +444,15 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     final accessKey = api.getMapboxAccessToken();
 
     final mapView = _currentRoughMapView;
+    final lngParam = mapView?.lng.toString() ?? 'null';
+    final latParam = mapView?.lat.toString() ?? 'null';
+    final zoomParam = mapView?.zoom.toString() ?? 'null';
     final bounds = widget.flyToBounds ?? widget.initialMapBounds;
     final boundsPadding = _boundsPadding;
+
+    debugPrint('Injecting lng: $lngParam');
+    debugPrint('Injecting lat: $latParam');
+    debugPrint('Injecting zoom: $zoomParam');
 
     final style = MapStyleStore.instance.selected;
     final fogStyle = _selectedMapFogStyle;
