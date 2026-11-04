@@ -6,7 +6,6 @@
     "end_journey_title": "结束旅程？",
     "end_journey_message": "确定要结束当前的旅程吗？",
     "double_back_exit": "再按一次退出应用",
-    "map_data_source_copyright_title": "数据来源",
     "gps_accuracy": "定位精度",
     "gps_signal": {
       "excellent": "信号强",
@@ -102,8 +101,8 @@
       "empty_all_description": "开始探索，留下你的第一段旅途吧。",
       "empty_filtered_title": "没有符合条件的旅途",
       "empty_filtered_description": "试试切换图层，查看其他旅途。",
-      "empty_month_title": "本月没有旅途",
-      "empty_month_description": "试试切换月份或图层，查看其他旅途。",
+      "empty_day_title": "当日没有旅途",
+      "empty_day_description": "试试切换日期或图层，查看其他旅途。",
       "show_all_layers": "查看全部旅途"
     },
     "journey_date_is_empty": "旅程日期是空的",
@@ -272,7 +271,8 @@
     },
     "region_list": {
       "country_title": "国家与地区",
-      "region_empty": "还没有点亮这个国家的下辖地区。",
+      "region_empty": "还没有点亮下辖地区。",
+      "region_unsupported": "暂不支持该地区的下辖地区统计。",
       "error": "无法加载地区数据。",
       "retry": "重试",
       "view_all": "查看全部",
@@ -313,7 +313,7 @@
         "empty": "还没有自定义样式，添加你喜欢的地图链接。",
         "add": "添加样式",
         "edit": "编辑样式",
-        "copyright": "查看当前样式署名",
+        "attribution": "地图数据来源",
         "type_style": "地图样式",
         "type_raster": "图片瓦片",
         "name": "样式名称",
@@ -326,11 +326,10 @@
         "tile_size": "瓦片大小",
         "scheme": "坐标方案",
         "required": "请填写此项",
-        "invalid_url": "请填写完整的 HTTP 或 HTTPS 地址",
+        "invalid_https_url": "请填写完整的 HTTPS 地址",
         "invalid_tiles": "瓦片地址须包含 {z}、{x}、{y}",
         "write_failed": "保存失败，请重试",
-        "fallback_message": "自定义样式加载失败，已切换到默认样式",
-        "fallback_save_failed": "地图样式加载失败，且设置无法保存，请重新选择样式",
+        "load_failed": "自定义底图加载失败",
         "save_and_use": "保存并使用",
         "save": "保存",
         "delete": "删除样式",
@@ -457,7 +456,8 @@
       "system": "跟随系统",
       "chinese": "简体中文",
       "english": "English"
-    }
+    },
+    "data_attribution": "地图边界数据 © OpenStreetMap 贡献者（经 Overture Maps，ODbL 许可）。"
   },
   "beta_testing_notice": {
     "title": "欢迎体验「迹忆」公测版",

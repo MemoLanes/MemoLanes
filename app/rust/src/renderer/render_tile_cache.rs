@@ -1,8 +1,7 @@
 use journey_kernel::bitmap2d::BitMap2D;
 use std::collections::{HashMap, HashSet};
 
-use super::SOURCE_TILE_ZOOM;
-use crate::journey_bitmap::TileKey;
+use crate::journey_bitmap::{BitmapPlane, TileKey};
 
 // Per-renderer limits, not a total map memory budget. The byte limit covers
 // owned base/LOD bitmap allocations; the entry limit also bounds empty tiles.
@@ -12,6 +11,7 @@ const RENDER_TILE_CACHE_MAX_BYTES: usize = 16 * 1024 * 1024;
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub(super) struct RenderTileCacheKey {
+    pub(super) plane: BitmapPlane,
     pub(super) x: i64,
     pub(super) y: i64,
     pub(super) z: i16,
@@ -133,22 +133,26 @@ impl RenderTileCache {
 }
 
 fn render_tile_overlaps_source(key: &RenderTileCacheKey, source: TileKey) -> bool {
+    if key.plane != source.plane() {
+        return false;
+    }
     let (source_x, source_y) = match source {
-        TileKey::Mercator { x, y } => (i64::from(x), i64::from(y)),
-        // Cached render tiles currently depend only on Mercator sources.
-        TileKey::NorthPolar { .. } | TileKey::SouthPolar { .. } => return false,
+        TileKey::Mercator { x, y }
+        | TileKey::NorthPolar { x, y }
+        | TileKey::SouthPolar { x, y } => (i64::from(x), i64::from(y)),
     };
-    let source_width = 1i64 << SOURCE_TILE_ZOOM;
+    let source_tile_zoom = source.plane().source_tile_zoom();
+    let source_width = 1i64 << source_tile_zoom;
     if !(0..source_width).contains(&source_x) || !(0..source_width).contains(&source_y) {
         return false;
     }
 
-    if key.z >= SOURCE_TILE_ZOOM {
-        let shift = (key.z - SOURCE_TILE_ZOOM) as u32;
+    if key.z >= source_tile_zoom {
+        let shift = (key.z - source_tile_zoom) as u32;
         return key.x >> shift == source_x && key.y >> shift == source_y;
     }
 
-    let shift = (SOURCE_TILE_ZOOM - key.z) as u32;
+    let shift = (source_tile_zoom - key.z) as u32;
     source_x >> shift == key.x && source_y >> shift == key.y
 }
 
@@ -156,8 +160,12 @@ fn render_tile_overlaps_source(key: &RenderTileCacheKey, source: TileKey) -> boo
 mod tests {
     use super::*;
 
+    // The Mercator source grid contains 512 × 512 tiles.
+    const SOURCE_TILE_ZOOM: i16 = 9;
+
     fn key(x: i64, buffer_size_power: i16) -> RenderTileCacheKey {
         RenderTileCacheKey {
+            plane: BitmapPlane::Mercator,
             x,
             y: 0,
             z: SOURCE_TILE_ZOOM,

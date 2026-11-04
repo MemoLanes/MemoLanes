@@ -5,7 +5,7 @@ import 'package:memolanes/common/component/app_button.dart';
 import 'package:memolanes/common/component/app_dialog.dart';
 import 'package:memolanes/common/component/app_option_tile.dart';
 import 'package:memolanes/common/component/capsule_style_app_bar.dart';
-import 'package:memolanes/common/component/map_controls/map_copyright_button.dart';
+import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/map_fog_style.dart';
 import 'package:memolanes/common/map_style.dart';
 import 'package:memolanes/common/map_style_store.dart';
@@ -50,7 +50,8 @@ class _MapStylesPageState extends State<MapStylesPage> {
     try {
       _store.select(style);
       setState(() => _error = null);
-    } on StateError {
+    } on StateError catch (error, stackTrace) {
+      log.error('Selecting basemap failed: $error', stackTrace);
       setState(() => _error = context.tr('$_strings.write_failed'));
     }
   }
@@ -144,14 +145,6 @@ class _MapStylesPageState extends State<MapStylesPage> {
                 ),
               ),
             ),
-          const SizedBox(height: 8),
-          Center(
-            child: TextButton.icon(
-              onPressed: () => showMapCopyrightDialog(context, store: _store),
-              icon: const Icon(Icons.info_outline, size: 16),
-              label: Text(context.tr('$_strings.copyright')),
-            ),
-          ),
         ],
       ),
     );
@@ -176,7 +169,6 @@ class _MapStyleEditorPageState extends State<_MapStyleEditorPage> {
   late MapStyleType _type;
   late int _tileSize;
   late MapTileScheme _scheme;
-  bool _saving = false;
   String? _error;
 
   @override
@@ -202,10 +194,8 @@ class _MapStyleEditorPageState extends State<_MapStyleEditorPage> {
     final text = value?.trim() ?? '';
     if (text.isEmpty) return context.tr('$_strings.required');
     final uri = Uri.tryParse(text);
-    if (uri == null ||
-        !['http', 'https'].contains(uri.scheme) ||
-        uri.host.isEmpty) {
-      return context.tr('$_strings.invalid_url');
+    if (uri == null || uri.scheme != 'https' || uri.host.isEmpty) {
+      return context.tr('$_strings.invalid_https_url');
     }
     if (_type == MapStyleType.raster &&
         !['{z}', '{x}', '{y}'].every(text.contains)) {
@@ -215,11 +205,7 @@ class _MapStyleEditorPageState extends State<_MapStyleEditorPage> {
   }
 
   void _save() {
-    if (_saving || !_form.currentState!.validate()) return;
-    setState(() {
-      _saving = true;
-      _error = null;
-    });
+    if (!_form.currentState!.validate()) return;
     final style = MapStyle(
       id: _id,
       customName: _name.text.trim(),
@@ -235,11 +221,9 @@ class _MapStyleEditorPageState extends State<_MapStyleEditorPage> {
     try {
       widget.store.save(style, selectAfterSaving: widget.initial == null);
       Navigator.of(context).pop();
-    } on StateError {
-      setState(() {
-        _saving = false;
-        _error = context.tr('$_strings.write_failed');
-      });
+    } on StateError catch (error, stackTrace) {
+      log.error('Saving basemap failed: $error', stackTrace);
+      setState(() => _error = context.tr('$_strings.write_failed'));
     }
   }
 
@@ -276,7 +260,8 @@ class _MapStyleEditorPageState extends State<_MapStyleEditorPage> {
     try {
       widget.store.delete(_id);
       Navigator.of(context).pop();
-    } on StateError {
+    } on StateError catch (error, stackTrace) {
+      log.error('Deleting basemap failed: $error', stackTrace);
       setState(() => _error = context.tr('$_strings.write_failed'));
     }
   }
@@ -420,7 +405,7 @@ class _MapStyleEditorPageState extends State<_MapStyleEditorPage> {
               icon: Icons.check,
               expand: true,
               borderRadius: 24,
-              onPressed: _saving ? null : _save,
+              onPressed: _save,
             ),
             if (widget.initial != null) ...[
               const SizedBox(height: 8),
@@ -429,7 +414,7 @@ class _MapStyleEditorPageState extends State<_MapStyleEditorPage> {
                   style: TextButton.styleFrom(
                     foregroundColor: context.appColors.dangerColor,
                   ),
-                  onPressed: _saving ? null : _delete,
+                  onPressed: _delete,
                   icon: const Icon(Icons.delete_outline),
                   label: Text(context.tr('$_strings.delete')),
                 ),

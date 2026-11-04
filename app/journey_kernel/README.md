@@ -17,7 +17,6 @@ This library is used to render journey bitmaps in the app. It supports both nati
 | `window.updateLocationMarker(lng, lat, show, flyto)` | Updates the current location marker | `lng`: longitude (number)<br>`lat`: latitude (number)<br>`show`: visibility (boolean, default: true)<br>`flyto`: animate to location (boolean, default: false) | void |
 | `window.getCurrentMapView()` | Gets current map position | none | `{lng: number, lat: number, zoom: number}` (JSON string) |
 | `window.refreshMapData()` | Manually triggers data refresh | none | `Promise<boolean \| null>` |
-| `window.updateBasemap(config)` | Switches the existing map without reloading the WebView or changing its camera | `{id, requestId, style}`: host ID, generation counter, and MapLibre style URL or object | void |
 
 ### Initialization Parameters
 
@@ -43,7 +42,6 @@ window.EXTERNAL_PARAMS = {
   render: "canvas",
   basemap: {
     id: "openfreemap",
-    requestId: 1,
     style: "https://tiles.openfreemap.org/styles/liberty",
   },
   // ... other params
@@ -65,7 +63,7 @@ All parameters are optional except `cgi_endpoint` which is required.
 | `lat` | Initial latitude | number | 0 |
 | `zoom` | Initial zoom level | number | 2 |
 | `render` | Render method | `'canvas'` | `'canvas'` |
-| `basemap` | `{id, requestId, style}` supplied by Flutter; `custom:` IDs enable initial-load failure reporting | object | - |
+| `basemap` | `{id, style, attribution?}` supplied by Flutter; `custom:` IDs enable initial-load failure reporting | object | - |
 | `map_style` | Map style URL for standalone browser development when no `basemap` is supplied | string | OpenFreeMap Liberty |
 | `fog_style` | Fog palette ID (`dark` or `light`) | string | `dark` |
 | `fog_density` | Fog density (0-1) | number | Style default (0.5 dark, 0.6 light) |
@@ -76,20 +74,13 @@ Flutter converts image tile templates into standard MapLibre raster styles and
 passes them through the same `basemap.style` field as remote style URLs. URLs
 retain any credentials and query parameters supplied by the user. The host
 stores custom basemap configurations locally.
-Source attribution loaded from styles or TileJSON is sent to Flutter through
-`window.onMapAttributionChanged` as `{requestId, entries}` JSON containing Markdown strings.
-The request ID comes from the applied style's metadata, so pending selections
-cannot receive attribution from an older style that is still displayed.
-`window.onBasemapLoadFailed` sends `{requestId}` when a custom style file cannot
-be fetched or parsed, or fails SDK style validation. Flutter saves the default
-selection, notifies all mounted maps through `window.updateBasemap`, and shows
-a user message. The renderer observes basemap changes through `ReactiveParams`.
-The failed configuration stays in the list for editing. Tile availability,
-source metadata, sprite/font errors and slow loading do not reset the selection.
-Failed built-in style requests retry after 8 seconds, even when an older style
-remains visible. Slow requests and SDK tiles are not interrupted by the retry
-timer. Style URL fetches, JSON parsing and SDK application belong to the same
-cancellable load. Superseded responses and errors cannot affect the selection.
+MapLibre's attribution control shows the applied basemap's name or built-in
+credit together with any visible source attribution from the style or TileJSON.
+`window.onBasemapLoadFailed` notifies Flutter when fetching, parsing or
+validating the custom style fails. Flutter shows a notice and keeps the saved
+selection. The WebView reads the selected basemap when it opens.
+Failed built-in style requests retry after 8 seconds. MapLibre handles tile,
+sprite and font requests.
 
 ## Web Development
 
@@ -177,8 +168,8 @@ This command will:
 
 `JourneyTileProvider` owns viewport demand, version negotiation, response
 commit order and decoded-source lifetime. `layer-config.ts` registers renderer
-implementations and their request policies. Canvas keeps its 256-pixel tiles
-and source zoom up to 14.
+implementations and their request policies. Canvas keeps its 512-pixel tiles
+and source zoom up to 13.
 
 The default `MainThreadTileBufferBackend` decodes the shared WASM `TileBuffer`
 and exposes it to Canvas callbacks. Additional renderers may register a
@@ -192,5 +183,34 @@ them. The invalidation callback queues fresh data if a backend loses its source.
 Run `just journey-kernel-test` from `app` to build the WASM bindings and run
 both Rust (including the WASM-facing pixel queries) and frontend tests. After
 `yarn wasm:dev` or `yarn build`, `yarn test` runs the frontend suite alone.
-The provider integration tests use the generated OSS WASM package and deferred
+The provider integration tests use the generated WASM package and deferred
 backends to exercise stale responses, disposal and version negotiation.
+
+
+### Polar maps
+
+The tile API accepts `plane=mercator`, `plane=north`, or `plane=south`; omitted
+`plane` means Mercator. Each plane has an independent cache version, and polar
+requests stay within their finite square chart instead of wrapping longitude.
+The Rust GPX example can serve these endpoints with `--gpx` (see
+[the examples](../rust/examples/README.md)).
+
+Globe navigation preserves polar destinations and fits polar journey bounds
+without Mercator clipping. The shared source sampling policy also retains
+visible lower-latitude detail while the camera moves toward a pole.
+Canvas draws Mercator and polar track pixels through the same rasterizer. On a
+globe, a continuous image mesh joins all three charts at the Mercator limits;
+CPU projection keeps positions precise near the poles, and a WebGL shader places
+the Canvas images on the globe. Flat maps retain the MapLibre Canvas source.
+
+Each cap downloads independently, retains its previous image while loading,
+and rejects stale responses after a camera change, forced refresh or disposal.
+Polar image dimensions are bounded to 2048 pixels per side.
+Mercator requests are clipped to their latitude band and bounded to the tile
+endpoint's 20-by-20 limit; polar-only views skip them. The first display waits
+for image coverage of every visible plane, while hidden caps can keep loading.
+Explicit refreshes wait for both the Mercator and polar update pipelines.
+
+After building WASM, run `yarn test:browser` for navigation, Canvas pixel and
+asynchronous update regressions. See [browser tests](tests/browser/README.md) and
+[the performance benchmark](benchmark/README.md) for their separate purposes.

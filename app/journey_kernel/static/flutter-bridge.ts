@@ -12,11 +12,6 @@ import * as maplibregl from "maplibre-gl";
 import { MapController } from "./map-controller";
 import { LocationFollowController } from "./location-follow-controller";
 import { MAX_MAP_ZOOM } from "./layer-config";
-import type { BasemapConfig } from "./params";
-import {
-  collectMapAttributions,
-  attributionToMarkdown,
-} from "./map-attribution";
 
 interface MapBounds {
   west: number;
@@ -50,9 +45,7 @@ declare global {
     onMapMoved?: FlutterMessageChannel;
     onMapViewChanged?: FlutterMessageChannel;
     onMapZoomChanged?: FlutterMessageChannel;
-    onMapAttributionChanged?: FlutterMessageChannel;
     onBasemapLoadFailed?: FlutterMessageChannel;
-    updateBasemap?: (config: BasemapConfig) => void;
     trySetup?: () => Promise<void>;
     updateLocationMarker?: (
       lng: number,
@@ -72,22 +65,6 @@ export class FlutterBridge {
   private map: maplibregl.Map;
   private locationMarker: maplibregl.Marker;
   private locationFollowController: LocationFollowController;
-  private lastAttributions: string | undefined;
-
-  private readonly notifyAttributions = (): void => {
-    if (!window.onMapAttributionChanged) return;
-    const attribution = collectMapAttributions(this.map);
-    if (!attribution) return;
-    const payload = JSON.stringify(attribution);
-    if (payload === this.lastAttributions) return;
-    window.onMapAttributionChanged.postMessage(
-      JSON.stringify({
-        requestId: attribution.requestId,
-        entries: attribution.entries.map(attributionToMarkdown).filter(Boolean),
-      }),
-    );
-    this.lastAttributions = payload;
-  };
 
   constructor(mapController: MapController) {
     this.mapController = mapController;
@@ -101,7 +78,9 @@ export class FlutterBridge {
     this.locationMarker = new maplibregl.Marker({
       element: el,
     });
-    this.locationFollowController = new LocationFollowController(this.map);
+    this.locationFollowController = new LocationFollowController(this.map, {
+      camera: this.mapController,
+    });
   }
 
   /**
@@ -169,12 +148,6 @@ export class FlutterBridge {
    * Setup all map event listeners that notify Flutter
    */
   setupMapEventListeners(): void {
-    this.map.on("styledata", this.notifyAttributions);
-    this.map.on("sourcedata", (event) => {
-      if (event.sourceDataType === "metadata") this.notifyAttributions();
-    });
-    this.notifyAttributions();
-
     // Notify Flutter when user drags the map
     this.map.on("dragstart", () => {
       this.locationFollowController.cancel();
@@ -234,7 +207,7 @@ export class FlutterBridge {
     window.flyToBounds = (bounds, padding) => {
       // MapLibre's initial-bounds path calls fitBounds with the same padding
       // and zoom cap. fitBounds calculates the camera, then calls flyTo.
-      this.map.fitBounds(
+      this.mapController.fitBounds(
         [
           [bounds.west, bounds.south],
           [bounds.east, bounds.north],
@@ -245,7 +218,7 @@ export class FlutterBridge {
 
     // Return from journey details to the camera saved before opening them.
     window.flyToView = (view) => {
-      this.map.flyTo({
+      this.mapController.flyTo({
         center: [view.lng, view.lat],
         zoom: view.zoom,
         duration: 900,

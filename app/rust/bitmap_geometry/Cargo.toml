@@ -1,0 +1,5 @@
+[package]
+name = "bitmap_geometry"
+version = "0.1.0"
+edition = "2021"
+description = "Shared bitmap grid geometry and projections for MemoLanes; depends only on the standard library."

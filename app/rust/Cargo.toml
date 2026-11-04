@@ -9,6 +9,7 @@ name = "memolanes_core"
 crate-type = ["lib", "cdylib", "staticlib"]
 
 [dependencies]
+bitmap_geometry = { path = "bitmap_geometry" }
 journey_kernel = { path = "../journey_kernel" }
 geo_data_format = { path = "geo_data_format" }
 anyhow = { version = "1.0", features = ["backtrace"] }

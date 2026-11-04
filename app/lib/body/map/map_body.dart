@@ -8,6 +8,7 @@ import 'package:memolanes/body/map/journey_flow_controller.dart';
 import 'package:memolanes/body/map/overlay/journey_detail_overlay.dart';
 import 'package:memolanes/body/map/overlay/normal_map_overlay.dart';
 import 'package:memolanes/body/map/overlay/time_machine_overlay.dart';
+import 'package:memolanes/common/app_layout.dart';
 import 'package:memolanes/common/component/base_map_webview.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/component/map_overlay_panel.dart';
@@ -238,6 +239,7 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
         ? _journeyMapRendererProxy!
         : _mapRendererProxy;
     final journeyBounds = session?.mapData.$2;
+    final layout = AppLayoutScope.of(context);
     return BaseMapWebview(
       key: _mainMapKey,
       mapRendererProxy: proxy,
@@ -247,6 +249,9 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
           ? widget.journeys.returnToView
           : null,
       overlayPanel: widget.mode == MapMode.journeys ? _detailPanelKey : null,
+      attributionInsets: layout.chromeReady && widget.journeys.appChromeVisible
+          ? layout.trailingOverlayInsets
+          : null,
       trackingMode: _effectiveTrackingMode,
       onRoughMapViewUpdate: (roughMapView) {
         _roughMapView = roughMapView;

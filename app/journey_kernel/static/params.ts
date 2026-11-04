@@ -74,13 +74,13 @@ export type PropertyChangeCallback<T> = (newValue: T, oldValue: T) => void;
 
 /** Mutable property names that support hooks */
 export type MutablePropertyName =
-  "basemap" | "renderMode" | "fogStyle" | "fogDensity" | "projection";
+  "renderMode" | "fogStyle" | "fogDensity" | "projection";
 
-/** Native-selected MapLibre style and the request it belongs to. */
+/** MapLibre style selected when the WebView opens. */
 export interface BasemapConfig {
   id: string;
-  requestId: number;
   style: string | StyleSpecification;
+  attribution?: string;
 }
 
 interface ParamsData {
@@ -94,8 +94,8 @@ interface ParamsData {
   initialBoundsPadding: JourneyBoundsPadding;
   requiresMapboxToken: boolean;
   debug: boolean;
+  readonly basemap: BasemapConfig;
   // Mutable properties
-  basemap: BasemapConfig;
   renderMode: string;
   /** Validated palette ID; RGB/opacity remain owned by fog-style.ts. */
   fogStyle: FogStyleId;
@@ -107,7 +107,7 @@ interface ParamsData {
  * ReactiveParams - A Proxy-based reactive parameters object
  *
  * Properties can be accessed and set directly. Setting mutable properties
- * (basemap, renderMode, fogStyle, fogDensity, projection) triggers
+ * (renderMode, fogStyle, fogDensity, projection) triggers
  * registered hooks.
  *
  * Usage:
@@ -141,7 +141,6 @@ export interface ReactiveParams extends ParamsData {
 
 /** Set of properties that trigger hooks when changed */
 const MUTABLE_PROPERTIES = new Set<MutablePropertyName>([
-  "basemap",
   "renderMode",
   "fogStyle",
   "fogDensity",
@@ -285,7 +284,6 @@ export function createReactiveParams(
   // Determine map style
   const basemap = externalParams.basemap ?? {
     id: "",
-    requestId: 0,
     style: externalParams.map_style || DEFAULT_MAP_STYLE,
   };
   const requiresMapboxToken =

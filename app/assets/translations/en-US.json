@@ -6,7 +6,6 @@
     "end_journey_title": "End Journey?",
     "end_journey_message": "Are you sure you want to end your current journey?",
     "double_back_exit": "Press back again to exit the app",
-    "map_data_source_copyright_title": "Data Source",
     "gps_accuracy": "Accuracy",
     "gps_signal": {
       "excellent": "Strong",
@@ -102,8 +101,8 @@
       "empty_all_description": "Start exploring and make your first journey.",
       "empty_filtered_title": "No matching journeys",
       "empty_filtered_description": "Try a different layer to see more journeys.",
-      "empty_month_title": "No journeys this month",
-      "empty_month_description": "Try another month or layer to see more journeys.",
+      "empty_day_title": "No journeys on this day",
+      "empty_day_description": "Try another date or layer to see more journeys.",
       "show_all_layers": "Show all journeys"
     },
     "journey_date_is_empty": "JourneyDate is empty",
@@ -272,7 +271,8 @@
     },
     "region_list": {
       "country_title": "Countries & Regions",
-      "region_empty": "No regions unlocked in this country yet.",
+      "region_empty": "No subdivisions unlocked yet.",
+      "region_unsupported": "Subdivision statistics are not yet available for this region.",
       "error": "Could not load region data.",
       "retry": "Retry",
       "view_all": "View all",
@@ -313,7 +313,7 @@
         "empty": "No custom styles yet. Add a map link to get started.",
         "add": "Add style",
         "edit": "Edit style",
-        "copyright": "View current style attribution",
+        "attribution": "Map data sources",
         "type_style": "Map style",
         "type_raster": "Image tiles",
         "name": "Style name",
@@ -326,11 +326,10 @@
         "tile_size": "Tile size",
         "scheme": "Coordinate scheme",
         "required": "This field is required",
-        "invalid_url": "Enter a complete HTTP or HTTPS URL",
+        "invalid_https_url": "Enter a complete HTTPS URL",
         "invalid_tiles": "The tile URL must include {z}, {x}, and {y}",
         "write_failed": "Could not save. Please try again.",
-        "fallback_message": "Custom style could not load. Switched to the default style.",
-        "fallback_save_failed": "The map style could not load and settings could not be saved. Please select a style again.",
+        "load_failed": "Couldn’t load the custom basemap.",
         "save_and_use": "Save and use",
         "save": "Save",
         "delete": "Delete style",
@@ -457,7 +456,8 @@
       "system": "Follow system",
       "chinese": "Simplified Chinese",
       "english": "English"
-    }
+    },
+    "data_attribution": "Map boundary data © OpenStreetMap contributors, via Overture Maps (ODbL)."
   },
   "beta_testing_notice": {
     "title": "Welcome to MemoLanes Public Beta",

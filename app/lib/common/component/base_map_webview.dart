@@ -9,7 +9,6 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/map_fog_style.dart';
-import 'package:memolanes/common/map_style.dart';
 import 'package:memolanes/common/map_style_store.dart';
 import 'package:memolanes/common/map_webview_resources.dart';
 import 'package:memolanes/common/component/map_overlay_panel.dart';
@@ -43,6 +42,7 @@ class BaseMapWebview extends StatefulWidget {
   final MapView? initialMapView;
   final MapBounds? initialMapBounds;
   final EdgeInsets? boundsPadding;
+  final Offset? attributionInsets;
 
   /// Reuse the existing panel's current footprint when fitting map bounds.
   final GlobalKey<MapOverlayPanelState>? overlayPanel;
@@ -61,6 +61,7 @@ class BaseMapWebview extends StatefulWidget {
     this.initialMapView,
     this.initialMapBounds,
     this.boundsPadding,
+    this.attributionInsets = Offset.zero,
     this.overlayPanel,
     this.flyToBounds,
     this.flyToView,
@@ -111,13 +112,15 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
 
   final List<DateTime> _webGlRecoveryReloads = [];
 
-  late MapStyle _selectedMapStyle;
-  int _basemapRequestId = 0;
-  Map<String, Object> get _basemapConfig => {
-    'id': _selectedMapStyle.id,
-    'style': _selectedMapStyle.mapLibreStyle,
-    'requestId': _basemapRequestId,
-  };
+  String get _attributionLayoutScript {
+    final insets = widget.attributionInsets;
+    return '''
+      document.documentElement.style.setProperty('--attribution-visibility', '${insets == null ? 'hidden' : 'visible'}');
+      document.documentElement.style.setProperty('--attribution-right', '${insets?.dx ?? 0}px');
+      document.documentElement.style.setProperty('--attribution-bottom', '${insets?.dy ?? 0}px');
+    ''';
+  }
+
   late MapFogStyle _selectedMapFogStyle;
 
   // Dev server URL for loading map webview from a local dev server.
@@ -163,6 +166,9 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   @override
   void didUpdateWidget(BaseMapWebview oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.attributionInsets != widget.attributionInsets) {
+      unawaited(_updateAttributionLayout());
+    }
     if (oldWidget.trackingMode != widget.trackingMode) {
       if (widget.trackingMode == TrackingMode.off) {
         _hideLocationMarker();
@@ -179,6 +185,14 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
         oldWidget.boundsPadding != widget.boundsPadding ||
         oldWidget.overlayPanel != widget.overlayPanel) {
       _scheduleMapSync();
+    }
+  }
+
+  Future<void> _updateAttributionLayout() async {
+    try {
+      await runJavaScript(_attributionLayoutScript);
+    } catch (error, stackTrace) {
+      log.error('Positioning map attribution failed: $error', stackTrace);
     }
   }
 
@@ -254,51 +268,14 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     _gpsManager = Provider.of<GpsManager>(context, listen: false);
     _gpsManager.addListener(_updateLocationMarker);
     _currentRoughMapView = widget.initialMapView;
-    _selectedMapStyle = _loadMapStyleFromStorage();
-    MapStyleStore.instance.addListener(_onMapStyleChanged);
     _selectedMapFogStyle = _loadMapFogStyleFromStorage();
   }
 
   @override
   void dispose() {
-    MapStyleStore.instance.removeListener(_onMapStyleChanged);
     _gpsManager.removeListener(_updateLocationMarker);
     _webViewController = null;
     super.dispose();
-  }
-
-  void _onMapStyleChanged() {
-    final style = MapStyleStore.instance.selected;
-    final changed = !_selectedMapStyle.hasSameRenderer(style);
-    _selectedMapStyle = style;
-    if (!changed) return;
-    _basemapRequestId++;
-    final controller = _webViewController;
-    if (controller == null) return;
-    // Recovery must not drop configuration changes. A reloading page either
-    // receives this update or gets the latest snapshot during initialization.
-    unawaited(
-      controller
-          .evaluateJavascript(
-            source:
-                '''
-      (() => {
-        const config = ${jsonEncode(_basemapConfig)};
-        window.EXTERNAL_PARAMS = {...window.EXTERNAL_PARAMS, basemap: config};
-        if (typeof window.updateBasemap === 'function') {
-          window.updateBasemap(config);
-        }
-      })();
-    ''',
-          )
-          .catchError((Object error, StackTrace stackTrace) {
-            log.error(
-              '[base_map_webview] Map style sync failed: $error',
-              stackTrace,
-            );
-            return null;
-          }),
-    );
   }
 
   void _updateLocationMarker() {
@@ -358,62 +335,10 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
           jsObjectName: 'onBasemapLoadFailed',
           allowedOriginRules: {'*'},
           onPostMessage: (message, sourceOrigin, isMainFrame, replyProxy) {
-            if (!mounted || !isMainFrame || !_selectedMapStyle.isCustom) return;
-            final data = message?.data;
-            if (data is! String) return;
-            try {
-              final failure = jsonDecode(data);
-              if (failure is! Map ||
-                  failure['requestId'] != _basemapRequestId) {
-                return;
-              }
-              // Saving notifies every mounted map. They update their existing
-              // MapLibre instance, including this map, without a page reload.
-              if (!MapStyleStore.instance.recordFallback(_selectedMapStyle)) {
-                return;
-              }
-              Fluttertoast.showToast(
-                msg: context.tr(
-                  'general.map_settings.basemaps.fallback_message',
-                ),
-              );
-            } on FormatException {
-              // Ignore stale or malformed messages.
-            } on StateError {
-              Fluttertoast.showToast(
-                msg: context.tr(
-                  'general.map_settings.basemaps.fallback_save_failed',
-                ),
-              );
-            }
-          },
-        ),
-      ),
-      controller.addWebMessageListener(
-        WebMessageListener(
-          jsObjectName: 'onMapAttributionChanged',
-          allowedOriginRules: {'*'},
-          onPostMessage: (message, sourceOrigin, isMainFrame, replyProxy) {
             if (!mounted || !isMainFrame) return;
-            final data = message?.data;
-            if (data is! String) return;
-            try {
-              final metadata = jsonDecode(data);
-              if (metadata is! Map ||
-                  metadata['requestId'] != _basemapRequestId) {
-                return;
-              }
-              final entries = metadata['entries'];
-              if (entries is List &&
-                  entries.every((entry) => entry is String)) {
-                MapStyleStore.instance.recordSourceAttributions(
-                  _selectedMapStyle,
-                  entries.cast<String>(),
-                );
-              }
-            } on FormatException {
-              // Ignore malformed metadata without affecting the map.
-            }
+            Fluttertoast.showToast(
+              msg: context.tr('general.map_settings.basemaps.load_failed'),
+            );
           },
         ),
       ),
@@ -527,13 +452,19 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     final bounds = widget.flyToBounds ?? widget.initialMapBounds;
     final boundsPadding = _boundsPadding;
 
-    final style = _selectedMapStyle;
-    _basemapRequestId++;
+    final style = MapStyleStore.instance.selected;
     final fogStyle = _selectedMapFogStyle;
     final params = <String, Object?>{
       'cgi_endpoint': MapWebViewResources.apiEndpoint,
       'render': 'canvas',
-      'basemap': _basemapConfig,
+      'basemap': {
+        'id': style.id,
+        'style': style.mapLibreStyle,
+        'attribution': style.attribution,
+      },
+      'attribution_label': context.tr(
+        'general.map_settings.basemaps.attribution',
+      ),
       'fog_style': fogStyle.id,
       'fog_density': style.fogOpacityByStyle[fogStyle] ?? 0.50,
       'access_key': accessKey,
@@ -553,6 +484,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     await controller.evaluateJavascript(
       source:
           '''
+      $_attributionLayoutScript
       window.EXTERNAL_PARAMS = ${jsonEncode(params)};
       
       // Check if JS is ready and trigger initialization if so
@@ -569,8 +501,6 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
 
     debugPrint('Initialization completed');
   }
-
-  MapStyle _loadMapStyleFromStorage() => MapStyleStore.instance.selected;
 
   MapFogStyle _loadMapFogStyleFromStorage() {
     final id = MMKVUtil.getStringOpt(MMKVKey.mapFogMode);
@@ -783,12 +713,11 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
           },
           onReceivedError: (controller, request, error) async {
             if (!mounted) return;
-            final failedUrl = request.url.toString();
-            if (!failedUrl.contains('events.mapbox.com')) {
-              log.error('''Map WebView Error:
-                      Description: ${error.description}
-                      Error Type: ${error.type} 
-                      Failed URL: $failedUrl''');
+            final host = request.url.host;
+            if (host != 'events.mapbox.com') {
+              log.error(
+                '[base_map_webview] Resource load failed on $host (${error.type})',
+              );
             }
           },
           onWebContentProcessDidTerminate: (controller) async {

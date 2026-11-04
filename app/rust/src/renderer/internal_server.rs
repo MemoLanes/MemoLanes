@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use super::MapRenderer;
+use crate::journey_bitmap::BitmapPlane;
 
 use rand::Rng;
 
@@ -59,7 +60,20 @@ fn dispatch_tile_range(
     params: &HashMap<String, String>,
     map_renderer: &mut MapRenderer,
 ) -> WebviewResponse {
-    if map_renderer.matches_version(params.get("cached_version").map(String::as_str)) {
+    let plane = match params.get("plane").map(String::as_str) {
+        None | Some("mercator") => BitmapPlane::Mercator,
+        Some("north") => BitmapPlane::NorthPolar,
+        Some("south") => BitmapPlane::SouthPolar,
+        _ => {
+            return WebviewResponse {
+                status: 500,
+                content_type: "text/plain".to_string(),
+                body: b"unknown bitmap plane".to_vec(),
+                headers: HashMap::new(),
+            }
+        }
+    };
+    if map_renderer.matches_plane_version(plane, params.get("cached_version").map(String::as_str)) {
         return WebviewResponse {
             status: 200,
             content_type: "application/octet-stream".to_string(),
@@ -68,7 +82,8 @@ fn dispatch_tile_range(
         };
     }
 
-    match map_renderer.get_tile_range_response(
+    match map_renderer.get_plane_tile_range_response(
+        plane,
         parse_or(params, "x", 0),
         parse_or(params, "y", 0),
         parse_or(params, "z", 0),
@@ -82,7 +97,7 @@ fn dispatch_tile_range(
             body,
             headers: HashMap::from([(
                 "X-Tile-Version".to_string(),
-                map_renderer.get_version_string(),
+                map_renderer.get_plane_version_string(plane),
             )]),
         },
         Err(e) => WebviewResponse {
@@ -141,30 +156,31 @@ mod tests {
 
     #[test]
     fn test_dispatch_tile_range_not_modified() {
-        let jb = JourneyBitmap::new();
-        let mut mr = MapRenderer::new(jb);
-        let version = mr.get_version_string();
-
-        let params: HashMap<String, String> = [
-            ("x", "0"),
-            ("y", "0"),
-            ("z", "0"),
-            ("width", "1"),
-            ("height", "1"),
-            ("buffer_size_power", "6"),
-        ]
-        .into_iter()
-        .map(|(k, v)| (k.to_string(), v.to_string()))
-        .chain(std::iter::once(("cached_version".to_string(), version)))
-        .collect();
-
-        let resp = dispatch_request("tile_range", &params, &mut mr);
-        assert_eq!(resp.status, 200);
-        assert!(resp.body.is_empty());
-        assert_eq!(
-            resp.headers.get("X-Not-Modified"),
-            Some(&"true".to_string())
-        );
+        let mut renderer = MapRenderer::new(JourneyBitmap::new());
+        renderer.update(|editor| editor.add_line(10.0, 89.0, 11.0, 89.1));
+        for plane in ["mercator", "north", "south"] {
+            let mut params: HashMap<String, String> =
+                [("plane", plane), ("buffer_size_power", "6")]
+                    .into_iter()
+                    .map(|(key, value)| (key.to_owned(), value.to_owned()))
+                    .collect();
+            let response = dispatch_request("tile_range", &params, &mut renderer);
+            assert_eq!(response.status, 200);
+            let rendered =
+                journey_kernel::tile_range::decode_tile_range_response(&response.body).unwrap();
+            assert_eq!(!rendered.is_empty(), plane == "north");
+            params.insert(
+                "cached_version".to_owned(),
+                response.headers["X-Tile-Version"].clone(),
+            );
+            let cached = dispatch_request("tile_range", &params, &mut renderer);
+            assert_eq!(cached.status, 200);
+            assert!(cached.body.is_empty());
+            assert_eq!(
+                cached.headers.get("X-Not-Modified"),
+                Some(&"true".to_owned())
+            );
+        }
     }
 
     #[test]

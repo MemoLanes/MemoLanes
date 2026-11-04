@@ -334,8 +334,7 @@ function detectBrowserCapabilities(): void {
 }
 
 // Helper function to detect WebAssembly features
-// TODO: WASM feature check currently only works for externref, other checks seems to be wrong.
-function detectWasmFeatures(): WasmFeatures {
+export function detectWasmFeatures(): WasmFeatures {
   const features: WasmFeatures = {
     referenceTypes: false,
     simd: false,
@@ -405,9 +404,9 @@ function detectWasmFeatures(): WasmFeatures {
       0x01,
       0x00, // func
       0x0a,
-      0x0a,
+      0x16,
       0x01,
-      0x08,
+      0x14,
       0x00,
       0xfd,
       0x0c,
@@ -415,6 +414,18 @@ function detectWasmFeatures(): WasmFeatures {
       0x00,
       0x00,
       0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x00, // v128.const has a 16-byte immediate
       0x0b, // code: v128.const
     ]);
     new WebAssembly.Module(wasmBinary);
@@ -463,11 +474,6 @@ function detectWasmFeatures(): WasmFeatures {
       0x00,
       0x00,
       0x00, // version
-      0x05,
-      0x03,
-      0x01,
-      0x00,
-      0x01, // memory section
       0x01,
       0x04,
       0x01,
@@ -478,10 +484,15 @@ function detectWasmFeatures(): WasmFeatures {
       0x02,
       0x01,
       0x00, // func section
-      0x0a,
-      0x0e,
+      0x05,
+      0x03,
       0x01,
-      0x0c,
+      0x00,
+      0x01, // memory section (after type and function sections)
+      0x0a,
+      0x0d,
+      0x01,
+      0x0b,
       0x00,
       0x41,
       0x00,
@@ -525,9 +536,9 @@ function detectWasmFeatures(): WasmFeatures {
       0x01,
       0x00, // func
       0x0a,
-      0x09,
+      0x08,
       0x01,
-      0x07,
+      0x06,
       0x00,
       0x41,
       0x00,

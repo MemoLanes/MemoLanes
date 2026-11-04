@@ -607,6 +607,25 @@ pub fn resolve_province_parents(
     Ok(parents)
 }
 
+pub fn attach_admin2_entities(
+    model: &mut EntityModel,
+    ids: &BTreeMap<String, GeoEntityId>,
+    parent_of: &BTreeMap<GeoEntityId, GeoEntityId>,
+) {
+    for (code, &id) in ids {
+        model.entities.push(GeoEntity {
+            id,
+            kind: GeoEntityKind::Admin2,
+            canonical_code: code.clone(),
+            iso_a3_eh: None,
+            name_key: format!("admin2.{code}"),
+            parent_id: Some(parent_of[&id]),
+            total_area_m2: 0,
+        });
+    }
+    model.entities.sort_by_key(|e| e.id.0);
+}
+
 pub fn attach_province_entities(
     model: &mut EntityModel,
     parent_of: &BTreeMap<GeoEntityId, GeoEntityId>,

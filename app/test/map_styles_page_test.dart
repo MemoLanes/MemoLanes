@@ -1,7 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:memolanes/body/settings/map_styles_page.dart';
 import 'package:memolanes/common/app_translation_loader.dart';
@@ -74,6 +73,14 @@ void main() {
     await tapVisible(find.text('Image tiles'));
     await tester.enterText(
       find.byType(TextFormField).at(1),
+      'http://example.com/{z}/{x}/{y}.png',
+    );
+    await tapVisible(find.text('Save and use'));
+    expect(find.text('Enter a complete HTTPS URL'), findsOneWidget);
+    expect(store.customStyles, isEmpty);
+
+    await tester.enterText(
+      find.byType(TextFormField).at(1),
       'https://example.com/tiles.png',
     );
     await tapVisible(find.text('Save and use'));
@@ -97,10 +104,7 @@ void main() {
     expect(store.selected.tileSize, 512);
     expect(store.selected.scheme, MapTileScheme.tms);
 
-    // A failure reported by an already mounted map updates this open settings
-    // page through the store, without navigating away and rebuilding it.
-    store.recordFallback(store.selected);
-    await tester.pumpAndSettle();
+    await tapVisible(find.text('OpenFreeMap'));
     final defaultOption = find.ancestor(
       of: find.text('OpenFreeMap'),
       matching: find.byType(AppOptionTile),
@@ -115,14 +119,6 @@ void main() {
     expect(store.selected.id, MapStyle.all.first.id);
     await tapVisible(find.text('Renamed map'));
     expect(store.selected.id, id);
-
-    await tapVisible(find.text('View current style attribution'));
-    expect(
-      tester.widget<MarkdownBody>(find.byType(MarkdownBody)).data,
-      '**Renamed map**',
-    );
-    Navigator.of(tester.element(find.byType(MarkdownBody))).pop();
-    await tester.pumpAndSettle();
 
     await tapVisible(find.byTooltip('Edit style'));
     await tapVisible(find.text('Delete style'));

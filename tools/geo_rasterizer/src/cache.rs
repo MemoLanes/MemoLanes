@@ -12,9 +12,9 @@ use crate::registry::Namespace;
 /// SHA-256 identifying the data instance this run would produce:
 /// `GEO_DATA_VERSION` (4 LE bytes, a domain-separation salt), the raw bytes
 /// of `geojson_path`, `admin1_path`,
-/// every per-namespace file under `registry_dir` (in `Namespace::ALL` order)
-/// and `policy_path`, then the asset's `worldview_id` (length-prefixed), in
-/// that order.
+/// every per-namespace file under `registry_dir` (in `Namespace::ALL` order),
+/// `policy_path` and `admin2_inputs`, then the asset's `worldview_id`
+/// (length-prefixed), in that order.
 ///
 ///
 /// `worldview_id` is folded in (length-prefixed) so a bin retagged to a
@@ -24,6 +24,7 @@ pub fn compute_provenance_hash(
     admin1_path: &Path,
     registry_dir: &Path,
     policy_path: &Path,
+    admin2_inputs: &[PathBuf],
     worldview_id: &str,
 ) -> Result<[u8; 32]> {
     let mut hasher = Sha256::new();
@@ -32,7 +33,8 @@ pub fn compute_provenance_hash(
     let paths = [geojson_path, admin1_path]
         .into_iter()
         .chain(registry_files.iter().map(PathBuf::as_path))
-        .chain([policy_path]);
+        .chain([policy_path])
+        .chain(admin2_inputs.iter().map(PathBuf::as_path));
     for path in paths {
         let f = File::open(path).with_context(|| format!("opening {}", path.display()))?;
         let mut reader = BufReader::new(f);

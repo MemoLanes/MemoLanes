@@ -1,11 +1,10 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/map_style.dart';
 import 'package:memolanes/common/mmkv_util.dart';
 
-/// Local basemap configuration. Source attribution is collected while the map
-/// loads, rather than making requests from the settings editor.
 class MapStyleStore extends ChangeNotifier {
   MapStyleStore({
     String? Function(String)? readString,
@@ -17,118 +16,86 @@ class MapStyleStore extends ChangeNotifier {
 
   final String? Function(String) _read;
   final bool Function(String, String?) _write;
-  final Map<String, ({MapStyle style, List<String> entries})>
-  _sourceAttributions = {};
 
-  List<MapStyle> get customStyles {
-    final stored = _read(MMKVKey.customMapStyles);
-    if (stored == null) return [];
+  ({String? selectedId, List<MapStyle> styles}) _load() {
+    final stored = _read(MMKVKey.basemaps);
+    if (stored == null) {
+      return (selectedId: _read(MMKVKey.mapStyle), styles: []);
+    }
     try {
       final decoded = jsonDecode(stored);
-      if (decoded is! List) return [];
-      final styles = <String, MapStyle>{};
-      for (final entry in decoded) {
-        if (entry is! Map<String, dynamic>) continue;
-        try {
-          final style = MapStyle.fromJson(entry);
-          styles[style.id] = style;
-        } on FormatException {
-          // A damaged entry must not hide the other saved maps.
-        }
+      if (decoded is! Map<String, dynamic> ||
+          decoded['selectedId'] is! String) {
+        throw const FormatException('Invalid basemap settings');
       }
-      return styles.values.toList();
-    } on FormatException {
-      return [];
+      return (
+        selectedId: decoded['selectedId'] as String,
+        styles: _decodeStyles(decoded['styles']),
+      );
+    } on FormatException catch (error, stackTrace) {
+      log.error(
+        'Reading basemap settings failed: ${error.message}',
+        stackTrace,
+      );
+      return (selectedId: null, styles: []);
     }
   }
 
-  MapStyle findById(String? id) =>
-      MapStyle.findById(id, customStyles: customStyles);
-
-  MapStyle get selected => findById(_read(MMKVKey.mapStyle));
-
-  bool recordFallback(MapStyle style) {
-    if (!style.isCustom || !selected.hasSameRenderer(style)) return false;
-    select(MapStyle.all.first);
-    return true;
+  List<MapStyle> _decodeStyles(Object? decoded) {
+    if (decoded is! List) throw const FormatException('Expected basemap list');
+    final styles = <String, MapStyle>{};
+    for (final entry in decoded) {
+      try {
+        if (entry is! Map<String, dynamic>) {
+          throw const FormatException('Expected basemap object');
+        }
+        final style = MapStyle.fromJson(entry);
+        styles[style.id] = style;
+      } on FormatException catch (error, stackTrace) {
+        log.error('Reading saved basemap failed: ${error.message}', stackTrace);
+      }
+    }
+    return styles.values.toList();
   }
 
-  void select(MapStyle style) {
-    _put(MMKVKey.mapStyle, style.id);
-    notifyListeners();
+  List<MapStyle> get customStyles => _load().styles;
+
+  MapStyle get selected {
+    final current = _load();
+    return MapStyle.findById(current.selectedId, customStyles: current.styles);
   }
+
+  void select(MapStyle style) => _save(_load().styles, style.id);
 
   void save(MapStyle style, {bool selectAfterSaving = false}) {
     if (!style.isCustom || !style.id.startsWith('custom:')) {
       throw ArgumentError('Only custom basemaps can be saved');
     }
-    final styles = customStyles;
+    final current = _load();
+    final styles = current.styles;
     final index = styles.indexWhere((entry) => entry.id == style.id);
-    final previous = index < 0 ? null : styles[index];
     if (index < 0) {
       styles.add(style);
     } else {
       styles[index] = style;
     }
-    _put(
-      MMKVKey.customMapStyles,
-      jsonEncode(styles.map((s) => s.toJson()).toList()),
-    );
-    if (previous == null || !previous.hasSameRenderer(style)) {
-      _sourceAttributions.remove(style.id);
-    }
-    if (selectAfterSaving) {
-      select(style);
-    } else {
-      notifyListeners();
-    }
+    _save(styles, selectAfterSaving ? style.id : current.selectedId);
   }
 
   void delete(String id) {
-    final styles = customStyles.where((style) => style.id != id).toList();
-    // Keep the selected ID valid even if only one write succeeds. A failed
-    // selection write leaves the custom map intact for retry.
-    if (_read(MMKVKey.mapStyle) == id) {
-      _put(MMKVKey.mapStyle, MapStyle.all.first.id);
-    }
-    try {
-      _put(
-        MMKVKey.customMapStyles,
-        jsonEncode(styles.map((s) => s.toJson()).toList()),
-      );
-      _sourceAttributions.remove(id);
-    } finally {
-      // A failed list write retains the configuration, but the persisted
-      // default selection still needs to reach all mounted maps.
-      notifyListeners();
-    }
+    final current = _load();
+    final styles = current.styles.where((style) => style.id != id).toList();
+    _save(styles, current.selectedId == id ? null : current.selectedId);
   }
 
-  void recordSourceAttributions(MapStyle style, Iterable<String> entries) {
-    if (!style.isCustom) return;
-    if (!findById(style.id).hasSameRenderer(style)) return;
-    // Maps report metadata at different times. Keep credits already observed
-    // for this renderer; renderer changes and deletion invalidate the cache.
-    _sourceAttributions[style.id] = (
-      style: style,
-      entries: {
-        ...copyrightEntries(style),
-        ...entries.map((entry) => entry.trim()).where((e) => e.isNotEmpty),
-      }.toList(),
-    );
-  }
-
-  List<String> copyrightEntries(MapStyle style) {
-    if (!style.isCustom) return [style.copyright];
-    final loaded = _sourceAttributions[style.id];
-    return loaded?.style.hasSameRenderer(style) == true
-        ? loaded!.entries.toList()
-        : [];
-  }
-
-  void _put(String key, String value) {
-    if (!_write(key, value)) {
+  void _save(List<MapStyle> styles, String? selectedId) {
+    final value = jsonEncode({
+      'selectedId': selectedId ?? MapStyle.all.first.id,
+      'styles': styles.map((style) => style.toJson()).toList(),
+    });
+    if (!_write(MMKVKey.basemaps, value)) {
       throw StateError('Could not save basemap settings');
     }
+    notifyListeners();
   }
 }

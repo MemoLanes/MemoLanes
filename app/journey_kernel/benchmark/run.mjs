@@ -1,8 +1,14 @@
-import { spawn } from "node:child_process";
+import {
+  startProcess,
+  waitForHttp,
+  waitForOutput,
+  stopProcess,
+} from "../tools/process.mjs";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
+import { browserLaunchOptions } from "../tools/browser-launch.mjs";
 
 const benchmarkDirectory = path.dirname(fileURLToPath(import.meta.url));
 const journeyKernelDirectory = path.resolve(benchmarkDirectory, "..");
@@ -58,13 +64,15 @@ try {
   const benchmarkUrl = buildBenchmarkUrl(rawMapUrl);
 
   try {
-    browser = await chromium.launch({
-      headless,
-      args: [
-        "--disable-background-timer-throttling",
-        "--disable-renderer-backgrounding",
-      ],
-    });
+    browser = await chromium.launch(
+      browserLaunchOptions("chromium", {
+        headless,
+        args: [
+          "--disable-background-timer-throttling",
+          "--disable-renderer-backgrounding",
+        ],
+      }),
+    );
   } catch (error) {
     if (String(error).includes("Executable doesn't exist")) {
       throw new Error(
@@ -84,7 +92,12 @@ try {
   const browserErrors = [];
   page.on("pageerror", (error) => browserErrors.push(String(error)));
   page.on("console", (message) => {
-    if (message.type() === "error") {
+    // A headed Chromium also asks for a favicon, which the bundle server does
+    // not serve. That 404 says nothing about rendering.
+    if (
+      message.type() === "error" &&
+      !(message.location()?.url ?? "").endsWith("/favicon.ico")
+    ) {
       browserErrors.push(message.text());
     }
   });
@@ -129,86 +142,6 @@ try {
   await cleanup();
 }
 
-function startProcess(command, args, cwd, extraEnvironment = {}) {
-  const child = spawn(command, args, {
-    cwd,
-    env: { ...process.env, ...extraEnvironment },
-    detached: process.platform !== "win32",
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-  child.output = "";
-  child.spawnError = null;
-  const collect = (chunk) => {
-    child.output = `${child.output}${chunk}`.slice(-40_000);
-  };
-  child.stdout.setEncoding("utf8");
-  child.stderr.setEncoding("utf8");
-  child.stdout.on("data", collect);
-  child.stderr.on("data", collect);
-  child.on("error", (error) => {
-    child.spawnError = error;
-    collect(`${error.stack ?? error}\n`);
-  });
-  return child;
-}
-
-async function waitForHttp(url, child, timeoutMs) {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    if (hasProcessStopped(child)) {
-      throw new Error(`Web bundle server exited early:\n${child.output}`);
-    }
-    try {
-      const response = await fetch(url);
-      if (response.ok) {
-        return;
-      }
-    } catch {
-      // Compilation or server startup is still in progress.
-    }
-    await delay(250);
-  }
-  throw new Error(`Timed out waiting for ${url}:\n${child.output}`);
-}
-
-function waitForOutput(child, pattern, timeoutMs) {
-  return new Promise((resolve, reject) => {
-    const inspect = () => {
-      const match = child.output.match(pattern);
-      if (match) {
-        finish();
-        resolve(match[1]);
-        return;
-      }
-      if (hasProcessStopped(child)) {
-        finish();
-        reject(
-          new Error(`Rust benchmark server exited early:\n${child.output}`),
-        );
-      }
-    };
-    const timeout = setTimeout(() => {
-      finish();
-      reject(
-        new Error(`Timed out waiting for Rust benchmark URL:\n${child.output}`),
-      );
-    }, timeoutMs);
-    const finish = () => {
-      clearTimeout(timeout);
-      child.stdout.off("data", inspect);
-      child.stderr.off("data", inspect);
-      child.off("error", inspect);
-      child.off("exit", inspect);
-    };
-
-    child.stdout.on("data", inspect);
-    child.stderr.on("data", inspect);
-    child.once("error", inspect);
-    child.once("exit", inspect);
-    inspect();
-  });
-}
-
 function buildBenchmarkUrl(rawUrl) {
   const [baseUrl, rawHash = ""] = rawUrl.split("#", 2);
   const params = new URLSearchParams(rawHash);
@@ -231,62 +164,6 @@ async function cleanup() {
     browser = undefined;
   }
   await Promise.all(children.splice(0).map(stopProcess));
-}
-
-async function stopProcess(child) {
-  if (hasProcessStopped(child)) {
-    return;
-  }
-  signalProcess(child, "SIGINT");
-  if (await waitForExit(child, 2_000)) {
-    return;
-  }
-  signalProcess(child, "SIGTERM");
-  if (await waitForExit(child, 2_000)) {
-    return;
-  }
-  signalProcess(child, "SIGKILL");
-}
-
-function signalProcess(child, signal) {
-  try {
-    if (process.platform !== "win32" && child.pid) {
-      process.kill(-child.pid, signal);
-    } else {
-      child.kill(signal);
-    }
-  } catch {
-    // The process may have exited between the state check and the signal.
-  }
-}
-
-function waitForExit(child, timeoutMs) {
-  if (hasProcessStopped(child)) {
-    return Promise.resolve(true);
-  }
-  return new Promise((resolve) => {
-    const timeout = setTimeout(() => {
-      child.off("exit", onExit);
-      resolve(false);
-    }, timeoutMs);
-    const onExit = () => {
-      clearTimeout(timeout);
-      resolve(true);
-    };
-    child.once("exit", onExit);
-  });
-}
-
-function hasProcessStopped(child) {
-  return (
-    child.spawnError !== null ||
-    child.exitCode !== null ||
-    child.signalCode !== null
-  );
-}
-
-function delay(durationMs) {
-  return new Promise((resolve) => setTimeout(resolve, durationMs));
 }
 
 function yarnCommand() {

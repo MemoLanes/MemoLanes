@@ -19,7 +19,6 @@ import 'package:memolanes/common/app_translation_loader.dart';
 import 'package:memolanes/common/component/app_navigation_shell.dart';
 import 'package:memolanes/common/component/bottom_nav_bar.dart';
 import 'package:memolanes/common/component/database_version_too_new_gate.dart';
-import 'package:memolanes/common/component/map_controls/map_copyright_button.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/duo_device.dart';
 import 'package:memolanes/common/log.dart';
@@ -339,9 +338,6 @@ class _MyHomePageState extends State<MyHomePage> {
               .watch<UpdateNotifier>()
               .hasUpdateNotification,
         ),
-        bottomTrailingOverlay: _selectedIndex <= 2
-            ? const MapCopyrightButton()
-            : null,
       ),
     );
   }

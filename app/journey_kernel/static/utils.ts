@@ -26,6 +26,15 @@ export function resolveStyleResourceUrls(
       : new URL(url, styleUrl).href.replace(/%7B/gi, "{").replace(/%7D/gi, "}");
 
   if (style.glyphs) style.glyphs = resolve(style.glyphs);
+  const fontFaces = style["font-faces"];
+  if (fontFaces) {
+    for (const [family, declaration] of Object.entries(fontFaces)) {
+      fontFaces[family] =
+        typeof declaration === "string"
+          ? resolve(declaration)
+          : declaration.map((face) => ({ ...face, url: resolve(face.url) }));
+    }
+  }
   if (typeof style.sprite === "string") {
     style.sprite = resolve(style.sprite);
   } else if (style.sprite) {
@@ -94,10 +103,13 @@ export function transformStyleWithProjection(
   nextStyle: any,
   projection: ProjectionType,
   mapLocale: MapLocale,
+  forceGlobe: boolean = false,
 ): any {
+  const projectionValue =
+    projection === "globe" && forceGlobe ? "vertical-perspective" : projection;
   return {
     ...injectMapLocaleState(nextStyle, mapLocale),
-    projection: { type: projection },
+    projection: { type: projectionValue },
     sky: {
       "sky-color": "#080820",
       "horizon-color": "#2a2a3a",

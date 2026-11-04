@@ -99,6 +99,7 @@ async function trySetup(): Promise<void> {
       containerId: "map",
       params,
       DisableAutoRefresh: isEditor,
+      attributionLabel: window.EXTERNAL_PARAMS.attribution_label,
     });
   } catch (error) {
     if (!(error instanceof GPUInitializationError)) throw error;
@@ -110,11 +111,6 @@ async function trySetup(): Promise<void> {
     return;
   }
 
-  // Register before awaiting data so Flutter can recover an immediate style
-  // failure during cold startup.
-  window.updateBasemap = (config) => {
-    params.basemap = config;
-  };
   await mapController.initialize();
   console.log("MapController initialized");
 

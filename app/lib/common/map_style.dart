@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:memolanes/common/map_fog_style.dart';
 
 enum MapStyleType { style, raster }
@@ -30,6 +32,9 @@ class MapStyle {
 
   bool get isCustom => customName != null;
 
+  String get attribution =>
+      isCustom ? const HtmlEscape().convert(customName!) : copyright;
+
   /// MapLibre accepts either a style URL or a complete style object.
   Object get mapLibreStyle => type == MapStyleType.style
       ? url
@@ -47,13 +52,6 @@ class MapStyle {
             {'id': 'basemap', 'type': 'raster', 'source': 'basemap'},
           ],
         };
-
-  bool hasSameRenderer(MapStyle other) =>
-      id == other.id &&
-      url == other.url &&
-      type == other.type &&
-      (type != MapStyleType.raster ||
-          (tileSize == other.tileSize && scheme == other.scheme));
 
   Map<String, Object> toJson() => {
     'id': id,
@@ -106,13 +104,16 @@ class MapStyle {
     MapStyle(
       id: 'openfreemap',
       url: 'https://tiles.openfreemap.org/styles/liberty',
-      copyright: '[OpenFreeMap](https://openfreemap.org) [© OpenMapTiles](https://www.openmaptiles.org/) Data from [OpenStreetMap](https://www.openstreetmap.org/copyright)',
+      copyright:
+          '<a href="https://openfreemap.org">OpenFreeMap</a> '
+          '<a href="https://www.openmaptiles.org/">© OpenMapTiles</a> '
+          'Data from <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
       fogOpacityByStyle: {MapFogStyle.dark: 0.50, MapFogStyle.light: 0.50},
     ),
     MapStyle(
       id: 'maplibre',
       url: 'https://demotiles.maplibre.org/style.json',
-      copyright: '[MapLibre](https://maplibre.org/)',
+      copyright: '<a href="https://maplibre.org/">MapLibre</a>',
       fogOpacityByStyle: {MapFogStyle.dark: 0.50, MapFogStyle.light: 0.50},
     ),
   ];

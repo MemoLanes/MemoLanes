@@ -1,0 +1,38 @@
+# GB/T 2260 two-digit province adcode prefix -> Natural Earth adm1_code, for
+# the 27 provinces and autonomous regions the CHN admin-2 tier covers. The four
+# 直辖市 (11 Beijing, 12 Tianjin, 31 Shanghai, 50 Chongqing) and the HK/MO/TW
+# prefixes (81/82/71) are deliberately absent: this tier does not cover them.
+# Sourced via: jq -r '.features[] | select(.properties.adm0_a3=="CHN") |
+#   [.properties.adm1_code, .properties.name_en] | @tsv'
+#   tools/geo_rasterizer/natural_earth/ne_10m_admin_1_states_provinces.geojson
+schema = 1
+
+province = [
+  { prefix = "13", adm1_code = "CHN-1811" }, # Hebei
+  { prefix = "14", adm1_code = "CHN-1805" }, # Shanxi
+  { prefix = "15", adm1_code = "CHN-1838" }, # Inner Mongolia
+  { prefix = "21", adm1_code = "CHN-1813" }, # Liaoning
+  { prefix = "22", adm1_code = "CHN-1828" }, # Jilin
+  { prefix = "23", adm1_code = "CHN-1839" }, # Heilongjiang
+  { prefix = "32", adm1_code = "CHN-1818" }, # Jiangsu
+  { prefix = "33", adm1_code = "CHN-1820" }, # Zhejiang
+  { prefix = "34", adm1_code = "CHN-1179" }, # Anhui
+  { prefix = "35", adm1_code = "CHN-1178" }, # Fujian
+  { prefix = "36", adm1_code = "CHN-1817" }, # Jiangxi
+  { prefix = "37", adm1_code = "CHN-1814" }, # Shandong
+  { prefix = "41", adm1_code = "CHN-1812" }, # Henan
+  { prefix = "42", adm1_code = "CHN-1807" }, # Hubei
+  { prefix = "43", adm1_code = "CHN-1808" }, # Hunan
+  { prefix = "44", adm1_code = "CHN-1180" }, # Guangdong
+  { prefix = "45", adm1_code = "CHN-1152" }, # Guangxi
+  { prefix = "46", adm1_code = "CHN-1775" }, # Hainan
+  { prefix = "51", adm1_code = "CHN-1809" }, # Sichuan
+  { prefix = "52", adm1_code = "CHN-1153" }, # Guizhou
+  { prefix = "53", adm1_code = "CHN-1810" }, # Yunnan
+  { prefix = "54", adm1_code = "CHN-1662" }, # Tibet
+  { prefix = "61", adm1_code = "CHN-1804" }, # Shaanxi
+  { prefix = "62", adm1_code = "CHN-1150" }, # Gansu
+  { prefix = "63", adm1_code = "CHN-1151" }, # Qinghai
+  { prefix = "64", adm1_code = "CHN-1803" }, # Ningxia
+  { prefix = "65", adm1_code = "CHN-1756" }, # Xinjiang
+]

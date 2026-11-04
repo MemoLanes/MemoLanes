@@ -18,7 +18,8 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 pub struct Entry {
-    /// Continent 2-letter code, country `ADM0_A3`, or province `adm1_code`.
+    /// Continent 2-letter code, country `ADM0_A3`, province `adm1_code`, or
+    /// admin-2 `canonical_code` (e.g. `"CN-4403"`).
     pub code: String,
     pub id: u32,
     /// Representative point `[lon, lat]` (union centroid, merged across all
@@ -32,13 +33,15 @@ pub enum Namespace {
     Continent,
     Country,
     Province,
+    Admin2,
 }
 
 impl Namespace {
-    pub const ALL: [Namespace; 3] = [
+    pub const ALL: [Namespace; 4] = [
         Namespace::Continent,
         Namespace::Country,
         Namespace::Province,
+        Namespace::Admin2,
     ];
 
     pub fn file_name(self) -> &'static str {
@@ -46,6 +49,7 @@ impl Namespace {
             Namespace::Continent => "continents.toml",
             Namespace::Country => "countries.toml",
             Namespace::Province => "provinces.toml",
+            Namespace::Admin2 => "admin2.toml",
         }
     }
 
@@ -54,6 +58,7 @@ impl Namespace {
             Namespace::Continent => "continent",
             Namespace::Country => "country",
             Namespace::Province => "province",
+            Namespace::Admin2 => "admin2",
         }
     }
 }
@@ -68,6 +73,8 @@ pub struct Registry {
     pub countries: Vec<Entry>,
     #[serde(default, rename = "province")]
     pub provinces: Vec<Entry>,
+    #[serde(default, rename = "admin2")]
+    pub admin2: Vec<Entry>,
 }
 
 impl Registry {
@@ -77,6 +84,7 @@ impl Registry {
             continents: vec![],
             countries: vec![],
             provinces: vec![],
+            admin2: vec![],
         };
         for (i, namespace) in Namespace::ALL.into_iter().enumerate() {
             let path = dir.join(namespace.file_name());
@@ -97,6 +105,7 @@ impl Registry {
             reg.continents.extend(doc.continents);
             reg.countries.extend(doc.countries);
             reg.provinces.extend(doc.provinces);
+            reg.admin2.extend(doc.admin2);
         }
         reg.validate_unique_ids()
             .with_context(|| format!("validating registry at {}", dir.display()))?;
@@ -145,6 +154,7 @@ impl Registry {
             Namespace::Continent => &self.continents,
             Namespace::Country => &self.countries,
             Namespace::Province => &self.provinces,
+            Namespace::Admin2 => &self.admin2,
         }
     }
 
@@ -154,7 +164,7 @@ impl Registry {
         Ok(reg)
     }
 
-    /// No id appears twice across continents+countries+provinces (corruption guard).
+    /// No id appears twice across continents+countries+provinces+admin2 (corruption guard).
     pub fn validate_unique_ids(&self) -> Result<()> {
         let mut seen = BTreeMap::new();
         for e in self
@@ -162,6 +172,7 @@ impl Registry {
             .iter()
             .chain(self.countries.iter())
             .chain(self.provinces.iter())
+            .chain(self.admin2.iter())
         {
             if let Some(prev) = seen.insert(e.id, e.code.clone()) {
                 bail!("registry: id {} used by both {} and {}", e.id, prev, e.code);
@@ -198,12 +209,21 @@ impl Registry {
             })
     }
 
+    pub fn id_for_admin2(&self, code: &str) -> Result<GeoEntityId> {
+        Self::lookup(&self.admin2, code)
+            .map(|e| GeoEntityId(e.id))
+            .ok_or_else(|| {
+                anyhow!("registry: unknown admin-2 code `{code}` (append it via registry_gen)")
+            })
+    }
+
     /// One past the current maximum id (next append slot). Returns 0 if empty.
     pub fn next_id(&self) -> u32 {
         self.continents
             .iter()
             .chain(self.countries.iter())
             .chain(self.provinces.iter())
+            .chain(self.admin2.iter())
             .map(|e| e.id)
             .max()
             .map_or(0, |m| {
@@ -250,6 +270,21 @@ pub fn admin1_point_items(
         .collect()
 }
 
+pub fn admin2_point_items(
+    features: &[crate::admin2::Admin2Feature],
+) -> Vec<(String, Namespace, MultiPolygon<f64>)> {
+    features
+        .iter()
+        .map(|f| {
+            (
+                f.canonical_code.clone(),
+                Namespace::Admin2,
+                f.geometry.clone(),
+            )
+        })
+        .collect()
+}
+
 pub fn merged_geometries(
     items: impl IntoIterator<Item = (String, Namespace, MultiPolygon<f64>)>,
 ) -> Vec<(String, Namespace, MultiPolygon<f64>)> {
@@ -293,6 +328,7 @@ pub fn register_worldview(reg: &mut Registry, points: &[(String, Namespace, (f64
             .iter_mut()
             .chain(reg.countries.iter_mut())
             .chain(reg.provinces.iter_mut())
+            .chain(reg.admin2.iter_mut())
             .find(|e| &e.code == code);
         match found {
             Some(e) => {
@@ -311,6 +347,7 @@ pub fn register_worldview(reg: &mut Registry, points: &[(String, Namespace, (f64
                     Namespace::Continent => reg.continents.push(entry),
                     Namespace::Country => reg.countries.push(entry),
                     Namespace::Province => reg.provinces.push(entry),
+                    Namespace::Admin2 => reg.admin2.push(entry),
                 }
             }
         }

@@ -1,3 +1,4 @@
+use clap::Parser;
 use memolanes_core::import_data;
 use memolanes_core::journey_bitmap::JourneyBitmap;
 use memolanes_core::renderer::MapRenderer;
@@ -5,10 +6,19 @@ mod shared;
 use shared::MapServer;
 
 use rand::RngExt;
+use std::io::Write;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::Duration;
+
+#[derive(Parser)]
+#[command(about = "Serve demo maps, or a single GPX file, through the map API")]
+struct Cli {
+    /// Serve only this GPX file instead of the three demo maps.
+    #[arg(long, value_name = "PATH")]
+    gpx: Option<String>,
+}
 
 const START_LNG: f64 = 151.14;
 const START_LAT: f64 = -33.79;
@@ -46,24 +56,52 @@ fn draw_line5(journey_bitmap: &mut JourneyBitmap) {
 }
 
 pub fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let cli = Cli::parse();
     // Initialize the logger with info level
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
         .format_timestamp(None)
         .format_module_path(false)
         .init();
 
-    println!("############ BREAK CHANGE NOTICE ###############");
-    println!("Starting from Dec 2025, user need to hosting the static resource by themselves and the rust side will only handle the dynamic requests.");
-    println!("Please make sure you have `yarn dev` running in journey_kernel folder.");
-    println!(
-        "- By default, we assume the static resources are available at `http://localhost:8080`"
-    );
-    println!(
-        "- You may also pass the static resources url via the DEV_SERVER environment variable"
-    );
-    println!("    eg: `DEV_SERVER=http://localhost:8080 cargo run --release --example server -- --nocapture`");
-    println!("################################################");
+    let shutdown_requested = Arc::new(AtomicBool::new(false));
+    let shutdown_for_handler = shutdown_requested.clone();
+    ctrlc::set_handler(move || shutdown_for_handler.store(true, Ordering::SeqCst))?;
 
+    let mut servers = if let Some(path) = cli.gpx {
+        vec![start_gpx_server(&path)?]
+    } else {
+        println!("Run `yarn dev` in journey_kernel to serve the map page.");
+        println!("Set DEV_SERVER to override the default http://localhost:8080 page URL.");
+        start_demo_servers(shutdown_requested.clone())?
+    };
+
+    println!("Press Ctrl+C to exit");
+    std::io::stdout().flush()?;
+    while !shutdown_requested.load(Ordering::SeqCst) {
+        std::thread::sleep(Duration::from_millis(100));
+    }
+    for server in &mut servers {
+        server.stop()?;
+    }
+    Ok(())
+}
+
+fn start_gpx_server(path: &str) -> Result<MapServer, Box<dyn std::error::Error>> {
+    let (raw, _) = import_data::gpx::load_gpx(path)?;
+    let vector =
+        import_data::conversion::journey_vector_from_raw_data_with_gps_preprocessor(&raw, None)
+            .ok_or_else(|| anyhow::anyhow!("GPX contains no valid track points"))?;
+    let mut bitmap = JourneyBitmap::new();
+    bitmap.edit().merge_vector(&vector);
+    let server = MapServer::create_and_start(Arc::new(Mutex::new(MapRenderer::new(bitmap))))?;
+    println!("[GPX Map Server]: {}", server.get_http_url());
+    println!("MAP_ENDPOINT={}", server.get_api_endpoint());
+    Ok(server)
+}
+
+fn start_demo_servers(
+    shutdown_requested: Arc<AtomicBool>,
+) -> Result<Vec<MapServer>, Box<dyn std::error::Error>> {
     // ========== Server 1: Simple Map (static with crossed lines) ==========
     let mut journey_bitmap = JourneyBitmap::new();
     draw_line1(&mut journey_bitmap);
@@ -73,18 +111,15 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     draw_line5(&mut journey_bitmap);
 
     let map_renderer_static = Arc::new(Mutex::new(MapRenderer::new(journey_bitmap)));
-    let server_simple = MapServer::create_and_start(map_renderer_static)
-        .expect("Failed to start simple map server");
+    let server_simple = MapServer::create_and_start(map_renderer_static)?;
 
     println!("================================================");
     println!("[Simple Map Server]:   {}", server_simple.get_http_url());
 
     // ========== Server 2: Medium Map (loaded from fow_3.zip) ==========
-    let (journey_bitmap_fow, _) =
-        import_data::fow::load_fow_sync_data("./tests/data/fow_3.zip").unwrap();
+    let (journey_bitmap_fow, _) = import_data::fow::load_fow_sync_data("./tests/data/fow_3.zip")?;
     let map_renderer_fow = Arc::new(Mutex::new(MapRenderer::new(journey_bitmap_fow)));
-    let server_medium =
-        MapServer::create_and_start(map_renderer_fow).expect("Failed to start medium map server");
+    let server_medium = MapServer::create_and_start(map_renderer_fow)?;
 
     println!("[Medium Map Server]:   {}", server_medium.get_http_url());
 
@@ -92,15 +127,9 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let journey_bitmap2 = JourneyBitmap::new();
     let map_renderer_dynamic = Arc::new(Mutex::new(MapRenderer::new(journey_bitmap2)));
     let map_renderer_arc_clone = map_renderer_dynamic.clone();
-    let server_dynamic = MapServer::create_and_start(map_renderer_dynamic)
-        .expect("Failed to start dynamic map server");
+    let server_dynamic = MapServer::create_and_start(map_renderer_dynamic)?;
 
     println!("[Dynamic Map Server]:  {}", server_dynamic.get_http_url());
-
-    // Wrap servers in Arc<Mutex<>> for thread-safe access
-    let server_simple = Arc::new(Mutex::new(server_simple));
-    let server_medium = Arc::new(Mutex::new(server_medium));
-    let server_dynamic = Arc::new(Mutex::new(server_dynamic));
 
     // Spawn the drawing thread for the dynamic map
     std::thread::spawn(move || {
@@ -110,7 +139,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         let lng_step = 0.00252;
         let lat_step = lng_step;
 
-        loop {
+        while !shutdown_requested.load(Ordering::SeqCst) {
             // Add a new line segment
             {
                 let next_lng = lng + lng_step;
@@ -128,31 +157,5 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
 
-    // Graceful shutdown on Ctrl+C
-    println!("Press Ctrl+C to exit");
-    let shutdown_requested = Arc::new(AtomicBool::new(false));
-    let shutdown_requested_clone = shutdown_requested.clone();
-    ctrlc::set_handler(move || {
-        println!("Ctrl+C pressed. Beginning graceful shutdown...");
-        shutdown_requested_clone.store(true, Ordering::SeqCst);
-    })?;
-
-    // Block the main thread to keep all servers running
-    while !shutdown_requested.load(Ordering::SeqCst) {
-        std::thread::sleep(std::time::Duration::from_secs(1));
-    }
-
-    println!("Stopping all servers...");
-    if let Ok(mut server) = server_simple.lock() {
-        let _ = server.stop();
-    }
-    if let Ok(mut server) = server_medium.lock() {
-        let _ = server.stop();
-    }
-    if let Ok(mut server) = server_dynamic.lock() {
-        let _ = server.stop();
-    }
-
-    println!("Shutdown complete.");
-    Ok(())
+    Ok(vec![server_simple, server_medium, server_dynamic])
 }
