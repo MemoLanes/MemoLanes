@@ -216,7 +216,7 @@ class _MapStyleEditorPageState extends State<_MapStyleEditorPage> {
         actions: AppDialogActions(
           children: [
             AppButton(
-              label: context.tr('$_strings.cancel'),
+              label: context.tr('common.cancel'),
               variant: AppButtonVariant.secondary,
               onPressed: () => Navigator.of(dialogContext).pop(false),
             ),
@@ -272,10 +272,7 @@ class _MapStyleEditorPageState extends State<_MapStyleEditorPage> {
             TextFormField(
               controller: _name,
               maxLength: 50,
-              decoration: _decoration(
-                'name',
-                hint: context.tr('$_strings.name_hint'),
-              ).copyWith(counterText: ''),
+              decoration: _decoration('name').copyWith(counterText: ''),
               validator: (value) => value == null || value.trim().isEmpty
                   ? context.tr('$_strings.required')
                   : null,
@@ -381,7 +378,7 @@ class _MapStyleEditorPageState extends State<_MapStyleEditorPage> {
               label: context.tr(
                 widget.initial == null
                     ? '$_strings.save_and_use'
-                    : '$_strings.save',
+                    : 'common.save',
               ),
               icon: Icons.check,
               expand: true,

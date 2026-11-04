@@ -318,7 +318,6 @@
         "type_style": "地图样式",
         "type_raster": "图片瓦片",
         "name": "样式名称",
-        "name_hint": "给样式取个名字",
         "style_url": "样式链接",
         "tile_url": "瓦片地址",
         "style_url_help": "填写完整的地图样式链接，所需参数请直接拼在链接中。",
@@ -331,9 +330,7 @@
         "invalid_tiles": "瓦片地址须包含 {z}、{x}、{y}",
         "write_failed": "保存失败，请重试",
         "save_and_use": "保存并使用",
-        "save": "保存",
         "delete": "删除样式",
-        "cancel": "取消",
         "delete_title": "删除样式？",
         "delete_message": "确定删除「{name}」吗？",
         "delete_selected_message": "删除「{name}」后，将切换回默认样式。"
