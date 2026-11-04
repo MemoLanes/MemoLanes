@@ -1,0 +1,8 @@
+# Minimal fixture map for tests/admin2.rs — the two adcode prefixes
+# the sample snapshot's kept features belong to (Guangdong, Hainan).
+schema = 1
+
+province = [
+  { prefix = "44", adm1_code = "CHN-4818" },
+  { prefix = "46", adm1_code = "CHN-1775" },
+]

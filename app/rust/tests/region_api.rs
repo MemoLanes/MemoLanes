@@ -108,14 +108,11 @@ fn region_read_api_lists_progress_and_completion() {
         .with_achievement_read(|store| {
             use AchievementLayer::*;
 
-            let eu = Some(GeoEntityId(1));
             // `region_areas` takes `&mut store`, so fetch every area first with
             // per-statement `geo()` borrows, then hold one for the assertions.
-            let ids = region::level_scope(store.geo()?, RegionKind::Admin0, eu);
+            let ids = region::level_scope(store.geo()?, RegionKind::Admin0)?;
             let areas = store.region_areas(Default, &ids)?;
             let all_areas = store.region_areas(All, &ids)?;
-            let world_scope = region::level_scope(store.geo()?, RegionKind::Admin0, None);
-            let world_areas = store.region_areas(All, &world_scope)?;
             let detail_ids = region::detail_scope(store.geo()?, GeoEntityId(1));
             let detail_areas = store.region_areas(All, &detail_ids)?;
 
@@ -146,19 +143,16 @@ fn region_read_api_lists_progress_and_completion() {
             let all = region::level_view(geo, RegionKind::Admin0, &ids, &all_areas)?;
             assert_eq!((all.visited_count, all.region_count), (2, 2));
 
-            let world = region::level_view(geo, RegionKind::Admin0, &world_scope, &world_areas)?;
-            let mut world_ids: Vec<_> = world.entries.keys().copied().collect();
-            world_ids.sort();
-            assert_eq!(world_ids, vec![GeoEntityId(2), GeoEntityId(3)]);
-            assert_eq!((world.visited_count, world.region_count), (2, 2));
-
-            // Detail of EU (All layer): single-layer node + FR/DE children.
+            // Drilling into EU (All layer): single-layer node + FR/DE children,
+            // and only the node offers a further level.
             let detail = region::detail_view(geo, GeoEntityId(1), &detail_areas)?.unwrap();
             assert_eq!(detail.entity_id, GeoEntityId(1));
             assert!(detail.node.visited_area_m2 > 0);
+            assert!(detail.node.has_children);
             let mut kids: Vec<_> = detail.children.keys().copied().collect();
             kids.sort();
             assert_eq!(kids, vec![GeoEntityId(2), GeoEntityId(3)]);
+            assert!(detail.children.values().all(|c| !c.has_children));
 
             Ok(())
         })

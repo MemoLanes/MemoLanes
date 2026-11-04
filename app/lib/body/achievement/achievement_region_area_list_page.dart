@@ -67,6 +67,7 @@ class _AchievementRegionAreaListPageState
   @override
   Widget build(BuildContext context) {
     final items = _sortedItems(widget.items);
+    final reserveChevronSpace = items.any((item) => item.onTap != null);
 
     return Scaffold(
       backgroundColor: context.appColors.canvasColor,
@@ -92,7 +93,11 @@ class _AchievementRegionAreaListPageState
               useSafeArea: false,
               children: [
                 for (final item in items)
-                  _RegionAreaListTile(item: item, showIcon: widget.showIcons),
+                  _RegionAreaListTile(
+                    item: item,
+                    showIcon: widget.showIcons,
+                    reserveChevronSpace: reserveChevronSpace,
+                  ),
               ],
             ),
           ],
@@ -141,6 +146,7 @@ class _RegionAreaSortControl extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SegmentedButton<_RegionAreaSortMode>(
+      expandedInsets: EdgeInsets.zero,
       showSelectedIcon: false,
       segments: [
         ButtonSegment(
@@ -178,10 +184,15 @@ class _RegionAreaSortControl extends StatelessWidget {
 }
 
 class _RegionAreaListTile extends StatelessWidget {
-  const _RegionAreaListTile({required this.item, required this.showIcon});
+  const _RegionAreaListTile({
+    required this.item,
+    required this.showIcon,
+    required this.reserveChevronSpace,
+  });
 
   final AchievementRegionAreaListItem item;
   final bool showIcon;
+  final bool reserveChevronSpace;
 
   @override
   Widget build(BuildContext context) {
@@ -271,12 +282,17 @@ class _RegionAreaListTile extends StatelessWidget {
                   ],
                 ),
               ),
-              if (item.onTap != null) ...[
+              if (reserveChevronSpace) ...[
                 const SizedBox(width: 8),
-                Icon(
-                  Icons.chevron_right_rounded,
-                  color: context.appColors.mutedInkColor,
-                  size: 22,
+                SizedBox(
+                  width: 22,
+                  child: item.onTap == null
+                      ? null
+                      : Icon(
+                          Icons.chevron_right_rounded,
+                          color: context.appColors.mutedInkColor,
+                          size: 22,
+                        ),
                 ),
               ],
             ],

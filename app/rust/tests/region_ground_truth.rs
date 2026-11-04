@@ -266,7 +266,7 @@ fn region_api_reports_correct_countries_and_areas() {
 
     // The two scopes this test renders: every country, and every ancestor of a
     // placement (for the rollup check). Both come from the geo tree, not coverage.
-    let country_ids = region::level_scope(&geo_index, RegionKind::Admin0, None);
+    let country_ids = region::level_scope(&geo_index, RegionKind::Admin0).unwrap();
     let ancestor_ids: Vec<_> = placements
         .iter()
         .flat_map(|(_, tile, block, _)| {
@@ -366,8 +366,8 @@ fn region_api_reports_correct_countries_and_areas() {
                     .find(|a| geo.node(*a).map(|n| n.kind) == Some(GeoEntityKind::Continent))
                     .expect("FR has a continent ancestor")
             };
-            let ids = region::level_scope(store.geo()?, RegionKind::Admin0, Some(continent));
-            let areas = store.region_areas(All, &ids)?;
+            let continent_ids = region::detail_scope(store.geo()?, continent);
+            let continent_areas = store.region_areas(All, &continent_ids)?;
             let detail_ids = region::detail_scope(store.geo()?, fr);
             let detail_areas = store.region_areas(Default, &detail_ids)?;
 
@@ -383,10 +383,10 @@ fn region_api_reports_correct_countries_and_areas() {
             assert!(levels.contains_key(&RegionKind::Continent));
 
             // France is listed and visited among its continent's countries.
-            let view = region::level_view(geo, RegionKind::Admin0, &ids, &areas)?;
-            let fr_entry = view.entries.get(&fr).expect("FR listed");
+            let continent_detail = region::detail_view(geo, continent, &continent_areas)?.unwrap();
+            let fr_entry = continent_detail.children.get(&fr).expect("FR listed");
             assert!(fr_entry.visited_area_m2 > 0, "FR should be visited");
-            assert!(view.visited_count >= 1 && view.visited_count <= view.region_count);
+            assert!(fr_entry.has_children, "FR drills down to its provinces");
 
             // Detail of France (Default layer): area matches the raw coverage read.
             let detail = region::detail_view(geo, fr, &detail_areas)?.unwrap();

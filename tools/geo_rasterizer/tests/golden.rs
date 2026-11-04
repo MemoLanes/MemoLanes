@@ -20,6 +20,8 @@ fn emitted_asset_declares_its_worldview_id() {
             "tests/fixtures/synthetic_admin1.geojson",
             "--registry",
             "tests/fixtures/synthetic_registry",
+            "--admin2-dir",
+            "tests/fixtures/synthetic_admin2",
             "--output",
         ])
         .arg(&out)
@@ -50,6 +52,8 @@ fn golden_output_is_byte_identical() {
             "tests/fixtures/synthetic_admin1.geojson",
             "--registry",
             "tests/fixtures/synthetic_registry",
+            "--admin2-dir",
+            "tests/fixtures/synthetic_admin2",
             "--output",
         ])
         .arg(&out)

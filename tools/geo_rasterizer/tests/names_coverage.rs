@@ -75,6 +75,14 @@ fn flatten(
 
 #[test]
 fn every_entity_has_a_name_in_every_locale() {
+    let admin2_keys: BTreeSet<_> =
+        geo_rasterizer::admin2::load(&geo_rasterizer::admin2::default_dir())
+            .unwrap()
+            .into_iter()
+            .map(|f| format!("admin2.{}", f.canonical_code))
+            .collect();
+    assert_eq!(admin2_keys.len(), 364, "admin-2 source membership moved");
+
     for &locale in Locale::ALL {
         let map = names(locale);
         assert!(!map.is_empty(), "{}: empty region names", locale.spec().tag);
@@ -89,6 +97,17 @@ fn every_entity_has_a_name_in_every_locale() {
             assert!(
                 keys.iter().any(|k| k.starts_with("province.")),
                 "{}: bin has no provinces — asset looks wrong",
+                worldview.spec().id
+            );
+            let shipped_admin2: BTreeSet<_> = keys
+                .iter()
+                .filter(|k| k.starts_with("admin2."))
+                .cloned()
+                .collect();
+            assert_eq!(
+                shipped_admin2,
+                admin2_keys,
+                "{}: admin-2 entities differ from the snapshot",
                 worldview.spec().id
             );
 
