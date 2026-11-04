@@ -34,14 +34,12 @@ function fixture(t, bg, fg) {
     else globalThis.document = previousDocument;
   });
   t.mock.method(console, "log", () => {});
-  const source = { setCoordinates() {}, play() {}, pause() {} };
-  let sourceExists = true;
-  let sourceLoaded = true;
+  let layerAttached = true;
   const map = {
-    getSource: () => (sourceExists ? source : undefined),
-    isSourceLoaded: () => sourceLoaded,
-    getLayer: () => undefined,
-    removeSource() {},
+    getLayer: () => (layerAttached ? {} : undefined),
+    removeLayer() {
+      layerAttached = false;
+    },
     triggerRepaint() {},
   };
   const provider = { getViewRange: () => [0, 0, 1, 1, 4] };
@@ -49,9 +47,8 @@ function fixture(t, bg, fg) {
   return {
     layer,
     allocations: () => allocations,
-    setSourceState({ exists = sourceExists, loaded = sourceLoaded } = {}) {
-      sourceExists = exists;
-      sourceLoaded = loaded;
+    detachLayer() {
+      layerAttached = false;
     },
     pixel: (x, y) =>
       Array.from(
@@ -79,17 +76,13 @@ function fixture(t, bg, fg) {
   };
 }
 
-test("an empty canvas becomes displayable only after its source loads", (t) => {
+test("display readiness requires an attached layer and a prepared canvas", (t) => {
   const f = fixture(t);
   assert.equal(f.layer.isReadyForDisplay(), false);
-  f.setSourceState({ loaded: false });
   f.draw([]);
-  assert.equal(f.layer.isReadyForDisplay(), false);
-
-  f.setSourceState({ loaded: true });
   assert.equal(f.layer.isReadyForDisplay(), true);
 
-  f.setSourceState({ exists: false, loaded: true });
+  f.detachLayer();
   assert.equal(f.layer.isReadyForDisplay(), false);
 });
 
