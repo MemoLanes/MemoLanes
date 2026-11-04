@@ -39,6 +39,10 @@ fn rejects_newer_major_schema_version_without_migrating() {
     ));
 
     let conn = Connection::open(db_path).unwrap();
+    let mode: String = conn
+        .pragma_query_value(None, "journal_mode", |row| row.get(0))
+        .unwrap();
+    assert_eq!(mode, "delete");
     let major: String = conn
         .query_row(
             "SELECT value FROM db_metadata WHERE key = 'version'",
