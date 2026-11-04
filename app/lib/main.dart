@@ -19,6 +19,7 @@ import 'package:memolanes/common/app_translation_loader.dart';
 import 'package:memolanes/common/component/app_navigation_shell.dart';
 import 'package:memolanes/common/component/bottom_nav_bar.dart';
 import 'package:memolanes/common/component/database_version_too_new_gate.dart';
+import 'package:memolanes/common/component/map_controls/map_copyright_button.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/duo_device.dart';
 import 'package:memolanes/common/log.dart';
@@ -174,6 +175,7 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   int _selectedIndex = 0;
+  bool _hasMapAttribution = false;
   final _journeys = JourneyFlowController();
   DateTime? _lastExitPopAt;
 
@@ -196,13 +198,23 @@ class _MyHomePageState extends State<MyHomePage> {
 
   void _onJourneysChanged() => setState(() {});
 
+  void _onMapAttributionChanged(bool available) {
+    if (!mounted || _selectedIndex > 2 || _hasMapAttribution == available) {
+      return;
+    }
+    setState(() => _hasMapAttribution = available);
+  }
+
   void _selectTab(int index) {
     if (index == _selectedIndex ||
         GlobalLoadingManager.instance.isNavigationBlocked) {
       return;
     }
     if (_selectedIndex == 2 && !_journeys.leave()) return;
-    setState(() => _selectedIndex = index);
+    setState(() {
+      _selectedIndex = index;
+      if (index > 2) _hasMapAttribution = false;
+    });
   }
 
   @override
@@ -268,6 +280,7 @@ class _MyHomePageState extends State<MyHomePage> {
         child: MapBody(
           key: _mapBodyKey,
           journeys: _journeys,
+          onMapAttributionChanged: _onMapAttributionChanged,
           mode: switch (_selectedIndex) {
             0 => MapMode.normal,
             1 => MapMode.timeMachine,
@@ -338,6 +351,12 @@ class _MyHomePageState extends State<MyHomePage> {
               .watch<UpdateNotifier>()
               .hasUpdateNotification,
         ),
+        bottomTrailingOverlay: _selectedIndex <= 2 && _hasMapAttribution
+            ? MapCopyrightButton(
+                readAttribution: () async =>
+                    await _mapBodyKey.currentState?.getMapAttribution(),
+              )
+            : null,
       ),
     );
   }

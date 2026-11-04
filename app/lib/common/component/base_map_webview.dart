@@ -5,7 +5,6 @@ import 'dart:io';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
-import 'package:fluttertoast/fluttertoast.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/map_fog_style.dart';
@@ -42,7 +41,7 @@ class BaseMapWebview extends StatefulWidget {
   final MapView? initialMapView;
   final MapBounds? initialMapBounds;
   final EdgeInsets? boundsPadding;
-  final Offset? attributionInsets;
+  final ValueChanged<bool>? onMapAttributionChanged;
 
   /// Reuse the existing panel's current footprint when fitting map bounds.
   final GlobalKey<MapOverlayPanelState>? overlayPanel;
@@ -61,7 +60,7 @@ class BaseMapWebview extends StatefulWidget {
     this.initialMapView,
     this.initialMapBounds,
     this.boundsPadding,
-    this.attributionInsets = Offset.zero,
+    this.onMapAttributionChanged,
     this.overlayPanel,
     this.flyToBounds,
     this.flyToView,
@@ -112,15 +111,6 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
 
   final List<DateTime> _webGlRecoveryReloads = [];
 
-  String get _attributionLayoutScript {
-    final insets = widget.attributionInsets;
-    return '''
-      document.documentElement.style.setProperty('--attribution-visibility', '${insets == null ? 'hidden' : 'visible'}');
-      document.documentElement.style.setProperty('--attribution-right', '${insets?.dx ?? 0}px');
-      document.documentElement.style.setProperty('--attribution-bottom', '${insets?.dy ?? 0}px');
-    ''';
-  }
-
   late MapFogStyle _selectedMapFogStyle;
 
   // Dev server URL for loading map webview from a local dev server.
@@ -132,6 +122,23 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
 
   Future<void> runJavaScript(String javaScript) async {
     await _webViewController?.evaluateJavascript(source: javaScript);
+  }
+
+  Future<String?> getMapAttribution() async {
+    final controller = _webViewController;
+    if (controller == null || !_readyForDisplay) return null;
+    try {
+      final result = await controller.evaluateJavascript(
+        source: 'window.getMapAttribution?.() ?? null',
+      );
+      return result as String?;
+    } catch (error, stackTrace) {
+      log.error(
+        '[base_map_webview] Reading map attribution failed: $error',
+        stackTrace,
+      );
+      return null;
+    }
   }
 
   /// Read the live camera before opening a journey, including recent gestures
@@ -166,9 +173,6 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   @override
   void didUpdateWidget(BaseMapWebview oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.attributionInsets != widget.attributionInsets) {
-      unawaited(_updateAttributionLayout());
-    }
     if (oldWidget.trackingMode != widget.trackingMode) {
       if (widget.trackingMode == TrackingMode.off) {
         _hideLocationMarker();
@@ -185,14 +189,6 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
         oldWidget.boundsPadding != widget.boundsPadding ||
         oldWidget.overlayPanel != widget.overlayPanel) {
       _scheduleMapSync();
-    }
-  }
-
-  Future<void> _updateAttributionLayout() async {
-    try {
-      await runJavaScript(_attributionLayoutScript);
-    } catch (error, stackTrace) {
-      log.error('Positioning map attribution failed: $error', stackTrace);
     }
   }
 
@@ -330,18 +326,17 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     // These create window.channelName.postMessage(str) objects on the JS side,
     // matching the calling convention of webview_flutter's addJavaScriptChannel.
     await Future.wait([
-      controller.addWebMessageListener(
-        WebMessageListener(
-          jsObjectName: 'onBasemapLoadFailed',
-          allowedOriginRules: {'*'},
-          onPostMessage: (message, sourceOrigin, isMainFrame, replyProxy) {
-            if (!mounted || !isMainFrame) return;
-            Fluttertoast.showToast(
-              msg: context.tr('general.map_settings.basemaps.load_failed'),
-            );
-          },
+      if (widget.onMapAttributionChanged != null)
+        controller.addWebMessageListener(
+          WebMessageListener(
+            jsObjectName: 'onMapAttributionChanged',
+            allowedOriginRules: {'*'},
+            onPostMessage: (message, sourceOrigin, isMainFrame, replyProxy) {
+              if (!mounted || !isMainFrame) return;
+              widget.onMapAttributionChanged?.call(message?.data == 'true');
+            },
+          ),
         ),
-      ),
       controller.addWebMessageListener(
         WebMessageListener(
           jsObjectName: 'onMapMoved',
@@ -457,11 +452,8 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     final params = <String, Object?>{
       'cgi_endpoint': MapWebViewResources.apiEndpoint,
       'render': 'canvas',
-      'basemap': {
-        'id': style.id,
-        'style': style.mapLibreStyle,
-        'attribution': style.attribution,
-      },
+      'map_style': style.mapLibreStyle,
+      'custom_basemap': style.isCustom,
       'attribution_label': context.tr(
         'general.map_settings.basemaps.attribution',
       ),
@@ -484,7 +476,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     await controller.evaluateJavascript(
       source:
           '''
-      $_attributionLayoutScript
+      document.documentElement.classList.toggle('hide-map-attribution', ${widget.onMapAttributionChanged != null});
       window.EXTERNAL_PARAMS = ${jsonEncode(params)};
       
       // Check if JS is ready and trigger initialization if so
@@ -705,6 +697,9 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
               mode: LaunchMode.externalApplication,
             );
             return NavigationActionPolicy.CANCEL;
+          },
+          onLoadStart: (controller, url) {
+            if (mounted) widget.onMapAttributionChanged?.call(false);
           },
           onLoadStop: (controller, url) {
             if (!mounted) return;

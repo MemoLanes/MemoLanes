@@ -146,6 +146,7 @@ async function trySetup(): Promise<void> {
   // Keep Flutter's cover until that content reaches a completed map frame.
   await mapController.waitForDisplay();
   notifyFlutterReady();
+  flutterBridge.observeMapAttribution();
 }
 
 // Export trySetup to window for Flutter to call

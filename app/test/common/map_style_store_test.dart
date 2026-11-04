@@ -17,7 +17,6 @@ MapStyle _custom({
   type: type,
   tileSize: 512,
   scheme: MapTileScheme.tms,
-  fogOpacityByStyle: const {},
 );
 
 void main() {
@@ -104,6 +103,8 @@ void main() {
           {'id': 'openfreemap'},
           {..._custom().toJson(), 'type': 'unsupported'},
           {..._custom().toJson(), 'tileSize': 512.0},
+          _custom().toJson()..remove('tileSize'),
+          _custom().toJson()..remove('scheme'),
           _custom(id: 'custom:valid').toJson(),
         ],
       });
@@ -122,13 +123,10 @@ void main() {
     store.save(custom, selectAfterSaving: true);
     expect(writes, [MMKVKey.basemaps]);
 
-    var notifications = 0;
-    store.addListener(() => notifications++);
     failWrite = true;
     expect(() => store.save(other, selectAfterSaving: true), throwsStateError);
     expect(() => store.select(MapStyle.all.last), throwsStateError);
     expect(() => store.delete(custom.id), throwsStateError);
-    expect(notifications, 0);
     expect(openStore().selected.toJson(), custom.toJson());
     expect(openStore().customStyles.single.toJson(), custom.toJson());
 
@@ -136,7 +134,6 @@ void main() {
     failWrite = false;
     store.delete(custom.id);
     expect(writes, [MMKVKey.basemaps]);
-    expect(notifications, 1);
     expect(openStore().selected.id, MapStyle.all.first.id);
     expect(openStore().customStyles, isEmpty);
   });

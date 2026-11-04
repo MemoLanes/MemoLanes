@@ -6,7 +6,6 @@ import 'package:memolanes/common/component/app_option_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
 import 'package:memolanes/common/map_fog_style.dart';
-import 'package:memolanes/common/map_style.dart';
 import 'package:memolanes/common/map_style_store.dart';
 import 'package:memolanes/body/settings/map_styles_page.dart';
 import 'package:memolanes/common/mmkv_util.dart';
@@ -23,31 +22,15 @@ class MapSettingsPage extends StatefulWidget {
 }
 
 class _MapSettingsPageState extends State<MapSettingsPage> {
-  late MapStyle _current;
   late MapFogStyle _currentFogStyle;
   late Worldview _worldview;
 
   @override
   void initState() {
     super.initState();
-    _current = MapStyleStore.instance.selected;
-    MapStyleStore.instance.addListener(_onMapStyleChanged);
     final fogModeId = MMKVUtil.getStringOpt(MMKVKey.mapFogMode);
     _currentFogStyle = MapFogStyle.findById(fogModeId);
     _worldview = WorldviewManager.instance.currentWorldview;
-  }
-
-  void _onMapStyleChanged() =>
-      setState(() => _current = MapStyleStore.instance.selected);
-
-  @override
-  void dispose() {
-    MapStyleStore.instance.removeListener(_onMapStyleChanged);
-    super.dispose();
-  }
-
-  String _labelFor(MapStyle style) {
-    return mapStyleLabel(context, style);
   }
 
   String _fogStyleLabelFor(MapFogStyle style) {
@@ -60,9 +43,10 @@ class _MapSettingsPageState extends State<MapSettingsPage> {
     MMKVUtil.putString(MMKVKey.mapFogMode, style.id);
   }
 
-  void _showMapStylePicker() {
-    Navigator.of(context)
+  Future<void> _showMapStylePicker() async {
+    await Navigator.of(context)
         .push<void>(MaterialPageRoute(builder: (_) => const MapStylesPage()));
+    if (mounted) setState(() {});
   }
 
   void _showFogStylePicker() {
@@ -123,7 +107,10 @@ class _MapSettingsPageState extends State<MapSettingsPage> {
                 label: context.tr("general.map_settings.style"),
                 position: LabelTilePosition.top,
                 trailing: LabelTileContent(
-                  content: _labelFor(_current),
+                  content: mapStyleLabel(
+                    context,
+                    MapStyleStore.instance.selected,
+                  ),
                   showArrow: true,
                 ),
                 onTap: _showMapStylePicker,

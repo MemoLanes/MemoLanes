@@ -6,6 +6,8 @@
     "end_journey_title": "结束旅程？",
     "end_journey_message": "确定要结束当前的旅程吗？",
     "double_back_exit": "再按一次退出应用",
+    "map_data_source_copyright_title": "数据来源",
+    "map_data_source_unavailable": "暂时无法查看底图来源。",
     "gps_accuracy": "定位精度",
     "gps_signal": {
       "excellent": "信号强",
@@ -329,7 +331,6 @@
         "invalid_https_url": "请填写完整的 HTTPS 地址",
         "invalid_tiles": "瓦片地址须包含 {z}、{x}、{y}",
         "write_failed": "保存失败，请重试",
-        "load_failed": "自定义底图加载失败",
         "save_and_use": "保存并使用",
         "save": "保存",
         "delete": "删除样式",

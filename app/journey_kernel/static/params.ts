@@ -55,14 +55,14 @@ export interface ExternalParams {
   fit_padding_bottom?: string | number;
   fit_padding_left?: string | number;
   render?: string;
-  map_style?: string;
-  basemap?: BasemapConfig;
+  map_style?: string | StyleSpecification;
+  custom_basemap?: boolean;
   /** Fog palette ID owned and validated by the map renderer. */
   fog_style?: string;
   fog_density?: string;
   projection?: string;
   debug?: string;
-  [key: string]: string | number | BasemapConfig | undefined;
+  [key: string]: string | number | boolean | StyleSpecification | undefined;
 }
 
 // ============================================================================
@@ -76,16 +76,12 @@ export type PropertyChangeCallback<T> = (newValue: T, oldValue: T) => void;
 export type MutablePropertyName =
   "renderMode" | "fogStyle" | "fogDensity" | "projection";
 
-/** MapLibre style selected when the WebView opens. */
-export interface BasemapConfig {
-  id: string;
-  style: string | StyleSpecification;
-  attribution?: string;
-}
-
+/** Internal data structure for ReactiveParams */
 interface ParamsData {
   // Readonly properties
   cgiEndpoint: string;
+  mapStyle: string | StyleSpecification;
+  customBasemap: boolean;
   accessKey: string | null;
   lng: number;
   lat: number;
@@ -94,7 +90,6 @@ interface ParamsData {
   initialBoundsPadding: JourneyBoundsPadding;
   requiresMapboxToken: boolean;
   debug: boolean;
-  readonly basemap: BasemapConfig;
   // Mutable properties
   renderMode: string;
   /** Validated palette ID; RGB/opacity remain owned by fog-style.ts. */
@@ -282,12 +277,9 @@ export function createReactiveParams(
   }
 
   // Determine map style
-  const basemap = externalParams.basemap ?? {
-    id: "",
-    style: externalParams.map_style || DEFAULT_MAP_STYLE,
-  };
+  const mapStyle = externalParams.map_style || DEFAULT_MAP_STYLE;
   const requiresMapboxToken =
-    typeof basemap.style === "string" && basemap.style.startsWith("mapbox://");
+    typeof mapStyle === "string" && mapStyle.startsWith("mapbox://");
 
   // Validate access key for mapbox styles
   if (requiresMapboxToken && !externalParams.access_key) {
@@ -338,7 +330,8 @@ export function createReactiveParams(
   // Create the reactive proxy
   return createReactiveProxy({
     cgiEndpoint: externalParams.cgi_endpoint,
-    basemap,
+    mapStyle,
+    customBasemap: externalParams.custom_basemap === true,
     accessKey: requiresMapboxToken ? externalParams.access_key! : null,
     lng: parseNum(externalParams.lng, 0),
     lat: parseNum(externalParams.lat, 0),

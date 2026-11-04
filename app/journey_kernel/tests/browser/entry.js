@@ -4,6 +4,7 @@ import wasm from "../../pkg/journey_kernel_bg.wasm";
 import { checkPolarNavigation } from "./polar-navigation";
 import { checkPolarCanvas } from "./polar-canvas";
 import { checkPolarDisplay } from "./polar-display";
+import { checkMapAttribution } from "./map-attribution";
 async function main() {
   await init({ module_or_path: wasm });
   maplibregl.setWorkerUrl(
@@ -16,6 +17,7 @@ async function main() {
     ...(await checkPolarNavigation(check)),
     ...(await checkPolarCanvas(check)),
     ...(await checkPolarDisplay(check)),
+    await checkMapAttribution(check),
   ];
   window.renderingResult = { passed: tests.length, tests };
 }

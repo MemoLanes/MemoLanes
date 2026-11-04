@@ -95,8 +95,7 @@ export class PolarCanvasProvider {
   }
 
   private isGlobe(): boolean {
-    const projection = this.map.getProjection();
-    return !!projection && projection.type !== "mercator";
+    return this.map.getProjection().type !== "mercator";
   }
 
   private update(checkVersion: boolean): void {

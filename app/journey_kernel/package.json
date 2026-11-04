@@ -22,7 +22,6 @@
     "test:browser": "node tests/browser/run.mjs"
   },
   "dependencies": {
-    "@maplibre/maplibre-gl-style-spec": "^26.4.4",
     "@types/ua-parser-js": "^0.7.39",
     "maplibre-gl": "^6.16.0",
     "maplibregl-mapbox-request-transformer": "^0.0.3",

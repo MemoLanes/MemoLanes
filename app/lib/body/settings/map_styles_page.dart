@@ -6,7 +6,6 @@ import 'package:memolanes/common/component/app_dialog.dart';
 import 'package:memolanes/common/component/app_option_tile.dart';
 import 'package:memolanes/common/component/capsule_style_app_bar.dart';
 import 'package:memolanes/common/log.dart';
-import 'package:memolanes/common/map_fog_style.dart';
 import 'package:memolanes/common/map_style.dart';
 import 'package:memolanes/common/map_style_store.dart';
 import 'package:memolanes/constants/app_typography.dart';
@@ -31,20 +30,6 @@ class MapStylesPage extends StatefulWidget {
 class _MapStylesPageState extends State<MapStylesPage> {
   MapStyleStore get _store => widget.store ?? MapStyleStore.instance;
   String? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    _store.addListener(_refresh);
-  }
-
-  void _refresh() => setState(() {});
-
-  @override
-  void dispose() {
-    _store.removeListener(_refresh);
-    super.dispose();
-  }
 
   void _select(MapStyle style) {
     try {
@@ -213,10 +198,6 @@ class _MapStyleEditorPageState extends State<_MapStyleEditorPage> {
       type: _type,
       tileSize: _tileSize,
       scheme: _scheme,
-      fogOpacityByStyle: const {
-        MapFogStyle.dark: 0.50,
-        MapFogStyle.light: 0.50,
-      },
     );
     try {
       widget.store.save(style, selectAfterSaving: widget.initial == null);
@@ -329,7 +310,7 @@ class _MapStyleEditorPageState extends State<_MapStyleEditorPage> {
               decoration: _decoration(
                 _type == MapStyleType.raster ? 'tile_url' : 'style_url',
                 hint: _type == MapStyleType.raster
-                    ? 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
+                    ? 'https://example.com/tiles/{z}/{x}/{y}.png'
                     : 'https://…/style.json',
                 helper: context.tr(
                   _type == MapStyleType.raster

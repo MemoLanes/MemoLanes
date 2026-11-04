@@ -83,6 +83,7 @@ void main() {
             axes.add(axis);
             return const SizedBox.expand(key: Key('navigation'));
           },
+          bottomTrailingOverlay: const SizedBox(key: Key('attribution')),
           bodyBuilder: ({required topSafeArea, required bottomSafeArea}) =>
               Stack(
                 fit: StackFit.expand,
@@ -96,11 +97,13 @@ void main() {
       );
       expect(find.text('Page content'), findsOneWidget);
       expect(find.byKey(const Key('navigation')), findsNothing);
+      expect(find.byKey(const Key('attribution')), findsNothing);
       expect(find.text('Map controls'), findsNothing);
       expect(axes, isEmpty);
       response.complete({..._duo, 'hinge': false});
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('navigation')), findsOneWidget);
+      expect(find.byKey(const Key('attribution')), findsOneWidget);
       expect(find.text('Map controls'), findsOneWidget);
       expect(axes, everyElement(Axis.vertical));
       final context = tester.element(find.text('Page content'));

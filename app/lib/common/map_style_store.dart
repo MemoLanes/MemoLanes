@@ -1,11 +1,10 @@
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/map_style.dart';
 import 'package:memolanes/common/mmkv_util.dart';
 
-class MapStyleStore extends ChangeNotifier {
+class MapStyleStore {
   MapStyleStore({
     String? Function(String)? readString,
     bool Function(String, String?)? writeString,
@@ -96,6 +95,5 @@ class MapStyleStore extends ChangeNotifier {
     if (!_write(MMKVKey.basemaps, value)) {
       throw StateError('Could not save basemap settings');
     }
-    notifyListeners();
   }
 }

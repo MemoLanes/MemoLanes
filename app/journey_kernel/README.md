@@ -40,10 +40,7 @@ Flutter injects parameters via JavaScript after page load, then calls `trySetup(
 window.EXTERNAL_PARAMS = {
   cgi_endpoint: "flutter://TileProviderChannel",
   render: "canvas",
-  basemap: {
-    id: "openfreemap",
-    style: "https://tiles.openfreemap.org/styles/liberty",
-  },
+  map_style: "https://tiles.openfreemap.org/styles/liberty",
   // ... other params
 };
 trySetup();
@@ -63,24 +60,23 @@ All parameters are optional except `cgi_endpoint` which is required.
 | `lat` | Initial latitude | number | 0 |
 | `zoom` | Initial zoom level | number | 2 |
 | `render` | Render method | `'canvas'` | `'canvas'` |
-| `basemap` | `{id, style, attribution?}` supplied by Flutter; `custom:` IDs enable initial-load failure reporting | object | - |
-| `map_style` | Map style URL for standalone browser development when no `basemap` is supplied | string | OpenFreeMap Liberty |
+| `map_style` | MapLibre style URL or inline style | string or object | OpenFreeMap Liberty |
+| `custom_basemap` | Whether Flutter selected a custom basemap | boolean | `false` |
 | `fog_style` | Fog palette ID (`dark` or `light`) | string | `dark` |
 | `fog_density` | Fog density (0-1) | number | Style default (0.5 dark, 0.6 light) |
 | `projection` | Map projection | `'mercator'` \| `'globe'` | `'globe'` |
 | `debug` | Show debug panel | `'true'` \| `'false'` | `'false'` |
 
-Flutter converts image tile templates into standard MapLibre raster styles and
-passes them through the same `basemap.style` field as remote style URLs. URLs
-retain any credentials and query parameters supplied by the user. The host
-stores custom basemap configurations locally.
-MapLibre's attribution control shows the applied basemap's name or built-in
-credit together with any visible source attribution from the style or TileJSON.
-`window.onBasemapLoadFailed` notifies Flutter when fetching, parsing or
-validating the custom style fails. Flutter shows a notice and keeps the saved
-selection. The WebView reads the selected basemap when it opens.
-Failed built-in style requests retry after 8 seconds. MapLibre handles tile,
-sprite and font requests.
+Flutter saves custom basemap configurations locally. When the map opens,
+MapLibre loads either the selected style URL or the inline raster style Flutter
+builds from an image tile template. Custom styles should use absolute resource
+URLs.
+MapLibre's attribution control collects visible source attribution from the
+style or TileJSON. The Flutter home map shows its Data Source button when
+attribution is available and reads the text on demand.
+Built-in styles retry every eight seconds while the placeholder is active.
+If a custom style fails, the saved selection is kept and the user can reopen
+the map or choose another style.
 
 ## Web Development
 

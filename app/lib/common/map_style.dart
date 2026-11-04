@@ -1,19 +1,16 @@
-import 'dart:convert';
-
 import 'package:memolanes/common/map_fog_style.dart';
 
 enum MapStyleType { style, raster }
 
 enum MapTileScheme { xyz, tms }
 
-/// Map base style: id, url, copyright, and per-fog-style opacity.
+/// Map base style: id, url, and per-fog-style opacity.
 /// The selected style is stored by [id]; custom configurations are separate.
 class MapStyle {
   const MapStyle({
     required this.id,
     required this.url,
-    required this.fogOpacityByStyle,
-    this.copyright = '',
+    this.fogOpacityByStyle = const {},
     this.customName,
     this.type = MapStyleType.style,
     this.tileSize = 256,
@@ -23,17 +20,12 @@ class MapStyle {
   final String id;
   final String url;
 
-  /// Fixed attribution for built-in basemaps; custom maps use source metadata.
-  final String copyright;
   final String? customName;
   final MapStyleType type;
   final int tileSize;
   final MapTileScheme scheme;
 
   bool get isCustom => customName != null;
-
-  String get attribution =>
-      isCustom ? const HtmlEscape().convert(customName!) : copyright;
 
   /// MapLibre accepts either a style URL or a complete style object.
   Object get mapLibreStyle => type == MapStyleType.style
@@ -67,8 +59,8 @@ class MapStyle {
     final name = json['name'];
     final url = json['url'];
     final type = json['type'];
-    final tileSize = json['tileSize'] ?? 256;
-    final scheme = json['scheme'] ?? 'xyz';
+    final tileSize = json['tileSize'];
+    final scheme = json['scheme'];
     if (id is! String ||
         !id.startsWith('custom:') ||
         name is! String ||
@@ -88,10 +80,6 @@ class MapStyle {
       type: type == 'raster' ? MapStyleType.raster : MapStyleType.style,
       tileSize: tileSize,
       scheme: scheme == 'tms' ? MapTileScheme.tms : MapTileScheme.xyz,
-      fogOpacityByStyle: const {
-        MapFogStyle.dark: 0.50,
-        MapFogStyle.light: 0.50,
-      },
     );
   }
 
@@ -104,16 +92,11 @@ class MapStyle {
     MapStyle(
       id: 'openfreemap',
       url: 'https://tiles.openfreemap.org/styles/liberty',
-      copyright:
-          '<a href="https://openfreemap.org">OpenFreeMap</a> '
-          '<a href="https://www.openmaptiles.org/">© OpenMapTiles</a> '
-          'Data from <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
       fogOpacityByStyle: {MapFogStyle.dark: 0.50, MapFogStyle.light: 0.50},
     ),
     MapStyle(
       id: 'maplibre',
       url: 'https://demotiles.maplibre.org/style.json',
-      copyright: '<a href="https://maplibre.org/">MapLibre</a>',
       fogOpacityByStyle: {MapFogStyle.dark: 0.50, MapFogStyle.light: 0.50},
     ),
   ];

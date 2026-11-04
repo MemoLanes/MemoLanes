@@ -9,7 +9,6 @@
  * - Map style management and retry logic
  */
 
-import { validateStyleMin } from "@maplibre/maplibre-gl-style-spec";
 import * as maplibregl from "maplibre-gl";
 import type {
   Map as MaplibreMap,
@@ -23,29 +22,25 @@ import type {
   FlyToOptions,
   FitBoundsOptions,
   PaddingOptions,
-  StyleSpecification,
 } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import {
   isMapboxURL,
   transformMapboxUrl,
 } from "maplibregl-mapbox-request-transformer";
-import {
-  AVAILABLE_LAYERS,
-  type BasemapConfig,
-  type ReactiveParams,
-} from "./params";
+import { AVAILABLE_LAYERS, type ReactiveParams } from "./params";
 import { JourneyTileProvider } from "./journey-tile-provider";
 import { getFogStyle } from "./fog-style";
 import { detectMapLocale, type MapLocale } from "./map-locale";
-import {
-  resolveStyleResourceUrls,
-  transformStyleWithProjection,
-} from "./utils";
+import { transformStyleWithProjection } from "./utils";
 import { JOURNEY_LAYER_ID } from "./layers/journey-layer-interface";
 import type { JourneyLayer } from "./layers/journey-layer-interface";
 import { MAX_MAP_ZOOM } from "./layer-config";
 import { waitForRenderedFrame } from "./display-ready";
+import {
+  PLACEHOLDER_STYLE_METADATA_KEY,
+  StyleLoadRetry,
+} from "./style-load-retry";
 import {
   createPolarCameraConstrain,
   resolvePolarGlobeLock,
@@ -53,7 +48,6 @@ import {
 import { getPolarBoundsCamera } from "./polar-camera-bounds";
 
 const DATA_POLL_INTERVAL_MS = 1_000;
-const BASEMAP_ATTRIBUTION = "memolanes:attribution";
 
 interface WebGLContextMessageChannel {
   postMessage: (message: string) => void;
@@ -95,9 +89,7 @@ export class MapController {
   private DisableAutoRefresh: boolean;
   private currentJourneyLayer: JourneyLayer | null = null;
   private journeyTileProvider: JourneyTileProvider | null = null;
-  private basemapRetryTimer: ReturnType<typeof setTimeout> | null = null;
-  private basemapRequest: AbortController | null = null;
-  private attributionControl?: maplibregl.AttributionControl;
+  private styleLoadRetry: StyleLoadRetry | null = null;
   private pollIntervalId: ReturnType<typeof setInterval> | null = null;
   private polarGlobeLocked = false;
   private polarCameraTargetLatitude: number | null = null;
@@ -148,6 +140,7 @@ export class MapController {
         : null,
       style: {
         version: 8,
+        metadata: { [PLACEHOLDER_STYLE_METADATA_KEY]: true },
         sources: {},
         layers: [
           {
@@ -171,28 +164,12 @@ export class MapController {
       transformRequest,
       pitchWithRotate: false,
       touchPitch: false,
-      attributionControl: false,
+      attributionControl: { compact: true },
       locale: config.attributionLabel
         ? { "AttributionControl.ToggleAttribution": config.attributionLabel }
         : undefined,
     });
 
-    this.map.on("style.load", () => {
-      this.updateProjection();
-      const metadata = this.map.getStyle()?.metadata as
-        Record<string, unknown> | undefined;
-      const attribution = metadata?.[BASEMAP_ATTRIBUTION];
-      if (this.attributionControl)
-        this.map.removeControl(this.attributionControl);
-      this.attributionControl =
-        typeof attribution === "string"
-          ? new maplibregl.AttributionControl({
-              compact: true,
-              customAttribution: attribution,
-            })
-          : undefined;
-      if (this.attributionControl) this.map.addControl(this.attributionControl);
-    });
     this.applyPolarCameraConstraint();
 
     // Disable rotation controls
@@ -233,7 +210,6 @@ export class MapController {
     this.webGLContextLossCount++;
     this.webGLContextLostAt = Date.now();
     this.webGLContextLost = true;
-    this.cancelBasemapLoad();
     // MapLibre destroys the old style (and invokes custom-layer onRemove)
     // before emitting this event. Do not call remove() on that dead context.
     this.currentJourneyLayer = null;
@@ -369,7 +345,14 @@ export class MapController {
         }
 
         // Apply the actual map style (deferred until journey layer is added)
-        this.startBasemapLoad();
+        if (!this.params.customBasemap) {
+          this.styleLoadRetry = new StyleLoadRetry(
+            this.map,
+            () => this.applyMapStyle(),
+            () => !this.webGLContextLost,
+          );
+        }
+        this.applyMapStyle();
 
         // The provider has already started loading. Let the basemap load
         // overlap tile-buffer preparation before waiting for the initial data.
@@ -457,25 +440,6 @@ export class MapController {
         this.polarGlobeLocked,
       ),
     );
-  }
-
-  private startBasemapLoad(): void {
-    this.cancelBasemapLoad();
-    if (this.webGLContextLost) return;
-
-    const basemap = this.params.basemap;
-    const request = new AbortController();
-    this.basemapRequest = request;
-    void this.applyMapStyle(basemap, request);
-  }
-
-  private cancelBasemapLoad(): void {
-    this.basemapRequest?.abort();
-    this.basemapRequest = null;
-    if (this.basemapRetryTimer !== null) {
-      clearTimeout(this.basemapRetryTimer);
-      this.basemapRetryTimer = null;
-    }
   }
 
   /** Wait for a displayable frame from whichever renderer is currently active. */
@@ -613,25 +577,19 @@ export class MapController {
       this.switchRenderingLayer();
     });
 
-    this.params.on("projection", (projection) => {
+    // Hook for projection changes - update map style with new projection
+    this.params.on("projection", (newProjection, oldProjection) => {
+      console.log(
+        `[MapController] projection changed: ${oldProjection} -> ${newProjection}`,
+      );
       this.polarGlobeLocked = resolvePolarGlobeLock(
-        projection,
+        newProjection,
         this.map.getCenter().lat,
         false,
       );
       this.applyPolarCameraConstraint();
-      this.updateProjection();
+      this.applyMapStyle();
     });
-  }
-
-  private updateProjection(): void {
-    const style = this.map.getStyle();
-    const type = this.polarGlobeLocked
-      ? "vertical-perspective"
-      : this.params.projection;
-    if (style && style.projection?.type !== type) {
-      this.map.setProjection({ type });
-    }
   }
 
   private updatePolarProjectionMode(): void {
@@ -705,76 +663,16 @@ export class MapController {
   /**
    * Apply the map style with projection transform
    */
-  private async applyMapStyle(
-    basemap: BasemapConfig,
-    request: AbortController,
-  ): Promise<void> {
-    const isCustom = basemap.id.startsWith("custom:");
-    try {
-      let style: StyleSpecification;
-      if (typeof basemap.style === "string") {
-        const transformed = await this.buildTransformRequest()(
-          basemap.style,
-          "Style" as ResourceType,
-        );
-        if (request.signal.aborted) return;
-        const headers = new Headers(transformed?.headers);
-        if (!headers.has("Accept")) headers.set("Accept", "application/json");
-        const response = await fetch(transformed?.url ?? basemap.style, {
-          ...transformed,
-          headers,
-          signal: request.signal,
-        });
-        if (!response.ok) throw new Error(`Basemap HTTP ${response.status}`);
-        style = await response.json();
-        resolveStyleResourceUrls(
-          style,
-          response.url ||
-            new URL(transformed?.url ?? basemap.style, window.location.href)
-              .href,
-        );
-      } else {
-        style = basemap.style;
-      }
-      if (request.signal.aborted) return;
-
-      const nextStyle: StyleSpecification = {
-        ...transformStyleWithProjection(
-          style,
+  private applyMapStyle(): void {
+    this.map.setStyle(this.params.mapStyle, {
+      transformStyle: (_previousStyle, nextStyle) =>
+        transformStyleWithProjection(
+          nextStyle,
           this.params.projection,
           this.mapLocale,
           this.polarGlobeLocked,
         ),
-        metadata: {
-          ...(style.metadata as Record<string, unknown>),
-          [BASEMAP_ATTRIBUTION]: basemap.attribution,
-        },
-      };
-      // MapLibre replaces the active style before validating it.
-      if (isCustom) {
-        for (const issue of validateStyleMin(nextStyle)) {
-          if (issue.severity !== "warning") throw new Error(issue.message);
-          console.warn("[MapController] Basemap style warning:", issue.message);
-        }
-      }
-      this.map.setStyle(nextStyle, { diff: false, validate: !isCustom });
-    } catch (error) {
-      if (request.signal.aborted) {
-        console.debug("[MapController] Cancelled basemap load:", error);
-        return;
-      }
-      console.warn("[MapController] Basemap load failed:", error);
-      if (isCustom) {
-        window.onBasemapLoadFailed?.postMessage("");
-      } else {
-        // Only a failed built-in style request retries. Slow SDK tiles must
-        // not schedule another style replacement after they become usable.
-        this.basemapRetryTimer = setTimeout(
-          () => this.startBasemapLoad(),
-          8_000,
-        );
-      }
-    }
+    });
   }
 
   /**
@@ -836,7 +734,8 @@ export class MapController {
   destroy(): void {
     this.map.off("webglcontextlost", this.handleWebGLContextLost);
     this.map.off("webglcontextrestored", this.handleWebGLContextRestored);
-    this.cancelBasemapLoad();
+    this.styleLoadRetry?.dispose();
+    this.styleLoadRetry = null;
     this.clearAutoRefreshInterval();
     if (this.currentJourneyLayer) {
       this.currentJourneyLayer.remove();
