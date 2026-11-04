@@ -10,6 +10,7 @@ import android.os.Environment
 import android.os.Handler
 import android.os.Looper
 import android.provider.MediaStore
+import android.util.Log
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.embedding.engine.plugins.activity.ActivityAware
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
@@ -33,6 +34,11 @@ class ScreenshotPlugin : FlutterPlugin, ActivityAware,
         context = binding.applicationContext
         channel = MethodChannel(binding.binaryMessenger, "com.memolanes/screenshots")
         channel.setMethodCallHandler(this)
+    }
+
+    fun onSystemScreenshot() {
+        Log.d("MemoLanesScreenshot", "System screenshot detected")
+        channel.invokeMethod("onSystemScreenshot", null)
     }
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
@@ -109,8 +115,17 @@ class ScreenshotPlugin : FlutterPlugin, ActivityAware,
                 }
                 main.post { result.success(null) }
             } catch (error: Exception) {
-                uri?.let { runCatching { resolver.delete(it, null, null) } }
-                legacyFile?.let { runCatching { it.delete() } }
+                Log.e("MemoLanesScreenshot", "Failed to save screenshot", error)
+                uri?.let { destination ->
+                    runCatching { resolver.delete(destination, null, null) }.onFailure { cleanupError ->
+                        Log.w("MemoLanesScreenshot", "Failed to remove screenshot from MediaStore", cleanupError)
+                    }
+                }
+                legacyFile?.let { file ->
+                    runCatching { file.delete() }.onFailure { cleanupError ->
+                        Log.w("MemoLanesScreenshot", "Failed to remove incomplete screenshot file", cleanupError)
+                    }
+                }
                 main.post { result.error("save_failed", error.message, null) }
             }
         }

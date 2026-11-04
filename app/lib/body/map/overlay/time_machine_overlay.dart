@@ -35,19 +35,9 @@ class TimeMachineOverlay extends StatefulWidget {
 
 class TimeMachineOverlayState extends State<TimeMachineOverlay> {
   final _screenshotKey = GlobalKey();
-  bool _rangeReady = false;
-  bool _timelineScrolling = false;
 
-  bool get canCaptureScreenshot =>
-      _rangeReady &&
-      !_loading &&
-      !_timelineScrolling &&
-      _rangeLoadDebounceTimer == null;
-
-  Future<ui.Image> captureScreenshot(double pixelRatio) {
-    if (!canCaptureScreenshot) throw StateError('Timeline is still loading');
-    return captureScreenshotBoundary(_screenshotKey, pixelRatio);
-  }
+  Future<ui.Image> captureScreenshot(double pixelRatio) =>
+      captureScreenshotBoundary(_screenshotKey, pixelRatio);
 
   static const _rangeLoadDebounce = Duration(milliseconds: 100);
   static const _loadErrorMessage =
@@ -96,7 +86,6 @@ class TimeMachineOverlayState extends State<TimeMachineOverlay> {
     _requestedTo = to;
     final journeyKinds = Set<JourneyKind>.from(_selectedJourneyKinds);
     setState(() => _loading = true);
-    _rangeReady = false;
     try {
       final proxy = await api.getMapRendererProxyForJourneyDateRange(
         fromDateInclusive: from.toFrbNaiveDate(),
@@ -105,7 +94,6 @@ class TimeMachineOverlayState extends State<TimeMachineOverlay> {
       );
       if (mounted && _loadGuard.isActive(loadToken)) {
         widget.onJourneyRangeLoaded(proxy);
-        _rangeReady = true;
       }
     } catch (error, stackTrace) {
       log.error('$_loadErrorMessage: $error', stackTrace);
@@ -118,7 +106,6 @@ class TimeMachineOverlayState extends State<TimeMachineOverlay> {
   }
 
   void _scheduleJourneyRangeLoad(SimpleDate from, SimpleDate to) {
-    _rangeReady = false;
     _requestedFrom = from;
     _requestedTo = to;
     _rangeLoadDebounceTimer?.cancel();
@@ -155,25 +142,15 @@ class TimeMachineOverlayState extends State<TimeMachineOverlay> {
     return Stack(
       children: [
         MapOverlayPanel.controls(
-          child: NotificationListener<ScrollNotification>(
-            onNotification: (notification) {
-              if (notification is ScrollStartNotification) {
-                _timelineScrolling = true;
-              } else if (notification is ScrollEndNotification) {
-                _timelineScrolling = false;
-              }
-              return false;
-            },
-            child: RepaintBoundary(
-              key: _screenshotKey,
-              child: TimeRangePicker(
-                earliestDate: earliest,
-                loading: _loading,
-                onRangeChanged: _scheduleJourneyRangeLoad,
-                onRangeCommitted: _loadJourneyForRange,
-                selectedJourneyKinds: _selectedJourneyKinds,
-                onJourneyKindsChanged: _onJourneyKindsChanged,
-              ),
+          child: RepaintBoundary(
+            key: _screenshotKey,
+            child: TimeRangePicker(
+              earliestDate: earliest,
+              loading: _loading,
+              onRangeChanged: _scheduleJourneyRangeLoad,
+              onRangeCommitted: _loadJourneyForRange,
+              selectedJourneyKinds: _selectedJourneyKinds,
+              onJourneyKindsChanged: _onJourneyKindsChanged,
             ),
           ),
         ),

@@ -1,8 +1,29 @@
 import Flutter
 import Photos
+import UIKit
 
 final class ScreenshotPlugin: NSObject, FlutterPlugin {
   private static let pluginKey = "MemoLanesScreenshots"
+  private let channel: FlutterMethodChannel
+  private var screenshotObserver: NSObjectProtocol?
+
+  private init(channel: FlutterMethodChannel) {
+    self.channel = channel
+    super.init()
+    screenshotObserver = NotificationCenter.default.addObserver(
+      forName: UIApplication.userDidTakeScreenshotNotification,
+      object: nil,
+      queue: .main
+    ) { [weak self] _ in
+      self?.channel.invokeMethod("onSystemScreenshot", arguments: nil)
+    }
+  }
+
+  deinit {
+    if let screenshotObserver {
+      NotificationCenter.default.removeObserver(screenshotObserver)
+    }
+  }
 
   static func register(with registry: FlutterPluginRegistry) {
     guard !registry.hasPlugin(pluginKey),
@@ -16,7 +37,7 @@ final class ScreenshotPlugin: NSObject, FlutterPlugin {
       name: "com.memolanes/screenshots",
       binaryMessenger: registrar.messenger()
     )
-    registrar.addMethodCallDelegate(ScreenshotPlugin(), channel: channel)
+    registrar.addMethodCallDelegate(ScreenshotPlugin(channel: channel), channel: channel)
   }
 
   func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {

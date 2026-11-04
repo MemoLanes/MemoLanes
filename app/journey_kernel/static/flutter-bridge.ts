@@ -12,6 +12,7 @@ import * as maplibregl from "maplibre-gl";
 import { MapController } from "./map-controller";
 import { LocationFollowController } from "./location-follow-controller";
 import { MAX_MAP_ZOOM } from "./layer-config";
+import { captureMapFrame } from "./map-screenshot";
 
 interface MapBounds {
   west: number;
@@ -202,7 +203,7 @@ export class FlutterBridge {
 
     // Refresh map data - allows Flutter to trigger a data refresh
     window.refreshMapData = () => this.mapController.refreshMapData();
-    window.captureMapScreenshot = () => this.mapController.captureScreenshot();
+    window.captureMapScreenshot = () => captureMapFrame(this.map);
 
     // Focus a journey within the visible area above its Flutter detail card.
     window.flyToBounds = (bounds, padding) => {

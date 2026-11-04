@@ -94,32 +94,23 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
   final _timelineKey = GlobalKey<TimeMachineOverlayState>();
   bool _screenshotInProgress = false;
 
+  bool get _showScreenshot =>
+      widget.mode != MapMode.journeys ||
+      (widget.journeys.session != null &&
+          widget.journeys.phase == JourneyPhase.viewing);
+
   Future<void> takeScreenshot() async {
     final loading = GlobalLoadingManager.instance;
     if (_screenshotInProgress) return;
-    if (loading.isLoading || loading.isNavigationBlocked) {
-      Fluttertoast.showToast(msg: context.tr('screenshot.not_ready'));
-      return;
-    }
     final mode = widget.mode;
     final journey = widget.journeys.session?.journey;
-    if (mode == MapMode.journeys &&
-        (journey == null || widget.journeys.phase != JourneyPhase.viewing)) {
-      Fluttertoast.showToast(msg: context.tr('screenshot.not_ready'));
-      return;
-    }
-    if (mode == MapMode.timeMachine &&
-        _timelineKey.currentState?.canCaptureScreenshot != true) {
-      Fluttertoast.showToast(msg: context.tr('screenshot.not_ready'));
-      return;
-    }
     setState(() => _screenshotInProgress = true);
     ui.Image? mapImage;
     ui.Image? timelineImage;
     try {
       late Size size;
       await loading.runWithLoading(() async {
-        // Flush pending proxy/layout changes before freezing either layer.
+        // Let Flutter paint the current layout before capturing either layer.
         await WidgetsBinding.instance.endOfFrame;
         if (!mounted) throw StateError('Map was closed');
         final mapState = _mainMapKey.currentState;
@@ -227,10 +218,18 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
     super.initState();
     _loadMapState();
     WidgetsBinding.instance.addObserver(this);
+    screenshotChannel.setMethodCallHandler((call) async {
+      if (call.method == 'onSystemScreenshot' &&
+          _showScreenshot &&
+          ModalRoute.of(context)?.isCurrent == true) {
+        await takeScreenshot();
+      }
+    });
   }
 
   @override
   void dispose() {
+    screenshotChannel.setMethodCallHandler(null);
     WidgetsBinding.instance.removeObserver(this);
     _saveMapState();
     super.dispose();
@@ -381,22 +380,18 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final mode = widget.mode;
     final layout = AppLayoutScope.of(context);
-    final showScreenshot =
-        mode != MapMode.journeys ||
-        (widget.journeys.session != null &&
-            widget.journeys.phase == JourneyPhase.viewing);
     final screenshotBounds = layout.screenshotControlBounds;
 
     final children = <Widget>[
       _buildMapLayer(),
       _buildOverlay(context, mode),
-      if (showScreenshot && layout.chromeReady && !screenshotBounds.isEmpty)
+      if (_showScreenshot && layout.chromeReady && !screenshotBounds.isEmpty)
         Positioned.fromRect(
           rect: screenshotBounds,
           child: PointerInterceptor(
             child: MapScreenshotButton(
-              key: ValueKey((mode, widget.journeys.session?.journey.id)),
-              onPressed: _screenshotInProgress ? null : takeScreenshot,
+              busy: _screenshotInProgress,
+              onPressed: takeScreenshot,
             ),
           ),
         ),

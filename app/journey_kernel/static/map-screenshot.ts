@@ -1,12 +1,8 @@
 import type { Map } from "maplibre-gl";
 
-/** Read inside the render callback, before WebGL discards its drawing buffer. */
+/** Capture the next rendered frame before WebGL discards its drawing buffer. */
 export function captureMapFrame(
-  map: Pick<
-    Map,
-    "on" | "off" | "triggerRepaint" | "getCanvas" | "isMoving" | "loaded"
-  >,
-  isReady: () => boolean,
+  map: Pick<Map, "on" | "off" | "triggerRepaint" | "getCanvas">,
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     const cleanup = () => {
@@ -21,7 +17,6 @@ export function captureMapFrame(
     };
     const onRender = () => {
       try {
-        if (map.isMoving() || !map.loaded() || !isReady()) return;
         const canvas = map.getCanvas();
         if (!canvas.width || !canvas.height)
           throw new Error("Empty map canvas");

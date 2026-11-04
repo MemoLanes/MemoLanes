@@ -15,8 +15,6 @@ import 'package:memolanes/src/rust/journey_header.dart';
 import 'package:memolanes/theme/app_colors.dart';
 import 'package:share_plus/share_plus.dart';
 
-const _galleryChannel = MethodChannel('com.memolanes/screenshots');
-
 /// The caller owns the frozen images and disposes them when this route closes.
 class ScreenshotPreviewPage extends StatefulWidget {
   const ScreenshotPreviewPage({
@@ -147,7 +145,7 @@ class _ScreenshotPreviewPageState extends State<ScreenshotPreviewPage> {
     });
     try {
       final png = await _encodePreview();
-      await _galleryChannel.invokeMethod<void>('saveToPhotos', {'png': png});
+      await screenshotChannel.invokeMethod<void>('saveToPhotos', {'png': png});
       if (mounted) Navigator.of(context).pop(true);
     } catch (error, stackTrace) {
       log.error('Saving screenshot failed: $error', stackTrace);
@@ -291,11 +289,6 @@ class _ScreenshotPreviewPageState extends State<ScreenshotPreviewPage> {
         children: [
           Divider(height: 1, color: colors.lineColor),
           const SizedBox(height: 12),
-          Text(
-            context.tr('screenshot.content_options'),
-            style: AppTypography.caption.copyWith(color: colors.mutedInkColor),
-          ),
-          const SizedBox(height: 10),
           SizedBox(
             height: optionHeight,
             child: widget.journey == null
@@ -393,12 +386,6 @@ class _ScreenshotPreviewPageState extends State<ScreenshotPreviewPage> {
       canPop: !_busy,
       child: Scaffold(
         appBar: AppBar(
-          title: Text(context.tr('screenshot.title')),
-          titleTextStyle: AppTypography.surfaceTitle.copyWith(
-            color: colors.inkColor,
-            fontWeight: FontWeight.w600,
-          ),
-          centerTitle: true,
           automaticallyImplyLeading: false,
           leadingWidth: 72,
           leading: Padding(
