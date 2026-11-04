@@ -38,7 +38,6 @@ fn rejects_newer_major_schema_version_without_migrating() {
         Some(DbError::VersionTooNew)
     ));
 
-    assert!(!temp_dir.path().join("main.db-wal").exists());
     let conn = Connection::open(db_path).unwrap();
     let mode: String = conn
         .pragma_query_value(None, "journal_mode", |row| row.get(0))

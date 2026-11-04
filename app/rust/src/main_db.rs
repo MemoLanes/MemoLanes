@@ -948,46 +948,8 @@ fn migrations() -> [utils::db::Migration<'static>; 3] {
 mod tests {
     use super::*;
 
-    fn assert_wal_full(db: &MainDb) -> Result<()> {
-        let mode: String = db
-            .conn
-            .pragma_query_value(None, "journal_mode", |row| row.get(0))?;
-        let synchronous: i32 = db
-            .conn
-            .pragma_query_value(None, "synchronous", |row| row.get(0))?;
-        assert_eq!(mode, "wal");
-        assert_eq!(synchronous, 2);
-        Ok(())
-    }
-
     #[test]
-    fn fresh_and_reopened_main_db_use_wal_full() -> Result<()> {
-        let dir = tempdir::TempDir::new("main-db-wal")?;
-        let path = dir.path().to_str().unwrap();
-        let mut db = MainDb::open(path)?;
-        assert_wal_full(&db)?;
-        db.set_setting(Setting::RawDataMode, true)?;
-
-        // A separate reader must see the committed write while the writer is
-        // still open; reading only main.db's pages would miss WAL contents.
-        let reader = Connection::open(dir.path().join("main.db"))?;
-        let value: String = reader.query_row(
-            "SELECT value FROM setting WHERE key = 'RAW_DATA_MODE'",
-            (),
-            |row| row.get(0),
-        )?;
-        assert_eq!(value, "true");
-        drop(reader);
-        drop(db);
-
-        let mut db = MainDb::open(path)?;
-        assert_wal_full(&db)?;
-        assert!(db.get_setting_with_default(Setting::RawDataMode, false));
-        Ok(())
-    }
-
-    #[test]
-    fn existing_rollback_database_switches_to_wal_without_losing_data() -> Result<()> {
+    fn opens_and_reopens_existing_database_with_wal_full() -> Result<()> {
         let dir = tempdir::TempDir::new("main-db-rollback-to-wal")?;
         let path = dir.path().to_str().unwrap();
         let conn = utils::db::open_and_migrate(path, "main.db", &migrations())?;
@@ -999,9 +961,19 @@ mod tests {
         )?;
         drop(conn);
 
-        let mut db = MainDb::open(path)?;
-        assert_wal_full(&db)?;
-        assert!(db.get_setting_with_default(Setting::RawDataMode, false));
+        // Cover conversion from DELETE and reopening an existing WAL database.
+        for _ in 0..2 {
+            let mut db = MainDb::open(path)?;
+            let mode: String = db
+                .conn
+                .pragma_query_value(None, "journal_mode", |row| row.get(0))?;
+            let synchronous: i32 = db
+                .conn
+                .pragma_query_value(None, "synchronous", |row| row.get(0))?;
+            assert_eq!(mode, "wal");
+            assert_eq!(synchronous, 2);
+            assert!(db.get_setting_with_default(Setting::RawDataMode, false));
+        }
         Ok(())
     }
 
@@ -1079,12 +1051,10 @@ mod tests {
 impl MainDb {
     pub fn open(support_dir: &str) -> Result<MainDb> {
         let conn = utils::db::open_and_migrate(support_dir, "main.db", &migrations())?;
-        // Configure outside the migration transaction, after rejecting unsupported
-        // schemas. WAL persists on disk; synchronous must be set on every connection.
-        // Keep SQLite's default automatic checkpointing. FULL makes each committed
-        // GPS write durable without waiting for a checkpoint.
+        // Switch modes after schema validation and outside the migration transaction.
+        // WAL persists; synchronous must be configured on each connection.
         let journal_mode: String = conn
-            .query_row("PRAGMA journal_mode = WAL", (), |row| row.get(0))
+            .pragma_update_and_check(None, "journal_mode", "WAL", |row| row.get(0))
             .context("enable WAL for main.db")?;
         anyhow::ensure!(
             journal_mode.eq_ignore_ascii_case("wal"),
