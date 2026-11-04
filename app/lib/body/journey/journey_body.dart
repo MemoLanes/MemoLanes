@@ -87,7 +87,7 @@ class _JourneyBodyState extends State<JourneyBody> {
       return SliverToBoxAdapter(
         child: JourneyListEmptyState(
           type: _controller.hasFilteredJourneys
-              ? JourneyListEmptyType.month
+              ? JourneyListEmptyType.day
               : JourneyListEmptyType.filtered,
           topAligned: true,
           onShowAll:
