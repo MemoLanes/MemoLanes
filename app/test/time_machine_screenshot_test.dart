@@ -93,14 +93,24 @@ void main() {
     expect(backend.requests, isEmpty);
     await tester.pump(const Duration(milliseconds: 100));
     expect(backend.requests, hasLength(1));
-    picker.onRangeCommitted!(SimpleDate(2025), SimpleDate(2025, 12, 31));
+    picker.onRangeChanged(SimpleDate(2025), SimpleDate(2025, 12, 31));
+    // The previous request finishes before the new debounce expires. It must
+    // not publish an obsolete map while the picker already shows new dates.
     backend.requests[0].complete(_MapRenderer());
     await tester.pump();
     expect(loaded, [initial]);
     expect(state.canCaptureScreenshot, isFalse);
 
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(backend.requests, hasLength(2));
+    picker.onRangeCommitted!(SimpleDate(2025), SimpleDate(2025, 12, 31));
+    backend.requests[1].complete(_MapRenderer());
+    await tester.pump();
+    expect(loaded, [initial]);
+    expect(state.canCaptureScreenshot, isFalse);
+
     final latest = _MapRenderer();
-    backend.requests[1].complete(latest);
+    backend.requests[2].complete(latest);
     await tester.pumpAndSettle();
     expect(loaded, [initial, latest]);
     expect(

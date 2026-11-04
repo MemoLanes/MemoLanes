@@ -21,10 +21,14 @@ export function observeSingleMapTap(
         : undefined;
   };
   const move = (event: PointerEvent) => {
+    // Match MapLibre's default 3px drag threshold. A small pan must not also
+    // toggle the record controls when the pointer is released.
     if (
       press?.pointerId === event.pointerId &&
-      Math.hypot(event.clientX - press.clientX, event.clientY - press.clientY) >
-        8
+      Math.hypot(
+        event.clientX - press.clientX,
+        event.clientY - press.clientY,
+      ) >= 3
     ) {
       press = undefined;
     }

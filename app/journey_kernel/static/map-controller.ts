@@ -385,7 +385,13 @@ export class MapController {
           );
         }),
       ]);
-      if (updated !== true)
+      // A polar-only viewport refreshes its cap data without a Mercator buffer,
+      // so a successful refresh can return false. Still reject failed refreshes
+      // when Mercator data is needed, rather than exporting the previous buffer.
+      if (
+        updated === null ||
+        (updated === false && this.journeyTileProvider?.getViewRange() !== null)
+      )
         throw new Error("Screenshot map data could not be refreshed");
     } finally {
       clearTimeout(timeout);

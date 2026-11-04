@@ -43,7 +43,8 @@ async function withMap(latitude, check, run) {
     const gate = holds.get(plane);
     if (gate) {
       gate.started.resolve();
-      await gate.response.promise;
+      if ((await gate.response.promise) === false)
+        return new Response("Tile download failed", { status: 500 });
     }
     return new Response(
       encodeTileRangeResponse(range, [], Number(q.get("buffer_size_power"))),
@@ -144,6 +145,43 @@ export async function checkPolarDisplay(check) {
         refreshGate.release();
         await refresh;
 
+        const captureGate = hold(hemisphere);
+        let captured = false;
+        const capture = controller.captureScreenshot().then((png) => {
+          captured = true;
+          return png;
+        });
+        await captureGate.started;
+        await waitForIdle(map);
+        check(!captured, "screenshots wait for fresh polar data");
+        captureGate.release();
+        check(
+          (await capture).startsWith("data:image/png;base64,"),
+          "a polar-only viewport exports a PNG without Mercator demand",
+        );
+
+        const failedGate = hold(hemisphere);
+        const failedCapture = controller.captureScreenshot();
+        await failedGate.started;
+        failedGate.release(false);
+        let captureError;
+        try {
+          await failedCapture;
+        } catch (error) {
+          captureError = error;
+        }
+        check(
+          captureError instanceof Error,
+          "a failed polar refresh must not export the previous tracks",
+        );
+        hold(hemisphere).release();
+        check(
+          (await controller.captureScreenshot()).startsWith(
+            "data:image/png;base64,",
+          ),
+          "screenshots recover after the polar download succeeds",
+        );
+
         // Leaving and re-entering a polar-only view reactivates Mercator demand.
         controller.jumpTo({ center: [0, sign * 70], zoom: 14 });
         await controller.getTileProvider().waitForTileBufferUpdate();
@@ -168,7 +206,7 @@ export async function checkPolarDisplay(check) {
       },
     );
     results.push(
-      `${hemisphere} production initialization, visible-plane readiness and refresh`,
+      `${hemisphere} production initialization, visible-plane readiness, refresh and screenshot`,
     );
 
     await withMap(

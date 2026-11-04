@@ -20,6 +20,7 @@ export interface PolarCanvasImage {
 }
 interface Cap {
   image: PolarCanvasImage | null;
+  imageEpoch: number;
   demand: string;
   pending: Promise<void> | null;
   queued: boolean;
@@ -30,12 +31,14 @@ export class PolarCanvasProvider {
   private readonly caps: Record<PolarHemisphere, Cap> = {
     north: {
       image: null,
+      imageEpoch: -1,
       demand: "",
       pending: null,
       queued: false,
     },
     south: {
       image: null,
+      imageEpoch: -1,
       demand: "",
       pending: null,
       queued: false,
@@ -78,14 +81,17 @@ export class PolarCanvasProvider {
     return this.caps[hemisphere].image;
   }
 
-  /** Require image coverage only for caps that are actually on screen. */
+  /** Visible caps must cover the viewport with data from the latest refresh. */
   isReadyForDisplay(): boolean {
     if (this.disposed) return false;
     return (Object.keys(this.caps) as PolarHemisphere[]).every((hemisphere) => {
       const { visible, range } = getPolarCanvasView(this.map, hemisphere);
-      const image = this.caps[hemisphere].image;
+      const { image, imageEpoch } = this.caps[hemisphere];
       return (
-        !visible || (image !== null && tileRangeContains(image.range, range))
+        !visible ||
+        (image !== null &&
+          imageEpoch === this.epoch &&
+          tileRangeContains(image.range, range))
       );
     });
   }
@@ -182,6 +188,7 @@ export class PolarCanvasProvider {
               range,
               version: version === null ? null : `${epoch}/${version}`,
             };
+            cap.imageEpoch = epoch;
             this.map.triggerRepaint();
           } finally {
             source.release();

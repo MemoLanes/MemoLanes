@@ -59,6 +59,21 @@ test("a second tap cancels single-tap mode changes", (t) => {
   assert.equal(f.taps, 0);
 });
 
+test("small map drags are not taps, but sub-tolerance jitter is allowed", (t) => {
+  const f = fixture(t);
+  for (const distance of [3, 5, 8]) {
+    f.emit("pointerdown");
+    f.emit("pointermove", { clientX: 20 + distance });
+    f.emit("pointerup", { timeStamp: 100 });
+    t.mock.timers.tick(500);
+    assert.equal(f.taps, 0, `A ${distance}px drag must not toggle controls`);
+  }
+  f.emit("pointerdown");
+  f.emit("pointerup", { clientX: 22, timeStamp: 100 });
+  t.mock.timers.tick(500);
+  assert.equal(f.taps, 1);
+});
+
 test("dragging out and back, long press and right click are not taps", (t) => {
   const f = fixture(t);
   f.emit("pointerdown");

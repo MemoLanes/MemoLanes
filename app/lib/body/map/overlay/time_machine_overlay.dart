@@ -123,6 +123,8 @@ class TimeMachineOverlayState extends State<TimeMachineOverlay> {
   }
 
   void _scheduleJourneyRangeLoad(SimpleDate from, SimpleDate to) {
+    // Invalidate immediately: an older request may finish during the debounce.
+    _loadGuard.invalidate();
     _rangeReady = false;
     _requestedFrom = from;
     _requestedTo = to;

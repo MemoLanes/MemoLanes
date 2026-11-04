@@ -43,21 +43,13 @@ class _ScreenshotPreviewPageState extends State<ScreenshotPreviewPage> {
   String? _logoAsset;
   int _logoLoadGeneration = 0;
   bool _loadingLogo = true;
-  late ScreenshotLogoPosition _logoPosition;
+  ScreenshotLogoPosition _logoPosition = ScreenshotLogoPosition.bottomRight;
   bool _includeInfo = true;
   bool _saving = false;
   bool _sharing = false;
   String? _error;
 
   bool get _busy => _saving || _sharing;
-
-  @override
-  void initState() {
-    super.initState();
-    _logoPosition = widget.timeRange != null || widget.journey != null
-        ? ScreenshotLogoPosition.topRight
-        : ScreenshotLogoPosition.bottomRight;
-  }
 
   @override
   void didChangeDependencies() {
@@ -285,12 +277,14 @@ class _ScreenshotPreviewPageState extends State<ScreenshotPreviewPage> {
         children: [
           Divider(height: 1, color: colors.lineColor),
           const SizedBox(height: 12),
-          Text(
-            context.tr('screenshot.content_options'),
-            style: AppTypography.caption.copyWith(color: colors.mutedInkColor),
-          ),
-          const SizedBox(height: 10),
           if (widget.journey != null || widget.timeRange != null) ...[
+            Text(
+              context.tr('screenshot.content_options'),
+              style: AppTypography.caption.copyWith(
+                color: colors.mutedInkColor,
+              ),
+            ),
+            const SizedBox(height: 10),
             SizedBox(
               height: optionHeight,
               child: _buildOption(
