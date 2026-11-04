@@ -14,7 +14,8 @@ import 'package:memolanes/common/app_translation_loader.dart';
 import 'package:memolanes/common/component/app_button.dart';
 import 'package:memolanes/common/screenshot.dart';
 import 'package:memolanes/body/map/screenshot/screenshot_preview_page.dart';
-import 'package:memolanes/body/journey/compact_journey_info_card.dart';
+import 'package:memolanes/body/map/screenshot/screenshot_caption.dart';
+import 'package:memolanes/body/map/screenshot/screenshot_composition.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
 
 void main() {
@@ -63,20 +64,25 @@ void main() {
     await tester.pump();
   }
 
-  Future<void> waitForLogo(
-    WidgetTester tester, {
-    String label = 'Logo 水印',
-  }) async {
-    final logoOption = find.widgetWithText(FilterChip, label);
+  Future<void> waitForLogo(WidgetTester tester) async {
+    final logoOption = find.byType(SegmentedButton<ScreenshotLogoPosition>);
     await tester.runAsync(() async {
       final deadline = DateTime.now().add(const Duration(seconds: 10));
-      while (tester.widget<FilterChip>(logoOption).onSelected == null &&
+      while (tester
+                  .widget<SegmentedButton<ScreenshotLogoPosition>>(logoOption)
+                  .onSelectionChanged ==
+              null &&
           DateTime.now().isBefore(deadline)) {
         await Future<void>.delayed(const Duration(milliseconds: 10));
         await tester.pump();
       }
     });
-    expect(tester.widget<FilterChip>(logoOption).onSelected, isNotNull);
+    expect(
+      tester
+          .widget<SegmentedButton<ScreenshotLogoPosition>>(logoOption)
+          .onSelectionChanged,
+      isNotNull,
+    );
   }
 
   Future<ui.Image> capturePreview(
@@ -128,19 +134,30 @@ void main() {
     }
 
     final chinesePixels = await previewPixels();
-    await tester.tap(find.widgetWithText(FilterChip, 'Logo 水印'));
+    tester
+        .widget<SegmentedButton<ScreenshotLogoPosition>>(
+          find.byType(SegmentedButton<ScreenshotLogoPosition>),
+        )
+        .onSelectionChanged!({ScreenshotLogoPosition.hidden});
     await tester.pumpAndSettle();
     await tester.runAsync(
       () => tester.element(page).setLocale(const Locale('en', 'US')),
     );
     await tester.pumpAndSettle();
-    await waitForLogo(tester, label: 'Watermark');
-    final englishOption = find.widgetWithText(FilterChip, 'Watermark');
+    await waitForLogo(tester);
+    final englishOption = find.byType(SegmentedButton<ScreenshotLogoPosition>);
     expect(tester.state(page), same(state));
-    expect(tester.widget<FilterChip>(englishOption).selected, isFalse);
+    expect(
+      tester
+          .widget<SegmentedButton<ScreenshotLogoPosition>>(englishOption)
+          .selected,
+      {ScreenshotLogoPosition.hidden},
+    );
     final mapPixels = (await tester.runAsync(() => pixels(map)))!;
     expect(await previewPixels(), orderedEquals(mapPixels));
-    await tester.tap(englishOption);
+    tester
+        .widget<SegmentedButton<ScreenshotLogoPosition>>(englishOption)
+        .onSelectionChanged!({ScreenshotLogoPosition.bottomRight});
     await tester.pumpAndSettle();
     final englishPixels = await previewPixels();
     expect(englishPixels, isNot(orderedEquals(mapPixels)));
@@ -149,7 +166,14 @@ void main() {
     await tester.runAsync(() => tester.element(page).setLocale(locale));
     await tester.pumpAndSettle();
     await waitForLogo(tester);
-    expect(tester.widget<FilterChip>(find.byType(FilterChip)).selected, isTrue);
+    expect(
+      tester
+          .widget<SegmentedButton<ScreenshotLogoPosition>>(
+            find.byType(SegmentedButton<ScreenshotLogoPosition>),
+          )
+          .selected,
+      {ScreenshotLogoPosition.bottomRight},
+    );
     expect(await previewPixels(), orderedEquals(chinesePixels));
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
@@ -181,10 +205,7 @@ void main() {
         );
         await tester.pumpAndSettle();
       }
-      await waitForLogo(
-        tester,
-        label: language == 'zh' ? 'Logo 水印' : 'Watermark',
-      );
+      await waitForLogo(tester);
       final actual = await capturePreview(tester, pixelRatio: pixelRatio);
       await tester.runAsync(() async {
         final svg = await vg.loadPicture(
@@ -256,7 +277,14 @@ void main() {
       ScreenshotPreviewPage(map: map, logicalSize: const Size(320, 640)),
     );
     await waitForLogo(tester);
-    expect(tester.widget<FilterChip>(find.byType(FilterChip)).selected, isTrue);
+    expect(
+      tester
+          .widget<SegmentedButton<ScreenshotLogoPosition>>(
+            find.byType(SegmentedButton<ScreenshotLogoPosition>),
+          )
+          .selected,
+      {ScreenshotLogoPosition.bottomRight},
+    );
     expect(find.widgetWithText(FilterChip, '旅程信息'), findsNothing);
 
     const channel = MethodChannel('com.memolanes/screenshots');
@@ -409,15 +437,20 @@ void main() {
       final save = find.widgetWithText(AppButton, '保存到相册');
       await tester.ensureVisible(save);
       expect(tester.getRect(save).overlaps(Offset.zero & size), isTrue);
-      expect(find.byType(ReadOnlyJourneyInfoCard), findsOneWidget);
+      expect(find.byType(ScreenshotCaption), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
     }
   });
 
-  for (final includeLogo in [true, false]) {
+  for (final scenario in [
+    for (final position in ScreenshotLogoPosition.values)
+      for (final timeline in [false, true]) (position, timeline),
+  ]) {
+    final (position, timeline) = scenario;
+    final includeLogo = position != ScreenshotLogoPosition.hidden;
     testWidgets(
-      'journey preview, gallery and share keep the map fixed with logo $includeLogo',
+      'preview, gallery and share match for $position, timeline $timeline',
       (tester) async {
         // An off-center landmark must stay fixed when the card is toggled.
         Future<ui.Image> routeImage() async {
@@ -443,6 +476,9 @@ void main() {
         final map = (await tester.runAsync(routeImage))!;
         addTearDown(map.dispose);
         final journey = JourneyHeader(
+          start: DateTime(2026, 10, 19, 8, 30),
+          end: DateTime(2026, 10, 19, 10, 15),
+          note: '沿着湖边散步，记录这一天的风景。',
           id: 'screenshot-export',
           revision: '1',
           journeyDate: DateTime.utc(2026, 10, 19),
@@ -456,13 +492,44 @@ void main() {
           ScreenshotPreviewPage(
             map: map,
             logicalSize: const Size(320, 640),
-            journey: journey,
+            journey: timeline ? null : journey,
+            timeRange: timeline
+                ? DateTimeRange(
+                    start: DateTime(2025, 1, 2),
+                    end: DateTime(2025, 3, 4),
+                  )
+                : null,
           ),
         );
         await waitForLogo(tester);
-        if (!includeLogo) {
-          await tester.tap(find.widgetWithText(FilterChip, 'Logo 水印'));
-          await tester.pumpAndSettle();
+        tester
+            .widget<SegmentedButton<ScreenshotLogoPosition>>(
+              find.byType(SegmentedButton<ScreenshotLogoPosition>),
+            )
+            .onSelectionChanged!({position});
+        await tester.pumpAndSettle();
+        final composition = find.byType(ScreenshotComposition);
+        if (includeLogo) {
+          final logo = find.descendant(
+            of: composition,
+            matching: find.byType(CustomPaint),
+          );
+          final logoRect = tester.getRect(logo);
+          final frame = tester.getRect(composition);
+          expect(frame.contains(logoRect.topLeft), isTrue);
+          expect(frame.contains(logoRect.bottomRight), isTrue);
+          if (position == ScreenshotLogoPosition.bottomRight) {
+            expect(
+              tester.getRect(find.byType(ScreenshotCaption)).bottom,
+              lessThan(logoRect.top),
+            );
+          } else {
+            expect(logoRect.center.dy, lessThan(frame.center.dy));
+          }
+        }
+        if (timeline) {
+          expect(find.text('时光机带你来到了'), findsOneWidget);
+          expect(find.text('2025.01.02 — 2025.03.04'), findsOneWidget);
         }
 
         const galleryChannel = MethodChannel('com.memolanes/screenshots');
@@ -532,7 +599,10 @@ void main() {
           await tester.pumpAndSettle();
         }
 
-        final cardOption = find.widgetWithText(FilterChip, '旅程信息');
+        final cardOption = find.widgetWithText(
+          FilterChip,
+          timeline ? '时间信息' : '旅程信息',
+        );
         for (final includeCard in [false, true, false]) {
           // Deliberately export before pumping the option's new frame.
           tester.widget<FilterChip>(cardOption).onSelected!(includeCard);
@@ -547,7 +617,7 @@ void main() {
             );
           }
           expect(
-            find.byType(ReadOnlyJourneyInfoCard),
+            find.byType(ScreenshotCaption),
             includeCard ? findsOneWidget : findsNothing,
           );
 

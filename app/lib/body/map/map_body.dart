@@ -115,7 +115,7 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
     }
     setState(() => _screenshotInProgress = true);
     ui.Image? mapImage;
-    ui.Image? timelineImage;
+    DateTimeRange? timeRange;
     try {
       late Size size;
       await loading.runWithLoading(() async {
@@ -129,13 +129,11 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
         }
         size = box.size;
         if (mode == MapMode.timeMachine) {
-          timelineImage = await _timelineKey.currentState!.captureScreenshot(
-            MediaQuery.devicePixelRatioOf(context),
-          );
+          timeRange = _timelineKey.currentState!.screenshotDateRange;
         }
         mapImage = await decodeScreenshot(await mapState.captureScreenshot());
         // A rotation can resize the WebView even while pointer input is
-        // blocked. Never combine a new map aspect ratio with an old timeline.
+        // blocked. Keep the frozen map and composition dimensions consistent.
         if (!box.attached || box.size != size) {
           throw StateError('Map resized during screenshot');
         }
@@ -145,7 +143,7 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
         builder: (_) => ScreenshotPreviewPage(
           map: mapImage!,
           logicalSize: size,
-          timeline: timelineImage,
+          timeRange: timeRange,
           journey: mode == MapMode.journeys ? journey : null,
         ),
       );
@@ -160,7 +158,6 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
       if (mounted) Fluttertoast.showToast(msg: context.tr('screenshot.failed'));
     } finally {
       mapImage?.dispose();
-      timelineImage?.dispose();
       if (mounted) setState(() => _screenshotInProgress = false);
     }
   }

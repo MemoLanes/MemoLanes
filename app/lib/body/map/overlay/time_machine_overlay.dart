@@ -1,12 +1,10 @@
 import 'dart:async';
-import 'dart:ui' as ui;
 
 import 'package:material_ui/material_ui.dart';
 import 'package:memolanes/body/time_machine/time_range_picker.dart';
 import 'package:memolanes/common/async_load_token.dart';
 import 'package:memolanes/common/component/map_overlay_panel.dart';
 import 'package:memolanes/common/log.dart';
-import 'package:memolanes/common/screenshot.dart';
 import 'package:memolanes/common/simple_date_utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/journey_header.dart';
@@ -34,7 +32,6 @@ class TimeMachineOverlay extends StatefulWidget {
 }
 
 class TimeMachineOverlayState extends State<TimeMachineOverlay> {
-  final _screenshotKey = GlobalKey();
   bool _rangeReady = false;
   bool _timelineScrolling = false;
 
@@ -44,9 +41,17 @@ class TimeMachineOverlayState extends State<TimeMachineOverlay> {
       !_timelineScrolling &&
       _rangeLoadDebounceTimer == null;
 
-  Future<ui.Image> captureScreenshot(double pixelRatio) {
-    if (!canCaptureScreenshot) throw StateError('Timeline is still loading');
-    return captureScreenshotBoundary(_screenshotKey, pixelRatio);
+  /// Freeze dates only after the matching map data has loaded.
+  DateTimeRange get screenshotDateRange {
+    if (!canCaptureScreenshot ||
+        _requestedFrom == null ||
+        _requestedTo == null) {
+      throw StateError('Timeline is still loading');
+    }
+    return DateTimeRange(
+      start: _requestedFrom!.toLocalDateTime(),
+      end: _requestedTo!.toLocalDateTime(),
+    );
   }
 
   static const _rangeLoadDebounce = Duration(milliseconds: 100);
@@ -164,16 +169,13 @@ class TimeMachineOverlayState extends State<TimeMachineOverlay> {
               }
               return false;
             },
-            child: RepaintBoundary(
-              key: _screenshotKey,
-              child: TimeRangePicker(
-                earliestDate: earliest,
-                loading: _loading,
-                onRangeChanged: _scheduleJourneyRangeLoad,
-                onRangeCommitted: _loadJourneyForRange,
-                selectedJourneyKinds: _selectedJourneyKinds,
-                onJourneyKindsChanged: _onJourneyKindsChanged,
-              ),
+            child: TimeRangePicker(
+              earliestDate: earliest,
+              loading: _loading,
+              onRangeChanged: _scheduleJourneyRangeLoad,
+              onRangeCommitted: _loadJourneyForRange,
+              selectedJourneyKinds: _selectedJourneyKinds,
+              onJourneyKindsChanged: _onJourneyKindsChanged,
             ),
           ),
         ),

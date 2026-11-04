@@ -23,13 +23,13 @@ class ScreenshotPreviewPage extends StatefulWidget {
     super.key,
     required this.map,
     required this.logicalSize,
-    this.timeline,
+    this.timeRange,
     this.journey,
   });
 
   final ui.Image map;
   final Size logicalSize;
-  final ui.Image? timeline;
+  final DateTimeRange? timeRange;
   final JourneyHeader? journey;
 
   @override
@@ -43,15 +43,21 @@ class _ScreenshotPreviewPageState extends State<ScreenshotPreviewPage> {
   String? _logoAsset;
   int _logoLoadGeneration = 0;
   bool _loadingLogo = true;
-  bool _includeLogo = true;
-  bool _includeJourneyInfo = true;
+  late ScreenshotLogoPosition _logoPosition;
+  bool _includeInfo = true;
   bool _saving = false;
   bool _sharing = false;
   String? _error;
 
   bool get _busy => _saving || _sharing;
 
-  bool get _logoAtTopRight => widget.timeline != null || widget.journey != null;
+  @override
+  void initState() {
+    super.initState();
+    _logoPosition = widget.timeRange != null || widget.journey != null
+        ? ScreenshotLogoPosition.topRight
+        : ScreenshotLogoPosition.bottomRight;
+  }
 
   @override
   void didChangeDependencies() {
@@ -81,7 +87,7 @@ class _ScreenshotPreviewPageState extends State<ScreenshotPreviewPage> {
     setState(() {
       _logo = logo;
       _loadingLogo = false;
-      if (logo == null) _includeLogo = false;
+      if (logo == null) _logoPosition = ScreenshotLogoPosition.hidden;
     });
     previousLogo?.picture.dispose();
   }
@@ -198,10 +204,11 @@ class _ScreenshotPreviewPageState extends State<ScreenshotPreviewPage> {
                     child: ScreenshotComposition(
                       map: widget.map,
                       logicalSize: widget.logicalSize,
-                      timeline: widget.timeline,
+                      timeRange: widget.timeRange,
                       journey: widget.journey,
-                      includeJourneyInfo: _includeJourneyInfo,
-                      logo: _includeLogo ? _logo : null,
+                      includeInfo: _includeInfo,
+                      logo: _logo,
+                      logoPosition: _logoPosition,
                     ),
                   ),
                 ),
@@ -270,19 +277,6 @@ class _ScreenshotPreviewPageState extends State<ScreenshotPreviewPage> {
       48.0,
       MediaQuery.textScalerOf(context).scale(13) * 2 * 1.4 + 20,
     );
-    final logoOption = _buildOption(
-      icon: Icons.image_outlined,
-      label: context.tr('screenshot.logo_option'),
-      tooltip: context.tr(
-        _logoAtTopRight
-            ? 'screenshot.include_logo_top_right'
-            : 'screenshot.include_logo',
-      ),
-      selected: _includeLogo,
-      onSelected: _busy || _loadingLogo || _logo == null
-          ? null
-          : (value) => setState(() => _includeLogo = value),
-    );
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
       child: Column(
@@ -296,34 +290,80 @@ class _ScreenshotPreviewPageState extends State<ScreenshotPreviewPage> {
             style: AppTypography.caption.copyWith(color: colors.mutedInkColor),
           ),
           const SizedBox(height: 10),
-          SizedBox(
-            height: optionHeight,
-            child: widget.journey == null
-                ? ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 200),
-                    child: logoOption,
-                  )
-                : Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Expanded(
-                        child: _buildOption(
-                          icon: Icons.route_rounded,
-                          label: context.tr('screenshot.journey_info_option'),
-                          tooltip: context.tr(
-                            'screenshot.include_journey_info',
-                          ),
-                          selected: _includeJourneyInfo,
-                          onSelected: _busy
-                              ? null
-                              : (value) =>
-                                    setState(() => _includeJourneyInfo = value),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(child: logoOption),
-                    ],
+          if (widget.journey != null || widget.timeRange != null) ...[
+            SizedBox(
+              height: optionHeight,
+              child: _buildOption(
+                icon: widget.journey != null
+                    ? Icons.route_rounded
+                    : Icons.date_range_rounded,
+                label: context.tr(
+                  widget.journey != null
+                      ? 'screenshot.journey_info_option'
+                      : 'screenshot.time_info_option',
+                ),
+                tooltip: context.tr(
+                  widget.journey != null
+                      ? 'screenshot.include_journey_info'
+                      : 'screenshot.include_time_info',
+                ),
+                selected: _includeInfo,
+                onSelected: _busy
+                    ? null
+                    : (value) => setState(() => _includeInfo = value),
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
+          Text(
+            context.tr('screenshot.logo_option'),
+            style: AppTypography.caption.copyWith(color: colors.mutedInkColor),
+          ),
+          const SizedBox(height: 4),
+          SegmentedButton<ScreenshotLogoPosition>(
+            expandedInsets: EdgeInsets.zero,
+            showSelectedIcon: false,
+            segments: [
+              for (final position in ScreenshotLogoPosition.values)
+                ButtonSegment(
+                  value: position,
+                  label: Text(
+                    context.tr('screenshot.logo_${position.name}'),
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
+                ),
+            ],
+            selected: {_logoPosition},
+            onSelectionChanged: _busy || _loadingLogo || _logo == null
+                ? null
+                : (selection) =>
+                      setState(() => _logoPosition = selection.single),
+            style: ButtonStyle(
+              backgroundColor: WidgetStateProperty.resolveWith((states) {
+                return states.contains(WidgetState.selected)
+                    ? colors.softGreen
+                    : colors.surfaceColor;
+              }),
+              foregroundColor: WidgetStateProperty.resolveWith((states) {
+                if (states.contains(WidgetState.disabled)) {
+                  return colors.subtleInkColor;
+                }
+                return states.contains(WidgetState.selected)
+                    ? colors.deepGreen
+                    : colors.mutedInkColor;
+              }),
+              side: WidgetStatePropertyAll(BorderSide(color: colors.lineColor)),
+              shape: WidgetStatePropertyAll(
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              ),
+              minimumSize: const WidgetStatePropertyAll(Size(0, 48)),
+              padding: const WidgetStatePropertyAll(
+                EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+              ),
+              textStyle: const WidgetStatePropertyAll(AppTypography.label),
+            ),
           ),
           if (!_loadingLogo && _logo == null) ...[
             const SizedBox(height: 10),

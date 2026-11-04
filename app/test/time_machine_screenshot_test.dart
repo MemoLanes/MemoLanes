@@ -75,7 +75,7 @@ void main() {
     await tester.pump();
     final state = key.currentState!;
     expect(state.canCaptureScreenshot, isFalse);
-    expect(() => state.captureScreenshot(1), throwsStateError);
+    expect(() => state.screenshotDateRange, throwsStateError);
     final initial = _MapRenderer();
     // Both the picker and its initial ruler position can commit the range.
     for (final request in backend.requests) {
@@ -103,6 +103,10 @@ void main() {
     backend.requests[1].complete(latest);
     await tester.pumpAndSettle();
     expect(loaded, [initial, latest]);
+    expect(
+      state.screenshotDateRange,
+      DateTimeRange(start: DateTime(2025), end: DateTime(2025, 12, 31)),
+    );
     expect(state.canCaptureScreenshot, isTrue);
 
     final gesture = await tester.startGesture(
@@ -111,7 +115,7 @@ void main() {
     await gesture.moveBy(const Offset(80, 0));
     await tester.pump();
     expect(state.canCaptureScreenshot, isFalse);
-    expect(() => state.captureScreenshot(1), throwsStateError);
+    expect(() => state.screenshotDateRange, throwsStateError);
     await gesture.cancel();
     await tester.pumpWidget(const SizedBox.shrink());
   });
