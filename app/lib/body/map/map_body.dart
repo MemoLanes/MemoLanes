@@ -63,11 +63,15 @@ class MapBody extends StatefulWidget {
     super.key,
     this.mode = MapMode.normal,
     required this.journeys,
+    this.recordMapOnly = false,
+    this.onRecordMapTap,
   });
 
   final MapMode mode;
 
   final JourneyFlowController journeys;
+  final bool recordMapOnly;
+  final VoidCallback? onRecordMapTap;
 
   @override
   State<StatefulWidget> createState() => MapBodyState();
@@ -326,6 +330,17 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
           : null,
       overlayPanel: widget.mode == MapMode.journeys ? _detailPanelKey : null,
       trackingMode: _effectiveTrackingMode,
+      onMapTap: () {
+        final loading = GlobalLoadingManager.instance;
+        if (widget.mode != MapMode.normal ||
+            _screenshotInProgress ||
+            loading.isLoading ||
+            loading.isNavigationBlocked ||
+            ModalRoute.of(context)?.isCurrent != true) {
+          return;
+        }
+        widget.onRecordMapTap?.call();
+      },
       onRoughMapViewUpdate: (roughMapView) {
         _roughMapView = roughMapView;
         if (widget.journeys.session == null) _saveMapState();
@@ -378,15 +393,21 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final mode = widget.mode;
     final layout = AppLayoutScope.of(context);
-    final showScreenshot =
-        mode != MapMode.journeys ||
-        (widget.journeys.session != null &&
-            widget.journeys.phase == JourneyPhase.viewing);
-    final screenshotBounds = layout.screenshotControlBounds;
+    final showScreenshot = switch (mode) {
+      MapMode.normal => widget.recordMapOnly,
+      MapMode.timeMachine => true,
+      MapMode.journeys =>
+        widget.journeys.session != null &&
+            widget.journeys.phase == JourneyPhase.viewing,
+    };
+    final screenshotBounds = layout.screenshotControlBoundsFor(
+      mapControlsVisible: mode != MapMode.normal || !widget.recordMapOnly,
+    );
 
     final children = <Widget>[
       _buildMapLayer(),
-      _buildOverlay(context, mode),
+      if (mode != MapMode.normal || !widget.recordMapOnly)
+        _buildOverlay(context, mode),
       if (showScreenshot && layout.chromeReady && !screenshotBounds.isEmpty)
         Positioned.fromRect(
           rect: screenshotBounds,

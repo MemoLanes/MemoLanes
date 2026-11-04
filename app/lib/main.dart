@@ -176,6 +176,7 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   int _selectedIndex = 0;
+  bool _recordMapOnly = false;
   final _journeys = JourneyFlowController();
   DateTime? _lastExitPopAt;
 
@@ -204,7 +205,18 @@ class _MyHomePageState extends State<MyHomePage> {
       return;
     }
     if (_selectedIndex == 2 && !_journeys.leave()) return;
-    setState(() => _selectedIndex = index);
+    setState(() {
+      _selectedIndex = index;
+      _recordMapOnly = false;
+    });
+  }
+
+  void _toggleRecordMapOnly() {
+    if (_selectedIndex != 0) return;
+    setState(() {
+      _recordMapOnly = !_recordMapOnly;
+      _lastExitPopAt = null;
+    });
   }
 
   @override
@@ -238,6 +250,10 @@ class _MyHomePageState extends State<MyHomePage> {
   Future<void> _handleOnPop() async {
     final loading = GlobalLoadingManager.instance;
     if (loading.isLoading || loading.isNavigationBlocked) return;
+    if (_recordMapOnly) {
+      _toggleRecordMapOnly();
+      return;
+    }
     if (_journeys.requestBack() != JourneyBackResult.unhandled) return;
 
     if (_selectedIndex != 0) {
@@ -270,6 +286,8 @@ class _MyHomePageState extends State<MyHomePage> {
         child: MapBody(
           key: _mapBodyKey,
           journeys: _journeys,
+          recordMapOnly: _recordMapOnly,
+          onRecordMapTap: _toggleRecordMapOnly,
           mode: switch (_selectedIndex) {
             0 => MapMode.normal,
             1 => MapMode.timeMachine,
@@ -332,7 +350,7 @@ class _MyHomePageState extends State<MyHomePage> {
       },
       child: AppNavigationShell(
         bodyBuilder: _buildPageContent,
-        navigationVisible: _journeys.appChromeVisible,
+        navigationVisible: _journeys.appChromeVisible && !_recordMapOnly,
         contentMode: _selectedIndex > 2
             ? AppNavigationContentMode.inset
             : AppNavigationContentMode.fullBleed,

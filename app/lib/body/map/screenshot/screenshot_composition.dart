@@ -41,7 +41,6 @@ class ScreenshotComposition extends StatelessWidget {
       120.0,
       math.max(0.0, logicalSize.width - _imageEdgeInset * 2),
     );
-    final logoHeight = showLogo ? logoWidth / picture.size.aspectRatio : 0.0;
     final bottomLogo =
         showLogo && logoPosition == ScreenshotLogoPosition.bottomRight;
     final watermark = showLogo
@@ -77,11 +76,11 @@ class ScreenshotComposition extends StatelessWidget {
                       colors: [Colors.transparent, Color(0xb31a2925)],
                     ),
                   ),
-                  padding: EdgeInsets.fromLTRB(
+                  padding: const EdgeInsets.fromLTRB(
                     _imageEdgeInset,
                     32,
                     _imageEdgeInset,
-                    _imageEdgeInset + (bottomLogo ? logoHeight + 12 : 0),
+                    _imageEdgeInset,
                   ),
                   child: FittedBox(
                     fit: BoxFit.scaleDown,

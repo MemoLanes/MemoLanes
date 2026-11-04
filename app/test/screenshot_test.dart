@@ -502,6 +502,7 @@ void main() {
           ),
         );
         await waitForLogo(tester);
+        final captionRect = tester.getRect(find.byType(ScreenshotCaption));
         tester
             .widget<SegmentedButton<ScreenshotLogoPosition>>(
               find.byType(SegmentedButton<ScreenshotLogoPosition>),
@@ -509,6 +510,7 @@ void main() {
             .onSelectionChanged!({position});
         await tester.pumpAndSettle();
         final composition = find.byType(ScreenshotComposition);
+        expect(tester.getRect(find.byType(ScreenshotCaption)), captionRect);
         if (includeLogo) {
           final logo = find.descendant(
             of: composition,
@@ -519,10 +521,7 @@ void main() {
           expect(frame.contains(logoRect.topLeft), isTrue);
           expect(frame.contains(logoRect.bottomRight), isTrue);
           if (position == ScreenshotLogoPosition.bottomRight) {
-            expect(
-              tester.getRect(find.byType(ScreenshotCaption)).bottom,
-              lessThan(logoRect.top),
-            );
+            expect(logoRect.center.dy, greaterThan(frame.center.dy));
           } else {
             expect(logoRect.center.dy, lessThan(frame.center.dy));
           }

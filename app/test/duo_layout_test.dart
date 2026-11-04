@@ -41,6 +41,29 @@ void contained(Rect child, Rect bounds) {
 }
 
 void main() {
+  test(
+    'map-only screenshot stays at the top right without reserving hidden tools',
+    () {
+      for (final size in [const Size(393, 852), const Size(640, 180)]) {
+        final resolved = layout(
+          size: size,
+          navigation: false,
+          fold: DuoHardware.none,
+          edge: DuoBarEdge.horizontal,
+          padding: const EdgeInsets.only(top: 24),
+          platform: TargetPlatform.android,
+        );
+        final button = resolved.screenshotControlBoundsFor(
+          mapControlsVisible: false,
+        );
+        contained(button, resolved.safeBounds);
+        expect(button.size, const Size.square(StyleConstants.mapControlSize));
+        expect(button.top, resolved.safeBounds.top + 14);
+        expect(button.right, resolved.safeBounds.right - 16);
+      }
+    },
+  );
+
   test('screenshot control stays clear of fold and navigation', () {
     const fold = DuoRegion(Rect.fromLTWH(413, 0, 40, 669), isActive: true);
     for (final edge in [DuoBarEdge.left, DuoBarEdge.right]) {
