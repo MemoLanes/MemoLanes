@@ -55,11 +55,13 @@ class MapBody extends StatefulWidget {
     super.key,
     this.mode = MapMode.normal,
     required this.journeys,
+    required this.onMapAttributionChanged,
   });
 
   final MapMode mode;
 
   final JourneyFlowController journeys;
+  final ValueChanged<bool> onMapAttributionChanged;
 
   @override
   State<StatefulWidget> createState() => MapBodyState();
@@ -83,6 +85,9 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
   /// cause a mistaken rebuild and reload.
   final GlobalKey<BaseMapWebviewState> _mainMapKey =
       GlobalKey<BaseMapWebviewState>();
+
+  Future<String?>? getMapAttribution() =>
+      _mainMapKey.currentState?.getMapAttribution();
 
   void setJourneyMapRendererProxy(api.MapRendererProxy? proxy) {
     setState(() => _journeyMapRendererProxy = proxy);
@@ -247,6 +252,7 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
           ? widget.journeys.returnToView
           : null,
       overlayPanel: widget.mode == MapMode.journeys ? _detailPanelKey : null,
+      onMapAttributionChanged: widget.onMapAttributionChanged,
       trackingMode: _effectiveTrackingMode,
       onRoughMapViewUpdate: (roughMapView) {
         _roughMapView = roughMapView;

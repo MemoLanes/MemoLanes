@@ -2,12 +2,13 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:easy_localization/easy_localization.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/map_fog_style.dart';
-import 'package:memolanes/common/map_style.dart';
+import 'package:memolanes/common/map_style_store.dart';
 import 'package:memolanes/common/map_webview_resources.dart';
 import 'package:memolanes/common/component/map_overlay_panel.dart';
 import 'package:memolanes/common/app_layout.dart';
@@ -40,6 +41,7 @@ class BaseMapWebview extends StatefulWidget {
   final MapView? initialMapView;
   final MapBounds? initialMapBounds;
   final EdgeInsets? boundsPadding;
+  final ValueChanged<bool>? onMapAttributionChanged;
 
   /// Reuse the existing panel's current footprint when fitting map bounds.
   final GlobalKey<MapOverlayPanelState>? overlayPanel;
@@ -58,6 +60,7 @@ class BaseMapWebview extends StatefulWidget {
     this.initialMapView,
     this.initialMapBounds,
     this.boundsPadding,
+    this.onMapAttributionChanged,
     this.overlayPanel,
     this.flyToBounds,
     this.flyToView,
@@ -108,7 +111,6 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
 
   final List<DateTime> _webGlRecoveryReloads = [];
 
-  late MapStyle _selectedMapStyle;
   late MapFogStyle _selectedMapFogStyle;
 
   // Dev server URL for loading map webview from a local dev server.
@@ -120,6 +122,23 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
 
   Future<void> runJavaScript(String javaScript) async {
     await _webViewController?.evaluateJavascript(source: javaScript);
+  }
+
+  Future<String?> getMapAttribution() async {
+    final controller = _webViewController;
+    if (controller == null || !_readyForDisplay) return null;
+    try {
+      final result = await controller.evaluateJavascript(
+        source: 'window.getMapAttribution?.() ?? null',
+      );
+      return result as String?;
+    } catch (error, stackTrace) {
+      log.error(
+        '[base_map_webview] Reading map attribution failed: $error',
+        stackTrace,
+      );
+      return null;
+    }
   }
 
   /// Read the live camera before opening a journey, including recent gestures
@@ -245,7 +264,6 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     _gpsManager = Provider.of<GpsManager>(context, listen: false);
     _gpsManager.addListener(_updateLocationMarker);
     _currentRoughMapView = widget.initialMapView;
-    _selectedMapStyle = _loadMapStyleFromStorage();
     _selectedMapFogStyle = _loadMapFogStyleFromStorage();
   }
 
@@ -308,6 +326,17 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     // These create window.channelName.postMessage(str) objects on the JS side,
     // matching the calling convention of webview_flutter's addJavaScriptChannel.
     await Future.wait([
+      if (widget.onMapAttributionChanged != null)
+        controller.addWebMessageListener(
+          WebMessageListener(
+            jsObjectName: 'onMapAttributionChanged',
+            allowedOriginRules: {'*'},
+            onPostMessage: (message, sourceOrigin, isMainFrame, replyProxy) {
+              if (!mounted || !isMainFrame) return;
+              widget.onMapAttributionChanged?.call(message?.data == 'true');
+            },
+          ),
+        ),
       controller.addWebMessageListener(
         WebMessageListener(
           jsObjectName: 'onMapMoved',
@@ -412,8 +441,6 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     final controller = _webViewController;
     if (controller == null) return;
 
-    final accessKey = api.getMapboxAccessToken();
-
     final mapView = _currentRoughMapView;
     final lngParam = mapView?.lng.toString() ?? 'null';
     final latParam = mapView?.lat.toString() ?? 'null';
@@ -425,34 +452,43 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     debugPrint('Injecting lat: $latParam');
     debugPrint('Injecting zoom: $zoomParam');
 
-    final cgiEndpoint = MapWebViewResources.apiEndpoint;
-
-    final style = _selectedMapStyle;
+    final style = MapStyleStore.instance.selected;
+    final mapStyle = style.mapLibreStyle;
+    final useAppMapboxToken =
+        !style.isCustom &&
+        mapStyle is String &&
+        mapStyle.startsWith('mapbox://');
+    final accessKey = useAppMapboxToken ? api.getMapboxAccessToken() : null;
     final fogStyle = _selectedMapFogStyle;
+    final params = <String, Object?>{
+      'cgi_endpoint': MapWebViewResources.apiEndpoint,
+      'render': 'canvas',
+      'map_style': mapStyle,
+      'custom_basemap': style.isCustom,
+      'attribution_label': context.tr(
+        'general.map_settings.basemaps.attribution',
+      ),
+      'fog_style': fogStyle.id,
+      'fog_density': style.fogOpacityByStyle[fogStyle] ?? 0.50,
+      'access_key': accessKey,
+      'lng': mapView?.lng,
+      'lat': mapView?.lat,
+      'zoom': mapView?.zoom,
+      'west': bounds?.west,
+      'south': bounds?.south,
+      'east': bounds?.east,
+      'north': bounds?.north,
+      'fit_padding_top': boundsPadding.top,
+      'fit_padding_right': boundsPadding.right,
+      'fit_padding_bottom': boundsPadding.bottom,
+      'fit_padding_left': boundsPadding.left,
+      'editor': widget.isEditor,
+    };
     await controller.evaluateJavascript(
       source:
           '''
-      // Set the params
-      window.EXTERNAL_PARAMS = {
-        cgi_endpoint: "$cgiEndpoint",
-        render: "canvas",
-        map_style: "${style.url}",
-        fog_style: "${fogStyle.id}",
-        fog_density: ${style.fogOpacityByStyle[fogStyle] ?? 0.50},
-        access_key: ${accessKey != null ? "\"$accessKey\"" : "null"},
-        lng: $lngParam,
-        lat: $latParam,
-        zoom: $zoomParam,
-        west: ${bounds?.west ?? 'null'},
-        south: ${bounds?.south ?? 'null'},
-        east: ${bounds?.east ?? 'null'},
-        north: ${bounds?.north ?? 'null'},
-        fit_padding_top: ${boundsPadding.top},
-        fit_padding_right: ${boundsPadding.right},
-        fit_padding_bottom: ${boundsPadding.bottom},
-        fit_padding_left: ${boundsPadding.left},
-        editor: ${widget.isEditor ? "true" : "false"},
-      };
+      document.documentElement.classList.toggle('hide-map-attribution', ${widget.onMapAttributionChanged != null});
+      window.EXTERNAL_PARAMS = ${jsonEncode(params)};
       
       // Check if JS is ready and trigger initialization if so
       if (typeof window.SETUP_PENDING !== 'undefined' && window.SETUP_PENDING) {
@@ -467,11 +503,6 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     );
 
     debugPrint('Initialization completed');
-  }
-
-  MapStyle _loadMapStyleFromStorage() {
-    final id = MMKVUtil.getString(MMKVKey.mapStyle);
-    return MapStyle.findById(id);
   }
 
   MapFogStyle _loadMapFogStyleFromStorage() {
@@ -678,6 +709,9 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
             );
             return NavigationActionPolicy.CANCEL;
           },
+          onLoadStart: (controller, url) {
+            if (mounted) widget.onMapAttributionChanged?.call(false);
+          },
           onLoadStop: (controller, url) {
             if (!mounted) return;
             debugPrint('Page finished loading: $url');
@@ -685,12 +719,11 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
           },
           onReceivedError: (controller, request, error) async {
             if (!mounted) return;
-            final failedUrl = request.url.toString();
-            if (!failedUrl.contains('events.mapbox.com')) {
-              log.error('''Map WebView Error:
-                      Description: ${error.description}
-                      Error Type: ${error.type} 
-                      Failed URL: $failedUrl''');
+            final host = request.url.host;
+            if (host != 'events.mapbox.com') {
+              log.error(
+                '[base_map_webview] Resource load failed on $host (${error.type})',
+              );
             }
           },
           onWebContentProcessDidTerminate: (controller) async {

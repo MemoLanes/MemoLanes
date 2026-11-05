@@ -31,4 +31,5 @@ zstd = "0.14"
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 console_log = "1"
 web-sys = { version = "0.3", features = ["console", "Performance", "Window"] }
-ruzstd = "0.9"
+# Disable unused legacy format support and dictionary training for WASM.
+zstd = { version = "0.14", default-features = false }

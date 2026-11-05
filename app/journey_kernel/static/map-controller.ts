@@ -69,6 +69,7 @@ maplibregl.setWorkerUrl(
 export interface MapControllerConfig {
   /** Container element ID for the map */
   containerId: string;
+  attributionLabel?: string;
   /** ReactiveParams instance with validated parameters */
   params: ReactiveParams;
   /**
@@ -163,7 +164,10 @@ export class MapController {
       transformRequest,
       pitchWithRotate: false,
       touchPitch: false,
-      attributionControl: false,
+      attributionControl: { compact: true },
+      locale: config.attributionLabel
+        ? { "AttributionControl.ToggleAttribution": config.attributionLabel }
+        : undefined,
     });
     this.applyPolarCameraConstraint();
 
@@ -299,9 +303,7 @@ export class MapController {
    */
   private buildTransformRequest(): RequestTransformFunction {
     return (url: string, resourceType?: ResourceType) => {
-      return this.params.requiresMapboxToken &&
-        this.params.accessKey &&
-        isMapboxURL(url)
+      return this.params.accessKey && isMapboxURL(url)
         ? transformMapboxUrl(url, resourceType as any, this.params.accessKey)
         : { url };
     };
@@ -340,11 +342,13 @@ export class MapController {
         }
 
         // Apply the actual map style (deferred until journey layer is added)
-        this.styleLoadRetry = new StyleLoadRetry(
-          this.map,
-          () => this.applyMapStyle(),
-          () => !this.webGLContextLost,
-        );
+        if (!this.params.customBasemap) {
+          this.styleLoadRetry = new StyleLoadRetry(
+            this.map,
+            () => this.applyMapStyle(),
+            () => !this.webGLContextLost,
+          );
+        }
         this.applyMapStyle();
 
         // The provider has already started loading. Let the basemap load
