@@ -58,6 +58,7 @@ class MapBody extends StatefulWidget {
     super.key,
     this.mode = MapMode.normal,
     required this.journeys,
+    required this.onMapAttributionChanged,
     this.recordMapOnly = false,
     this.onRecordMapTap,
   });
@@ -65,6 +66,7 @@ class MapBody extends StatefulWidget {
   final MapMode mode;
 
   final JourneyFlowController journeys;
+  final ValueChanged<bool> onMapAttributionChanged;
   final bool recordMapOnly;
   final VoidCallback? onRecordMapTap;
 
@@ -122,6 +124,9 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
       if (mounted) setState(() => _screenshotInProgress = false);
     }
   }
+
+  Future<String?>? getMapAttribution() =>
+      _mainMapKey.currentState?.getMapAttribution();
 
   void setJourneyMapRendererProxy(api.MapRendererProxy? proxy) {
     setState(() => _journeyMapRendererProxy = proxy);
@@ -297,6 +302,7 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
           ? widget.journeys.returnToView
           : null,
       overlayPanel: widget.mode == MapMode.journeys ? _detailPanelKey : null,
+      onMapAttributionChanged: widget.onMapAttributionChanged,
       trackingMode: _effectiveTrackingMode,
       onMapTap: widget.mode == MapMode.normal && widget.onRecordMapTap != null
           ? _handleRecordMapTap

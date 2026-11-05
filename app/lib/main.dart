@@ -24,7 +24,6 @@ import 'package:memolanes/common/component/map_controls/map_copyright_button.dar
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/duo_device.dart';
 import 'package:memolanes/common/log.dart';
-import 'package:memolanes/common/map_style.dart';
 import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/utils/nav_helper.dart';
 import 'package:memolanes/common/update_notifier.dart';
@@ -178,6 +177,7 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   int _selectedIndex = 0;
   bool _recordMapOnly = false;
+  bool _hasMapAttribution = false;
   final _journeys = JourneyFlowController();
   DateTime? _lastExitPopAt;
   late final StreamSubscription<void> _screenshotSubscription;
@@ -206,6 +206,13 @@ class _MyHomePageState extends State<MyHomePage> {
 
   void _onJourneysChanged() => setState(() {});
 
+  void _onMapAttributionChanged(bool available) {
+    if (!mounted || _selectedIndex > 2 || _hasMapAttribution == available) {
+      return;
+    }
+    setState(() => _hasMapAttribution = available);
+  }
+
   void _selectTab(int index) {
     if (index == _selectedIndex ||
         GlobalLoadingManager.instance.isNavigationBlocked) {
@@ -215,6 +222,7 @@ class _MyHomePageState extends State<MyHomePage> {
     setState(() {
       _selectedIndex = index;
       _recordMapOnly = false;
+      if (index > 2) _hasMapAttribution = false;
     });
   }
 
@@ -294,6 +302,7 @@ class _MyHomePageState extends State<MyHomePage> {
         child: MapBody(
           key: _mapBodyKey,
           journeys: _journeys,
+          onMapAttributionChanged: _onMapAttributionChanged,
           recordMapOnly: _recordMapOnly,
           onRecordMapTap: _toggleRecordMapOnly,
           mode: switch (_selectedIndex) {
@@ -346,10 +355,6 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final mapCopyrightTextMarkdown = MapStyle.findById(
-      MMKVUtil.getString(MMKVKey.mapStyle),
-    ).copyright;
-
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (bool didPop, dynamic result) async {
@@ -370,8 +375,11 @@ class _MyHomePageState extends State<MyHomePage> {
               .watch<UpdateNotifier>()
               .hasUpdateNotification,
         ),
-        bottomTrailingOverlay: _selectedIndex <= 2
-            ? MapCopyrightButton(textMarkdown: mapCopyrightTextMarkdown)
+        bottomTrailingOverlay: _selectedIndex <= 2 && _hasMapAttribution
+            ? MapCopyrightButton(
+                readAttribution: () async =>
+                    await _mapBodyKey.currentState?.getMapAttribution(),
+              )
             : null,
       ),
     );

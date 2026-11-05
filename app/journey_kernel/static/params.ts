@@ -9,6 +9,7 @@
  */
 
 import { getFogStyle, normalizeFogStyleId, type FogStyleId } from "./fog-style";
+import type { StyleSpecification } from "maplibre-gl";
 
 // Default values for parameters
 const DEFAULT_MAP_STYLE = "https://tiles.openfreemap.org/styles/liberty";
@@ -54,13 +55,14 @@ export interface ExternalParams {
   fit_padding_bottom?: string | number;
   fit_padding_left?: string | number;
   render?: string;
-  map_style?: string;
+  map_style?: string | StyleSpecification;
+  custom_basemap?: boolean;
   /** Fog palette ID owned and validated by the map renderer. */
   fog_style?: string;
   fog_density?: string;
   projection?: string;
   debug?: string;
-  [key: string]: string | number | undefined;
+  [key: string]: string | number | boolean | StyleSpecification | undefined;
 }
 
 // ============================================================================
@@ -78,14 +80,14 @@ export type MutablePropertyName =
 interface ParamsData {
   // Readonly properties
   cgiEndpoint: string;
-  mapStyle: string;
+  mapStyle: string | StyleSpecification;
+  customBasemap: boolean;
   accessKey: string | null;
   lng: number;
   lat: number;
   zoom: number;
   initialBounds: JourneyBounds | null;
   initialBoundsPadding: JourneyBoundsPadding;
-  requiresMapboxToken: boolean;
   debug: boolean;
   // Mutable properties
   renderMode: string;
@@ -273,17 +275,6 @@ export function createReactiveParams(
     return null;
   }
 
-  // Determine map style
-  const mapStyle = externalParams.map_style || DEFAULT_MAP_STYLE;
-  const requiresMapboxToken = mapStyle.startsWith("mapbox://");
-
-  // Validate access key for mapbox styles
-  if (requiresMapboxToken && !externalParams.access_key) {
-    throw new Error(
-      "Mapbox access token not provided. access_key is required for Mapbox styles.",
-    );
-  }
-
   // Parse and validate rendering mode
   let renderMode = DEFAULT_RENDER_MODE;
   if (externalParams.render) {
@@ -326,8 +317,9 @@ export function createReactiveParams(
   // Create the reactive proxy
   return createReactiveProxy({
     cgiEndpoint: externalParams.cgi_endpoint,
-    mapStyle,
-    accessKey: requiresMapboxToken ? externalParams.access_key! : null,
+    mapStyle: externalParams.map_style || DEFAULT_MAP_STYLE,
+    customBasemap: externalParams.custom_basemap === true,
+    accessKey: externalParams.access_key || null,
     lng: parseNum(externalParams.lng, 0),
     lat: parseNum(externalParams.lat, 0),
     zoom: parseNum(externalParams.zoom, 2),
@@ -339,7 +331,6 @@ export function createReactiveParams(
       left: parseNum(externalParams.fit_padding_left, 24),
     },
     renderMode,
-    requiresMapboxToken,
     // The host supplies the palette ID and its initial opacity. RGB values stay
     // owned by fog-style.ts so Dart and TypeScript cannot drift apart.
     fogStyle: normalizeFogStyleId(externalParams.fog_style),
