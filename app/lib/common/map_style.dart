@@ -5,7 +5,7 @@ enum MapStyleType { style, raster }
 enum MapTileScheme { xyz, tms }
 
 /// Map base style: id, url, and per-fog-style opacity.
-/// The selected style is stored by [id]; custom configurations are separate.
+/// [selectionId] distinguishes built-in and custom styles in saved preferences.
 class MapStyle {
   const MapStyle({
     required this.id,
@@ -27,6 +27,8 @@ class MapStyle {
 
   bool get isCustom => customName != null;
 
+  String get selectionId => isCustom ? 'custom:$id' : id;
+
   /// MapLibre accepts either a style URL or a complete style object.
   Object get mapLibreStyle => type == MapStyleType.style
       ? url
@@ -47,7 +49,7 @@ class MapStyle {
 
   Map<String, Object> toCustomJson() {
     final name = customName;
-    if (name == null || !id.startsWith('custom:')) {
+    if (name == null) {
       throw StateError('Only custom basemaps can be serialized');
     }
     return {
@@ -68,7 +70,8 @@ class MapStyle {
     final tileSize = json['tileSize'];
     final scheme = json['scheme'];
     if (id is! String ||
-        !id.startsWith('custom:') ||
+        id.trim().isEmpty ||
+        id.startsWith('custom:') ||
         name is! String ||
         name.trim().isEmpty ||
         url is! String ||
@@ -106,13 +109,4 @@ class MapStyle {
       fogOpacityByStyle: {MapFogStyle.dark: 0.50, MapFogStyle.light: 0.50},
     ),
   ];
-
-  static MapStyle findById(
-    String? id, {
-    List<MapStyle> customStyles = const [],
-  }) {
-    return all
-        .followedBy(customStyles)
-        .firstWhere((s) => s.id == id, orElse: () => all[0]);
-  }
 }

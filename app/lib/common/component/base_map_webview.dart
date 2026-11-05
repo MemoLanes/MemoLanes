@@ -441,8 +441,6 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     final controller = _webViewController;
     if (controller == null) return;
 
-    final accessKey = api.getMapboxAccessToken();
-
     final mapView = _currentRoughMapView;
     final lngParam = mapView?.lng.toString() ?? 'null';
     final latParam = mapView?.lat.toString() ?? 'null';
@@ -455,11 +453,17 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     debugPrint('Injecting zoom: $zoomParam');
 
     final style = MapStyleStore.instance.selected;
+    final mapStyle = style.mapLibreStyle;
+    final useAppMapboxToken =
+        !style.isCustom &&
+        mapStyle is String &&
+        mapStyle.startsWith('mapbox://');
+    final accessKey = useAppMapboxToken ? api.getMapboxAccessToken() : null;
     final fogStyle = _selectedMapFogStyle;
     final params = <String, Object?>{
       'cgi_endpoint': MapWebViewResources.apiEndpoint,
       'render': 'canvas',
-      'map_style': style.mapLibreStyle,
+      'map_style': mapStyle,
       'custom_basemap': style.isCustom,
       'attribution_label': context.tr(
         'general.map_settings.basemaps.attribution',

@@ -15,7 +15,7 @@ class MMKVKey {
       "FirstLaunchSetup.completedVersion";
   static const String worldviewPreference = "Settings.worldview";
   static const String mapStyle = "mapStyle";
-  static const String basemaps = "Settings.basemaps";
+  static const String customBasemaps = "Settings.custom_basemaps";
   static const String mapFogMode = "mapFogMode";
   static const String localePreference = "Settings.locale";
   static const String appearanceMode = "Settings.appearanceMode";

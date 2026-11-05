@@ -303,9 +303,7 @@ export class MapController {
    */
   private buildTransformRequest(): RequestTransformFunction {
     return (url: string, resourceType?: ResourceType) => {
-      return this.params.requiresMapboxToken &&
-        this.params.accessKey &&
-        isMapboxURL(url)
+      return this.params.accessKey && isMapboxURL(url)
         ? transformMapboxUrl(url, resourceType as any, this.params.accessKey)
         : { url };
     };

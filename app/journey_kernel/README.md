@@ -54,7 +54,7 @@ All parameters are optional except `cgi_endpoint` which is required.
 | Parameter | Description | Type | Default |
 |-----------|-------------|------|---------|
 | `cgi_endpoint` | CGI endpoint URL | string | Required |
-| `access_key` | Mapbox access token (required for Mapbox styles) | string | - |
+| `access_key` | Token used to resolve `mapbox://` resource URLs when provided | string | - |
 | `lng` | Initial longitude | number | 0 |
 | `lat` | Initial latitude | number | 0 |
 | `zoom` | Initial zoom level | number | 2 |
@@ -66,10 +66,16 @@ All parameters are optional except `cgi_endpoint` which is required.
 | `projection` | Map projection | `'mercator'` \| `'globe'` | `'globe'` |
 | `debug` | Show debug panel | `'true'` \| `'false'` | `'false'` |
 
-Flutter saves custom basemap configurations locally. When the map opens,
+Flutter stores the selection in MMKV's `mapStyle`: a built-in ID or
+`custom:<id>`. Custom configurations are stored separately in
+`Settings.custom_basemaps` as a `styles` array inside a JSON object; their IDs
+have no `custom:` prefix. When the map opens,
 MapLibre loads either the selected style URL or the inline raster style Flutter
 builds from an image tile template. Custom styles should use absolute resource
 URLs.
+Flutter supplies its built-in token only for non-custom `mapbox://` styles.
+Standalone browser callers can pass `access_key` explicitly; without it,
+Mapbox resource URLs are left unchanged.
 MapLibre's attribution control collects visible source attribution from the
 style or TileJSON. The Flutter home map shows its Data Source button when
 attribution is available and reads the credits, including links, on demand.

@@ -88,7 +88,6 @@ interface ParamsData {
   zoom: number;
   initialBounds: JourneyBounds | null;
   initialBoundsPadding: JourneyBoundsPadding;
-  requiresMapboxToken: boolean;
   debug: boolean;
   // Mutable properties
   renderMode: string;
@@ -276,18 +275,6 @@ export function createReactiveParams(
     return null;
   }
 
-  // Determine map style
-  const mapStyle = externalParams.map_style || DEFAULT_MAP_STYLE;
-  const requiresMapboxToken =
-    typeof mapStyle === "string" && mapStyle.startsWith("mapbox://");
-
-  // Validate access key for mapbox styles
-  if (requiresMapboxToken && !externalParams.access_key) {
-    throw new Error(
-      "Mapbox access token not provided. access_key is required for Mapbox styles.",
-    );
-  }
-
   // Parse and validate rendering mode
   let renderMode = DEFAULT_RENDER_MODE;
   if (externalParams.render) {
@@ -330,9 +317,9 @@ export function createReactiveParams(
   // Create the reactive proxy
   return createReactiveProxy({
     cgiEndpoint: externalParams.cgi_endpoint,
-    mapStyle,
+    mapStyle: externalParams.map_style || DEFAULT_MAP_STYLE,
     customBasemap: externalParams.custom_basemap === true,
-    accessKey: requiresMapboxToken ? externalParams.access_key! : null,
+    accessKey: externalParams.access_key || null,
     lng: parseNum(externalParams.lng, 0),
     lat: parseNum(externalParams.lat, 0),
     zoom: parseNum(externalParams.zoom, 2),
@@ -344,7 +331,6 @@ export function createReactiveParams(
       left: parseNum(externalParams.fit_padding_left, 24),
     },
     renderMode,
-    requiresMapboxToken,
     // The host supplies the palette ID and its initial opacity. RGB values stay
     // owned by fog-style.ts so Dart and TypeScript cannot drift apart.
     fogStyle: normalizeFogStyleId(externalParams.fog_style),

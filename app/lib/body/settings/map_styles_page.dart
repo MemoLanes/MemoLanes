@@ -71,7 +71,7 @@ class _MapStylesPageState extends State<MapStylesPage> {
         subtitle: style.isCustom
             ? context.tr('$_strings.type_${style.type.name}')
             : null,
-        selected: style.id == selectedId,
+        selected: style.selectionId == selectedId,
         trailing: AppOptionTileTrailing.selection,
         action: style.isCustom
             ? IconButton(
@@ -92,7 +92,7 @@ class _MapStylesPageState extends State<MapStylesPage> {
   @override
   Widget build(BuildContext context) {
     final custom = _store.customStyles;
-    final selectedId = _store.selected.id;
+    final selectedId = _store.selected.selectionId;
     return Scaffold(
       appBar: CapsuleStyleAppBar(title: context.tr('$_strings.title')),
       body: SettingsPageLayout(
@@ -160,7 +160,7 @@ class _MapStyleEditorPageState extends State<_MapStyleEditorPage> {
   void initState() {
     super.initState();
     final initial = widget.initial;
-    _id = initial?.id ?? 'custom:${const Uuid().v4()}';
+    _id = initial?.id ?? const Uuid().v4();
     _name = TextEditingController(text: initial?.customName ?? '');
     _url = TextEditingController(text: initial?.url ?? '');
     _type = initial?.type ?? MapStyleType.style;
@@ -229,7 +229,7 @@ class _MapStyleEditorPageState extends State<_MapStyleEditorPage> {
         ),
         child: Text(
           context.tr(
-            widget.store.selected.id == _id
+            widget.store.selected.selectionId == widget.initial!.selectionId
                 ? '$_strings.delete_selected_message'
                 : '$_strings.delete_message',
             namedArgs: {'name': widget.initial!.customName!},
