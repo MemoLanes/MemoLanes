@@ -316,7 +316,7 @@
         "edit": "编辑样式",
         "attribution": "地图数据来源",
         "type_style": "地图样式",
-        "type_raster": "图片瓦片",
+        "type_raster_tiles": "栅格瓦片",
         "name": "样式名称",
         "style_url": "样式链接",
         "tile_url": "瓦片地址",

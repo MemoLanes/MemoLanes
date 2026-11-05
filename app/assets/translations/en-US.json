@@ -316,7 +316,7 @@
         "edit": "Edit style",
         "attribution": "Map data sources",
         "type_style": "Map style",
-        "type_raster": "Image tiles",
+        "type_raster_tiles": "Raster tiles",
         "name": "Style name",
         "style_url": "Style URL",
         "tile_url": "Tile URL",

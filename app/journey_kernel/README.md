@@ -71,7 +71,7 @@ Flutter stores the selection in MMKV's `mapStyle`: a built-in ID or
 `Settings.custom_basemaps` as a `styles` array inside a JSON object; their IDs
 have no `custom:` prefix. When the map opens,
 MapLibre loads either the selected style URL or the inline raster style Flutter
-builds from an image tile template. Custom styles should use absolute resource
+builds from a raster tile template. Custom styles should use absolute resource
 URLs.
 Flutter supplies its built-in token only for non-custom `mapbox://` styles.
 Standalone browser callers can pass `access_key` explicitly; without it,

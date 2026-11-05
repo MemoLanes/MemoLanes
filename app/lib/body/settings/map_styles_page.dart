@@ -73,7 +73,10 @@ class _MapStylesPageState extends State<MapStylesPage> {
             : Icons.map_outlined,
         title: mapStyleLabel(context, style),
         subtitle: style.isCustom
-            ? context.tr('$_strings.type_${style.type.name}')
+            ? context.tr(switch (style.type) {
+                MapStyleType.style => '$_strings.type_style',
+                MapStyleType.raster => '$_strings.type_raster_tiles',
+              })
             : null,
         selected: style.ref == selectedRef,
         trailing: AppOptionTileTrailing.selection,
@@ -294,7 +297,7 @@ class _MapStyleEditorPageState extends State<_MapStyleEditorPage> {
                   ),
                   ButtonSegment(
                     value: MapStyleType.raster,
-                    label: Text(context.tr('$_strings.type_raster')),
+                    label: Text(context.tr('$_strings.type_raster_tiles')),
                   ),
                 ],
                 selected: {_type},
