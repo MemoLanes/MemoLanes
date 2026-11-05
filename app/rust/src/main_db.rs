@@ -945,8 +945,37 @@ fn migrations() -> [utils::db::Migration<'static>; 3] {
 }
 
 #[cfg(test)]
-mod migration_tests {
+mod tests {
     use super::*;
+
+    #[test]
+    fn opens_and_reopens_existing_database_with_wal_full() -> Result<()> {
+        let dir = tempdir::TempDir::new("main-db-rollback-to-wal")?;
+        let path = dir.path().to_str().unwrap();
+        let conn = utils::db::open_and_migrate(path, "main.db", &migrations())?;
+        let mode: String = conn.query_row("PRAGMA journal_mode = DELETE", (), |row| row.get(0))?;
+        assert_eq!(mode, "delete");
+        conn.execute(
+            "INSERT INTO setting (key, value) VALUES ('RAW_DATA_MODE', 'true')",
+            (),
+        )?;
+        drop(conn);
+
+        // Cover conversion from DELETE and reopening an existing WAL database.
+        for _ in 0..2 {
+            let mut db = MainDb::open(path)?;
+            let mode: String = db
+                .conn
+                .pragma_query_value(None, "journal_mode", |row| row.get(0))?;
+            let synchronous: i32 = db
+                .conn
+                .pragma_query_value(None, "synchronous", |row| row.get(0))?;
+            assert_eq!(mode, "wal");
+            assert_eq!(synchronous, 2);
+            assert!(db.get_setting_with_default(Setting::RawDataMode, false));
+        }
+        Ok(())
+    }
 
     #[test]
     fn migrations_are_in_order() {
@@ -1022,6 +1051,17 @@ mod migration_tests {
 impl MainDb {
     pub fn open(support_dir: &str) -> Result<MainDb> {
         let conn = utils::db::open_and_migrate(support_dir, "main.db", &migrations())?;
+        // Switch modes after schema validation and outside the migration transaction.
+        // WAL persists; synchronous must be configured on each connection.
+        let journal_mode: String = conn
+            .pragma_update_and_check(None, "journal_mode", "WAL", |row| row.get(0))
+            .context("enable WAL for main.db")?;
+        anyhow::ensure!(
+            journal_mode.eq_ignore_ascii_case("wal"),
+            "failed to enable WAL for main.db: journal_mode is {journal_mode}"
+        );
+        conn.pragma_update(None, "synchronous", "FULL")
+            .context("set FULL synchronous mode for main.db")?;
         Ok(MainDb { conn })
     }
 
