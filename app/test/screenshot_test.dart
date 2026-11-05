@@ -182,7 +182,7 @@ void main() {
   testWidgets('watermarks render as vectors at high export resolution', (
     tester,
   ) async {
-    // A 1920px-wide watermark exceeds the old 960px raster asset's resolution.
+    // A 1536px-wide watermark exceeds the old 960px raster asset's resolution.
     const logicalSize = Size(160, 80);
     const pixelRatio = 16.0;
     final recorder = ui.PictureRecorder();
@@ -215,11 +215,13 @@ void main() {
         final referenceRecorder = ui.PictureRecorder();
         final canvas = Canvas(referenceRecorder)
           ..drawColor(Colors.blue, BlendMode.src);
-        final logoHeight = 120 / svg.size.aspectRatio;
+        const logoWidth = 96.0;
+        final logoLeft = logicalSize.width - 20 - logoWidth;
+        final logoHeight = logoWidth / svg.size.aspectRatio;
         canvas
           ..scale(pixelRatio)
-          ..translate(20, logicalSize.height - 20 - logoHeight)
-          ..scale(120 / svg.size.width)
+          ..translate(logoLeft, logicalSize.height - 20 - logoHeight)
+          ..scale(logoWidth / svg.size.width)
           ..drawPicture(svg.picture);
         final referencePicture = referenceRecorder.endRecording();
         final reference = await referencePicture.toImage(2560, 1280);
@@ -239,10 +241,10 @@ void main() {
           expect(maxDifference, lessThanOrEqualTo(1));
           // The original black backdrop stays transparent over the map.
           final transparentPoint =
-              (((logicalSize.height - 20 - logoHeight) * pixelRatio + 100)
+              (((logicalSize.height - 20 - logoHeight) * pixelRatio + 80)
                           .floor() *
                       2560 +
-                  480) *
+                  ((logoLeft + 8) * pixelRatio).floor()) *
               4;
           expect(actualPixels.sublist(transparentPoint, transparentPoint + 4), [
             33,
@@ -442,6 +444,111 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
     }
   });
+
+  for (final language in ['zh', 'en']) {
+    testWidgets(
+      'snapshot text and watermark stay separate on phones ($language)',
+      (tester) async {
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetDevicePixelRatio);
+        addTearDown(tester.view.resetPhysicalSize);
+        final recorder = ui.PictureRecorder();
+        Canvas(recorder).drawColor(Colors.blue, BlendMode.src);
+        final picture = recorder.endRecording();
+        final map = (await tester.runAsync(() => picture.toImage(2, 2)))!;
+        picture.dispose();
+        addTearDown(map.dispose);
+        final logo = (await tester.runAsync(
+          () => vg.loadPicture(
+            SvgAssetLoader('assets/screenshot_logo_$language.svg'),
+            null,
+          ),
+        ))!;
+        addTearDown(logo.picture.dispose);
+        final journey = JourneyHeader(
+          id: 'screenshot-text-layout',
+          revision: '1',
+          journeyDate: DateTime.utc(2026, 11, 5),
+          createdAt: DateTime.utc(2026, 11, 5),
+          start: DateTime(2026, 11, 5, 8, 30),
+          end: DateTime(2026, 11, 5, 18, 45),
+          note: '沿着湖边散步，记录旅途中的风景。 A long journey note beside the lake.',
+          journeyType: JourneyType.vector,
+          journeyKind: JourneyKind.defaultKind,
+          hasRawData: false,
+        );
+        for (final (size, textScale) in [
+          (const Size(320, 568), 1.0),
+          (const Size(360, 640), 1.0),
+          (const Size(393, 852), 1.0),
+          (const Size(430, 932), 1.5),
+          (const Size(844, 390), 1.0),
+        ]) {
+          tester.view.physicalSize = size;
+          for (final timeline in [false, true]) {
+            Rect? captionBounds;
+            for (final position in ScreenshotLogoPosition.values) {
+              await pumpApp(
+                tester,
+                Builder(
+                  builder: (context) => MediaQuery(
+                    data: MediaQuery.of(context)
+                        .copyWith(textScaler: TextScaler.linear(textScale)),
+                    child: ScreenshotComposition(
+                      map: map,
+                      logicalSize: size,
+                      includeInfo: true,
+                      journey: timeline ? null : journey,
+                      timeRange: timeline
+                          ? DateTimeRange(
+                              start: DateTime(2024),
+                              end: DateTime(2026, 11, 5),
+                            )
+                          : null,
+                      logo: logo,
+                      logoPosition: position,
+                    ),
+                  ),
+                ),
+              );
+              await tester.runAsync(
+                () => tester
+                    .element(find.byType(ScreenshotComposition))
+                    .setLocale(
+                      language == 'zh' ? locale : const Locale('en', 'US'),
+                    ),
+              );
+              await tester.pumpAndSettle();
+              final caption = tester.getRect(find.byType(ScreenshotCaption));
+              captionBounds ??= caption;
+              expect(caption, captionBounds);
+              final frame = Offset.zero & size;
+              expect(frame.contains(caption.topLeft), isTrue);
+              expect(frame.contains(caption.bottomRight), isTrue);
+              if (position != ScreenshotLogoPosition.hidden) {
+                final watermark = tester.getRect(
+                  find.descendant(
+                    of: find.byType(ScreenshotComposition),
+                    matching: find.byType(CustomPaint),
+                  ),
+                );
+                expect(caption.overlaps(watermark), isFalse);
+                expect(watermark.width, lessThanOrEqualTo(96));
+                if (position == ScreenshotLogoPosition.bottomRight) {
+                  expect(
+                    watermark.top - caption.bottom,
+                    greaterThanOrEqualTo(12),
+                  );
+                }
+              }
+              expect(tester.takeException(), isNull);
+            }
+          }
+        }
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
+  }
 
   for (final scenario in [
     for (final position in ScreenshotLogoPosition.values)

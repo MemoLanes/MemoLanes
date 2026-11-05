@@ -30,6 +30,8 @@ class ScreenshotComposition extends StatelessWidget {
   final PictureInfo? logo;
 
   static const _imageEdgeInset = 20.0;
+  static const _logoMaxHeight = 32.0;
+  static const _captionLogoGap = 12.0;
 
   @override
   Widget build(BuildContext context) {
@@ -38,7 +40,7 @@ class ScreenshotComposition extends StatelessWidget {
     final showLogo =
         picture != null && logoPosition != ScreenshotLogoPosition.hidden;
     final logoWidth = math.min(
-      120.0,
+      math.min(96.0, _logoMaxHeight * (picture?.size.aspectRatio ?? 1)),
       math.max(0.0, logicalSize.width - _imageEdgeInset * 2),
     );
     final bottomLogo =
@@ -80,7 +82,9 @@ class ScreenshotComposition extends StatelessWidget {
                     _imageEdgeInset,
                     32,
                     _imageEdgeInset,
-                    _imageEdgeInset,
+                    // Keep a fixed footer for the watermark, including when
+                    // hidden or moved, so larger text never overlaps or jumps.
+                    _imageEdgeInset + _logoMaxHeight + _captionLogoGap,
                   ),
                   child: FittedBox(
                     fit: BoxFit.scaleDown,

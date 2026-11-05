@@ -427,12 +427,7 @@ class _ScreenshotPreviewPageState extends State<ScreenshotPreviewPage> {
       canPop: !_busy,
       child: Scaffold(
         appBar: AppBar(
-          title: Text(context.tr('screenshot.title')),
-          titleTextStyle: AppTypography.surfaceTitle.copyWith(
-            color: colors.inkColor,
-            fontWeight: FontWeight.w600,
-          ),
-          centerTitle: true,
+          toolbarHeight: 48,
           automaticallyImplyLeading: false,
           leadingWidth: 72,
           leading: Padding(
@@ -462,7 +457,7 @@ class _ScreenshotPreviewPageState extends State<ScreenshotPreviewPage> {
                     constraints.maxWidth >= 600 &&
                     constraints.maxWidth > constraints.maxHeight;
                 final preview = Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
                   child: _buildPreview(),
                 );
                 if (landscape) {

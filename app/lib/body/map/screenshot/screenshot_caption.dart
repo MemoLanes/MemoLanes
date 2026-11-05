@@ -26,7 +26,7 @@ class ScreenshotCaption extends StatelessWidget {
     final note = journey?.note?.trim();
     return DefaultTextStyle(
       style: const TextStyle(
-        fontSize: 13,
+        fontSize: 15,
         height: 1.5,
         color: Colors.white,
         shadows: [Shadow(color: Color(0x80000000), blurRadius: 6)],
@@ -40,7 +40,7 @@ class ScreenshotCaption extends StatelessWidget {
                 ? journeyKindLabel(context, journey.journeyKind)
                 : context.tr('screenshot.selected_time'),
             style: const TextStyle(
-              fontSize: 12,
+              fontSize: 14,
               color: Color(0xffc9e8cd),
               letterSpacing: 1,
             ),
@@ -48,7 +48,7 @@ class ScreenshotCaption extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             title,
-            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
+            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w600),
           ),
           if (journey != null &&
               (journey.start != null || journey.end != null)) ...[
