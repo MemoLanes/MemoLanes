@@ -31,6 +31,7 @@ class MapCopyrightButton extends StatelessWidget {
           context,
           attribution,
           title: context.tr("home.map_data_source_copyright_title"),
+          markdown: true,
         );
       },
       child: Opacity(

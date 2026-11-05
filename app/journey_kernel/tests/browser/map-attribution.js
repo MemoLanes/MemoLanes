@@ -29,7 +29,7 @@ export async function checkMapAttribution(check) {
             type: "geojson",
             data: { type: "FeatureCollection", features: [] },
             attribution:
-              '<a href="https://example.com/terms">[Provider]</a> &amp; &lt;source&gt;',
+              '<a href="https://example.com/terms?lang=en&amp;view=full"><b>[Provider]</b></a> &amp; &lt;source&gt; *literal*',
           },
         },
         layers: [{ id: "provider", type: "circle", source: "provider" }],
@@ -38,8 +38,9 @@ export async function checkMapAttribution(check) {
     );
     await waitForIdle(map);
     check(
-      window.getMapAttribution() === "[Provider] & <source>",
-      "the bridge returns only the source credit text",
+      window.getMapAttribution() ===
+        String.raw`[\[Provider\]](<https://example.com/terms?lang=en&amp;view=full>) \& \<source\> \*literal\*`,
+      "the bridge preserves links and escapes literal credit text",
     );
     check(changes.join() === "true", "the button shows when credits arrive");
     map.setStyle({ version: 8, sources: {}, layers: [] }, { diff: false });

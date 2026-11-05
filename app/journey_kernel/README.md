@@ -72,7 +72,7 @@ builds from an image tile template. Custom styles should use absolute resource
 URLs.
 MapLibre's attribution control collects visible source attribution from the
 style or TileJSON. The Flutter home map shows its Data Source button when
-attribution is available and reads the text on demand.
+attribution is available and reads the credits, including links, on demand.
 Built-in styles retry every eight seconds while the placeholder is active.
 If a custom style fails, the saved selection is kept and the user can reopen
 the map or choose another style.

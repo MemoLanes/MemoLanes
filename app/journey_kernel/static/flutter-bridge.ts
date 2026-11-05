@@ -109,7 +109,29 @@ export class FlutterBridge {
       .querySelector(
         ".maplibregl-ctrl-attrib:not(.maplibregl-attrib-empty) .maplibregl-ctrl-attrib-inner",
       );
-    return credits?.textContent || null;
+    if (!credits?.textContent?.trim()) return null;
+
+    // Preserve links for Flutter's Markdown dialog; treat other content as text.
+    const escapeText = (text: string) =>
+      text.replace(/[!-/:-@\[-`{-~]/g, "\\$&");
+    const toMarkdown = (node: Node): string => {
+      if (node.nodeType === Node.TEXT_NODE) {
+        return escapeText(node.textContent ?? "");
+      }
+      if (node instanceof HTMLBRElement) return "\n";
+      if (node instanceof HTMLAnchorElement) {
+        const label = escapeText(node.textContent ?? "");
+        if (node.protocol !== "https:" && node.protocol !== "http:") {
+          return label;
+        }
+        const href = node.href
+          .replace(/[<>\\\s]/g, encodeURIComponent)
+          .replace(/&/g, "&amp;");
+        return `[${label}](<${href}>)`;
+      }
+      return Array.from(node.childNodes, toMarkdown).join("");
+    };
+    return toMarkdown(credits);
   }
 
   observeMapAttribution(): void {

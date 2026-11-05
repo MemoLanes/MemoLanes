@@ -52,31 +52,33 @@ void main() {
     final custom = _custom(url: url, type: MapStyleType.raster);
     store.save(custom, selectAfterSaving: true);
     final restored = openStore().selected;
-    expect(restored.toJson(), custom.toJson());
-    // These are the parameters JSON-encoded by the native WebView bridge.
-    final injected = jsonDecode(jsonEncode(restored.mapLibreStyle));
-    final source = injected['sources']['basemap'];
-    expect(injected['version'], 8);
+    expect(restored.toCustomJson(), custom.toCustomJson());
+    final style = restored.mapLibreStyle as Map<String, dynamic>;
+    final source = style['sources']['basemap'];
+    expect(style['version'], 8);
     expect(source, {
       'type': 'raster',
       'tiles': [url],
       'tileSize': 512,
       'scheme': 'tms',
     });
-    expect(injected['layers'].single['source'], 'basemap');
+    expect(style['layers'].single['source'], 'basemap');
   });
 
-  test('editing and deleting an inactive map preserve the selection', () {
-    final first = _custom();
-    final second = _custom(id: 'custom:two');
-    store.save(first, selectAfterSaving: true);
-    store.save(second);
-    store.save(_custom(url: 'https://example.com/edited.json'));
-    store.delete(second.id);
-    expect(store.customStyles.single.id, first.id);
-    expect(store.selected.id, first.id);
-    expect(store.selected.url, 'https://example.com/edited.json');
-  });
+  test(
+    'editing the selected map and deleting another preserve the selection',
+    () {
+      final first = _custom();
+      final second = _custom(id: 'custom:two');
+      store.save(first, selectAfterSaving: true);
+      store.save(second);
+      store.save(_custom(url: 'https://example.com/edited.json'));
+      store.delete(second.id);
+      expect(store.customStyles.single.id, first.id);
+      expect(store.selected.id, first.id);
+      expect(store.selected.url, 'https://example.com/edited.json');
+    },
+  );
 
   test('preserves the built-in selection from main on the first write', () {
     final custom = _custom();
@@ -90,7 +92,7 @@ void main() {
     final reopened = openStore();
     expect(writes, [MMKVKey.basemaps]);
     expect(reopened.selected.id, MapStyle.all.last.id);
-    expect(reopened.customStyles.single.toJson(), custom.toJson());
+    expect(reopened.customStyles.single.toCustomJson(), custom.toCustomJson());
   });
 
   test(
@@ -101,11 +103,11 @@ void main() {
         'styles': [
           null,
           {'id': 'openfreemap'},
-          {..._custom().toJson(), 'type': 'unsupported'},
-          {..._custom().toJson(), 'tileSize': 512.0},
-          _custom().toJson()..remove('tileSize'),
-          _custom().toJson()..remove('scheme'),
-          _custom(id: 'custom:valid').toJson(),
+          {..._custom().toCustomJson(), 'type': 'unsupported'},
+          {..._custom().toCustomJson(), 'tileSize': 512.0},
+          _custom().toCustomJson()..remove('tileSize'),
+          _custom().toCustomJson()..remove('scheme'),
+          _custom(id: 'custom:valid').toCustomJson(),
         ],
       });
       expect(store.customStyles.map((s) => s.id), ['custom:valid']);
@@ -127,8 +129,11 @@ void main() {
     expect(() => store.save(other, selectAfterSaving: true), throwsStateError);
     expect(() => store.select(MapStyle.all.last), throwsStateError);
     expect(() => store.delete(custom.id), throwsStateError);
-    expect(openStore().selected.toJson(), custom.toJson());
-    expect(openStore().customStyles.single.toJson(), custom.toJson());
+    expect(openStore().selected.toCustomJson(), custom.toCustomJson());
+    expect(
+      openStore().customStyles.single.toCustomJson(),
+      custom.toCustomJson(),
+    );
 
     writes.clear();
     failWrite = false;

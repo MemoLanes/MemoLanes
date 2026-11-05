@@ -48,7 +48,7 @@ class MapStyleStore {
         if (entry is! Map<String, dynamic>) {
           throw const FormatException('Expected basemap object');
         }
-        final style = MapStyle.fromJson(entry);
+        final style = MapStyle.fromCustomJson(entry);
         styles[style.id] = style;
       } on FormatException catch (error, stackTrace) {
         log.error('Reading saved basemap failed: ${error.message}', stackTrace);
@@ -90,7 +90,7 @@ class MapStyleStore {
   void _save(List<MapStyle> styles, String? selectedId) {
     final value = jsonEncode({
       'selectedId': selectedId ?? MapStyle.all.first.id,
-      'styles': styles.map((style) => style.toJson()).toList(),
+      'styles': styles.map((style) => style.toCustomJson()).toList(),
     });
     if (!_write(MMKVKey.basemaps, value)) {
       throw StateError('Could not save basemap settings');

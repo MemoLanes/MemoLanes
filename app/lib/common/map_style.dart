@@ -45,16 +45,22 @@ class MapStyle {
           ],
         };
 
-  Map<String, Object> toJson() => {
-    'id': id,
-    'name': customName!,
-    'url': url,
-    'type': type.name,
-    'tileSize': tileSize,
-    'scheme': scheme.name,
-  };
+  Map<String, Object> toCustomJson() {
+    final name = customName;
+    if (name == null || !id.startsWith('custom:')) {
+      throw StateError('Only custom basemaps can be serialized');
+    }
+    return {
+      'id': id,
+      'name': name,
+      'url': url,
+      'type': type.name,
+      'tileSize': tileSize,
+      'scheme': scheme.name,
+    };
+  }
 
-  factory MapStyle.fromJson(Map<String, dynamic> json) {
+  factory MapStyle.fromCustomJson(Map<String, dynamic> json) {
     final id = json['id'];
     final name = json['name'];
     final url = json['url'];
