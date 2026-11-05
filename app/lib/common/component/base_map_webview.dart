@@ -49,6 +49,7 @@ class BaseMapWebview extends StatefulWidget {
   final TrackingMode trackingMode;
   final bool isEditor;
   final void Function()? onMapMoved;
+  final VoidCallback? onMapTap;
   final void Function(MapView)? onRoughMapViewUpdate;
   final void Function(int)? onMapZoomChanged;
   final List<BaseMapJavaScriptChannel> extraJavaScriptChannels;
@@ -65,6 +66,7 @@ class BaseMapWebview extends StatefulWidget {
     this.trackingMode = TrackingMode.off,
     this.isEditor = false,
     this.onMapMoved,
+    this.onMapTap,
     this.onRoughMapViewUpdate,
     this.onMapZoomChanged,
     this.extraJavaScriptChannels = const [],
@@ -126,8 +128,8 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   /// Export only the map canvas, without Flutter controls or system chrome.
   Future<Uint8List> captureScreenshot() async {
     final controller = _webViewController;
-    if (controller == null) {
-      throw StateError('Map is unavailable');
+    if (controller == null || !_readyForDisplay || _pendingMapDataSync) {
+      throw StateError('Map is not ready for a screenshot');
     }
     final result = await controller
         .callAsyncJavaScript(
@@ -330,6 +332,16 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     // These create window.channelName.postMessage(str) objects on the JS side,
     // matching the calling convention of webview_flutter's addJavaScriptChannel.
     await Future.wait([
+      controller.addWebMessageListener(
+        WebMessageListener(
+          jsObjectName: 'onMapTap',
+          allowedOriginRules: {'*'},
+          onPostMessage: (message, sourceOrigin, isMainFrame, replyProxy) {
+            if (!mounted || !_readyForDisplay || !isMainFrame) return;
+            widget.onMapTap?.call();
+          },
+        ),
+      ),
       controller.addWebMessageListener(
         WebMessageListener(
           jsObjectName: 'onMapMoved',

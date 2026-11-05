@@ -44,6 +44,11 @@ void main() {
             builder: (_, frame, _) => AppNavigationShell(
               contentMode: frame.mode,
               navigationVisible: frame.navigationVisible,
+              bottomTrailingOverlay: const SizedBox(
+                key: Key('copyright'),
+                width: 24,
+                height: 24,
+              ),
               navigationBuilder: (_, {required axis}) =>
                   const SizedBox.expand(key: Key('navigation')),
               bodyBuilder: ({required topSafeArea, required bottomSafeArea}) =>
@@ -86,6 +91,10 @@ void main() {
         expect(body.scroll.offset, 140);
         expect(
           find.byKey(const Key('navigation')),
+          frame.navigationVisible ? findsOneWidget : findsNothing,
+        );
+        expect(
+          find.byKey(const Key('copyright')),
           frame.navigationVisible ? findsOneWidget : findsNothing,
         );
         final size = tester.getSize(find.byType(_Draft));

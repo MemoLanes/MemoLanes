@@ -21,8 +21,6 @@ class MapScreenshotButton extends StatelessWidget {
       liveRegion: busy,
       child: LiquidGlassSurface(
         circular: true,
-        backgroundAlpha: 0.62,
-        reflectionAlpha: 0.1,
         child: SizedBox.square(
           dimension: StyleConstants.mapControlSize,
           child: IconButton(

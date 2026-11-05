@@ -37,6 +37,7 @@ import { JOURNEY_LAYER_ID } from "./layers/journey-layer-interface";
 import type { JourneyLayer } from "./layers/journey-layer-interface";
 import { MAX_MAP_ZOOM } from "./layer-config";
 import { waitForRenderedFrame } from "./display-ready";
+import { captureMapFrame } from "./map-screenshot";
 import {
   PLACEHOLDER_STYLE_METADATA_KEY,
   StyleLoadRetry,
@@ -368,6 +369,39 @@ export class MapController {
    */
   getMap(): MaplibreMap {
     return this.map;
+  }
+
+  async captureScreenshot(): Promise<string> {
+    // A newly selected timeline/journey proxy can still have the old buffer
+    // on screen. Drain a forced refresh before accepting a rendered frame.
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const updated = await Promise.race([
+        this.refreshMapData(),
+        new Promise<never>((_, reject) => {
+          timeout = setTimeout(
+            () => reject(new Error("Screenshot data refresh timed out")),
+            8000,
+          );
+        }),
+      ]);
+      // A polar-only viewport refreshes its cap data without a Mercator buffer,
+      // so a successful refresh can return false. Still reject failed refreshes
+      // when Mercator data is needed, rather than exporting the previous buffer.
+      if (
+        updated === null ||
+        (updated === false && this.journeyTileProvider?.getViewRange() !== null)
+      )
+        throw new Error("Screenshot map data could not be refreshed");
+    } finally {
+      clearTimeout(timeout);
+    }
+    return captureMapFrame(
+      this.map,
+      () =>
+        !this.webGLContextLost &&
+        this.currentJourneyLayer?.isReadyForDisplay() === true,
+    );
   }
 
   /** Prepare the spherical camera before MapLibre computes a destination.

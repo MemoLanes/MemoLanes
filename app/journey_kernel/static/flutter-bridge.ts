@@ -12,7 +12,7 @@ import * as maplibregl from "maplibre-gl";
 import { MapController } from "./map-controller";
 import { LocationFollowController } from "./location-follow-controller";
 import { MAX_MAP_ZOOM } from "./layer-config";
-import { captureMapFrame } from "./map-screenshot";
+import { observeSingleMapTap } from "./single-map-tap";
 
 interface MapBounds {
   west: number;
@@ -44,6 +44,7 @@ declare global {
   interface Window {
     readyForDisplay?: FlutterMessageChannel;
     onMapMoved?: FlutterMessageChannel;
+    onMapTap?: FlutterMessageChannel;
     onMapViewChanged?: FlutterMessageChannel;
     onMapZoomChanged?: FlutterMessageChannel;
     trySetup?: () => Promise<void>;
@@ -149,6 +150,13 @@ export class FlutterBridge {
    * Setup all map event listeners that notify Flutter
    */
   setupMapEventListeners(): void {
+    // Observe the canvas without taking gestures away from MapLibre. Touch
+    // defaults are prevented by platform.ts, so a synthesized click is unreliable.
+    const stopObservingTaps = observeSingleMapTap(this.map.getCanvas(), () => {
+      window.onMapTap?.postMessage("");
+    });
+    this.map.once("remove", stopObservingTaps);
+
     // Notify Flutter when user drags the map
     this.map.on("dragstart", () => {
       this.locationFollowController.cancel();
@@ -203,7 +211,7 @@ export class FlutterBridge {
 
     // Refresh map data - allows Flutter to trigger a data refresh
     window.refreshMapData = () => this.mapController.refreshMapData();
-    window.captureMapScreenshot = () => captureMapFrame(this.map);
+    window.captureMapScreenshot = () => this.mapController.captureScreenshot();
 
     // Focus a journey within the visible area above its Flutter detail card.
     window.flyToBounds = (bounds, padding) => {

@@ -145,7 +145,9 @@ class AppLayout {
   /// Prefer the top-right corner, sharing the existing tools' clear pane.
   /// Short windows can push those tools upward, so reserve their hit targets
   /// before choosing a position for the screenshot button.
-  Rect get screenshotControlBounds {
+  Rect get screenshotControlBounds => screenshotControlBoundsFor();
+
+  Rect screenshotControlBoundsFor({bool mapControlsVisible = true}) {
     final available = geometry.insetRect(
       _mapControlsRegion,
       const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -154,8 +156,8 @@ class AppLayout {
     const gap = StyleConstants.mapControlSpacing;
     final candidates = geometry
         .clearRegions(available, [
-          mapControlsBounds.inflate(gap),
-          primaryNavigationBounds.inflate(gap),
+          if (mapControlsVisible) mapControlsBounds.inflate(gap),
+          if (mapControlsVisible) primaryNavigationBounds.inflate(gap),
           if (!navigationBounds.isEmpty) navigationBounds.inflate(gap),
         ])
         .where((region) => region.width >= extent && region.height >= extent)

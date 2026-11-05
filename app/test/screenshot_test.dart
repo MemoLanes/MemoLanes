@@ -8,34 +8,20 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:memolanes/body/map/overlay/time_machine_overlay.dart';
-import 'package:memolanes/body/time_machine/time_range_picker.dart';
-import 'package:memolanes/common/app_haptics.dart';
-import 'package:memolanes/common/app_layout.dart';
 import 'package:memolanes/common/component/map_controls/screenshot_button.dart';
 import 'package:memolanes/theme/app_theme.dart';
 import 'package:memolanes/common/app_translation_loader.dart';
 import 'package:memolanes/common/component/app_button.dart';
 import 'package:memolanes/common/screenshot.dart';
 import 'package:memolanes/body/map/screenshot/screenshot_preview_page.dart';
-import 'package:memolanes/body/journey/compact_journey_info_card.dart';
-import 'package:memolanes/src/rust/api/api.dart' as api;
-import 'package:memolanes/src/rust/frb_generated.dart';
+import 'package:memolanes/body/map/screenshot/screenshot_caption.dart';
+import 'package:memolanes/body/map/screenshot/screenshot_composition.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   const locale = Locale('zh', 'CN');
   const loader = AppTranslationLoader();
-  final journey = JourneyHeader(
-    id: 'screenshot-test',
-    revision: '1',
-    journeyDate: DateTime.utc(2026, 10, 19),
-    createdAt: DateTime.utc(2026, 10, 19),
-    journeyType: JourneyType.vector,
-    journeyKind: JourneyKind.defaultKind,
-    hasRawData: false,
-  );
   setUpAll(() async {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
@@ -74,51 +60,25 @@ void main() {
     await tester.pump();
   }
 
-  Future<void> pumpUntil(
-    WidgetTester tester,
-    bool Function() ready, {
-    VoidCallback? start,
-  }) async {
+  Future<void> waitForLogo(WidgetTester tester) async {
+    final logoOption = find.byType(SegmentedButton<ScreenshotLogoPosition>);
     await tester.runAsync(() async {
-      start?.call();
       final deadline = DateTime.now().add(const Duration(seconds: 10));
-      while (!ready() && DateTime.now().isBefore(deadline)) {
-        await tester.pump();
+      while (tester
+                  .widget<SegmentedButton<ScreenshotLogoPosition>>(logoOption)
+                  .onSelectionChanged ==
+              null &&
+          DateTime.now().isBefore(deadline)) {
         await Future<void>.delayed(const Duration(milliseconds: 10));
+        await tester.pump();
       }
-      expect(ready(), isTrue);
     });
-  }
-
-  Future<void> waitForLogo(WidgetTester tester, {String label = 'Logo 水印'}) =>
-      pumpUntil(
-        tester,
-        () =>
-            tester
-                .widget<FilterChip>(find.widgetWithText(FilterChip, label))
-                .onSelected !=
-            null,
-      );
-
-  Future<ui.Image> createMapImage(
-    WidgetTester tester, {
-    int width = 640,
-    int height = 1280,
-    void Function(Canvas)? paint,
-  }) async {
-    final recorder = ui.PictureRecorder();
-    final canvas = Canvas(recorder)..drawColor(Colors.blue, BlendMode.src);
-    paint?.call(canvas);
-    final picture = recorder.endRecording();
-    try {
-      final image = (await tester.runAsync(
-        () => picture.toImage(width, height),
-      ))!;
-      addTearDown(image.dispose);
-      return image;
-    } finally {
-      picture.dispose();
-    }
+    expect(
+      tester
+          .widget<SegmentedButton<ScreenshotLogoPosition>>(logoOption)
+          .onSelectionChanged,
+      isNotNull,
+    );
   }
 
   Future<ui.Image> capturePreview(
@@ -141,15 +101,6 @@ void main() {
   Future<Uint8List> pixels(ui.Image image) async {
     final bytes = (await image.toByteData(format: ui.ImageByteFormat.rawRgba))!;
     return bytes.buffer.asUint8List(bytes.offsetInBytes, bytes.lengthInBytes);
-  }
-
-  Future<Uint8List> previewPixels(WidgetTester tester) async {
-    final image = await capturePreview(tester);
-    try {
-      return (await tester.runAsync(() => pixels(image)))!;
-    } finally {
-      image.dispose();
-    }
   }
 
   test(
@@ -186,7 +137,12 @@ void main() {
   testWidgets('watermark follows app language and retains visibility choice', (
     tester,
   ) async {
-    final map = await createMapImage(tester);
+    final recorder = ui.PictureRecorder();
+    Canvas(recorder).drawColor(Colors.blue, BlendMode.src);
+    final picture = recorder.endRecording();
+    final map = (await tester.runAsync(() => picture.toImage(640, 1280)))!;
+    picture.dispose();
+    addTearDown(map.dispose);
     await pumpApp(
       tester,
       ScreenshotPreviewPage(map: map, logicalSize: const Size(320, 640)),
@@ -195,30 +151,57 @@ void main() {
     final page = find.byType(ScreenshotPreviewPage);
     final state = tester.state(page);
 
-    final chinesePixels = await previewPixels(tester);
-    await tester.tap(find.widgetWithText(FilterChip, 'Logo 水印'));
+    Future<Uint8List> previewPixels() async {
+      final image = await capturePreview(tester);
+      try {
+        return (await tester.runAsync(() => pixels(image)))!;
+      } finally {
+        image.dispose();
+      }
+    }
+
+    final chinesePixels = await previewPixels();
+    tester
+        .widget<SegmentedButton<ScreenshotLogoPosition>>(
+          find.byType(SegmentedButton<ScreenshotLogoPosition>),
+        )
+        .onSelectionChanged!({ScreenshotLogoPosition.hidden});
     await tester.pumpAndSettle();
     await tester.runAsync(
       () => tester.element(page).setLocale(const Locale('en', 'US')),
     );
     await tester.pumpAndSettle();
-    await waitForLogo(tester, label: 'Watermark');
-    final englishOption = find.widgetWithText(FilterChip, 'Watermark');
+    await waitForLogo(tester);
+    final englishOption = find.byType(SegmentedButton<ScreenshotLogoPosition>);
     expect(tester.state(page), same(state));
-    expect(tester.widget<FilterChip>(englishOption).selected, isFalse);
+    expect(
+      tester
+          .widget<SegmentedButton<ScreenshotLogoPosition>>(englishOption)
+          .selected,
+      {ScreenshotLogoPosition.hidden},
+    );
     final mapPixels = (await tester.runAsync(() => pixels(map)))!;
-    expect(await previewPixels(tester), orderedEquals(mapPixels));
-    await tester.tap(englishOption);
+    expect(await previewPixels(), orderedEquals(mapPixels));
+    tester
+        .widget<SegmentedButton<ScreenshotLogoPosition>>(englishOption)
+        .onSelectionChanged!({ScreenshotLogoPosition.bottomRight});
     await tester.pumpAndSettle();
-    final englishPixels = await previewPixels(tester);
+    final englishPixels = await previewPixels();
     expect(englishPixels, isNot(orderedEquals(mapPixels)));
     expect(englishPixels, isNot(orderedEquals(chinesePixels)));
 
     await tester.runAsync(() => tester.element(page).setLocale(locale));
     await tester.pumpAndSettle();
     await waitForLogo(tester);
-    expect(tester.widget<FilterChip>(find.byType(FilterChip)).selected, isTrue);
-    expect(await previewPixels(tester), orderedEquals(chinesePixels));
+    expect(
+      tester
+          .widget<SegmentedButton<ScreenshotLogoPosition>>(
+            find.byType(SegmentedButton<ScreenshotLogoPosition>),
+          )
+          .selected,
+      {ScreenshotLogoPosition.bottomRight},
+    );
+    expect(await previewPixels(), orderedEquals(chinesePixels));
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
@@ -226,10 +209,15 @@ void main() {
   testWidgets('watermarks render as vectors at high export resolution', (
     tester,
   ) async {
-    // A 1920px-wide watermark exceeds the old 960px raster asset's resolution.
+    // A 1536px-wide watermark exceeds the old 960px raster asset's resolution.
     const logicalSize = Size(160, 80);
     const pixelRatio = 16.0;
-    final map = await createMapImage(tester, width: 2560);
+    final recorder = ui.PictureRecorder();
+    Canvas(recorder).drawColor(Colors.blue, BlendMode.src);
+    final picture = recorder.endRecording();
+    final map = (await tester.runAsync(() => picture.toImage(2560, 1280)))!;
+    picture.dispose();
+    addTearDown(map.dispose);
     await pumpApp(
       tester,
       ScreenshotPreviewPage(map: map, logicalSize: logicalSize),
@@ -244,10 +232,7 @@ void main() {
         );
         await tester.pumpAndSettle();
       }
-      await waitForLogo(
-        tester,
-        label: language == 'zh' ? 'Logo 水印' : 'Watermark',
-      );
+      await waitForLogo(tester);
       final actual = await capturePreview(tester, pixelRatio: pixelRatio);
       await tester.runAsync(() async {
         final svg = await vg.loadPicture(
@@ -257,11 +242,13 @@ void main() {
         final referenceRecorder = ui.PictureRecorder();
         final canvas = Canvas(referenceRecorder)
           ..drawColor(Colors.blue, BlendMode.src);
-        final logoHeight = 120 / svg.size.aspectRatio;
+        const logoWidth = 96.0;
+        final logoLeft = logicalSize.width - 20 - logoWidth;
+        final logoHeight = logoWidth / svg.size.aspectRatio;
         canvas
           ..scale(pixelRatio)
-          ..translate(20, logicalSize.height - 20 - logoHeight)
-          ..scale(120 / svg.size.width)
+          ..translate(logoLeft, logicalSize.height - 20 - logoHeight)
+          ..scale(logoWidth / svg.size.width)
           ..drawPicture(svg.picture);
         final referencePicture = referenceRecorder.endRecording();
         final reference = await referencePicture.toImage(2560, 1280);
@@ -281,10 +268,10 @@ void main() {
           expect(maxDifference, lessThanOrEqualTo(1));
           // The original black backdrop stays transparent over the map.
           final transparentPoint =
-              (((logicalSize.height - 20 - logoHeight) * pixelRatio + 100)
+              (((logicalSize.height - 20 - logoHeight) * pixelRatio + 80)
                           .floor() *
                       2560 +
-                  480) *
+                  ((logoLeft + 8) * pixelRatio).floor()) *
               4;
           expect(actualPixels.sublist(transparentPoint, transparentPoint + 4), [
             33,
@@ -302,10 +289,87 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
+  testWidgets('export retains resolution and recovers from denied permission', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final recorder = ui.PictureRecorder();
+    Canvas(recorder).drawColor(Colors.blue, BlendMode.src);
+    final picture = recorder.endRecording();
+    final map = (await tester.runAsync(() => picture.toImage(640, 1280)))!;
+    picture.dispose();
+    await pumpApp(
+      tester,
+      ScreenshotPreviewPage(map: map, logicalSize: const Size(320, 640)),
+    );
+    await waitForLogo(tester);
+    expect(
+      tester
+          .widget<SegmentedButton<ScreenshotLogoPosition>>(
+            find.byType(SegmentedButton<ScreenshotLogoPosition>),
+          )
+          .selected,
+      {ScreenshotLogoPosition.bottomRight},
+    );
+    expect(find.widgetWithText(FilterChip, '旅程信息'), findsNothing);
+
+    const channel = MethodChannel('com.memolanes/screenshots');
+    Uint8List? savedPng;
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      expect(call.method, 'saveToPhotos');
+      savedPng = call.arguments['png'] as Uint8List;
+      throw PlatformException(code: 'permission_denied');
+    });
+    addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+    await tester.runAsync(() async {
+      await tester.tap(find.widgetWithText(AppButton, '保存到相册'));
+      // Rasterization/PNG encoding use the engine's real event loop; their
+      // continuations still need the widget test's fake clock to be pumped.
+      final deadline = DateTime.now().add(const Duration(seconds: 10));
+      while (savedPng == null && DateTime.now().isBefore(deadline)) {
+        await tester.pump();
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+      expect(savedPng, isNotNull);
+      final image = await decodeScreenshot(savedPng!);
+      expect(image.width, 640);
+      expect(image.height, 1280);
+      // Rounded preview corners must not trim the exported image.
+      final data = (await image.toByteData(
+        format: ui.ImageByteFormat.rawRgba,
+      ))!;
+      expect(data.buffer.asUint8List(data.offsetInBytes, 4), [
+        33,
+        150,
+        243,
+        255,
+      ]);
+      image.dispose();
+    });
+    await tester.pumpAndSettle();
+    expect(find.text('没有保存相册的权限，请在系统设置中允许后重试'), findsOneWidget);
+    for (final action in tester.widgetList<AppButton>(find.byType(AppButton))) {
+      expect(action.onPressed, isNotNull);
+    }
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+    map.dispose();
+  });
+
   testWidgets('save blocks back until Photos completes and returns success', (
     tester,
   ) async {
-    final map = await createMapImage(tester);
+    final recorder = ui.PictureRecorder();
+    Canvas(recorder).drawColor(Colors.blue, BlendMode.src);
+    final picture = recorder.endRecording();
+    final map = (await tester.runAsync(() => picture.toImage(640, 1280)))!;
+    picture.dispose();
+    addTearDown(map.dispose);
     await pumpApp(tester, const Scaffold(body: Text('Map')));
     final route = MaterialPageRoute<bool>(
       builder: (_) =>
@@ -332,13 +396,15 @@ void main() {
       if (!saving.isCompleted) saving.complete();
       messenger.setMockMethodCallHandler(channel, null);
     });
-    await pumpUntil(
-      tester,
-      () => received,
-      start: () => tester
-          .widget<AppButton>(find.widgetWithText(AppButton, '保存到相册'))
-          .onPressed!(),
-    );
+    await tester.runAsync(() async {
+      await tester.tap(find.widgetWithText(AppButton, '保存到相册'));
+      final deadline = DateTime.now().add(const Duration(seconds: 10));
+      while (!received && DateTime.now().isBefore(deadline)) {
+        await tester.pump();
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+      expect(received, isTrue);
+    });
     await tester.binding.handlePopRoute();
     await tester.pump();
     expect(find.byType(ScreenshotPreviewPage), findsOneWidget);
@@ -360,7 +426,21 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetDevicePixelRatio);
     addTearDown(tester.view.resetPhysicalSize);
-    final map = await createMapImage(tester);
+    final recorder = ui.PictureRecorder();
+    Canvas(recorder).drawColor(Colors.blue, BlendMode.src);
+    final picture = recorder.endRecording();
+    final map = (await tester.runAsync(() => picture.toImage(640, 1280)))!;
+    picture.dispose();
+    addTearDown(map.dispose);
+    final journey = JourneyHeader(
+      id: 'screenshot-layout',
+      revision: '1',
+      journeyDate: DateTime.utc(2026, 10, 19),
+      createdAt: DateTime.utc(2026, 10, 19),
+      journeyType: JourneyType.vector,
+      journeyKind: JourneyKind.defaultKind,
+      hasRawData: false,
+    );
     for (final (size, textScale) in [
       (const Size(844, 390), 1.0),
       (const Size(320, 568), 2.0),
@@ -386,123 +466,345 @@ void main() {
       final save = find.widgetWithText(AppButton, '保存到相册');
       await tester.ensureVisible(save);
       expect(tester.getRect(save).overlaps(Offset.zero & size), isTrue);
-      expect(find.byType(ReadOnlyJourneyInfoCard), findsOneWidget);
+      expect(find.byType(ScreenshotCaption), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
     }
   });
 
-  testWidgets('preview options keep the map fixed and exports match preview', (
-    tester,
-  ) async {
-    final map = await createMapImage(
+  for (final language in ['zh', 'en']) {
+    testWidgets(
+      'snapshot text and watermark stay separate on phones ($language)',
+      (tester) async {
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetDevicePixelRatio);
+        addTearDown(tester.view.resetPhysicalSize);
+        final recorder = ui.PictureRecorder();
+        Canvas(recorder).drawColor(Colors.blue, BlendMode.src);
+        final picture = recorder.endRecording();
+        final map = (await tester.runAsync(() => picture.toImage(2, 2)))!;
+        picture.dispose();
+        addTearDown(map.dispose);
+        final logo = (await tester.runAsync(
+          () => vg.loadPicture(
+            SvgAssetLoader('assets/screenshot_logo_$language.svg'),
+            null,
+          ),
+        ))!;
+        addTearDown(logo.picture.dispose);
+        final journey = JourneyHeader(
+          id: 'screenshot-text-layout',
+          revision: '1',
+          journeyDate: DateTime.utc(2026, 11, 5),
+          createdAt: DateTime.utc(2026, 11, 5),
+          start: DateTime(2026, 11, 5, 8, 30),
+          end: DateTime(2026, 11, 5, 18, 45),
+          note: '沿着湖边散步，记录旅途中的风景。 A long journey note beside the lake.',
+          journeyType: JourneyType.vector,
+          journeyKind: JourneyKind.defaultKind,
+          hasRawData: false,
+        );
+        for (final (size, textScale) in [
+          (const Size(320, 568), 1.0),
+          (const Size(360, 640), 1.0),
+          (const Size(393, 852), 1.0),
+          (const Size(430, 932), 1.5),
+          (const Size(844, 390), 1.0),
+        ]) {
+          tester.view.physicalSize = size;
+          for (final timeline in [false, true]) {
+            Rect? captionBounds;
+            for (final position in ScreenshotLogoPosition.values) {
+              await pumpApp(
+                tester,
+                Builder(
+                  builder: (context) => MediaQuery(
+                    data: MediaQuery.of(context)
+                        .copyWith(textScaler: TextScaler.linear(textScale)),
+                    child: ScreenshotComposition(
+                      map: map,
+                      logicalSize: size,
+                      includeInfo: true,
+                      journey: timeline ? null : journey,
+                      timeRange: timeline
+                          ? DateTimeRange(
+                              start: DateTime(2024),
+                              end: DateTime(2026, 11, 5),
+                            )
+                          : null,
+                      logo: logo,
+                      logoPosition: position,
+                    ),
+                  ),
+                ),
+              );
+              await tester.runAsync(
+                () => tester
+                    .element(find.byType(ScreenshotComposition))
+                    .setLocale(
+                      language == 'zh' ? locale : const Locale('en', 'US'),
+                    ),
+              );
+              await tester.pumpAndSettle();
+              final caption = tester.getRect(find.byType(ScreenshotCaption));
+              captionBounds ??= caption;
+              expect(caption, captionBounds);
+              final frame = Offset.zero & size;
+              expect(frame.contains(caption.topLeft), isTrue);
+              expect(frame.contains(caption.bottomRight), isTrue);
+              if (position != ScreenshotLogoPosition.hidden) {
+                final watermark = tester.getRect(
+                  find.descendant(
+                    of: find.byType(ScreenshotComposition),
+                    matching: find.byType(CustomPaint),
+                  ),
+                );
+                expect(caption.overlaps(watermark), isFalse);
+                expect(watermark.width, lessThanOrEqualTo(96));
+                if (position == ScreenshotLogoPosition.bottomRight) {
+                  expect(
+                    watermark.top - caption.bottom,
+                    greaterThanOrEqualTo(12),
+                  );
+                }
+              }
+              expect(tester.takeException(), isNull);
+            }
+          }
+        }
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
+  }
+
+  for (final scenario in [
+    for (final position in ScreenshotLogoPosition.values)
+      for (final scene in ['record', 'journey', 'timeMachine'])
+        (position, scene),
+  ]) {
+    final (position, scene) = scenario;
+    final timeline = scene == 'timeMachine';
+    final hasInfo = scene != 'record';
+    final includeLogo = position != ScreenshotLogoPosition.hidden;
+    testWidgets('preview, gallery and share match for $position, scene $scene', (
       tester,
-      paint: (canvas) => canvas
-        ..drawColor(Colors.white, BlendMode.src)
-        ..drawRect(
+    ) async {
+      // An off-center landmark must stay fixed when the card is toggled.
+      Future<ui.Image> routeImage() async {
+        final recorder = ui.PictureRecorder();
+        final canvas = Canvas(recorder);
+        canvas.drawColor(Colors.white, BlendMode.src);
+        canvas.drawRect(
           Rect.fromCenter(
             center: const Offset(320, 400),
             width: 100,
             height: 100,
           ),
           Paint()..color = const Color(0xff0000ff),
-        ),
-    );
-    await pumpApp(
-      tester,
-      ScreenshotPreviewPage(
-        map: map,
-        logicalSize: const Size(320, 640),
-        journey: journey,
-      ),
-    );
-    await waitForLogo(tester);
-    final cardOption = find.widgetWithText(FilterChip, '旅程信息');
-    final logoOption = find.widgetWithText(FilterChip, 'Logo 水印');
-    for (final includeOverlays in [false, true]) {
-      tester.widget<FilterChip>(cardOption).onSelected!(includeOverlays);
-      tester.widget<FilterChip>(logoOption).onSelected!(includeOverlays);
-      await tester.pump();
-      expect(
-        find.byType(ReadOnlyJourneyInfoCard),
-        includeOverlays ? findsOneWidget : findsNothing,
-      );
-      final preview = await previewPixels(tester);
-      const center = (640 * 640 + 320) * 4;
-      const landmark = (400 * 640 + 320) * 4;
-      expect(preview.sublist(center, center + 4), [255, 255, 255, 255]);
-      expect(preview.sublist(landmark, landmark + 4), [0, 0, 255, 255]);
-      if (!includeOverlays) {
-        final original = (await tester.runAsync(() => pixels(map)))!;
-        expect(preview, orderedEquals(original));
-      }
-    }
-
-    const galleryChannel = MethodChannel('com.memolanes/screenshots');
-    const shareChannel = MethodChannel('dev.fluttercommunity.plus/share');
-    const pathChannel = MethodChannel('plugins.flutter.io/path_provider');
-    final messenger =
-        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
-    final temp = Directory.systemTemp.createTempSync('memolanes_screenshot_');
-    Uint8List? savedPng;
-    Uint8List? sharedPng;
-    messenger.setMockMethodCallHandler(pathChannel, (_) async => temp.path);
-    messenger.setMockMethodCallHandler(shareChannel, (call) async {
-      expect(call.method, 'share');
-      expect(call.arguments['mimeTypes'], ['image/png']);
-      final paths = (call.arguments['paths'] as List).cast<String>();
-      sharedPng = File(paths.single).readAsBytesSync();
-      expect(call.arguments['originWidth'], greaterThan(0));
-      expect(call.arguments['originHeight'], greaterThan(0));
-      return ''; // Dismiss the system sheet and retain the preview.
-    });
-    messenger.setMockMethodCallHandler(galleryChannel, (call) async {
-      expect(call.method, 'saveToPhotos');
-      savedPng = call.arguments['png'] as Uint8List;
-      throw PlatformException(code: 'permission_denied');
-    });
-    addTearDown(() {
-      for (final channel in [galleryChannel, shareChannel, pathChannel]) {
-        messenger.setMockMethodCallHandler(channel, null);
-      }
-      temp.deleteSync(recursive: true);
-    });
-
-    // Export immediately after changing the card, before its new frame is painted.
-    tester.widget<FilterChip>(cardOption).onSelected!(false);
-    for (final label in ['分享', '保存到相册']) {
-      await pumpUntil(
-        tester,
-        () => label == '分享' ? sharedPng != null : savedPng != null,
-        start: () => tester
-            .widget<AppButton>(find.widgetWithText(AppButton, label))
-            .onPressed!(),
-      );
-      await tester.pumpAndSettle();
-    }
-    expect(find.byType(ReadOnlyJourneyInfoCard), findsNothing);
-    final preview = await previewPixels(tester);
-    // Rounded preview corners must not trim the exported image.
-    expect(preview.sublist(0, 4), [255, 255, 255, 255]);
-    await tester.runAsync(() async {
-      for (final png in [sharedPng!, savedPng!]) {
-        final image = await decodeScreenshot(png);
+        );
+        final picture = recorder.endRecording();
         try {
-          expect(image.width, 640);
-          expect(image.height, 1280);
-          expect(await pixels(image), orderedEquals(preview));
+          return await picture.toImage(640, 1280);
         } finally {
-          image.dispose();
+          picture.dispose();
         }
       }
+
+      final map = (await tester.runAsync(routeImage))!;
+      addTearDown(map.dispose);
+      final journey = JourneyHeader(
+        start: DateTime(2026, 10, 19, 8, 30),
+        end: DateTime(2026, 10, 19, 10, 15),
+        note: '沿着湖边散步，记录这一天的风景。',
+        id: 'screenshot-export',
+        revision: '1',
+        journeyDate: DateTime.utc(2026, 10, 19),
+        createdAt: DateTime.utc(2026, 10, 19),
+        journeyType: JourneyType.vector,
+        journeyKind: JourneyKind.defaultKind,
+        hasRawData: false,
+      );
+      await pumpApp(
+        tester,
+        ScreenshotPreviewPage(
+          map: map,
+          logicalSize: const Size(320, 640),
+          journey: scene == 'journey' ? journey : null,
+          timeRange: timeline
+              ? DateTimeRange(
+                  start: DateTime(2025, 1, 2),
+                  end: DateTime(2025, 3, 4),
+                )
+              : null,
+        ),
+      );
+      await waitForLogo(tester);
+      final logoOptions = tester
+          .widget<SegmentedButton<ScreenshotLogoPosition>>(
+            find.byType(SegmentedButton<ScreenshotLogoPosition>),
+          );
+      expect(logoOptions.selected, {ScreenshotLogoPosition.bottomRight});
+      final composition = find.byType(ScreenshotComposition);
+      expect(
+        tester.widget<ScreenshotComposition>(composition).logoPosition,
+        ScreenshotLogoPosition.bottomRight,
+      );
+      final captionRect = hasInfo
+          ? tester.getRect(find.byType(ScreenshotCaption))
+          : null;
+      // Exercise the default export without touching the watermark selector.
+      if (position != ScreenshotLogoPosition.bottomRight) {
+        logoOptions.onSelectionChanged!({position});
+      }
+      await tester.pumpAndSettle();
+      if (hasInfo) {
+        expect(tester.getRect(find.byType(ScreenshotCaption)), captionRect);
+      }
+      if (includeLogo) {
+        final logo = find.descendant(
+          of: composition,
+          matching: find.byType(CustomPaint),
+        );
+        final logoRect = tester.getRect(logo);
+        final frame = tester.getRect(composition);
+        expect(frame.contains(logoRect.topLeft), isTrue);
+        expect(frame.contains(logoRect.bottomRight), isTrue);
+        expect(logoRect.center.dx, greaterThan(frame.center.dx));
+        if (position == ScreenshotLogoPosition.bottomRight) {
+          expect(logoRect.center.dy, greaterThan(frame.center.dy));
+        } else {
+          expect(logoRect.center.dy, lessThan(frame.center.dy));
+        }
+      }
+      if (timeline) {
+        expect(find.text('时光机带你来到了'), findsOneWidget);
+        expect(find.text('2025.01.02 — 2025.03.04'), findsOneWidget);
+      }
+
+      const galleryChannel = MethodChannel('com.memolanes/screenshots');
+      const shareChannel = MethodChannel('dev.fluttercommunity.plus/share');
+      const pathChannel = MethodChannel('plugins.flutter.io/path_provider');
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      // Exercise share_plus's actual PNG file creation up to the native bridge.
+      final temp = Directory.systemTemp.createTempSync('memolanes_screenshot_');
+      Uint8List? savedPng;
+      Uint8List? sharedPng;
+      messenger.setMockMethodCallHandler(pathChannel, (call) async {
+        expect(call.method, 'getTemporaryDirectory');
+        return temp.path;
+      });
+      messenger.setMockMethodCallHandler(shareChannel, (call) async {
+        expect(call.method, 'share');
+        expect(call.arguments['mimeTypes'], ['image/png']);
+        final paths = (call.arguments['paths'] as List).cast<String>();
+        expect(paths, hasLength(1));
+        sharedPng = File(paths.single).readAsBytesSync();
+        expect(call.arguments['originWidth'], greaterThan(0));
+        expect(call.arguments['originHeight'], greaterThan(0));
+        return ''; // Dismiss the system sheet and retain the preview.
+      });
+      messenger.setMockMethodCallHandler(galleryChannel, (call) async {
+        expect(call.method, 'saveToPhotos');
+        savedPng = call.arguments['png'] as Uint8List;
+        // Leave the preview open so the same selection can also be shared.
+        throw PlatformException(code: 'permission_denied');
+      });
+      addTearDown(() {
+        for (final channel in [galleryChannel, shareChannel, pathChannel]) {
+          messenger.setMockMethodCallHandler(channel, null);
+        }
+        temp.deleteSync(recursive: true);
+      });
+
+      Future<Uint8List> pixels(ui.Image image) async {
+        expect(
+          Size(image.width.toDouble(), image.height.toDouble()),
+          const Size(640, 1280),
+        );
+        final bytes = (await image.toByteData(
+          format: ui.ImageByteFormat.rawRgba,
+        ))!;
+        return bytes.buffer.asUint8List(
+          bytes.offsetInBytes,
+          bytes.lengthInBytes,
+        );
+      }
+
+      Future<void> export(String label, bool Function() received) async {
+        await tester.runAsync(() async {
+          tester
+              .widget<AppButton>(find.widgetWithText(AppButton, label))
+              .onPressed!();
+          final deadline = DateTime.now().add(const Duration(seconds: 10));
+          while (!received() && DateTime.now().isBefore(deadline)) {
+            await tester.pump();
+            await Future<void>.delayed(const Duration(milliseconds: 10));
+          }
+          expect(received(), isTrue, reason: '$label must receive a PNG');
+        });
+        await tester.pumpAndSettle();
+      }
+
+      final cardOption = find.widgetWithText(
+        FilterChip,
+        timeline ? '时间信息' : '旅程信息',
+      );
+      for (final includeCard
+          in hasInfo ? [true, false, true, false] : [false]) {
+        // Deliberately export before pumping the option's new frame.
+        if (hasInfo) {
+          tester.widget<FilterChip>(cardOption).onSelected!(includeCard);
+        }
+        savedPng = null;
+        sharedPng = null;
+        // Cover either action being the first tap after changing the card.
+        final actions = includeLogo ? ['保存到相册', '分享'] : ['分享', '保存到相册'];
+        for (final action in actions) {
+          await export(
+            action,
+            () => action == '分享' ? sharedPng != null : savedPng != null,
+          );
+        }
+        expect(
+          find.byType(ScreenshotCaption),
+          includeCard ? findsOneWidget : findsNothing,
+        );
+
+        final preview = await capturePreview(tester);
+        late Uint8List previewPixels;
+        await tester.runAsync(() async {
+          try {
+            previewPixels = await pixels(preview);
+            final center = (640 * 640 + 320) * 4;
+            final originalCenter = (400 * 640 + 320) * 4;
+            const blue = [0, 0, 255, 255];
+            const white = [255, 255, 255, 255];
+            expect(previewPixels.sublist(center, center + 4), white);
+            expect(
+              previewPixels.sublist(originalCenter, originalCenter + 4),
+              blue,
+            );
+          } finally {
+            preview.dispose();
+          }
+        });
+
+        await tester.runAsync(() async {
+          for (final png in [savedPng!, sharedPng!]) {
+            final image = await decodeScreenshot(png);
+            try {
+              expect(await pixels(image), orderedEquals(previewPixels));
+            } finally {
+              image.dispose();
+            }
+          }
+        });
+      }
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
     });
-    expect(find.text('没有保存相册的权限，请在系统设置中允许后重试'), findsOneWidget);
-    for (final action in tester.widgetList<AppButton>(find.byType(AppButton))) {
-      expect(action.onPressed, isNotNull);
-    }
-    expect(tester.takeException(), isNull);
-    await tester.pumpWidget(const SizedBox.shrink());
-  });
+  }
 
   testWidgets('capture button reflects the parent busy state', (tester) async {
     var captures = 0;
@@ -523,58 +825,4 @@ void main() {
     }
     await tester.pumpWidget(const SizedBox.shrink());
   });
-
-  testWidgets('timeline captures its visible frame while loading', (
-    tester,
-  ) async {
-    RustLib.initMock(api: _TimelineApi());
-    addTearDown(RustLib.dispose);
-    final haptics = AppHaptics.debugHapticsEnabledOverride;
-    AppHaptics.debugHapticsEnabledOverride = false;
-    addTearDown(() => AppHaptics.debugHapticsEnabledOverride = haptics);
-    final key = GlobalKey<TimeMachineOverlayState>();
-    await pumpApp(
-      tester,
-      Scaffold(
-        body: AppLayoutBuilder(
-          builder: (_, _) =>
-              TimeMachineOverlay(key: key, onJourneyRangeLoaded: (_) {}),
-        ),
-      ),
-    );
-    await tester.pump(const Duration(milliseconds: 100));
-    expect(
-      tester.widget<TimeRangePicker>(find.byType(TimeRangePicker)).loading,
-      isTrue,
-    );
-    await tester.runAsync(() async {
-      final capture = key.currentState!.captureScreenshot(1);
-      await tester.pump();
-      final image = await capture;
-      expect(image.width, greaterThan(0));
-      expect(image.height, greaterThan(0));
-      image.dispose();
-    });
-    await tester.pumpWidget(const SizedBox.shrink());
-  });
-}
-
-class _TimelineApi extends Fake implements RustLibApi {
-  @override
-  api.LayerFilter crateApiApiGetCurrentMainMapLayerFilter() => api.LayerFilter(
-    defaultKind: true,
-    flightKind: false,
-    currentJourney: true,
-  );
-
-  @override
-  Future<DateTime?> crateApiApiEarliestJourneyDate() async => DateTime(2020);
-
-  @override
-  Future<api.MapRendererProxy>
-  crateApiApiGetMapRendererProxyForJourneyDateRange({
-    required DateTime fromDateInclusive,
-    required DateTime toDateInclusive,
-    required Set<JourneyKind> journeyKinds,
-  }) => Completer<api.MapRendererProxy>().future;
 }

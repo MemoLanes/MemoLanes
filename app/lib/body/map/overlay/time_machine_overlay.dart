@@ -1,12 +1,10 @@
 import 'dart:async';
-import 'dart:ui' as ui;
 
 import 'package:material_ui/material_ui.dart';
 import 'package:memolanes/body/time_machine/time_range_picker.dart';
 import 'package:memolanes/common/async_load_token.dart';
 import 'package:memolanes/common/component/map_overlay_panel.dart';
 import 'package:memolanes/common/log.dart';
-import 'package:memolanes/common/screenshot.dart';
 import 'package:memolanes/common/simple_date_utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/journey_header.dart';
@@ -34,10 +32,27 @@ class TimeMachineOverlay extends StatefulWidget {
 }
 
 class TimeMachineOverlayState extends State<TimeMachineOverlay> {
-  final _screenshotKey = GlobalKey();
+  bool _rangeReady = false;
+  bool _timelineScrolling = false;
 
-  Future<ui.Image> captureScreenshot(double pixelRatio) =>
-      captureScreenshotBoundary(_screenshotKey, pixelRatio);
+  bool get canCaptureScreenshot =>
+      _rangeReady &&
+      !_loading &&
+      !_timelineScrolling &&
+      _rangeLoadDebounceTimer == null;
+
+  /// Freeze dates only after the matching map data has loaded.
+  DateTimeRange get screenshotDateRange {
+    if (!canCaptureScreenshot ||
+        _requestedFrom == null ||
+        _requestedTo == null) {
+      throw StateError('Timeline is still loading');
+    }
+    return DateTimeRange(
+      start: _requestedFrom!.toLocalDateTime(),
+      end: _requestedTo!.toLocalDateTime(),
+    );
+  }
 
   static const _rangeLoadDebounce = Duration(milliseconds: 100);
   static const _loadErrorMessage =
@@ -86,6 +101,7 @@ class TimeMachineOverlayState extends State<TimeMachineOverlay> {
     _requestedTo = to;
     final journeyKinds = Set<JourneyKind>.from(_selectedJourneyKinds);
     setState(() => _loading = true);
+    _rangeReady = false;
     try {
       final proxy = await api.getMapRendererProxyForJourneyDateRange(
         fromDateInclusive: from.toFrbNaiveDate(),
@@ -94,6 +110,7 @@ class TimeMachineOverlayState extends State<TimeMachineOverlay> {
       );
       if (mounted && _loadGuard.isActive(loadToken)) {
         widget.onJourneyRangeLoaded(proxy);
+        _rangeReady = true;
       }
     } catch (error, stackTrace) {
       log.error('$_loadErrorMessage: $error', stackTrace);
@@ -106,6 +123,9 @@ class TimeMachineOverlayState extends State<TimeMachineOverlay> {
   }
 
   void _scheduleJourneyRangeLoad(SimpleDate from, SimpleDate to) {
+    // Invalidate immediately: an older request may finish during the debounce.
+    _loadGuard.invalidate();
+    _rangeReady = false;
     _requestedFrom = from;
     _requestedTo = to;
     _rangeLoadDebounceTimer?.cancel();
@@ -142,8 +162,15 @@ class TimeMachineOverlayState extends State<TimeMachineOverlay> {
     return Stack(
       children: [
         MapOverlayPanel.controls(
-          child: RepaintBoundary(
-            key: _screenshotKey,
+          child: NotificationListener<ScrollNotification>(
+            onNotification: (notification) {
+              if (notification is ScrollStartNotification) {
+                _timelineScrolling = true;
+              } else if (notification is ScrollEndNotification) {
+                _timelineScrolling = false;
+              }
+              return false;
+            },
             child: TimeRangePicker(
               earliestDate: earliest,
               loading: _loading,
