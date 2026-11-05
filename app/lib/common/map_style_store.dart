@@ -36,14 +36,14 @@ class MapStyleStore {
 
   List<MapStyle> _decodeStyles(Object? decoded) {
     if (decoded is! List) throw const FormatException('Expected basemap list');
-    final styles = <String, MapStyle>{};
+    final styles = <MapStyleRef, MapStyle>{};
     for (final entry in decoded) {
       try {
         if (entry is! Map<String, dynamic>) {
           throw const FormatException('Expected basemap object');
         }
         final style = MapStyle.fromCustomJson(entry);
-        styles[style.id] = style;
+        styles[style.ref] = style;
       } on FormatException catch (error, stackTrace) {
         log.error('Reading saved basemap failed: ${error.message}', stackTrace);
       }
@@ -51,19 +51,27 @@ class MapStyleStore {
     return styles.values.toList();
   }
 
+  MapStyleRef get _selectedRef {
+    final value = _read(MMKVKey.mapStyle);
+    return value == null
+        ? MapStyle.all.first.ref
+        : MapStyleRef.fromStorage(value);
+  }
+
   MapStyle get selected {
-    final selectionId = _read(MMKVKey.mapStyle);
-    final styles = selectionId?.startsWith('custom:') == true
-        ? customStyles
-        : MapStyle.all;
+    final ref = _selectedRef;
+    final styles = switch (ref) {
+      BuiltInMapStyleRef() => MapStyle.all,
+      CustomMapStyleRef() => customStyles,
+    };
     return styles.firstWhere(
-      (style) => style.selectionId == selectionId,
+      (style) => style.ref == ref,
       orElse: () => MapStyle.all.first,
     );
   }
 
-  void select(MapStyle style) {
-    if (!_write(MMKVKey.mapStyle, style.selectionId)) {
+  void select(MapStyleRef ref) {
+    if (!_write(MMKVKey.mapStyle, ref.toStorage())) {
       throw StateError('Could not save basemap selection');
     }
   }
@@ -73,20 +81,20 @@ class MapStyleStore {
       throw ArgumentError('Only custom basemaps can be saved');
     }
     final styles = customStyles;
-    final index = styles.indexWhere((entry) => entry.id == style.id);
+    final index = styles.indexWhere((entry) => entry.ref == style.ref);
     if (index < 0) {
       styles.add(style);
     } else {
       styles[index] = style;
     }
     _saveStyles(styles);
-    if (selectAfterSaving) select(style);
+    if (selectAfterSaving) select(style.ref);
   }
 
-  void delete(String id) {
-    _saveStyles(customStyles.where((style) => style.id != id).toList());
-    if (_read(MMKVKey.mapStyle) == 'custom:$id') {
-      select(MapStyle.all.first);
+  void delete(CustomMapStyleRef ref) {
+    _saveStyles(customStyles.where((style) => style.ref != ref).toList());
+    if (_selectedRef == ref) {
+      select(MapStyle.all.first.ref);
     }
   }
 

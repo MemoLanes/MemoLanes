@@ -11,7 +11,7 @@ MapStyle _custom({
   String name = 'My basemap',
   MapStyleType type = MapStyleType.style,
 }) => MapStyle(
-  id: id,
+  ref: CustomMapStyleRef(id),
   customName: name,
   url: url,
   type: type,
@@ -77,17 +77,17 @@ void main() {
       store.save(first, selectAfterSaving: true);
       store.save(second);
       store.save(_custom(url: 'https://example.com/edited.json'));
-      store.delete(second.id);
-      expect(store.customStyles.single.id, first.id);
-      expect(store.selected.id, first.id);
+      store.delete(const CustomMapStyleRef('two'));
+      expect(store.customStyles.single.ref, first.ref);
+      expect(store.selected.ref, first.ref);
       expect(store.selected.url, 'https://example.com/edited.json');
     },
   );
 
   test('selection and custom configurations are stored independently', () {
     final builtIn = MapStyle.all.last;
-    final custom = _custom(id: builtIn.id);
-    values[MMKVKey.mapStyle] = builtIn.id;
+    final custom = _custom(id: builtIn.ref.id);
+    values[MMKVKey.mapStyle] = builtIn.ref.id;
 
     store.save(custom);
     expect(writes, [MMKVKey.customBasemaps]);
@@ -95,14 +95,18 @@ void main() {
     final savedStyles = values[MMKVKey.customBasemaps];
 
     writes.clear();
-    store.select(custom);
+    store.select(custom.ref);
     expect(writes, [MMKVKey.mapStyle]);
-    expect(values[MMKVKey.mapStyle], 'custom:${custom.id}');
+    expect(values[MMKVKey.mapStyle], 'custom:${custom.ref.id}');
     expect(openStore().selected.toCustomJson(), custom.toCustomJson());
 
-    store.select(builtIn);
+    store.select(builtIn.ref);
     expect(openStore().selected, same(builtIn));
     expect(values[MMKVKey.customBasemaps], savedStyles);
+
+    store.delete(CustomMapStyleRef(builtIn.ref.id));
+    expect(values[MMKVKey.mapStyle], builtIn.ref.id);
+    expect(openStore().selected, same(builtIn));
   });
 
   test(
@@ -120,13 +124,15 @@ void main() {
           _custom(id: 'valid').toCustomJson(),
         ],
       });
-      expect(store.customStyles.map((s) => s.id), ['valid']);
-      expect(store.selected.id, MapStyle.all.first.id);
+      expect(store.customStyles.map((s) => s.ref), [
+        const CustomMapStyleRef('valid'),
+      ]);
+      expect(store.selected.ref, MapStyle.all.first.ref);
 
       values[MMKVKey.customBasemaps] = '{broken json';
-      values[MMKVKey.mapStyle] = MapStyle.all.last.id;
+      values[MMKVKey.mapStyle] = MapStyle.all.last.ref.id;
       expect(store.customStyles, isEmpty);
-      expect(store.selected.id, MapStyle.all.last.id);
+      expect(store.selected.ref, MapStyle.all.last.ref);
     },
   );
 
@@ -138,9 +144,12 @@ void main() {
 
     failedKey = MMKVKey.customBasemaps;
     expect(() => store.save(other, selectAfterSaving: true), throwsStateError);
-    expect(() => store.delete(custom.id), throwsStateError);
+    expect(
+      () => store.delete(const CustomMapStyleRef('one')),
+      throwsStateError,
+    );
     failedKey = MMKVKey.mapStyle;
-    expect(() => store.select(MapStyle.all.last), throwsStateError);
+    expect(() => store.select(MapStyle.all.last.ref), throwsStateError);
     expect(openStore().selected.toCustomJson(), custom.toCustomJson());
     expect(
       openStore().customStyles.single.toCustomJson(),
@@ -149,19 +158,19 @@ void main() {
 
     writes.clear();
     failedKey = null;
-    store.delete(custom.id);
+    store.delete(const CustomMapStyleRef('one'));
     expect(writes, [MMKVKey.customBasemaps, MMKVKey.mapStyle]);
-    expect(openStore().selected.id, MapStyle.all.first.id);
+    expect(openStore().selected.ref, MapStyle.all.first.ref);
     expect(openStore().customStyles, isEmpty);
   });
 
   test('selection write failures leave saved configurations recoverable', () {
     final custom = _custom();
-    store.select(MapStyle.all.last);
+    store.select(MapStyle.all.last.ref);
     failedKey = MMKVKey.mapStyle;
 
     expect(() => store.save(custom, selectAfterSaving: true), throwsStateError);
-    expect(openStore().selected.id, MapStyle.all.last.id);
+    expect(openStore().selected.ref, MapStyle.all.last.ref);
     expect(
       openStore().customStyles.single.toCustomJson(),
       custom.toCustomJson(),
@@ -172,12 +181,15 @@ void main() {
     expect(store.customStyles, hasLength(1));
 
     failedKey = MMKVKey.mapStyle;
-    expect(() => store.delete(custom.id), throwsStateError);
+    expect(
+      () => store.delete(const CustomMapStyleRef('one')),
+      throwsStateError,
+    );
     expect(openStore().customStyles, isEmpty);
-    expect(openStore().selected.id, MapStyle.all.first.id);
+    expect(openStore().selected.ref, MapStyle.all.first.ref);
 
     failedKey = null;
-    store.delete(custom.id);
-    expect(values[MMKVKey.mapStyle], MapStyle.all.first.id);
+    store.delete(const CustomMapStyleRef('one'));
+    expect(values[MMKVKey.mapStyle], MapStyle.all.first.ref.id);
   });
 }

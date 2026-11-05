@@ -15,8 +15,12 @@ import 'package:uuid/uuid.dart';
 const _strings = 'general.map_settings.basemaps';
 
 String mapStyleLabel(BuildContext context, MapStyle style) =>
-    style.customName ??
-    context.tr('general.map_settings.style_name.${style.id}');
+    switch (style.ref) {
+      BuiltInMapStyleRef(:final id) => context.tr(
+        'general.map_settings.style_name.$id',
+      ),
+      CustomMapStyleRef() => style.customName!,
+    };
 
 class MapStylesPage extends StatefulWidget {
   const MapStylesPage({super.key, this.store});
@@ -33,7 +37,7 @@ class _MapStylesPageState extends State<MapStylesPage> {
 
   void _select(MapStyle style) {
     try {
-      _store.select(style);
+      _store.select(style.ref);
       setState(() => _error = null);
     } on StateError catch (error, stackTrace) {
       log.error('Selecting basemap failed: $error', stackTrace);
@@ -60,7 +64,7 @@ class _MapStylesPageState extends State<MapStylesPage> {
     ),
   );
 
-  Widget _option(MapStyle style, String selectedId) {
+  Widget _option(MapStyle style, MapStyleRef selectedRef) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: AppOptionTile(
@@ -71,7 +75,7 @@ class _MapStylesPageState extends State<MapStylesPage> {
         subtitle: style.isCustom
             ? context.tr('$_strings.type_${style.type.name}')
             : null,
-        selected: style.selectionId == selectedId,
+        selected: style.ref == selectedRef,
         trailing: AppOptionTileTrailing.selection,
         action: style.isCustom
             ? IconButton(
@@ -92,13 +96,13 @@ class _MapStylesPageState extends State<MapStylesPage> {
   @override
   Widget build(BuildContext context) {
     final custom = _store.customStyles;
-    final selectedId = _store.selected.selectionId;
+    final selectedRef = _store.selected.ref;
     return Scaffold(
       appBar: CapsuleStyleAppBar(title: context.tr('$_strings.title')),
       body: SettingsPageLayout(
         children: [
           _heading(context.tr('$_strings.built_in')),
-          for (final style in MapStyle.all) _option(style, selectedId),
+          for (final style in MapStyle.all) _option(style, selectedRef),
           _heading(context.tr('$_strings.my_maps')),
           if (custom.isEmpty)
             Padding(
@@ -110,7 +114,7 @@ class _MapStylesPageState extends State<MapStylesPage> {
                 ),
               ),
             ),
-          for (final style in custom) _option(style, selectedId),
+          for (final style in custom) _option(style, selectedRef),
           const SizedBox(height: 8),
           AppButton(
             label: context.tr('$_strings.add'),
@@ -150,7 +154,7 @@ class _MapStyleEditorPageState extends State<_MapStyleEditorPage> {
   final _form = GlobalKey<FormState>();
   late final TextEditingController _name;
   late final TextEditingController _url;
-  late final String _id;
+  late final CustomMapStyleRef _ref;
   late MapStyleType _type;
   late int _tileSize;
   late MapTileScheme _scheme;
@@ -160,7 +164,9 @@ class _MapStyleEditorPageState extends State<_MapStyleEditorPage> {
   void initState() {
     super.initState();
     final initial = widget.initial;
-    _id = initial?.id ?? const Uuid().v4();
+    _ref = initial == null
+        ? CustomMapStyleRef(const Uuid().v4())
+        : initial.ref as CustomMapStyleRef;
     _name = TextEditingController(text: initial?.customName ?? '');
     _url = TextEditingController(text: initial?.url ?? '');
     _type = initial?.type ?? MapStyleType.style;
@@ -192,7 +198,7 @@ class _MapStyleEditorPageState extends State<_MapStyleEditorPage> {
   void _save() {
     if (!_form.currentState!.validate()) return;
     final style = MapStyle(
-      id: _id,
+      ref: _ref,
       customName: _name.text.trim(),
       url: _url.text.trim(),
       type: _type,
@@ -229,7 +235,7 @@ class _MapStyleEditorPageState extends State<_MapStyleEditorPage> {
         ),
         child: Text(
           context.tr(
-            widget.store.selected.selectionId == widget.initial!.selectionId
+            widget.store.selected.ref == _ref
                 ? '$_strings.delete_selected_message'
                 : '$_strings.delete_message',
             namedArgs: {'name': widget.initial!.customName!},
@@ -239,7 +245,7 @@ class _MapStyleEditorPageState extends State<_MapStyleEditorPage> {
     );
     if (!mounted || confirmed != true) return;
     try {
-      widget.store.delete(_id);
+      widget.store.delete(_ref);
       Navigator.of(context).pop();
     } on StateError catch (error, stackTrace) {
       log.error('Deleting basemap failed: $error', stackTrace);

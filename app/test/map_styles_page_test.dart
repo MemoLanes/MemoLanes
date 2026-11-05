@@ -99,7 +99,7 @@ void main() {
     await tapVisible(find.text('TMS').last);
     await tapVisible(find.text('Save and use'));
     expect(find.text('My tiles'), findsOneWidget);
-    final id = store.selected.id;
+    final ref = store.selected.ref;
     expect(store.selected.url, url);
     expect(store.selected.tileSize, 512);
     expect(store.selected.scheme, MapTileScheme.tms);
@@ -111,14 +111,14 @@ void main() {
     );
     expect(tester.widget<AppOptionTile>(defaultOption).selected, isTrue);
     await tapVisible(find.byTooltip('Edit style'));
-    expect(store.selected.id, MapStyle.all.first.id);
+    expect(store.selected.ref, MapStyle.all.first.ref);
     await tester.enterText(find.byType(TextFormField).at(0), 'Renamed map');
     await tapVisible(find.text('Save'));
     expect(find.text('Renamed map'), findsOneWidget);
     expect(store.customStyles, hasLength(1));
-    expect(store.selected.id, MapStyle.all.first.id);
+    expect(store.selected.ref, MapStyle.all.first.ref);
     await tapVisible(find.text('Renamed map'));
-    expect(store.selected.id, id);
+    expect(store.selected.ref, ref);
 
     await tapVisible(find.byTooltip('Edit style'));
     await tapVisible(find.text('Delete style'));
@@ -128,7 +128,7 @@ void main() {
     );
     await tapVisible(find.text('Delete style').hitTestable().last);
     expect(store.customStyles, isEmpty);
-    expect(store.selected.id, MapStyle.all.first.id);
+    expect(store.selected.ref, MapStyle.all.first.ref);
     expect(find.text('Renamed map'), findsNothing);
     expect(tester.takeException(), isNull);
   });
