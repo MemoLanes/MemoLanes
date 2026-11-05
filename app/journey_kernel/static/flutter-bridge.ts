@@ -152,7 +152,7 @@ export class FlutterBridge {
   setupMapEventListeners(): void {
     // Observe the canvas without taking gestures away from MapLibre. Touch
     // defaults are prevented by platform.ts, so a synthesized click is unreliable.
-    const stopObservingTaps = observeSingleMapTap(this.map.getCanvas(), () => {
+    const stopObservingTaps = observeSingleMapTap(this.map, () => {
       window.onMapTap?.postMessage("");
     });
     this.map.once("remove", stopObservingTaps);

@@ -1,8 +1,6 @@
 import 'dart:ui' as ui;
 
-import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/widgets.dart';
 
 final screenshotChannel = () {
   const channel = MethodChannel('com.memolanes/screenshots');
@@ -20,17 +18,4 @@ Future<ui.Image> decodeScreenshot(Uint8List bytes) async {
   } finally {
     codec.dispose();
   }
-}
-
-/// Captures Flutter content only. Never wrap the platform WebView in this.
-Future<ui.Image> captureScreenshotBoundary(
-  GlobalKey key,
-  double pixelRatio,
-) async {
-  await WidgetsBinding.instance.endOfFrame;
-  final boundary = key.currentContext?.findRenderObject();
-  if (boundary is! RenderRepaintBoundary || !boundary.hasSize) {
-    throw StateError('Screenshot content is unavailable');
-  }
-  return boundary.toImage(pixelRatio: pixelRatio);
 }

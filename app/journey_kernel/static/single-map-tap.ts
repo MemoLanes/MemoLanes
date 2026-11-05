@@ -1,8 +1,11 @@
+import type { Map } from "maplibre-gl";
+
 /** Observe intentional single taps without interfering with map gestures. */
 export function observeSingleMapTap(
-  canvas: HTMLElement,
+  map: Pick<Map, "getCanvas" | "on" | "off">,
   onTap: () => void,
 ): () => void {
+  const canvas = map.getCanvas();
   const pointers = new Set<number>();
   let press: PointerEvent | undefined;
   let pending: ReturnType<typeof setTimeout> | undefined;
@@ -39,11 +42,11 @@ export function observeSingleMapTap(
       press?.pointerId === event.pointerId &&
       event.timeStamp - press.timeStamp <= 300
     ) {
-      // Wait beyond MapLibre's double-tap interval before hiding any controls.
+      // MapLibre's TapRecognizer gives the second tap 500 ms.
       pending = setTimeout(() => {
         pending = undefined;
         onTap();
-      }, 350);
+      }, 500);
     }
     pointers.delete(event.pointerId);
     press = undefined;
@@ -63,6 +66,7 @@ export function observeSingleMapTap(
   canvas.addEventListener("pointercancel", cancel);
   canvas.addEventListener("pointerleave", leave);
   window.addEventListener("blur", cancel);
+  map.on("zoomstart", cancel);
   return () => {
     cancel();
     canvas.removeEventListener("pointerdown", down);
@@ -71,5 +75,6 @@ export function observeSingleMapTap(
     canvas.removeEventListener("pointercancel", cancel);
     canvas.removeEventListener("pointerleave", leave);
     window.removeEventListener("blur", cancel);
+    map.off("zoomstart", cancel);
   };
 }

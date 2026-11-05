@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:material_ui/material_ui.dart';
@@ -34,20 +35,21 @@ class ScreenshotPreviewPage extends StatefulWidget {
   State<ScreenshotPreviewPage> createState() => _ScreenshotPreviewPageState();
 }
 
+enum _ExportAction { save, share }
+
 class _ScreenshotPreviewPageState extends State<ScreenshotPreviewPage> {
   final _compositionKey = GlobalKey();
   final _shareButtonKey = GlobalKey();
   PictureInfo? _logo;
   String? _logoAsset;
-  int _logoLoadGeneration = 0;
-  bool _loadingLogo = true;
+  Future<PictureInfo>? _logoRequest;
   ScreenshotLogoPosition _logoPosition = ScreenshotLogoPosition.bottomRight;
   bool _includeInfo = true;
-  bool _saving = false;
-  bool _sharing = false;
+  _ExportAction? _exporting;
   String? _error;
 
-  bool get _busy => _saving || _sharing;
+  bool get _busy => _exporting != null;
+  bool get _loadingLogo => _logoRequest != null;
 
   @override
   void didChangeDependencies() {
@@ -57,26 +59,29 @@ class _ScreenshotPreviewPageState extends State<ScreenshotPreviewPage> {
         : 'assets/screenshot_logo_en.svg';
     if (_logoAsset == asset) return;
     _logoAsset = asset;
-    _loadingLogo = true;
     _loadLogo(asset);
   }
 
   Future<void> _loadLogo(String asset) async {
-    final generation = ++_logoLoadGeneration;
+    final request = vg.loadPicture(SvgAssetLoader(asset), null);
+    _logoRequest = request;
     PictureInfo? logo;
     try {
-      logo = await vg.loadPicture(SvgAssetLoader(asset), null);
+      logo = await request;
     } catch (error, stackTrace) {
-      log.error('Loading screenshot logo failed: $error', stackTrace);
+      log.error(
+        'Loading screenshot watermark $asset failed: $error',
+        stackTrace,
+      );
     }
-    if (!mounted || generation != _logoLoadGeneration) {
+    if (!mounted || request != _logoRequest) {
       logo?.picture.dispose();
       return;
     }
     final previousLogo = _logo;
     setState(() {
       _logo = logo;
-      _loadingLogo = false;
+      _logoRequest = null;
       if (logo == null) _logoPosition = ScreenshotLogoPosition.hidden;
     });
     previousLogo?.picture.dispose();
@@ -89,9 +94,13 @@ class _ScreenshotPreviewPageState extends State<ScreenshotPreviewPage> {
   }
 
   Future<Uint8List> _encodePreview() async {
-    final image = await captureScreenshotBoundary(
-      _compositionKey,
-      widget.map.width / widget.logicalSize.width,
+    await WidgetsBinding.instance.endOfFrame;
+    final boundary = _compositionKey.currentContext?.findRenderObject();
+    if (boundary is! RenderRepaintBoundary || !boundary.hasSize) {
+      throw StateError('Screenshot content is unavailable');
+    }
+    final image = await boundary.toImage(
+      pixelRatio: widget.map.width / widget.logicalSize.width,
     );
     try {
       final data = await image.toByteData(format: ui.ImageByteFormat.png);
@@ -102,61 +111,56 @@ class _ScreenshotPreviewPageState extends State<ScreenshotPreviewPage> {
     }
   }
 
-  Future<void> _share() async {
+  Future<void> _sharePng(Uint8List png) async {
+    // iPad needs a popover anchor in the current layout.
+    final box = _shareButtonKey.currentContext?.findRenderObject();
+    if (box is! RenderBox || !box.hasSize || box.size.isEmpty) {
+      throw StateError('Share button is unavailable');
+    }
+    await SharePlus.instance.share(
+      ShareParams(
+        files: [XFile.fromData(png, mimeType: 'image/png')],
+        fileNameOverrides: [
+          'MemoLanes_${DateTime.now().millisecondsSinceEpoch}.png',
+        ],
+        sharePositionOrigin: box.localToGlobal(Offset.zero) & box.size,
+      ),
+    );
+  }
+
+  Future<void> _export(_ExportAction action) async {
     if (_busy || _loadingLogo) return;
     setState(() {
-      _sharing = true;
+      _exporting = action;
       _error = null;
     });
     try {
       final png = await _encodePreview();
       if (!mounted) return;
-      // iPad needs a valid popover anchor, measured after encoding in case
-      // the device rotated while the image was being prepared.
-      final box = _shareButtonKey.currentContext?.findRenderObject();
-      if (box is! RenderBox || !box.hasSize || box.size.isEmpty) {
-        throw StateError('Share button is unavailable');
+      if (action == _ExportAction.save) {
+        await screenshotChannel.invokeMethod<void>('saveToPhotos', {
+          'png': png,
+        });
+        if (mounted) Navigator.of(context).pop(true);
+      } else {
+        await _sharePng(png);
       }
-      await SharePlus.instance.share(
-        ShareParams(
-          files: [XFile.fromData(png, mimeType: 'image/png')],
-          fileNameOverrides: [
-            'MemoLanes_${DateTime.now().millisecondsSinceEpoch}.png',
-          ],
-          sharePositionOrigin: box.localToGlobal(Offset.zero) & box.size,
-        ),
-      );
-      // Keep the preview open after sharing or dismissing the system sheet.
     } catch (error, stackTrace) {
-      log.error('Sharing screenshot failed: $error', stackTrace);
-      if (mounted) setState(() => _error = 'screenshot.share_failed');
-    } finally {
-      if (mounted) setState(() => _sharing = false);
-    }
-  }
-
-  Future<void> _save() async {
-    if (_busy || _loadingLogo) return;
-    setState(() {
-      _saving = true;
-      _error = null;
-    });
-    try {
-      final png = await _encodePreview();
-      await screenshotChannel.invokeMethod<void>('saveToPhotos', {'png': png});
-      if (mounted) Navigator.of(context).pop(true);
-    } catch (error, stackTrace) {
-      log.error('Saving screenshot failed: $error', stackTrace);
+      log.error('Screenshot ${action.name} failed: $error', stackTrace);
       if (mounted) {
         setState(
-          () => _error =
-              error is PlatformException && error.code == 'permission_denied'
-              ? 'screenshot.permission_denied'
-              : 'screenshot.save_failed',
+          () => _error = switch (action) {
+            _ExportAction.save
+                when error is PlatformException &&
+                    error.code == 'permission_denied' =>
+              'screenshot.permission_denied',
+            _ExportAction.save => 'screenshot.save_failed',
+            _ExportAction.share => 'screenshot.share_failed',
+          },
         );
       }
     } finally {
-      if (mounted) setState(() => _saving = false);
+      if (mounted) setState(() => _exporting = null);
     }
   }
 
@@ -210,29 +214,36 @@ class _ScreenshotPreviewPageState extends State<ScreenshotPreviewPage> {
     },
   );
 
-  Widget _buildOption({
-    required IconData icon,
-    required String label,
-    required String tooltip,
-    required bool selected,
-    required ValueChanged<bool>? onSelected,
-  }) {
+  Widget _buildInfoOption() {
     final colors = context.appColors;
-    final foreground = onSelected == null
+    final isJourney = widget.journey != null;
+    final foreground = _busy
         ? colors.subtleInkColor
-        : selected
+        : _includeInfo
         ? colors.deepGreen
         : colors.mutedInkColor;
     return FilterChip(
-      avatar: Icon(icon, size: 19, color: foreground),
+      avatar: Icon(
+        isJourney ? Icons.route_rounded : Icons.date_range_rounded,
+        size: 19,
+        color: foreground,
+      ),
       label: Row(
         children: [
           Expanded(
-            child: Text(label, maxLines: 2, overflow: TextOverflow.ellipsis),
+            child: Text(
+              context.tr(
+                isJourney
+                    ? 'screenshot.journey_info_option'
+                    : 'screenshot.time_info_option',
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
           const SizedBox(width: 8),
           Icon(
-            selected ? Icons.check_circle_rounded : Icons.circle_outlined,
+            _includeInfo ? Icons.check_circle_rounded : Icons.circle_outlined,
             size: 18,
             color: foreground,
           ),
@@ -246,23 +257,30 @@ class _ScreenshotPreviewPageState extends State<ScreenshotPreviewPage> {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       side: BorderSide(
-        color: selected
+        color: _includeInfo
             ? colors.deepGreen.withValues(alpha: 0.38)
             : colors.strongLineColor,
       ),
       color: WidgetStatePropertyAll(
-        selected ? colors.selectedSurfaceColor : colors.surfaceColor,
+        _includeInfo ? colors.selectedSurfaceColor : colors.surfaceColor,
       ),
       showCheckmark: false,
       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      selected: selected,
-      onSelected: onSelected,
-      tooltip: tooltip,
+      selected: _includeInfo,
+      onSelected: _busy
+          ? null
+          : (value) => setState(() => _includeInfo = value),
+      tooltip: context.tr(
+        isJourney
+            ? 'screenshot.include_journey_info'
+            : 'screenshot.include_time_info',
+      ),
     );
   }
 
   Widget _buildTools() {
     final colors = context.appColors;
+    final canExport = !_busy && !_loadingLogo;
     final optionHeight = math.max(
       48.0,
       MediaQuery.textScalerOf(context).scale(13) * 2 * 1.4 + 20,
@@ -283,28 +301,7 @@ class _ScreenshotPreviewPageState extends State<ScreenshotPreviewPage> {
               ),
             ),
             const SizedBox(height: 10),
-            SizedBox(
-              height: optionHeight,
-              child: _buildOption(
-                icon: widget.journey != null
-                    ? Icons.route_rounded
-                    : Icons.date_range_rounded,
-                label: context.tr(
-                  widget.journey != null
-                      ? 'screenshot.journey_info_option'
-                      : 'screenshot.time_info_option',
-                ),
-                tooltip: context.tr(
-                  widget.journey != null
-                      ? 'screenshot.include_journey_info'
-                      : 'screenshot.include_time_info',
-                ),
-                selected: _includeInfo,
-                onSelected: _busy
-                    ? null
-                    : (value) => setState(() => _includeInfo = value),
-              ),
-            ),
+            SizedBox(height: optionHeight, child: _buildInfoOption()),
             const SizedBox(height: 10),
           ],
           Text(
@@ -328,7 +325,7 @@ class _ScreenshotPreviewPageState extends State<ScreenshotPreviewPage> {
                 ),
             ],
             selected: {_logoPosition},
-            onSelectionChanged: _busy || _loadingLogo || _logo == null
+            onSelectionChanged: !canExport || _logo == null
                 ? null
                 : (selection) =>
                       setState(() => _logoPosition = selection.single),
@@ -391,8 +388,10 @@ class _ScreenshotPreviewPageState extends State<ScreenshotPreviewPage> {
                     size: AppButtonSize.large,
                     borderRadius: 18,
                     labelMaxLines: 2,
-                    loading: _saving,
-                    onPressed: _busy || _loadingLogo ? null : _save,
+                    loading: _exporting == _ExportAction.save,
+                    onPressed: canExport
+                        ? () => _export(_ExportAction.save)
+                        : null,
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -406,8 +405,10 @@ class _ScreenshotPreviewPageState extends State<ScreenshotPreviewPage> {
                     borderRadius: 18,
                     labelMaxLines: 2,
                     variant: AppButtonVariant.secondary,
-                    loading: _sharing,
-                    onPressed: _busy || _loadingLogo ? null : _share,
+                    loading: _exporting == _ExportAction.share,
+                    onPressed: canExport
+                        ? () => _export(_ExportAction.share)
+                        : null,
                   ),
                 ),
               ],
@@ -458,18 +459,17 @@ class _ScreenshotPreviewPageState extends State<ScreenshotPreviewPage> {
                   padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
                   child: _buildPreview(),
                 );
+                final tools = SingleChildScrollView(
+                  primary: false,
+                  child: _buildTools(),
+                );
                 if (landscape) {
                   return Row(
                     children: [
                       Expanded(child: preview),
                       SizedBox(
                         width: math.min(340.0, constraints.maxWidth * 0.42),
-                        child: Center(
-                          child: SingleChildScrollView(
-                            primary: false,
-                            child: _buildTools(),
-                          ),
-                        ),
+                        child: Center(child: tools),
                       ),
                     ],
                   );
@@ -482,10 +482,7 @@ class _ScreenshotPreviewPageState extends State<ScreenshotPreviewPage> {
                         maxWidth: PageContentFrame.maxContentWidth,
                         maxHeight: constraints.maxHeight * 0.55,
                       ),
-                      child: SingleChildScrollView(
-                        primary: false,
-                        child: _buildTools(),
-                      ),
+                      child: tools,
                     ),
                   ],
                 );

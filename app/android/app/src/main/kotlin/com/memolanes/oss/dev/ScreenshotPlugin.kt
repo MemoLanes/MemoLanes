@@ -37,7 +37,6 @@ class ScreenshotPlugin : FlutterPlugin, ActivityAware,
     }
 
     fun onSystemScreenshot() {
-        Log.d("MemoLanesScreenshot", "System screenshot detected")
         channel.invokeMethod("onSystemScreenshot", null)
     }
 
@@ -117,12 +116,16 @@ class ScreenshotPlugin : FlutterPlugin, ActivityAware,
             } catch (error: Exception) {
                 Log.e("MemoLanesScreenshot", "Failed to save screenshot", error)
                 uri?.let { destination ->
-                    runCatching { resolver.delete(destination, null, null) }.onFailure { cleanupError ->
+                    runCatching {
+                        check(resolver.delete(destination, null, null) >= 0) { "MediaStore delete failed" }
+                    }.onFailure { cleanupError ->
                         Log.w("MemoLanesScreenshot", "Failed to remove screenshot from MediaStore", cleanupError)
                     }
                 }
                 legacyFile?.let { file ->
-                    runCatching { file.delete() }.onFailure { cleanupError ->
+                    runCatching {
+                        check(file.delete() || !file.exists()) { "File delete failed: ${file.name}" }
+                    }.onFailure { cleanupError ->
                         Log.w("MemoLanesScreenshot", "Failed to remove incomplete screenshot file", cleanupError)
                     }
                 }

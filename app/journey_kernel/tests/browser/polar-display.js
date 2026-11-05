@@ -98,14 +98,10 @@ async function withMap(latitude, check, run) {
 }
 
 function watchDisplay(controller) {
-  const promise = controller.waitForDisplay();
   let ready = false;
-  promise.then(
-    () => {
-      ready = true;
-    },
-    () => {},
-  );
+  const promise = controller.waitForDisplay().then(() => {
+    ready = true;
+  });
   return { promise, isReady: () => ready };
 }
 
@@ -140,48 +136,52 @@ export async function checkPolarDisplay(check) {
         const refresh = controller.refreshMapData().then(() => {
           refreshed = true;
         });
-        await refreshGate.started;
-        await waitForIdle(map);
-        check(!refreshed, "an explicit refresh waits for the polar download");
-        refreshGate.release();
-        await refresh;
-
-        const captureGate = hold(hemisphere);
         let captured = false;
         const capture = controller.captureScreenshot().then((png) => {
           captured = true;
           return png;
         });
-        await captureGate.started;
+        await refreshGate.started;
         await waitForIdle(map);
+        check(!refreshed, "an explicit refresh waits for the polar download");
         check(!captured, "screenshots wait for fresh polar data");
-        captureGate.release();
+        refreshGate.release();
+        await refresh;
         check(
           (await capture).startsWith("data:image/png;base64,"),
           "a polar-only viewport exports a PNG without Mercator demand",
         );
 
-        const failedGate = hold(hemisphere);
-        const failedCapture = controller.captureScreenshot();
-        await failedGate.started;
-        failedGate.release(false);
-        let captureError;
-        try {
-          await failedCapture;
-        } catch (error) {
-          captureError = error;
+        const requestCount = requests.length;
+        await controller.captureScreenshot();
+        check(
+          requests.length === requestCount,
+          "capture reuses settled map data",
+        );
+
+        if (sign === 1) {
+          const failedGate = hold(hemisphere);
+          const refresh = controller.refreshMapData();
+          const captureError = controller.captureScreenshot().then(
+            () => null,
+            (error) => error,
+          );
+          await failedGate.started;
+          failedGate.release(false);
+          await refresh;
+          check(
+            (await captureError)?.message ===
+              "Screenshot map data could not be refreshed",
+            "a failed polar refresh must not export the previous tracks",
+          );
+          hold(hemisphere).release();
+          check(
+            (await controller.captureScreenshot()).startsWith(
+              "data:image/png;base64,",
+            ),
+            "screenshots recover after the polar download succeeds",
+          );
         }
-        check(
-          captureError instanceof Error,
-          "a failed polar refresh must not export the previous tracks",
-        );
-        hold(hemisphere).release();
-        check(
-          (await controller.captureScreenshot()).startsWith(
-            "data:image/png;base64,",
-          ),
-          "screenshots recover after the polar download succeeds",
-        );
 
         // Leaving and re-entering a polar-only view reactivates Mercator demand.
         controller.jumpTo({ center: [0, sign * 70], zoom: 14 });

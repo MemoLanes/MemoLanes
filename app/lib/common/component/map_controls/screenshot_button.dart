@@ -11,7 +11,7 @@ class MapScreenshotButton extends StatelessWidget {
     required this.busy,
   });
 
-  final VoidCallback? onPressed;
+  final VoidCallback onPressed;
   final bool busy;
 
   @override

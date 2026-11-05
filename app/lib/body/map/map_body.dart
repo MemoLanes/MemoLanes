@@ -103,18 +103,19 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
       (widget.journeys.session != null &&
           widget.journeys.phase == JourneyPhase.viewing);
 
-  Future<void> takeScreenshot() async {
+  Future<void> _takeScreenshot() async {
     final loading = GlobalLoadingManager.instance;
-    if (_screenshotInProgress || !_canTakeScreenshot) return;
-    final mode = widget.mode;
-    final journey = widget.journeys.session?.journey;
-    if (loading.isLoading ||
-        loading.isNavigationBlocked ||
-        (mode == MapMode.timeMachine &&
-            _timelineKey.currentState?.canCaptureScreenshot != true)) {
+    if (_screenshotInProgress ||
+        !_canTakeScreenshot ||
+        ModalRoute.of(context)?.isCurrent != true) {
+      return;
+    }
+    if (loading.isLoading || loading.isNavigationBlocked) {
       Fluttertoast.showToast(msg: context.tr('screenshot.not_ready'));
       return;
     }
+    final mode = widget.mode;
+    final journey = widget.journeys.session?.journey;
     setState(() => _screenshotInProgress = true);
     ui.Image? mapImage;
     DateTimeRange? timeRange;
@@ -123,16 +124,20 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
       await loading.runWithLoading(() async {
         // Flush pending map proxy and layout changes before capturing.
         await WidgetsBinding.instance.endOfFrame;
-        if (!mounted) throw StateError('Map was closed');
+        if (!mounted || widget.mode != mode) return;
+        if (mode == MapMode.timeMachine) {
+          timeRange = _timelineKey.currentState?.screenshotDateRange;
+          if (timeRange == null) {
+            Fluttertoast.showToast(msg: context.tr('screenshot.not_ready'));
+            return;
+          }
+        }
         final mapState = _mainMapKey.currentState;
         final box = _mainMapKey.currentContext?.findRenderObject();
         if (mapState == null || box is! RenderBox || !box.hasSize) {
           throw StateError('Map is unavailable');
         }
         size = box.size;
-        if (mode == MapMode.timeMachine) {
-          timeRange = _timelineKey.currentState!.screenshotDateRange;
-        }
         mapImage = await decodeScreenshot(await mapState.captureScreenshot());
         // A rotation can resize the WebView even while pointer input is
         // blocked. Keep the frozen map and composition dimensions consistent.
@@ -140,10 +145,11 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
           throw StateError('Map resized during screenshot');
         }
       }, blockNavigation: true);
-      if (!mounted || widget.mode != mode) return;
+      final capturedMap = mapImage;
+      if (!mounted || widget.mode != mode || capturedMap == null) return;
       final route = MaterialPageRoute<bool>(
         builder: (_) => ScreenshotPreviewPage(
-          map: mapImage!,
+          map: capturedMap,
           logicalSize: size,
           timeRange: timeRange,
           journey: mode == MapMode.journeys ? journey : null,
@@ -227,10 +233,7 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
     _loadMapState();
     WidgetsBinding.instance.addObserver(this);
     screenshotChannel.setMethodCallHandler((call) async {
-      if (call.method == 'onSystemScreenshot' &&
-          ModalRoute.of(context)?.isCurrent == true) {
-        await takeScreenshot();
-      }
+      if (call.method == 'onSystemScreenshot') await _takeScreenshot();
     });
   }
 
@@ -400,21 +403,23 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
     final layout = AppLayoutScope.of(context);
     final showScreenshot =
         _canTakeScreenshot && (mode != MapMode.normal || widget.recordMapOnly);
-    final screenshotBounds = layout.screenshotControlBoundsFor(
-      mapControlsVisible: mode != MapMode.normal || !widget.recordMapOnly,
-    );
+    final screenshotBounds = showScreenshot && layout.chromeReady
+        ? layout.screenshotControlBounds(
+            backButtonVisible: mode == MapMode.journeys,
+          )
+        : Rect.zero;
 
     final children = <Widget>[
       _buildMapLayer(),
       if (mode != MapMode.normal || !widget.recordMapOnly)
         _buildOverlay(context, mode),
-      if (showScreenshot && layout.chromeReady && !screenshotBounds.isEmpty)
+      if (!screenshotBounds.isEmpty)
         Positioned.fromRect(
           rect: screenshotBounds,
           child: PointerInterceptor(
             child: MapScreenshotButton(
               busy: _screenshotInProgress,
-              onPressed: takeScreenshot,
+              onPressed: _takeScreenshot,
             ),
           ),
         ),

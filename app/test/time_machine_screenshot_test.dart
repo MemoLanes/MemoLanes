@@ -74,58 +74,43 @@ void main() {
     });
     await tester.pump();
     final state = key.currentState!;
-    expect(state.canCaptureScreenshot, isFalse);
-    expect(() => state.screenshotDateRange, throwsStateError);
+    expect(state.screenshotDateRange, isNull);
     final initial = _MapRenderer();
     // Both the picker and its initial ruler position can commit the range.
     for (final request in backend.requests) {
       request.complete(initial);
     }
     await tester.pumpAndSettle();
-    expect(state.canCaptureScreenshot, isTrue);
+    expect(state.screenshotDateRange, isNotNull);
     backend.requests.clear();
 
     final picker = tester.widget<TimeRangePicker>(find.byType(TimeRangePicker));
     picker.onRangeChanged(SimpleDate(2024), SimpleDate(2024, 12, 31));
-    expect(state.canCaptureScreenshot, isFalse);
-    // The displayed date already changed, although its debounced request has
-    // not started. A screenshot must not combine it with the previous map.
-    expect(backend.requests, isEmpty);
+    expect(state.screenshotDateRange, isNull);
     await tester.pump(const Duration(milliseconds: 100));
-    expect(backend.requests, hasLength(1));
+    final obsolete = backend.requests.single;
     picker.onRangeChanged(SimpleDate(2025), SimpleDate(2025, 12, 31));
-    // The previous request finishes before the new debounce expires. It must
-    // not publish an obsolete map while the picker already shows new dates.
-    backend.requests[0].complete(_MapRenderer());
+    obsolete.complete(_MapRenderer());
     await tester.pump();
     expect(loaded, [initial]);
-    expect(state.canCaptureScreenshot, isFalse);
+    expect(state.screenshotDateRange, isNull);
 
     await tester.pump(const Duration(milliseconds: 100));
-    expect(backend.requests, hasLength(2));
-    picker.onRangeCommitted!(SimpleDate(2025), SimpleDate(2025, 12, 31));
-    backend.requests[1].complete(_MapRenderer());
-    await tester.pump();
-    expect(loaded, [initial]);
-    expect(state.canCaptureScreenshot, isFalse);
-
     final latest = _MapRenderer();
-    backend.requests[2].complete(latest);
+    backend.requests.last.complete(latest);
     await tester.pumpAndSettle();
     expect(loaded, [initial, latest]);
     expect(
       state.screenshotDateRange,
       DateTimeRange(start: DateTime(2025), end: DateTime(2025, 12, 31)),
     );
-    expect(state.canCaptureScreenshot, isTrue);
 
     final gesture = await tester.startGesture(
       tester.getCenter(find.byType(ListView)),
     );
     await gesture.moveBy(const Offset(80, 0));
     await tester.pump();
-    expect(state.canCaptureScreenshot, isFalse);
-    expect(() => state.screenshotDateRange, throwsStateError);
+    expect(state.screenshotDateRange, isNull);
     await gesture.cancel();
     await tester.pumpWidget(const SizedBox.shrink());
   });

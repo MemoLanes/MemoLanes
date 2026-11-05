@@ -37,31 +37,22 @@ class ScreenshotComposition extends StatelessWidget {
   Widget build(BuildContext context) {
     final picture = logo;
     final journey = this.journey;
-    final showLogo =
-        picture != null && logoPosition != ScreenshotLogoPosition.hidden;
+    final logoAspectRatio = picture?.size.aspectRatio ?? 1;
     final logoWidth = math.min(
-      math.min(96.0, _logoMaxHeight * (picture?.size.aspectRatio ?? 1)),
+      math.min(96.0, _logoMaxHeight * logoAspectRatio),
       math.max(0.0, logicalSize.width - _imageEdgeInset * 2),
     );
-    final bottomLogo =
-        showLogo && logoPosition == ScreenshotLogoPosition.bottomRight;
-    final watermark = showLogo
-        ? SizedBox(
-            width: logoWidth,
-            child: AspectRatio(
-              aspectRatio: picture.size.aspectRatio,
-              child: CustomPaint(painter: _ScreenshotLogoPainter(picture)),
-            ),
-          )
-        : null;
     return SizedBox.fromSize(
       size: logicalSize,
       child: ClipRect(
         child: Stack(
           fit: StackFit.expand,
           children: [
-            // Content switches only affect overlays, never the frozen map.
-            RawImage(image: map, fit: BoxFit.fill),
+            // The WebView uses black behind the transparent globe canvas.
+            ColoredBox(
+              color: Colors.black,
+              child: RawImage(image: map, fit: BoxFit.fill),
+            ),
             if (includeInfo && (journey != null || timeRange != null))
               Positioned(
                 left: 0,
@@ -102,14 +93,20 @@ class ScreenshotComposition extends StatelessWidget {
                   ),
                 ),
               ),
-            if (watermark != null)
+            if (picture != null &&
+                logoPosition != ScreenshotLogoPosition.hidden)
               Positioned(
                 right: _imageEdgeInset,
                 top: logoPosition == ScreenshotLogoPosition.topRight
                     ? _imageEdgeInset
                     : null,
-                bottom: bottomLogo ? _imageEdgeInset : null,
-                child: watermark,
+                bottom: logoPosition == ScreenshotLogoPosition.bottomRight
+                    ? _imageEdgeInset
+                    : null,
+                child: CustomPaint(
+                  size: Size(logoWidth, logoWidth / logoAspectRatio),
+                  painter: _ScreenshotLogoPainter(picture),
+                ),
               ),
           ],
         ),
