@@ -26,8 +26,7 @@ try {
     (async () => {
       await page.goto(bundle.url);
       await page.waitForFunction(() => window.renderingResult, undefined, {
-        // The polar screenshot regressions exercise a 10s timeout per hemisphere.
-        timeout: 60_000,
+        timeout: 30_000,
       });
     })(),
   ]);

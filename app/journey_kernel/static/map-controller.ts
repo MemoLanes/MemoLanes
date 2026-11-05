@@ -89,6 +89,7 @@ export class MapController {
   private DisableAutoRefresh: boolean;
   private currentJourneyLayer: JourneyLayer | null = null;
   private journeyTileProvider: JourneyTileProvider | null = null;
+  private mapDataRefresh: Promise<boolean | null> | "failed" | null = null;
   private styleLoadRetry: StyleLoadRetry | null = null;
   private pollIntervalId: ReturnType<typeof setInterval> | null = null;
   private polarGlobeLocked = false;
@@ -371,37 +372,18 @@ export class MapController {
     return this.map;
   }
 
-  async captureScreenshot(): Promise<string> {
-    // A newly selected timeline/journey proxy can still have the old buffer
-    // on screen. Drain a forced refresh before accepting a rendered frame.
-    let timeout: ReturnType<typeof setTimeout> | undefined;
-    try {
-      const updated = await Promise.race([
-        this.refreshMapData(),
-        new Promise<never>((_, reject) => {
-          timeout = setTimeout(
-            () => reject(new Error("Screenshot data refresh timed out")),
-            8000,
-          );
-        }),
-      ]);
-      // A polar-only viewport refreshes its cap data without a Mercator buffer,
-      // so a successful refresh can return false. Still reject failed refreshes
-      // when Mercator data is needed, rather than exporting the previous buffer.
-      if (
-        updated === null ||
-        (updated === false && this.journeyTileProvider?.getViewRange() !== null)
-      )
+  captureScreenshot(): Promise<string> {
+    if (this.mapDataRefresh === "failed") void this.refreshMapData();
+    return captureMapFrame(this.map, () => {
+      if (this.mapDataRefresh === "failed") {
         throw new Error("Screenshot map data could not be refreshed");
-    } finally {
-      clearTimeout(timeout);
-    }
-    return captureMapFrame(
-      this.map,
-      () =>
+      }
+      return (
+        this.mapDataRefresh === null &&
         !this.webGLContextLost &&
-        this.currentJourneyLayer?.isReadyForDisplay() === true,
-    );
+        this.currentJourneyLayer?.isReadyForDisplay() === true
+      );
+    });
   }
 
   /** Prepare the spherical camera before MapLibre computes a destination.
@@ -513,14 +495,27 @@ export class MapController {
    * @returns Promise<boolean | null> - true if data was updated, false if no change, null on error
    */
   async refreshMapData(): Promise<boolean | null> {
-    if (!this.journeyTileProvider) {
+    const provider = this.journeyTileProvider;
+    if (!provider) {
       console.warn(
         "[MapController] Cannot refresh: tile provider not initialized",
       );
       return null;
     }
     console.log("[MapController] Refreshing map data");
-    return await this.journeyTileProvider.pollForJourneyUpdates(true);
+    const refresh = provider.pollForJourneyUpdates(true);
+    this.mapDataRefresh = refresh;
+    const updated = await refresh;
+    if (this.mapDataRefresh === refresh) {
+      // Polar-only refreshes can succeed without updating a Mercator buffer.
+      this.mapDataRefresh =
+        updated === null ||
+        (updated === false && provider.getViewRange() !== null)
+          ? "failed"
+          : null;
+      this.map.triggerRepaint();
+    }
+    return updated;
   }
 
   /**
@@ -770,6 +765,7 @@ export class MapController {
     }
     this.journeyTileProvider?.dispose();
     this.journeyTileProvider = null;
+    this.mapDataRefresh = null;
     this.map.remove();
   }
 

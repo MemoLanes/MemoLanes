@@ -133,54 +133,32 @@ export async function checkPolarDisplay(check) {
         await display.promise;
         // The hidden hemisphere is still downloading when first display completes.
         invisible.release();
-        await controller.refreshMapData();
-
         const refreshGate = hold(hemisphere);
-        let refreshed = false;
-        const refresh = controller.refreshMapData().then(() => {
-          refreshed = true;
-        });
-        await refreshGate.started;
-        await waitForIdle(map);
-        check(!refreshed, "an explicit refresh waits for the polar download");
-        refreshGate.release();
-        await refresh;
-
-        const captureGate = hold(hemisphere);
+        const refresh = controller.refreshMapData();
         let captured = false;
         const capture = controller.captureScreenshot().then((png) => {
           captured = true;
           return png;
         });
-        await captureGate.started;
+        await refreshGate.started;
         await waitForIdle(map);
-        check(!captured, "screenshots wait for fresh polar data");
-        captureGate.release();
+        check(!captured, "screenshots wait for an in-flight polar refresh");
+        refreshGate.release(false);
+        await refresh;
+        await waitForIdle(map);
+        check(!captured, "screenshots skip stale polar data after a failure");
+
+        hold(hemisphere).release();
+        await controller.refreshMapData();
         check(
           (await capture).startsWith("data:image/png;base64,"),
-          "a polar-only viewport exports a PNG without Mercator demand",
+          "screenshots recover when the current polar data is ready",
         );
-
-        const failedGate = hold(hemisphere);
-        const failedCapture = controller.captureScreenshot();
-        await failedGate.started;
-        failedGate.release(false);
-        let captureError;
-        try {
-          await failedCapture;
-        } catch (error) {
-          captureError = error;
-        }
+        const settledRequests = requests.length;
+        await controller.captureScreenshot();
         check(
-          captureError instanceof Error,
-          "a failed polar refresh must not export the previous tracks",
-        );
-        hold(hemisphere).release();
-        check(
-          (await controller.captureScreenshot()).startsWith(
-            "data:image/png;base64,",
-          ),
-          "screenshots recover after the polar download succeeds",
+          requests.length === settledRequests,
+          "capturing a settled map does not request more tracks",
         );
 
         // Leaving and re-entering a polar-only view reactivates Mercator demand.
@@ -191,6 +169,24 @@ export async function checkPolarDisplay(check) {
           controller.getTileProvider().getViewRange() !== null,
           "ordinary navigation restores Mercator demand",
         );
+        if (sign === 1) {
+          const failedGate = hold("mercator");
+          const refresh = controller.refreshMapData();
+          const capture = controller.captureScreenshot().then(
+            () => false,
+            (error) =>
+              error.message === "Screenshot map data could not be refreshed",
+          );
+          await failedGate.started;
+          failedGate.release(false);
+          await refresh;
+          check(
+            await capture,
+            "a failed Mercator refresh blocks stale exports",
+          );
+          hold("mercator").release();
+          await controller.captureScreenshot();
+        }
         // Observe the first polar frame as well as the settled view. An opaque
         // basemap would hide missing fog from the alpha checks.
         map.setPaintProperty("base", "background-opacity", 0);

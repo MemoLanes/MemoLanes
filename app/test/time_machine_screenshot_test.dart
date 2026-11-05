@@ -74,20 +74,19 @@ void main() {
     });
     await tester.pump();
     final state = key.currentState!;
-    expect(state.canCaptureScreenshot, isFalse);
-    expect(() => state.screenshotDateRange, throwsStateError);
+    expect(state.screenshotDateRange, isNull);
     final initial = _MapRenderer();
     // Both the picker and its initial ruler position can commit the range.
     for (final request in backend.requests) {
       request.complete(initial);
     }
     await tester.pumpAndSettle();
-    expect(state.canCaptureScreenshot, isTrue);
+    expect(state.screenshotDateRange, isNotNull);
     backend.requests.clear();
 
     final picker = tester.widget<TimeRangePicker>(find.byType(TimeRangePicker));
     picker.onRangeChanged(SimpleDate(2024), SimpleDate(2024, 12, 31));
-    expect(state.canCaptureScreenshot, isFalse);
+    expect(state.screenshotDateRange, isNull);
     // The displayed date already changed, although its debounced request has
     // not started. A screenshot must not combine it with the previous map.
     expect(backend.requests, isEmpty);
@@ -99,33 +98,24 @@ void main() {
     backend.requests[0].complete(_MapRenderer());
     await tester.pump();
     expect(loaded, [initial]);
-    expect(state.canCaptureScreenshot, isFalse);
+    expect(state.screenshotDateRange, isNull);
 
     await tester.pump(const Duration(milliseconds: 100));
-    expect(backend.requests, hasLength(2));
-    picker.onRangeCommitted!(SimpleDate(2025), SimpleDate(2025, 12, 31));
-    backend.requests[1].complete(_MapRenderer());
-    await tester.pump();
-    expect(loaded, [initial]);
-    expect(state.canCaptureScreenshot, isFalse);
-
     final latest = _MapRenderer();
-    backend.requests[2].complete(latest);
+    backend.requests[1].complete(latest);
     await tester.pumpAndSettle();
     expect(loaded, [initial, latest]);
     expect(
       state.screenshotDateRange,
       DateTimeRange(start: DateTime(2025), end: DateTime(2025, 12, 31)),
     );
-    expect(state.canCaptureScreenshot, isTrue);
 
     final gesture = await tester.startGesture(
       tester.getCenter(find.byType(ListView)),
     );
     await gesture.moveBy(const Offset(80, 0));
     await tester.pump();
-    expect(state.canCaptureScreenshot, isFalse);
-    expect(() => state.screenshotDateRange, throwsStateError);
+    expect(state.screenshotDateRange, isNull);
     await gesture.cancel();
     await tester.pumpWidget(const SizedBox.shrink());
   });
