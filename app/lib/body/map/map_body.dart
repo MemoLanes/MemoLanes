@@ -98,7 +98,7 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
   final _timelineKey = GlobalKey<TimeMachineOverlayState>();
   bool _screenshotInProgress = false;
 
-  Future<void> _takeScreenshot() async {
+  Future<void> takeScreenshot() async {
     final loading = GlobalLoadingManager.instance;
     if (_screenshotInProgress) return;
     if (loading.isLoading || loading.isNavigationBlocked) {
@@ -112,6 +112,11 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
       Fluttertoast.showToast(msg: context.tr('screenshot.not_ready'));
       return;
     }
+    if (mode == MapMode.timeMachine &&
+        _timelineKey.currentState?.canCaptureScreenshot != true) {
+      Fluttertoast.showToast(msg: context.tr('screenshot.not_ready'));
+      return;
+    }
     setState(() => _screenshotInProgress = true);
     ui.Image? mapImage;
     DateTimeRange? timeRange;
@@ -120,20 +125,16 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
       await loading.runWithLoading(() async {
         // Flush pending proxy/layout changes before freezing either layer.
         await WidgetsBinding.instance.endOfFrame;
-        if (!mounted || widget.mode != mode) return;
-        if (mode == MapMode.timeMachine) {
-          timeRange = _timelineKey.currentState?.screenshotDateRange;
-          if (timeRange == null) {
-            Fluttertoast.showToast(msg: context.tr('screenshot.not_ready'));
-            return;
-          }
-        }
+        if (!mounted) throw StateError('Map was closed');
         final mapState = _mainMapKey.currentState;
         final box = _mainMapKey.currentContext?.findRenderObject();
         if (mapState == null || box is! RenderBox || !box.hasSize) {
           throw StateError('Map is unavailable');
         }
         size = box.size;
+        if (mode == MapMode.timeMachine) {
+          timeRange = _timelineKey.currentState!.screenshotDateRange;
+        }
         mapImage = await decodeScreenshot(await mapState.captureScreenshot());
         // A rotation can resize the WebView even while pointer input is
         // blocked. Keep the frozen map and composition dimensions consistent.
@@ -141,11 +142,10 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
           throw StateError('Map resized during screenshot');
         }
       }, blockNavigation: true);
-      final capturedMap = mapImage;
-      if (!mounted || widget.mode != mode || capturedMap == null) return;
+      if (!mounted || widget.mode != mode) return;
       final route = MaterialPageRoute<bool>(
         builder: (_) => ScreenshotPreviewPage(
-          map: capturedMap,
+          map: mapImage!,
           logicalSize: size,
           timeRange: timeRange,
           journey: mode == MapMode.journeys ? journey : null,
@@ -400,23 +400,21 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
         widget.journeys.session != null &&
             widget.journeys.phase == JourneyPhase.viewing,
     };
-    final screenshotBounds = showScreenshot && layout.chromeReady
-        ? layout.screenshotControlBounds(
-            avoidBackButton: mode == MapMode.journeys,
-          )
-        : Rect.zero;
+    final screenshotBounds = layout.screenshotControlBoundsFor(
+      mapControlsVisible: mode != MapMode.normal || !widget.recordMapOnly,
+    );
 
     final children = <Widget>[
       _buildMapLayer(),
       if (mode != MapMode.normal || !widget.recordMapOnly)
         _buildOverlay(context, mode),
-      if (!screenshotBounds.isEmpty)
+      if (showScreenshot && layout.chromeReady && !screenshotBounds.isEmpty)
         Positioned.fromRect(
           rect: screenshotBounds,
           child: PointerInterceptor(
             child: MapScreenshotButton(
-              loading: _screenshotInProgress,
-              onPressed: _takeScreenshot,
+              key: ValueKey((mode, widget.journeys.session?.journey.id)),
+              onPressed: _screenshotInProgress ? null : takeScreenshot,
             ),
           ),
         ),

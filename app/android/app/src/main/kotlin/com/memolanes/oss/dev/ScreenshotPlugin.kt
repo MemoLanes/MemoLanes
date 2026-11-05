@@ -10,7 +10,6 @@ import android.os.Environment
 import android.os.Handler
 import android.os.Looper
 import android.provider.MediaStore
-import android.util.Log
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.embedding.engine.plugins.activity.ActivityAware
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
@@ -20,8 +19,6 @@ import io.flutter.plugin.common.PluginRegistry
 import java.io.File
 import java.util.UUID
 import java.util.concurrent.Executors
-
-private const val TAG = "ScreenshotPlugin"
 
 class ScreenshotPlugin : FlutterPlugin, ActivityAware,
     MethodChannel.MethodCallHandler, PluginRegistry.RequestPermissionsResultListener {
@@ -112,17 +109,8 @@ class ScreenshotPlugin : FlutterPlugin, ActivityAware,
                 }
                 main.post { result.success(null) }
             } catch (error: Exception) {
-                Log.e(TAG, "Saving screenshot to Photos failed", error)
-                uri?.let { destination ->
-                    runCatching {
-                        check(resolver.delete(destination, null, null) >= 0) { "MediaStore cleanup failed" }
-                    }.onFailure { Log.e(TAG, "Cleaning up screenshot entry $destination failed", it) }
-                }
-                legacyFile?.let { file ->
-                    runCatching {
-                        check(file.delete() || !file.exists()) { "File still exists after delete" }
-                    }.onFailure { Log.e(TAG, "Cleaning up screenshot file $file failed", it) }
-                }
+                uri?.let { runCatching { resolver.delete(it, null, null) } }
+                legacyFile?.let { runCatching { it.delete() } }
                 main.post { result.error("save_failed", error.message, null) }
             }
         }

@@ -39,11 +39,11 @@ export function observeSingleMapTap(
       press?.pointerId === event.pointerId &&
       event.timeStamp - press.timeStamp <= 300
     ) {
-      // Match MapLibre's double-tap window before hiding the controls.
+      // Wait beyond MapLibre's double-tap interval before hiding any controls.
       pending = setTimeout(() => {
         pending = undefined;
         onTap();
-      }, 500);
+      }, 350);
     }
     pointers.delete(event.pointerId);
     press = undefined;

@@ -60,8 +60,7 @@ class ScreenshotComposition extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            // Match the WebView background behind the transparent globe canvas.
-            const ColoredBox(color: Colors.black),
+            // Content switches only affect overlays, never the frozen map.
             RawImage(image: map, fit: BoxFit.fill),
             if (includeInfo && (journey != null || timeRange != null))
               Positioned(

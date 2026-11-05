@@ -32,11 +32,27 @@ class TimeMachineOverlay extends StatefulWidget {
 }
 
 class TimeMachineOverlayState extends State<TimeMachineOverlay> {
-  DateTimeRange? _loadedRange;
+  bool _rangeReady = false;
   bool _timelineScrolling = false;
 
-  DateTimeRange? get screenshotDateRange =>
-      _timelineScrolling ? null : _loadedRange;
+  bool get canCaptureScreenshot =>
+      _rangeReady &&
+      !_loading &&
+      !_timelineScrolling &&
+      _rangeLoadDebounceTimer == null;
+
+  /// Freeze dates only after the matching map data has loaded.
+  DateTimeRange get screenshotDateRange {
+    if (!canCaptureScreenshot ||
+        _requestedFrom == null ||
+        _requestedTo == null) {
+      throw StateError('Timeline is still loading');
+    }
+    return DateTimeRange(
+      start: _requestedFrom!.toLocalDateTime(),
+      end: _requestedTo!.toLocalDateTime(),
+    );
+  }
 
   static const _rangeLoadDebounce = Duration(milliseconds: 100);
   static const _loadErrorMessage =
@@ -85,7 +101,7 @@ class TimeMachineOverlayState extends State<TimeMachineOverlay> {
     _requestedTo = to;
     final journeyKinds = Set<JourneyKind>.from(_selectedJourneyKinds);
     setState(() => _loading = true);
-    _loadedRange = null;
+    _rangeReady = false;
     try {
       final proxy = await api.getMapRendererProxyForJourneyDateRange(
         fromDateInclusive: from.toFrbNaiveDate(),
@@ -94,10 +110,7 @@ class TimeMachineOverlayState extends State<TimeMachineOverlay> {
       );
       if (mounted && _loadGuard.isActive(loadToken)) {
         widget.onJourneyRangeLoaded(proxy);
-        _loadedRange = DateTimeRange(
-          start: from.toLocalDateTime(),
-          end: to.toLocalDateTime(),
-        );
+        _rangeReady = true;
       }
     } catch (error, stackTrace) {
       log.error('$_loadErrorMessage: $error', stackTrace);
@@ -112,7 +125,7 @@ class TimeMachineOverlayState extends State<TimeMachineOverlay> {
   void _scheduleJourneyRangeLoad(SimpleDate from, SimpleDate to) {
     // Invalidate immediately: an older request may finish during the debounce.
     _loadGuard.invalidate();
-    _loadedRange = null;
+    _rangeReady = false;
     _requestedFrom = from;
     _requestedTo = to;
     _rangeLoadDebounceTimer?.cancel();

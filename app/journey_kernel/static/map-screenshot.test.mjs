@@ -45,7 +45,11 @@ function fakeMap() {
 test("captures synchronously only after camera, map and tracks are ready", async () => {
   const map = fakeMap();
   let tracksReady = false;
-  const capture = captureMapFrame(map, () => tracksReady);
+  let resolved = false;
+  const capture = captureMapFrame(map, () => tracksReady).then((value) => {
+    resolved = true;
+    return value;
+  });
   map.emit("render");
   tracksReady = true;
   map.moving = true;
@@ -53,7 +57,8 @@ test("captures synchronously only after camera, map and tracks are ready", async
   map.moving = false;
   map.ready = false;
   map.emit("render");
-  assert.equal(map.listeners.has("render"), true);
+  await Promise.resolve();
+  assert.equal(resolved, false);
   map.ready = true;
   map.emit("render");
   assert.equal(await capture, "data:image/png;base64,test");

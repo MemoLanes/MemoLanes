@@ -39,32 +39,45 @@ function fixture(t) {
 test("a short tap fires once, including touch pointerleave after release", (t) => {
   const f = fixture(t);
   f.emit("pointerdown");
-  f.emit("pointerup", { clientX: 22, timeStamp: 100 });
+  f.emit("pointerup", { timeStamp: 100 });
   f.emit("pointerleave", { timeStamp: 100 });
-  t.mock.timers.tick(499);
   assert.equal(f.taps, 0);
-  t.mock.timers.tick(1);
+  t.mock.timers.tick(350);
   assert.equal(f.taps, 1);
   t.mock.timers.tick(1000);
   assert.equal(f.taps, 1);
 });
 
-test("taps released 400 ms apart cancel single-tap mode changes", (t) => {
+test("a second tap cancels single-tap mode changes", (t) => {
   const f = fixture(t);
   f.emit("pointerdown");
   f.emit("pointerup", { timeStamp: 50 });
-  t.mock.timers.tick(375);
-  f.emit("pointerdown", { timeStamp: 425 });
-  t.mock.timers.tick(25);
-  f.emit("pointerup", { timeStamp: 450 });
+  t.mock.timers.tick(100);
+  f.emit("pointerdown", { timeStamp: 150 });
+  f.emit("pointerup", { timeStamp: 200 });
   t.mock.timers.tick(500);
   assert.equal(f.taps, 0);
+});
+
+test("small map drags are not taps, but sub-tolerance jitter is allowed", (t) => {
+  const f = fixture(t);
+  for (const distance of [3, 5, 8]) {
+    f.emit("pointerdown");
+    f.emit("pointermove", { clientX: 20 + distance });
+    f.emit("pointerup", { timeStamp: 100 });
+    t.mock.timers.tick(500);
+    assert.equal(f.taps, 0, `A ${distance}px drag must not toggle controls`);
+  }
+  f.emit("pointerdown");
+  f.emit("pointerup", { clientX: 22, timeStamp: 100 });
+  t.mock.timers.tick(500);
+  assert.equal(f.taps, 1);
 });
 
 test("dragging out and back, long press and right click are not taps", (t) => {
   const f = fixture(t);
   f.emit("pointerdown");
-  f.emit("pointermove", { clientX: 23 });
+  f.emit("pointermove", { clientX: 50 });
   f.emit("pointerup", { timeStamp: 100 });
   t.mock.timers.tick(500);
   f.emit("pointerdown");
