@@ -54,16 +54,34 @@ All parameters are optional except `cgi_endpoint` which is required.
 | Parameter | Description | Type | Default |
 |-----------|-------------|------|---------|
 | `cgi_endpoint` | CGI endpoint URL | string | Required |
-| `access_key` | Mapbox access token (required for Mapbox styles) | string | - |
+| `access_key` | Token used to resolve `mapbox://` resource URLs when provided | string | - |
 | `lng` | Initial longitude | number | 0 |
 | `lat` | Initial latitude | number | 0 |
 | `zoom` | Initial zoom level | number | 2 |
 | `render` | Render method | `'canvas'` | `'canvas'` |
-| `map_style` | Map style URL | string | OpenFreeMap Liberty |
+| `map_style` | MapLibre style URL or inline style | string or object | OpenFreeMap Liberty |
+| `custom_basemap` | Whether Flutter selected a custom basemap | boolean | `false` |
 | `fog_style` | Fog palette ID (`dark` or `light`) | string | `dark` |
 | `fog_density` | Fog density (0-1) | number | Style default (0.5 dark, 0.6 light) |
 | `projection` | Map projection | `'mercator'` \| `'globe'` | `'globe'` |
 | `debug` | Show debug panel | `'true'` \| `'false'` | `'false'` |
+
+Flutter stores the selection in MMKV's `mapStyle`: a built-in ID or
+`custom:<id>`. Custom configurations are stored separately in
+`Settings.custom_basemaps` as a `styles` array inside a JSON object; their IDs
+have no `custom:` prefix. When the map opens,
+MapLibre loads either the selected style URL or the inline raster style Flutter
+builds from a raster tile template. Custom styles should use absolute resource
+URLs.
+Flutter supplies its built-in token only for non-custom `mapbox://` styles.
+Standalone browser callers can pass `access_key` explicitly; without it,
+Mapbox resource URLs are left unchanged.
+MapLibre's attribution control collects visible source attribution from the
+style or TileJSON. The Flutter home map shows its Data Source button when
+attribution is available and reads the credits, including links, on demand.
+Built-in styles retry every eight seconds while the placeholder is active.
+If a custom style fails, the saved selection is kept and the user can reopen
+the map or choose another style.
 
 ## Web Development
 

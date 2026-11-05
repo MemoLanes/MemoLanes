@@ -66,8 +66,6 @@ async function trySetup(): Promise<void> {
     window.EXTERNAL_PARAMS = parseUrlHash();
   }
 
-  console.log(`parse external params`, window.EXTERNAL_PARAMS);
-
   // Create ReactiveParams from external parameters
   // Returns null if cgi_endpoint is not available yet (waiting for Flutter)
   // Throws error for other validation failures
@@ -90,11 +88,6 @@ async function trySetup(): Promise<void> {
   console.log(
     `render: ${params.renderMode}, lng: ${params.lng}, lat: ${params.lat}, zoom: ${params.zoom}`,
   );
-  console.log(
-    "EXTERNAL_PARAMS for endpoint configuration:",
-    window.EXTERNAL_PARAMS,
-  );
-
   // Editor-specific bridge (used by journey track editor)
   const isEditor = window.EXTERNAL_PARAMS.editor === true;
 
@@ -106,6 +99,7 @@ async function trySetup(): Promise<void> {
       containerId: "map",
       params,
       DisableAutoRefresh: isEditor,
+      attributionLabel: window.EXTERNAL_PARAMS.attribution_label,
     });
   } catch (error) {
     if (!(error instanceof GPUInitializationError)) throw error;
@@ -152,6 +146,7 @@ async function trySetup(): Promise<void> {
   // Keep Flutter's cover until that content reaches a completed map frame.
   await mapController.waitForDisplay();
   notifyFlutterReady();
+  flutterBridge.observeMapAttribution();
 }
 
 // Export trySetup to window for Flutter to call

@@ -306,6 +306,34 @@
       "style_name": {
         "maplibre": "MapLibre 演示瓦片",
         "openfreemap": "OpenFreeMap"
+      },
+      "basemaps": {
+        "title": "地图样式",
+        "built_in": "内置样式",
+        "my_maps": "自定义样式",
+        "empty": "还没有自定义样式，添加你喜欢的地图链接。",
+        "add": "添加样式",
+        "edit": "编辑样式",
+        "attribution": "地图数据来源",
+        "type_style": "地图样式",
+        "type_raster_tiles": "栅格瓦片",
+        "name": "样式名称",
+        "style_url": "样式链接",
+        "tile_url": "瓦片地址",
+        "style_url_help": "填写完整的地图样式链接，所需参数请直接拼在链接中。",
+        "tile_url_help": "地址须包含 {z}、{x}、{y}，加载时会替换为瓦片层级和坐标。",
+        "tile_options": "瓦片设置",
+        "tile_size": "瓦片大小",
+        "scheme": "坐标方案",
+        "required": "请填写此项",
+        "invalid_https_url": "请填写完整的 HTTPS 地址",
+        "invalid_tiles": "瓦片地址须包含 {z}、{x}、{y}",
+        "write_failed": "保存失败，请重试",
+        "save_and_use": "保存并使用",
+        "delete": "删除样式",
+        "delete_title": "删除样式？",
+        "delete_message": "确定删除「{name}」吗？",
+        "delete_selected_message": "删除「{name}」后，将切换回默认样式。"
       }
     },
     "advanced_settings": {

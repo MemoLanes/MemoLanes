@@ -306,6 +306,34 @@
       "style_name": {
         "maplibre": "MapLibre Demo Tile",
         "openfreemap": "OpenFreeMap"
+      },
+      "basemaps": {
+        "title": "Map Styles",
+        "built_in": "Built-in styles",
+        "my_maps": "Custom styles",
+        "empty": "No custom styles yet. Add a map link to get started.",
+        "add": "Add style",
+        "edit": "Edit style",
+        "attribution": "Map data sources",
+        "type_style": "Map style",
+        "type_raster_tiles": "Raster tiles",
+        "name": "Style name",
+        "style_url": "Style URL",
+        "tile_url": "Tile URL",
+        "style_url_help": "Enter a complete map style URL, including any parameters it requires.",
+        "tile_url_help": "Include {z}, {x}, and {y}; they are replaced with the tile zoom and coordinates.",
+        "tile_options": "Tile settings",
+        "tile_size": "Tile size",
+        "scheme": "Coordinate scheme",
+        "required": "This field is required",
+        "invalid_https_url": "Enter a complete HTTPS URL",
+        "invalid_tiles": "The tile URL must include {z}, {x}, and {y}",
+        "write_failed": "Could not save. Please try again.",
+        "save_and_use": "Save and use",
+        "delete": "Delete style",
+        "delete_title": "Delete style?",
+        "delete_message": "Delete “{name}”?",
+        "delete_selected_message": "Deleting “{name}” will switch to the default style."
       }
     },
     "advanced_settings": {

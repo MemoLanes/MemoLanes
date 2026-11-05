@@ -45,6 +45,7 @@ declare global {
     onMapMoved?: FlutterMessageChannel;
     onMapViewChanged?: FlutterMessageChannel;
     onMapZoomChanged?: FlutterMessageChannel;
+    onMapAttributionChanged?: FlutterMessageChannel;
     trySetup?: () => Promise<void>;
     updateLocationMarker?: (
       lng: number,
@@ -53,6 +54,7 @@ declare global {
       flyto?: boolean,
     ) => void;
     getCurrentMapView?: () => string;
+    getMapAttribution?: () => string | null;
     refreshMapData?: () => Promise<boolean | null>;
     flyToBounds?: (bounds: MapBounds, padding: MapPadding) => void;
     flyToView?: (view: MapView) => void;
@@ -98,6 +100,63 @@ export class FlutterBridge {
     if (window.onMapMoved) {
       window.onMapMoved.postMessage("");
     }
+  }
+
+  private getMapAttribution(): string | null {
+    // MapLibre has already collected and sanitized the visible source credits.
+    const credits = this.map
+      .getContainer()
+      .querySelector(
+        ".maplibregl-ctrl-attrib:not(.maplibregl-attrib-empty) .maplibregl-ctrl-attrib-inner",
+      );
+    if (!credits?.textContent?.trim()) return null;
+
+    // Preserve links for Flutter's Markdown dialog; treat other content as text.
+    const escapeText = (text: string) =>
+      text.replace(/[!-/:-@\[-`{-~]/g, "\\$&");
+    const toMarkdown = (node: Node): string => {
+      if (node.nodeType === Node.TEXT_NODE) {
+        return escapeText(node.textContent ?? "");
+      }
+      if (node instanceof HTMLBRElement) return "\n";
+      if (node instanceof HTMLAnchorElement) {
+        const label = escapeText(node.textContent ?? "");
+        if (node.protocol !== "https:" && node.protocol !== "http:") {
+          return label;
+        }
+        const href = node.href
+          .replace(/[<>\\\s]/g, encodeURIComponent)
+          .replace(/&/g, "&amp;");
+        return `[${label}](<${href}>)`;
+      }
+      return Array.from(node.childNodes, toMarkdown).join("");
+    };
+    return toMarkdown(credits);
+  }
+
+  observeMapAttribution(): void {
+    const channel = window.onMapAttributionChanged;
+    const control = this.map
+      .getContainer()
+      .querySelector(".maplibregl-ctrl-attrib");
+    if (!channel || !control) return;
+
+    let available = false;
+    const update = () => {
+      const next = Boolean(this.getMapAttribution()?.trim());
+      if (next === available) return;
+      available = next;
+      channel.postMessage(String(next));
+    };
+    const observer = new MutationObserver(update);
+    observer.observe(control, {
+      attributes: true,
+      attributeFilter: ["class"],
+      childList: true,
+      subtree: true,
+    });
+    this.map.once("remove", () => observer.disconnect());
+    update();
   }
 
   /**
@@ -198,6 +257,8 @@ export class FlutterBridge {
         zoom: this.map.getZoom(),
       });
     };
+
+    window.getMapAttribution = () => this.getMapAttribution();
 
     // Refresh map data - allows Flutter to trigger a data refresh
     window.refreshMapData = () => this.mapController.refreshMapData();

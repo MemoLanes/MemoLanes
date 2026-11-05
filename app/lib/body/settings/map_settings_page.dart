@@ -6,7 +6,8 @@ import 'package:memolanes/common/component/app_option_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
 import 'package:memolanes/common/map_fog_style.dart';
-import 'package:memolanes/common/map_style.dart';
+import 'package:memolanes/common/map_style_store.dart';
+import 'package:memolanes/body/settings/map_styles_page.dart';
 import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/common/region_preference.dart';
 import 'package:memolanes/common/utils.dart';
@@ -21,32 +22,19 @@ class MapSettingsPage extends StatefulWidget {
 }
 
 class _MapSettingsPageState extends State<MapSettingsPage> {
-  late MapStyle _current;
   late MapFogStyle _currentFogStyle;
   late Worldview _worldview;
 
   @override
   void initState() {
     super.initState();
-    final id = MMKVUtil.getStringOpt(MMKVKey.mapStyle);
-    _current = MapStyle.findById(id);
     final fogModeId = MMKVUtil.getStringOpt(MMKVKey.mapFogMode);
     _currentFogStyle = MapFogStyle.findById(fogModeId);
     _worldview = WorldviewManager.instance.currentWorldview;
   }
 
-  String _labelFor(MapStyle style) {
-    return context.tr("general.map_settings.style_name.${style.id}");
-  }
-
   String _fogStyleLabelFor(MapFogStyle style) {
     return context.tr("general.map_settings.fog_mode_name.${style.id}");
-  }
-
-  void _updateStyle(MapStyle style) {
-    if (_current.id == style.id) return;
-    setState(() => _current = style);
-    MMKVUtil.putString(MMKVKey.mapStyle, style.id);
   }
 
   void _updateFogStyle(MapFogStyle style) {
@@ -55,32 +43,10 @@ class _MapSettingsPageState extends State<MapSettingsPage> {
     MMKVUtil.putString(MMKVKey.mapFogMode, style.id);
   }
 
-  void _showMapStylePicker() {
-    showAppDialog(
-      context,
-      builder: (dialogContext) => AppDialogContent(
-        title: context.tr("general.map_settings.style"),
-        contentPadding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (final mapStyle in MapStyle.all) ...[
-              AppOptionTile(
-                icon: Icons.map_outlined,
-                title: _labelFor(mapStyle),
-                selected: _current.id == mapStyle.id,
-                trailing: AppOptionTileTrailing.selection,
-                onTap: () {
-                  Navigator.of(dialogContext).pop();
-                  _updateStyle(mapStyle);
-                },
-              ),
-              if (mapStyle != MapStyle.all.last) const SizedBox(height: 8),
-            ],
-          ],
-        ),
-      ),
-    );
+  Future<void> _showMapStylePicker() async {
+    await Navigator.of(context)
+        .push<void>(MaterialPageRoute(builder: (_) => const MapStylesPage()));
+    if (mounted) setState(() {});
   }
 
   void _showFogStylePicker() {
@@ -141,7 +107,10 @@ class _MapSettingsPageState extends State<MapSettingsPage> {
                 label: context.tr("general.map_settings.style"),
                 position: LabelTilePosition.top,
                 trailing: LabelTileContent(
-                  content: _labelFor(_current),
+                  content: mapStyleLabel(
+                    context,
+                    MapStyleStore.instance.selected,
+                  ),
                   showArrow: true,
                 ),
                 onTap: _showMapStylePicker,
