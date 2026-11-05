@@ -5,19 +5,18 @@ import { waitForRenderedFrame } from "./display-ready.ts";
 
 function fakeMap() {
   const listeners = new Map();
-  const calls = [];
   return {
-    calls,
+    listeners,
+    repaintRequested: false,
     on(type, listener) {
       listeners.set(type, listener);
     },
     off(type, listener) {
       assert.equal(listeners.get(type), listener);
       listeners.delete(type);
-      calls.push(`off:${type}`);
     },
     triggerRepaint() {
-      calls.push("repaint");
+      this.repaintRequested = true;
     },
     emit(type) {
       listeners.get(type)?.();
@@ -25,45 +24,58 @@ function fakeMap() {
   };
 }
 
-test("an unready render does not release the display gate", async () => {
+test("initial display waits for a ready render, including after context loss", async () => {
   const map = fakeMap();
   let ready = false;
-  let settled = false;
-  const frame = waitForRenderedFrame(map, () => ready).then(() => {
-    settled = true;
-  });
-
+  const frame = waitForRenderedFrame(map, () => ready || undefined);
+  assert.equal(map.repaintRequested, true);
   map.emit("render");
-  await Promise.resolve();
-  assert.equal(settled, false);
-
+  assert.equal(map.listeners.has("render"), true);
+  map.emit("webglcontextlost");
   ready = true;
   map.emit("render");
-  await frame;
-  assert.deepEqual(map.calls, ["repaint", "off:render", "off:remove"]);
+  assert.equal(await frame, true);
+  assert.equal(map.listeners.size, 0);
 });
 
-test("a ready map still waits for a real render and then removes listeners", async () => {
+test("capture reads pixels synchronously inside render", async () => {
   const map = fakeMap();
-  let settled = false;
-  const frame = waitForRenderedFrame(map, () => true).then(() => {
-    settled = true;
-  });
-
-  await Promise.resolve();
-  assert.equal(settled, false);
+  const png = "data:image/png;base64,test";
+  let rendering = false;
+  const frame = waitForRenderedFrame(
+    map,
+    () => {
+      assert.equal(rendering, true);
+      return png;
+    },
+    10000,
+  );
+  rendering = true;
   map.emit("render");
-  await frame;
-  assert.deepEqual(map.calls, ["repaint", "off:render", "off:remove"]);
+  rendering = false;
+  assert.equal(await frame, png);
+  assert.equal(map.listeners.size, 0);
 });
 
-test("map removal rejects and cleans up both listeners", async () => {
-  const map = fakeMap();
-  const frame = waitForRenderedFrame(map, () => false);
-
-  map.emit("remove");
-  await assert.rejects(frame, {
-    message: "Map removed before its first displayable frame",
-  });
-  assert.deepEqual(map.calls, ["repaint", "off:render", "off:remove"]);
+test("failed frame reads release their listeners", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  for (const [event, timeout, error] of [
+    ["remove", undefined, /Map removed/],
+    ["webglcontextlost", 10, /Map unavailable/],
+    ["render", 10, /Tainted canvas/],
+    ["timeout", 10, /timed out/],
+  ]) {
+    const map = fakeMap();
+    const frame = waitForRenderedFrame(
+      map,
+      () => {
+        throw new Error("Tainted canvas");
+      },
+      timeout,
+    );
+    if (event === "timeout") t.mock.timers.tick(timeout);
+    else map.emit(event);
+    await assert.rejects(frame, error);
+    assert.equal(map.listeners.size, 0);
+  }
 });

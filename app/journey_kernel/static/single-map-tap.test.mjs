@@ -38,42 +38,60 @@ function fixture(t) {
   }
   return {
     emit,
+    stop,
     tap(duration = 50) {
       emit("pointerdown");
       emit("pointerup", { timeStamp: duration });
     },
-    zoom: () => mapEvents.dispatchEvent(new Event("zoomstart")),
+    fireMapEvent(type, inputType) {
+      const event = new Event(type);
+      if (inputType) event.originalEvent = { type: inputType };
+      mapEvents.dispatchEvent(event);
+    },
     taps: () => taps,
   };
 }
 
-test("a single tap toggles the record controls after the double-tap window", (t) => {
+test("a single tap waits for the double-tap window and a second tap cancels it", (t) => {
   const f = fixture(t);
   f.tap();
   f.emit("pointerleave");
+  f.fireMapEvent("movestart");
   t.mock.timers.tick(420);
   assert.equal(f.taps(), 0);
   t.mock.timers.tick(80);
   assert.equal(f.taps(), 1);
-});
 
-test("a second tap after 420 ms cancels the mode change", (t) => {
-  const f = fixture(t);
   f.tap();
   t.mock.timers.tick(420);
   f.tap();
   t.mock.timers.tick(500);
+  assert.equal(f.taps(), 1);
+});
+
+test("leaving the map tab cancels the pending tap and detaches the observer", (t) => {
+  const f = fixture(t);
+  f.tap();
+  f.stop();
+  f.tap();
+  t.mock.timers.tick(500);
   assert.equal(f.taps(), 0);
 });
 
-test("map zoom cancels a tap even if its first press was too long to toggle controls", (t) => {
+test("recognized zoom gestures cancel a tap after a longer first press", (t) => {
   const f = fixture(t);
-  f.tap(400);
-  t.mock.timers.tick(100);
-  f.tap();
-  f.zoom();
-  t.mock.timers.tick(500);
-  assert.equal(f.taps(), 0);
+  for (const [type, inputType] of [
+    ["zoomstart"],
+    ["movestart", "touchend"],
+    ["movestart", "dblclick"],
+  ]) {
+    f.tap(400);
+    t.mock.timers.tick(100);
+    f.tap();
+    f.fireMapEvent(type, inputType);
+    t.mock.timers.tick(500);
+    assert.equal(f.taps(), 0, inputType ?? type);
+  }
 });
 
 test("drags, pinches and cancelled touches leave the controls alone", (t) => {

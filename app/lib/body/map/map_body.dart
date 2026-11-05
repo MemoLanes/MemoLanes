@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:ui' as ui;
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:material_ui/material_ui.dart';
@@ -9,23 +8,19 @@ import 'package:memolanes/body/map/journey_flow_controller.dart';
 import 'package:memolanes/body/map/overlay/journey_detail_overlay.dart';
 import 'package:memolanes/body/map/overlay/normal_map_overlay.dart';
 import 'package:memolanes/body/map/overlay/time_machine_overlay.dart';
+import 'package:memolanes/body/map/screenshot/map_screenshot_flow.dart';
 import 'package:memolanes/common/component/base_map_webview.dart';
 import 'package:memolanes/common/component/map_controls/screenshot_button.dart';
-import 'package:memolanes/common/app_layout.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/component/map_overlay_panel.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/loading_manager.dart';
-import 'package:memolanes/common/screenshot.dart';
-import 'package:memolanes/body/map/screenshot/screenshot_preview_page.dart';
-import 'package:fluttertoast/fluttertoast.dart';
 import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
 import 'package:memolanes/utils/nav_helper.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:provider/provider.dart';
-import 'package:pointer_interceptor/pointer_interceptor.dart';
 
 part 'map.g.dart';
 
@@ -103,69 +98,27 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
       (widget.journeys.session != null &&
           widget.journeys.phase == JourneyPhase.viewing);
 
-  Future<void> _takeScreenshot() async {
-    final loading = GlobalLoadingManager.instance;
-    if (_screenshotInProgress ||
-        !_canTakeScreenshot ||
-        ModalRoute.of(context)?.isCurrent != true) {
-      return;
-    }
-    if (loading.isLoading || loading.isNavigationBlocked) {
-      Fluttertoast.showToast(msg: context.tr('screenshot.not_ready'));
+  bool get _isCurrentRoute => ModalRoute.of(context)?.isCurrent == true;
+
+  Future<void> takeScreenshot() async {
+    if (_screenshotInProgress || !_canTakeScreenshot || !_isCurrentRoute) {
       return;
     }
     final mode = widget.mode;
-    final journey = widget.journeys.session?.journey;
     setState(() => _screenshotInProgress = true);
-    ui.Image? mapImage;
-    DateTimeRange? timeRange;
     try {
-      late Size size;
-      await loading.runWithLoading(() async {
-        // Flush pending map proxy and layout changes before capturing.
-        await WidgetsBinding.instance.endOfFrame;
-        if (!mounted || widget.mode != mode) return;
-        if (mode == MapMode.timeMachine) {
-          timeRange = _timelineKey.currentState?.screenshotDateRange;
-          if (timeRange == null) {
-            Fluttertoast.showToast(msg: context.tr('screenshot.not_ready'));
-            return;
-          }
-        }
-        final mapState = _mainMapKey.currentState;
-        final box = _mainMapKey.currentContext?.findRenderObject();
-        if (mapState == null || box is! RenderBox || !box.hasSize) {
-          throw StateError('Map is unavailable');
-        }
-        size = box.size;
-        mapImage = await decodeScreenshot(await mapState.captureScreenshot());
-        // A rotation can resize the WebView even while pointer input is
-        // blocked. Keep the frozen map and composition dimensions consistent.
-        if (!box.attached || box.size != size) {
-          throw StateError('Map resized during screenshot');
-        }
-      }, blockNavigation: true);
-      final capturedMap = mapImage;
-      if (!mounted || widget.mode != mode || capturedMap == null) return;
-      final route = MaterialPageRoute<bool>(
-        builder: (_) => ScreenshotPreviewPage(
-          map: capturedMap,
-          logicalSize: size,
-          timeRange: timeRange,
-          journey: mode == MapMode.journeys ? journey : null,
-        ),
+      await showMapScreenshotPreview(
+        context,
+        map: _mainMapKey.currentState,
+        isActive: () => widget.mode == mode && _isCurrentRoute,
+        readTimeRange: mode == MapMode.timeMachine
+            ? () => _timelineKey.currentState?.screenshotDateRange
+            : null,
+        journey: mode == MapMode.journeys
+            ? widget.journeys.session?.journey
+            : null,
       );
-      final saved = await Navigator.of(context).push(route);
-      // RawImage still paints during the outgoing route transition.
-      await route.completed;
-      if (saved == true && mounted) {
-        Fluttertoast.showToast(msg: context.tr('screenshot.saved'));
-      }
-    } catch (error, stackTrace) {
-      log.error('Capturing screenshot failed: $error', stackTrace);
-      if (mounted) Fluttertoast.showToast(msg: context.tr('screenshot.failed'));
     } finally {
-      mapImage?.dispose();
       if (mounted) setState(() => _screenshotInProgress = false);
     }
   }
@@ -232,14 +185,10 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
     super.initState();
     _loadMapState();
     WidgetsBinding.instance.addObserver(this);
-    screenshotChannel.setMethodCallHandler((call) async {
-      if (call.method == 'onSystemScreenshot') await _takeScreenshot();
-    });
   }
 
   @override
   void dispose() {
-    screenshotChannel.setMethodCallHandler(null);
     WidgetsBinding.instance.removeObserver(this);
     _saveMapState();
     super.dispose();
@@ -317,6 +266,17 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
     _syncTrackingModeWithGpsManager();
   }
 
+  void _handleRecordMapTap() {
+    final loading = GlobalLoadingManager.instance;
+    if (_screenshotInProgress ||
+        loading.isLoading ||
+        loading.isNavigationBlocked ||
+        !_isCurrentRoute) {
+      return;
+    }
+    widget.onRecordMapTap?.call();
+  }
+
   Widget _buildMapLayer() {
     // After Time Machine date selection: reuse same WebView, only swap proxy;
     // didUpdateWidget triggers refreshMapData(), no full page reload.
@@ -338,17 +298,9 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
           : null,
       overlayPanel: widget.mode == MapMode.journeys ? _detailPanelKey : null,
       trackingMode: _effectiveTrackingMode,
-      onMapTap: () {
-        final loading = GlobalLoadingManager.instance;
-        if (widget.mode != MapMode.normal ||
-            _screenshotInProgress ||
-            loading.isLoading ||
-            loading.isNavigationBlocked ||
-            ModalRoute.of(context)?.isCurrent != true) {
-          return;
-        }
-        widget.onRecordMapTap?.call();
-      },
+      onMapTap: widget.mode == MapMode.normal && widget.onRecordMapTap != null
+          ? _handleRecordMapTap
+          : null,
       onRoughMapViewUpdate: (roughMapView) {
         _roughMapView = roughMapView;
         if (widget.journeys.session == null) _saveMapState();
@@ -400,28 +352,18 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final mode = widget.mode;
-    final layout = AppLayoutScope.of(context);
     final showScreenshot =
         _canTakeScreenshot && (mode != MapMode.normal || widget.recordMapOnly);
-    final screenshotBounds = showScreenshot && layout.chromeReady
-        ? layout.screenshotControlBounds(
-            backButtonVisible: mode == MapMode.journeys,
-          )
-        : Rect.zero;
 
     final children = <Widget>[
       _buildMapLayer(),
       if (mode != MapMode.normal || !widget.recordMapOnly)
         _buildOverlay(context, mode),
-      if (!screenshotBounds.isEmpty)
-        Positioned.fromRect(
-          rect: screenshotBounds,
-          child: PointerInterceptor(
-            child: MapScreenshotButton(
-              busy: _screenshotInProgress,
-              onPressed: _takeScreenshot,
-            ),
-          ),
+      if (showScreenshot)
+        MapScreenshotButton(
+          busy: _screenshotInProgress,
+          backButtonVisible: mode == MapMode.journeys,
+          onPressed: takeScreenshot,
         ),
     ];
 

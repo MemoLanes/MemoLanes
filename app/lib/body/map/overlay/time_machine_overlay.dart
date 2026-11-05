@@ -33,10 +33,10 @@ class TimeMachineOverlay extends StatefulWidget {
 
 class TimeMachineOverlayState extends State<TimeMachineOverlay> {
   DateTimeRange? _loadedRange;
-  bool _timelineScrolling = false;
+  bool _rulerSettling = false;
 
   DateTimeRange? get screenshotDateRange =>
-      _timelineScrolling ? null : _loadedRange;
+      _rulerSettling ? null : _loadedRange;
 
   static const _rangeLoadDebounce = Duration(milliseconds: 100);
   static const _loadErrorMessage =
@@ -149,23 +149,14 @@ class TimeMachineOverlayState extends State<TimeMachineOverlay> {
     return Stack(
       children: [
         MapOverlayPanel.controls(
-          child: NotificationListener<ScrollNotification>(
-            onNotification: (notification) {
-              if (notification is ScrollStartNotification) {
-                _timelineScrolling = true;
-              } else if (notification is ScrollEndNotification) {
-                _timelineScrolling = false;
-              }
-              return false;
-            },
-            child: TimeRangePicker(
-              earliestDate: earliest,
-              loading: _loading,
-              onRangeChanged: _scheduleJourneyRangeLoad,
-              onRangeCommitted: _loadJourneyForRange,
-              selectedJourneyKinds: _selectedJourneyKinds,
-              onJourneyKindsChanged: _onJourneyKindsChanged,
-            ),
+          child: TimeRangePicker(
+            earliestDate: earliest,
+            loading: _loading,
+            onRangeChanged: _scheduleJourneyRangeLoad,
+            onRangeCommitted: _loadJourneyForRange,
+            onRulerSettlingChanged: (settling) => _rulerSettling = settling,
+            selectedJourneyKinds: _selectedJourneyKinds,
+            onJourneyKindsChanged: _onJourneyKindsChanged,
           ),
         ),
       ],

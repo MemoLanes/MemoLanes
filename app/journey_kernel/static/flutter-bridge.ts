@@ -45,6 +45,7 @@ declare global {
     readyForDisplay?: FlutterMessageChannel;
     onMapMoved?: FlutterMessageChannel;
     onMapTap?: FlutterMessageChannel;
+    setMapTapEnabled?: (enabled: boolean) => void;
     onMapViewChanged?: FlutterMessageChannel;
     onMapZoomChanged?: FlutterMessageChannel;
     trySetup?: () => Promise<void>;
@@ -150,13 +151,6 @@ export class FlutterBridge {
    * Setup all map event listeners that notify Flutter
    */
   setupMapEventListeners(): void {
-    // Observe the canvas without taking gestures away from MapLibre. Touch
-    // defaults are prevented by platform.ts, so a synthesized click is unreliable.
-    const stopObservingTaps = observeSingleMapTap(this.map, () => {
-      window.onMapTap?.postMessage("");
-    });
-    this.map.once("remove", stopObservingTaps);
-
     // Notify Flutter when user drags the map
     this.map.on("dragstart", () => {
       this.locationFollowController.cancel();
@@ -183,6 +177,19 @@ export class FlutterBridge {
    * Setup all window methods that Flutter can call
    */
   setupFlutterCallableMethods(): void {
+    let stopObservingTaps: (() => void) | undefined;
+    window.setMapTapEnabled = (enabled) => {
+      if (enabled) {
+        stopObservingTaps ??= observeSingleMapTap(this.map, () => {
+          window.onMapTap?.postMessage("");
+        });
+      } else {
+        stopObservingTaps?.();
+        stopObservingTaps = undefined;
+      }
+    };
+    this.map.once("remove", () => stopObservingTaps?.());
+
     // Update location marker
     window.updateLocationMarker = (
       lng: number,

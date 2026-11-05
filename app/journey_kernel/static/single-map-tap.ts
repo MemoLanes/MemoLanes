@@ -1,4 +1,4 @@
-import type { Map } from "maplibre-gl";
+import type { Map, MapMovementEvent } from "maplibre-gl";
 
 /** Observe intentional single taps without interfering with map gestures. */
 export function observeSingleMapTap(
@@ -60,6 +60,11 @@ export function observeSingleMapTap(
     // Touch pointers leave automatically after pointerup; keep that tap pending.
     if (pointers.has(event.pointerId)) cancel();
   };
+  const onMoveStart = ({ originalEvent }: MapMovementEvent) => {
+    // A double tap at the zoom limit still starts a move.
+    const type = originalEvent?.type;
+    if (type === "touchend" || type === "dblclick") cancel();
+  };
   canvas.addEventListener("pointerdown", down);
   canvas.addEventListener("pointermove", move);
   canvas.addEventListener("pointerup", up);
@@ -67,6 +72,7 @@ export function observeSingleMapTap(
   canvas.addEventListener("pointerleave", leave);
   window.addEventListener("blur", cancel);
   map.on("zoomstart", cancel);
+  map.on("movestart", onMoveStart);
   return () => {
     cancel();
     canvas.removeEventListener("pointerdown", down);
@@ -76,5 +82,6 @@ export function observeSingleMapTap(
     canvas.removeEventListener("pointerleave", leave);
     window.removeEventListener("blur", cancel);
     map.off("zoomstart", cancel);
+    map.off("movestart", onMoveStart);
   };
 }

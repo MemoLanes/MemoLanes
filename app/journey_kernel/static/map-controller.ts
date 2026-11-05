@@ -37,7 +37,6 @@ import { JOURNEY_LAYER_ID } from "./layers/journey-layer-interface";
 import type { JourneyLayer } from "./layers/journey-layer-interface";
 import { MAX_MAP_ZOOM } from "./layer-config";
 import { waitForRenderedFrame } from "./display-ready";
-import { captureMapFrame } from "./map-screenshot";
 import {
   PLACEHOLDER_STYLE_METADATA_KEY,
   StyleLoadRetry,
@@ -374,16 +373,19 @@ export class MapController {
 
   captureScreenshot(): Promise<string> {
     if (this.mapDataRefresh === "failed") void this.refreshMapData();
-    return captureMapFrame(this.map, () => {
-      if (this.mapDataRefresh === "failed") {
-        throw new Error("Screenshot map data could not be refreshed");
-      }
-      return (
-        this.mapDataRefresh === null &&
-        !this.webGLContextLost &&
-        this.currentJourneyLayer?.isReadyForDisplay() === true
-      );
-    });
+    return waitForRenderedFrame(
+      this.map,
+      () => {
+        if (this.mapDataRefresh === "failed") {
+          throw new Error("Screenshot map data could not be refreshed");
+        }
+        if (this.mapDataRefresh !== null || !this.isFrameReady()) return;
+        const canvas = this.map.getCanvas();
+        if (!canvas.width || !canvas.height) throw new Error("Empty map canvas");
+        return canvas.toDataURL("image/png");
+      },
+      10000,
+    );
   }
 
   /** Prepare the spherical camera before MapLibre computes a destination.
@@ -452,16 +454,15 @@ export class MapController {
   }
 
   /** Wait for a displayable frame from whichever renderer is currently active. */
-  waitForDisplay(): Promise<void> {
-    return waitForRenderedFrame(this.map, () => {
-      const layer = this.currentJourneyLayer;
-      return (
-        !this.webGLContextLost &&
-        !!this.map.getLayer(JOURNEY_LAYER_ID) &&
-        layer !== null &&
-        layer.isReadyForDisplay()
-      );
-    });
+  async waitForDisplay(): Promise<void> {
+    await waitForRenderedFrame(this.map, () => this.isFrameReady() || undefined);
+  }
+
+  private isFrameReady(): boolean {
+    return (
+      !this.webGLContextLost &&
+      this.currentJourneyLayer?.isReadyForDisplay() === true
+    );
   }
 
   /**

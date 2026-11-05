@@ -126,11 +126,16 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   }
 
   /// Export only the map canvas, without Flutter controls or system chrome.
-  Future<Uint8List> captureScreenshot() async {
+  Future<({Uint8List png, Size logicalSize})> captureScreenshot() async {
     final controller = _webViewController;
     if (controller == null || !_readyForDisplay || _pendingMapDataSync) {
       throw StateError('Map is not ready for a screenshot');
     }
+    final box = context.findRenderObject();
+    if (box is! RenderBox || !box.hasSize) {
+      throw StateError('Map layout is unavailable');
+    }
+    final logicalSize = box.size;
     final result = await controller
         .callAsyncJavaScript(
           functionBody: 'return await window.captureMapScreenshot();',
@@ -143,7 +148,14 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
         !value.startsWith(prefix)) {
       throw StateError('Map screenshot failed: ${result?.error}');
     }
-    return base64Decode(value.substring(prefix.length));
+    // The map can still resize during a fold or rotation.
+    if (!box.attached || box.size != logicalSize) {
+      throw StateError('Map resized during screenshot');
+    }
+    return (
+      png: base64Decode(value.substring(prefix.length)),
+      logicalSize: logicalSize,
+    );
   }
 
   /// Read the live camera before opening a journey, including recent gestures
@@ -178,6 +190,9 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   @override
   void didUpdateWidget(BaseMapWebview oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if ((oldWidget.onMapTap != null) != (widget.onMapTap != null)) {
+      unawaited(_syncMapTapListener());
+    }
     if (oldWidget.trackingMode != widget.trackingMode) {
       if (widget.trackingMode == TrackingMode.off) {
         _hideLocationMarker();
@@ -194,6 +209,20 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
         oldWidget.boundsPadding != widget.boundsPadding ||
         oldWidget.overlayPanel != widget.overlayPanel) {
       _scheduleMapSync();
+    }
+  }
+
+  Future<void> _syncMapTapListener() async {
+    if (!mounted || !_readyForDisplay) return;
+    try {
+      await runJavaScript(
+        'window.setMapTapEnabled?.(${widget.onMapTap != null});',
+      );
+    } catch (error, stackTrace) {
+      log.error(
+        '[base_map_webview] Updating map tap listener failed: $error',
+        stackTrace,
+      );
     }
   }
 
@@ -363,6 +392,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
             _setStateIfMounted(() {
               _readyForDisplay = true;
             });
+            unawaited(_syncMapTapListener());
             if (_pendingMapDataSync) unawaited(_syncMapDataAndCamera());
             if (recoveredAfterReload) {
               log.info(

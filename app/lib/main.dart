@@ -11,6 +11,7 @@ import 'package:memolanes/body/achievement/achievement_body.dart'
     deferred as achievement;
 import 'package:memolanes/body/map/map_body.dart';
 import 'package:memolanes/body/map/journey_flow_controller.dart';
+import 'package:memolanes/body/map/screenshot/system_screenshot_listener.dart';
 import 'package:memolanes/body/settings/settings_body.dart'
     deferred as settings;
 import 'package:memolanes/common/achievement_stats_store.dart';
@@ -179,6 +180,7 @@ class _MyHomePageState extends State<MyHomePage> {
   bool _recordMapOnly = false;
   final _journeys = JourneyFlowController();
   DateTime? _lastExitPopAt;
+  late final StreamSubscription<void> _screenshotSubscription;
 
   Future<void>? _achievementLib;
   Future<void>? _settingsLib;
@@ -192,6 +194,11 @@ class _MyHomePageState extends State<MyHomePage> {
   void initState() {
     super.initState();
     _journeys.addListener(_onJourneysChanged);
+    _screenshotSubscription = listenForSystemScreenshots(() {
+      if (_selectedIndex <= 2) {
+        unawaited(_mapBodyKey.currentState?.takeScreenshot());
+      }
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await AppBootstrap.completeUiStartup(context);
     });
@@ -221,6 +228,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   void dispose() {
+    unawaited(_screenshotSubscription.cancel());
     _journeys.removeListener(_onJourneysChanged);
     _journeys.dispose();
     super.dispose();

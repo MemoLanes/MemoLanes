@@ -7,14 +7,13 @@ import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:memolanes/body/map/screenshot/screenshot_composition.dart';
+import 'package:memolanes/body/map/screenshot/screenshot_export.dart';
 import 'package:memolanes/common/component/app_button.dart';
 import 'package:memolanes/common/component/page_content_layout.dart';
 import 'package:memolanes/common/log.dart';
-import 'package:memolanes/common/screenshot.dart';
 import 'package:memolanes/constants/app_typography.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
 import 'package:memolanes/theme/app_colors.dart';
-import 'package:share_plus/share_plus.dart';
 
 /// The caller owns the frozen images and disposes them when this route closes.
 class ScreenshotPreviewPage extends StatefulWidget {
@@ -24,12 +23,14 @@ class ScreenshotPreviewPage extends StatefulWidget {
     required this.logicalSize,
     this.timeRange,
     this.journey,
+    this.saveToGallery = saveScreenshotToGallery,
   });
 
   final ui.Image map;
   final Size logicalSize;
   final DateTimeRange? timeRange;
   final JourneyHeader? journey;
+  final Future<void> Function(Uint8List) saveToGallery;
 
   @override
   State<ScreenshotPreviewPage> createState() => _ScreenshotPreviewPageState();
@@ -111,21 +112,13 @@ class _ScreenshotPreviewPageState extends State<ScreenshotPreviewPage> {
     }
   }
 
-  Future<void> _sharePng(Uint8List png) async {
+  Future<void> _sharePng(Uint8List png) {
     // iPad needs a popover anchor in the current layout.
     final box = _shareButtonKey.currentContext?.findRenderObject();
     if (box is! RenderBox || !box.hasSize || box.size.isEmpty) {
       throw StateError('Share button is unavailable');
     }
-    await SharePlus.instance.share(
-      ShareParams(
-        files: [XFile.fromData(png, mimeType: 'image/png')],
-        fileNameOverrides: [
-          'MemoLanes_${DateTime.now().millisecondsSinceEpoch}.png',
-        ],
-        sharePositionOrigin: box.localToGlobal(Offset.zero) & box.size,
-      ),
-    );
+    return shareScreenshot(png, box.localToGlobal(Offset.zero) & box.size);
   }
 
   Future<void> _export(_ExportAction action) async {
@@ -138,9 +131,7 @@ class _ScreenshotPreviewPageState extends State<ScreenshotPreviewPage> {
       final png = await _encodePreview();
       if (!mounted) return;
       if (action == _ExportAction.save) {
-        await screenshotChannel.invokeMethod<void>('saveToPhotos', {
-          'png': png,
-        });
+        await widget.saveToGallery(png);
         if (mounted) Navigator.of(context).pop(true);
       } else {
         await _sharePng(png);
@@ -152,7 +143,8 @@ class _ScreenshotPreviewPageState extends State<ScreenshotPreviewPage> {
           () => _error = switch (action) {
             _ExportAction.save
                 when error is PlatformException &&
-                    error.code == 'permission_denied' =>
+                    (error.code == 'permission_denied' ||
+                        error.code == 'PermissionDenied') =>
               'screenshot.permission_denied',
             _ExportAction.save => 'screenshot.save_failed',
             _ExportAction.share => 'screenshot.share_failed',
