@@ -385,7 +385,8 @@ export class MapController {
         }
         if (this.mapDataRefresh !== null || !this.isFrameReady()) return;
         const canvas = this.map.getCanvas();
-        if (!canvas.width || !canvas.height) throw new Error("Empty map canvas");
+        if (!canvas.width || !canvas.height)
+          throw new Error("Empty map canvas");
         return canvas.toDataURL("image/png");
       },
       10000,
@@ -459,7 +460,10 @@ export class MapController {
 
   /** Wait for a displayable frame from whichever renderer is currently active. */
   async waitForDisplay(): Promise<void> {
-    await waitForRenderedFrame(this.map, () => this.isFrameReady() || undefined);
+    await waitForRenderedFrame(
+      this.map,
+      () => this.isFrameReady() || undefined,
+    );
   }
 
   private isFrameReady(): boolean {
