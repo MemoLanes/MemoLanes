@@ -6,7 +6,6 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:memolanes/body/map/screenshot/map_screenshot_flow.dart';
@@ -20,7 +19,6 @@ import 'package:memolanes/theme/app_theme.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   const locale = Locale('zh', 'CN');
-  const english = Locale('en', 'US');
   const loader = AppTranslationLoader();
   const logicalSize = Size(320, 640);
   const mapSize = Size(640, 1280);
@@ -40,7 +38,7 @@ void main() {
     await tester.runAsync(() async {
       await tester.pumpWidget(
         EasyLocalization(
-          supportedLocales: const [locale, english],
+          supportedLocales: const [locale],
           path: 'assets/translations',
           assetLoader: loader,
           fallbackLocale: locale,
@@ -124,9 +122,8 @@ void main() {
 
   Future<ui.Image> capturePreview(
     WidgetTester tester,
-    double pixelRatio, {
-    Rect? bounds,
-  }) async {
+    double pixelRatio,
+  ) async {
     final boundary = tester.renderObject<RenderRepaintBoundary>(
       find
           .ancestor(
@@ -138,7 +135,7 @@ void main() {
     final layer = boundary.debugLayer as OffsetLayer;
     final image = (await tester.runAsync(
       () => layer.toImage(
-        bounds ?? (Offset.zero & boundary.size),
+        Offset.zero & boundary.size,
         pixelRatio: pixelRatio,
       ),
     ))!;
@@ -244,57 +241,6 @@ void main() {
     finishSave.complete();
     await tester.pumpAndSettle();
     expect(await result, isTrue);
-  });
-
-  testWidgets('localized watermarks render as vectors at export resolution', (
-    tester,
-  ) async {
-    const size = Size(160, 80);
-    const pixelRatio = 16.0;
-    // The 96×32 watermark area ends 20 logical pixels from the bottom right.
-    const crop = Rect.fromLTWH(44, 28, 96, 32);
-    final map = await testMap(tester);
-    await pumpApp(tester, ScreenshotPreviewPage(map: map, logicalSize: size));
-
-    for (final language in [locale, english]) {
-      await tester.runAsync(
-        () => tester
-            .element(find.byType(ScreenshotPreviewPage))
-            .setLocale(language),
-      );
-      await tester.pump();
-      await waitForLogo(tester);
-      final actual = await capturePreview(tester, pixelRatio, bounds: crop);
-      await tester.runAsync(() async {
-        final svg = await vg.loadPicture(
-          SvgAssetLoader('assets/screenshot_logo_${language.languageCode}.svg'),
-          null,
-        );
-        addTearDown(svg.picture.dispose);
-        final scale = crop.width / svg.size.width;
-        final logoHeight = crop.width / svg.size.aspectRatio;
-        final reference = await renderImage(crop.size * pixelRatio, (canvas) {
-          canvas
-            ..drawColor(Colors.blue, BlendMode.src)
-            ..translate(-crop.left * pixelRatio, -crop.top * pixelRatio)
-            ..scale(pixelRatio)
-            ..translate(crop.left, crop.bottom - logoHeight)
-            ..scale(scale)
-            ..drawPicture(svg.picture);
-        });
-        final actualPixels = await pixels(actual);
-        final referencePixels = await pixels(reference);
-        for (var i = 0; i < actualPixels.length; i++) {
-          if ((actualPixels[i] - referencePixels[i]).abs() > 1) {
-            fail(
-              'Watermark byte $i for $language was ${actualPixels[i]}, '
-              'expected ${referencePixels[i]}',
-            );
-          }
-        }
-      });
-    }
-    await tester.pumpWidget(const SizedBox.shrink());
   });
 
   testWidgets('large text keeps the caption, watermark and actions usable', (

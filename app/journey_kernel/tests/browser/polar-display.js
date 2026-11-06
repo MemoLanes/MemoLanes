@@ -97,10 +97,14 @@ async function withMap(latitude, check, run) {
 }
 
 function watchDisplay(controller) {
+  const promise = controller.waitForDisplay();
   let ready = false;
-  const promise = controller.waitForDisplay().then(() => {
-    ready = true;
-  });
+  promise.then(
+    () => {
+      ready = true;
+    },
+    () => {},
+  );
   return { promise, isReady: () => ready };
 }
 

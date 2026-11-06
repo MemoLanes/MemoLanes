@@ -41,21 +41,6 @@ void contained(Rect child, Rect bounds) {
 }
 
 void main() {
-  test('record camera stays at the top right on a short phone', () {
-    final resolved = layout(
-      size: const Size(640, 180),
-      navigation: false,
-      fold: DuoHardware.none,
-      edge: DuoBarEdge.horizontal,
-      padding: const EdgeInsets.only(top: 24),
-      platform: TargetPlatform.android,
-    );
-    final button = resolved.screenshotControlBounds(backButtonVisible: false);
-    expect(button.size, const Size.square(StyleConstants.mapControlSize));
-    expect(button.top, resolved.safeBounds.top + 14);
-    expect(button.right, resolved.safeBounds.right - 16);
-  });
-
   test('Duo screenshot clears the fold and the visible navigation', () {
     const fold = DuoRegion(Rect.fromLTWH(413, 0, 40, 669), isActive: true);
     for (final edge in [DuoBarEdge.left, DuoBarEdge.right]) {

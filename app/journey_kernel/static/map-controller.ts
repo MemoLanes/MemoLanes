@@ -37,6 +37,7 @@ import { JOURNEY_LAYER_ID } from "./layers/journey-layer-interface";
 import type { JourneyLayer } from "./layers/journey-layer-interface";
 import { MAX_MAP_ZOOM } from "./layer-config";
 import { waitForRenderedFrame } from "./display-ready";
+import { captureMapScreenshot } from "./map-screenshot";
 import {
   PLACEHOLDER_STYLE_METADATA_KEY,
   StyleLoadRetry,
@@ -375,11 +376,7 @@ export class MapController {
   }
 
   captureScreenshot(): Promise<string> {
-    return waitForRenderedFrame(
-      this.map,
-      () => this.map.getCanvas().toDataURL("image/png"),
-      10000,
-    );
+    return captureMapScreenshot(this.map);
   }
 
   /** Prepare the spherical camera before MapLibre computes a destination.
@@ -448,13 +445,15 @@ export class MapController {
   }
 
   /** Wait for a displayable frame from whichever renderer is currently active. */
-  async waitForDisplay(): Promise<void> {
-    await waitForRenderedFrame(this.map, () => {
-      const ready =
+  waitForDisplay(): Promise<void> {
+    return waitForRenderedFrame(this.map, () => {
+      const layer = this.currentJourneyLayer;
+      return (
         !this.webGLContextLost &&
         !!this.map.getLayer(JOURNEY_LAYER_ID) &&
-        this.currentJourneyLayer?.isReadyForDisplay();
-      return ready || undefined;
+        layer !== null &&
+        layer.isReadyForDisplay()
+      );
     });
   }
 
