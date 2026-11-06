@@ -337,6 +337,7 @@ impl Txn<'_> {
             note,
             postprocessor_algo,
             has_raw_data: raw_data.is_some(),
+            transport_details: None,
         };
         self.insert_journey_with_raw_data(header, journey_data, raw_data)?;
         Ok(id)
@@ -1007,6 +1008,7 @@ mod tests {
             note: None,
             postprocessor_algo: None,
             has_raw_data: false,
+            transport_details: None,
         };
         let header_bytes = header.clone().to_proto().write_to_bytes()?;
         tx.execute(

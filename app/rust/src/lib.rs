@@ -38,4 +38,5 @@ pub mod raw_data;
 pub mod renderer;
 mod spherical_geometry;
 pub mod storage;
+pub mod transport_details;
 pub mod utils;

@@ -675,7 +675,7 @@ pub enum ExportResult {
 
 enum InternalDataForExport {
     Mldx(
-        JourneyHeader,
+        Box<JourneyHeader>,
         JourneyData,
         Option<crate::raw_data::SerializedJourneyRawData>,
     ),
@@ -709,7 +709,7 @@ pub fn export_journey(
 
         match export_type {
             ExportType::MLDX => Ok(Some(InternalDataForExport::Mldx(
-                journey_header,
+                Box::new(journey_header),
                 journey_data,
                 if include_raw_data {
                     txn.get_journey_raw_data(&journey_id)?
@@ -742,7 +742,7 @@ pub fn export_journey(
         InternalDataForExport::Mldx(header, data, raw_data) => {
             export_data::write_export_file(&target_filepath, |file| {
                 archive::export_single_journey_as_mldx(
-                    header,
+                    *header,
                     data,
                     raw_data,
                     file,
