@@ -88,7 +88,7 @@ fn sample_journey() -> (JourneyHeader, JourneyData) {
         note: Some("test note".to_owned()),
         postprocessor_algo: None,
         has_raw_data: false,
-        attributes: None,
+        transport_details: None,
     };
     let data = JourneyData::Vector(JourneyVector {
         track_segments: vec![TrackSegment {

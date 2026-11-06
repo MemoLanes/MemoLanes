@@ -5,7 +5,7 @@ use flutter_rust_bridge::frb;
 use protobuf::{EnumOrUnknown, MessageField};
 use strum_macros::EnumIter;
 
-use crate::{journey_attributes::JourneyAttributes, protos, utils};
+use crate::{protos, transport_details::TransportDetails, utils};
 
 #[derive(Copy, Clone, Debug, EnumIter, PartialEq, Eq, Hash)]
 #[repr(i8)]
@@ -120,7 +120,7 @@ pub struct JourneyHeader {
     pub note: Option<String>,
     pub postprocessor_algo: Option<String>,
     pub has_raw_data: bool,
-    pub attributes: Option<JourneyAttributes>,
+    pub transport_details: Option<TransportDetails>,
 }
 
 impl JourneyHeader {
@@ -130,7 +130,7 @@ impl JourneyHeader {
             .type_
             .enum_value()
             .map_err(|x| anyhow!("Unknown proto journey type: {x}"))?;
-        let MessageField(attributes) = proto.attributes;
+        let MessageField(transport_details) = proto.transport_details;
         Ok(JourneyHeader {
             id: proto.id,
             revision: proto.revision,
@@ -153,7 +153,7 @@ impl JourneyHeader {
             note: proto.note,
             postprocessor_algo: proto.postprocessor_algo,
             has_raw_data: proto.has_raw_data,
-            attributes: attributes.map(|proto| JourneyAttributes { proto }),
+            transport_details: transport_details.map(|proto| TransportDetails { proto }),
         })
     }
 
@@ -199,7 +199,7 @@ impl JourneyHeader {
             note,
             postprocessor_algo,
             has_raw_data,
-            attributes,
+            transport_details,
         } = self;
         let mut proto = protos::journey::Header::new();
         proto.id = id;
@@ -214,7 +214,7 @@ impl JourneyHeader {
         proto.note = note;
         proto.postprocessor_algo = postprocessor_algo;
         proto.has_raw_data = has_raw_data;
-        proto.attributes = MessageField(attributes.map(|attributes| attributes.proto));
+        proto.transport_details = MessageField(transport_details.map(|details| details.proto));
         proto
     }
 }
