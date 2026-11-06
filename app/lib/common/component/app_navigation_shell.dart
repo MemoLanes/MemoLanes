@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:material_ui/material_ui.dart';
+import 'package:memolanes/common/component/fading_overlay.dart';
 import 'package:memolanes/common/component/page_content_layout.dart';
 import 'package:memolanes/common/app_layout.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
@@ -25,6 +26,7 @@ class AppNavigationShell extends StatelessWidget {
     required this.bodyBuilder,
     required this.navigationBuilder,
     this.navigationVisible = true,
+    this.animateNavigationVisibility = false,
     this.contentMode = AppNavigationContentMode.fullBleed,
     this.bottomTrailingOverlay,
   });
@@ -33,6 +35,7 @@ class AppNavigationShell extends StatelessWidget {
   final AppNavigationBodyBuilder bodyBuilder;
   final AppNavigationBuilder navigationBuilder;
   final bool navigationVisible;
+  final bool animateNavigationVisibility;
   final AppNavigationContentMode contentMode;
 
   /// Small map overlay aligned above the navigation, hidden with app chrome.
@@ -64,34 +67,40 @@ class AppNavigationShell extends StatelessWidget {
                 bottomSafeArea: layout.menuScrollInsets.bottom,
               ),
             ),
-            if (navigationVisible && layout.chromeReady)
-              Positioned.fromRect(
-                rect: layout.navigationBounds,
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: SizedBox.fromSize(
-                    size: layout.navigationContentSize,
-                    // TODO: Remove this iOS PlatformView composition workaround
-                    // once Flutter #190003 is included in the stable SDK:
-                    // https://github.com/flutter/flutter/pull/190003
-                    child: PointerInterceptor(
-                      intercepting: Platform.isIOS,
-                      child: navigationBuilder(
-                        context,
-                        axis: layout.navigationAxis,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            if (navigationVisible &&
-                layout.chromeReady &&
-                bottomTrailingOverlay != null)
-              Positioned(
-                right: layout.trailingOverlayInsets.dx,
-                bottom: layout.trailingOverlayInsets.dy,
-                child: bottomTrailingOverlay!,
-              ),
+            FadingOverlay(
+              animate: animateNavigationVisibility,
+              child: navigationVisible && layout.chromeReady
+                  ? Stack(
+                      children: [
+                        Positioned.fromRect(
+                          rect: layout.navigationBounds,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: SizedBox.fromSize(
+                              size: layout.navigationContentSize,
+                              // TODO: Remove this iOS PlatformView composition workaround
+                              // once Flutter #190003 is included in the stable SDK:
+                              // https://github.com/flutter/flutter/pull/190003
+                              child: PointerInterceptor(
+                                intercepting: Platform.isIOS,
+                                child: navigationBuilder(
+                                  context,
+                                  axis: layout.navigationAxis,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        if (bottomTrailingOverlay != null)
+                          Positioned(
+                            right: layout.trailingOverlayInsets.dx,
+                            bottom: layout.trailingOverlayInsets.dy,
+                            child: bottomTrailingOverlay!,
+                          ),
+                      ],
+                    )
+                  : null,
+            ),
           ],
         ),
       ),

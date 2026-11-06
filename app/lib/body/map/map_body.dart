@@ -10,6 +10,7 @@ import 'package:memolanes/body/map/overlay/normal_map_overlay.dart';
 import 'package:memolanes/body/map/overlay/time_machine_overlay.dart';
 import 'package:memolanes/body/map/screenshot/map_screenshot_flow.dart';
 import 'package:memolanes/common/component/base_map_webview.dart';
+import 'package:memolanes/common/component/fading_overlay.dart';
 import 'package:memolanes/common/component/map_controls/screenshot_button.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/component/map_overlay_panel.dart';
@@ -353,14 +354,25 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final mode = widget.mode;
-    final showScreenshot =
-        _canTakeScreenshot && (mode != MapMode.normal || widget.recordMapOnly);
 
     final children = <Widget>[
       _buildMapLayer(),
-      if (mode != MapMode.normal || !widget.recordMapOnly)
+      if (mode == MapMode.normal) ...[
+        FadingOverlay(
+          child: widget.recordMapOnly ? null : _buildOverlay(context, mode),
+        ),
+        FadingOverlay(
+          child: widget.recordMapOnly
+              ? MapScreenshotButton(
+                  busy: _screenshotInProgress,
+                  backButtonVisible: false,
+                  onPressed: takeScreenshot,
+                )
+              : null,
+        ),
+      ] else
         _buildOverlay(context, mode),
-      if (showScreenshot)
+      if (mode != MapMode.normal && _canTakeScreenshot)
         MapScreenshotButton(
           busy: _screenshotInProgress,
           backButtonVisible: mode == MapMode.journeys,

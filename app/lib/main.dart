@@ -364,6 +364,7 @@ class _MyHomePageState extends State<MyHomePage> {
       child: AppNavigationShell(
         bodyBuilder: _buildPageContent,
         navigationVisible: _journeys.appChromeVisible && !_recordMapOnly,
+        animateNavigationVisibility: _selectedIndex == 0,
         contentMode: _selectedIndex > 2
             ? AppNavigationContentMode.inset
             : AppNavigationContentMode.fullBleed,
