@@ -35,7 +35,6 @@ class TimeRangePicker extends StatefulWidget {
 
   /// Optional fast path for a value committed by a user interaction.
   final void Function(SimpleDate from, SimpleDate to)? onRangeCommitted;
-  final ValueChanged<bool>? onRulerSettlingChanged;
   final Set<JourneyKind> selectedJourneyKinds;
   final void Function(Set<JourneyKind>)? onJourneyKindsChanged;
 
@@ -45,7 +44,6 @@ class TimeRangePicker extends StatefulWidget {
     this.loading = false,
     required this.onRangeChanged,
     this.onRangeCommitted,
-    this.onRulerSettlingChanged,
     required this.selectedJourneyKinds,
     this.onJourneyKindsChanged,
   });
@@ -141,8 +139,6 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
       _rulerMode = rulerMode;
       _applyCurrentRange();
     });
-    // Changing the granularity replaces the ruler and cancels its snap.
-    widget.onRulerSettlingChanged?.call(false);
     _notifyRange(committed: true);
   }
 
@@ -153,9 +149,6 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
       _viewMode = viewMode;
       _applyCurrentRange();
     });
-    if (viewMode == TimeMachineViewMode.custom) {
-      widget.onRulerSettlingChanged?.call(false);
-    }
     _notifyRange();
   }
 
@@ -207,7 +200,6 @@ class _TimeRangePickerState extends State<TimeRangePicker> {
             }),
             onDisplayChanged: (s) =>
                 setState(() => _updateDisplay(s.$1, s.$2, s.$3)),
-            onSettlingChanged: widget.onRulerSettlingChanged,
           )
         : TimeRangeOverlayPicker(
             fromDate: _fromDate.toLocalDateTime(),

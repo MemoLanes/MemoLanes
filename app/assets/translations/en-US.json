@@ -15,7 +15,7 @@
     "logo_unavailable": "Could not load the watermark. You can save without it.",
     "save": "Save to Photos",
     "saved": "Image saved to Photos",
-    "not_ready": "The map or timeline is still loading. Please try again shortly.",
+    "busy": "Wait for the current operation to finish before taking a screenshot.",
     "failed": "Could not capture the map. Please try again.",
     "save_failed": "Could not save. Check available storage and try again.",
     "share_failed": "Could not share the image. Please try again.",

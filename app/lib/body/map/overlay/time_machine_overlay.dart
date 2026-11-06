@@ -25,19 +25,14 @@ Set<JourneyKind> _initialJourneyKindsFromMainMap() {
 class TimeMachineOverlay extends StatefulWidget {
   const TimeMachineOverlay({super.key, required this.onJourneyRangeLoaded});
 
-  final void Function(api.MapRendererProxy? proxy) onJourneyRangeLoaded;
+  final void Function(api.MapRendererProxy proxy, DateTimeRange range)
+  onJourneyRangeLoaded;
 
   @override
-  State<TimeMachineOverlay> createState() => TimeMachineOverlayState();
+  State<TimeMachineOverlay> createState() => _TimeMachineOverlayState();
 }
 
-class TimeMachineOverlayState extends State<TimeMachineOverlay> {
-  DateTimeRange? _loadedRange;
-  bool _rulerSettling = false;
-
-  DateTimeRange? get screenshotDateRange =>
-      _rulerSettling ? null : _loadedRange;
-
+class _TimeMachineOverlayState extends State<TimeMachineOverlay> {
   static const _rangeLoadDebounce = Duration(milliseconds: 100);
   static const _loadErrorMessage =
       '[TimeMachineOverlay] failed to load journey range';
@@ -85,7 +80,6 @@ class TimeMachineOverlayState extends State<TimeMachineOverlay> {
     _requestedTo = to;
     final journeyKinds = Set<JourneyKind>.from(_selectedJourneyKinds);
     setState(() => _loading = true);
-    _loadedRange = null;
     try {
       final proxy = await api.getMapRendererProxyForJourneyDateRange(
         fromDateInclusive: from.toFrbNaiveDate(),
@@ -93,10 +87,12 @@ class TimeMachineOverlayState extends State<TimeMachineOverlay> {
         journeyKinds: journeyKinds,
       );
       if (mounted && _loadGuard.isActive(loadToken)) {
-        widget.onJourneyRangeLoaded(proxy);
-        _loadedRange = DateTimeRange(
-          start: from.toLocalDateTime(),
-          end: to.toLocalDateTime(),
+        widget.onJourneyRangeLoaded(
+          proxy,
+          DateTimeRange(
+            start: from.toLocalDateTime(),
+            end: to.toLocalDateTime(),
+          ),
         );
       }
     } catch (error, stackTrace) {
@@ -112,7 +108,6 @@ class TimeMachineOverlayState extends State<TimeMachineOverlay> {
   void _scheduleJourneyRangeLoad(SimpleDate from, SimpleDate to) {
     // Invalidate immediately: an older request may finish during the debounce.
     _loadGuard.invalidate();
-    _loadedRange = null;
     _requestedFrom = from;
     _requestedTo = to;
     _rangeLoadDebounceTimer?.cancel();
@@ -154,7 +149,6 @@ class TimeMachineOverlayState extends State<TimeMachineOverlay> {
             loading: _loading,
             onRangeChanged: _scheduleJourneyRangeLoad,
             onRangeCommitted: _loadJourneyForRange,
-            onRulerSettlingChanged: (settling) => _rulerSettling = settling,
             selectedJourneyKinds: _selectedJourneyKinds,
             onJourneyKindsChanged: _onJourneyKindsChanged,
           ),

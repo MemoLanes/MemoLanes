@@ -130,7 +130,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   /// Export only the map canvas, without Flutter controls or system chrome.
   Future<({Uint8List png, Size logicalSize})> captureScreenshot() async {
     final controller = _webViewController;
-    if (controller == null || !_readyForDisplay || _pendingMapDataSync) {
+    if (controller == null || !_readyForDisplay) {
       throw StateError('Map is not ready for a screenshot');
     }
     final box = context.findRenderObject();

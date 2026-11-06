@@ -6,8 +6,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:memolanes/body/map/overlay/time_machine_overlay.dart';
 import 'package:memolanes/body/time_machine/time_range_picker.dart';
-import 'package:memolanes/body/time_machine/time_ruler.dart'
-    show kRulerSnapDelay, kRulerUnitSpacing;
 import 'package:memolanes/common/app_haptics.dart';
 import 'package:memolanes/common/app_layout.dart';
 import 'package:memolanes/common/component/app_menu.dart';
@@ -131,79 +129,49 @@ void main() {
     }
   }, variant: const TargetPlatformVariant({TargetPlatform.iOS}));
 
-  testWidgets('timeline screenshots wait for the settled and loaded range', (
+  testWidgets('timeline keeps the applied range while a new range loads', (
     tester,
   ) async {
     final backend = _TimelineApi();
     RustLib.initMock(api: backend);
     addTearDown(RustLib.dispose);
-    final key = GlobalKey<TimeMachineOverlayState>();
-    var appliedRanges = 0;
+    final appliedRanges = <DateTimeRange>[];
     await tester.runAsync(() async {
       await tester.pumpWidget(
         _buildTestApp(
           TimeMachineOverlay(
-            key: key,
-            onJourneyRangeLoaded: (_) => appliedRanges++,
+            onJourneyRangeLoaded: (_, range) => appliedRanges.add(range),
           ),
         ),
       );
       await tester.pump();
     });
     await tester.pump();
-    final state = key.currentState!;
-
-    Future<void> completeLoads() async {
-      for (final request in backend.requests) {
-        request.complete(_MapRenderer());
-      }
-      backend.requests.clear();
-      await tester.pumpAndSettle();
-    }
-
-    await completeLoads();
-    expect(state.screenshotDateRange, isNotNull);
+    backend.pending.complete(_MapRenderer());
+    await tester.pumpAndSettle();
+    final initialRange = appliedRanges.single;
 
     final picker = tester.widget<TimeRangePicker>(find.byType(TimeRangePicker));
     picker.onRangeChanged(SimpleDate(2024), SimpleDate(2024, 12, 31));
     await tester.pump(const Duration(milliseconds: 100));
-    final obsolete = backend.requests.removeLast();
+    final obsolete = backend.pending;
     picker.onRangeChanged(SimpleDate(2025), SimpleDate(2025, 12, 31));
     obsolete.complete(_MapRenderer());
     await tester.pump();
-    expect(appliedRanges, 1);
-    expect(state.screenshotDateRange, isNull);
+    expect(appliedRanges, [initialRange]);
 
     await tester.pump(const Duration(milliseconds: 100));
-    await completeLoads();
-    expect(
-      state.screenshotDateRange,
-      DateTimeRange(start: DateTime(2025), end: DateTime(2025, 12, 31)),
-    );
-
-    final ruler = tester.widget<ListView>(find.byType(ListView)).controller!;
-    ruler.jumpTo(ruler.offset - 1.25 * kRulerUnitSpacing);
-    expect(state.screenshotDateRange, isNull, reason: 'Before the snap');
-    await tester.pump(kRulerSnapDelay);
-    expect(state.screenshotDateRange, isNull, reason: 'The ruler is snapping');
-    await tester.pump(const Duration(milliseconds: 250));
-    expect(state.screenshotDateRange, isNull, reason: 'Range still loading');
-    await completeLoads();
-    final snappedRange = DateTimeRange(
-      start: DateTime(2020),
-      end: DateTime(DateTime.now().year - 1, 12, 31),
-    );
-    expect(state.screenshotDateRange, snappedRange);
-
-    ruler.jumpTo(ruler.offset - 0.25 * kRulerUnitSpacing);
-    expect(state.screenshotDateRange, isNull);
+    backend.pending.complete(_MapRenderer());
     await tester.pumpAndSettle();
-    expect(state.screenshotDateRange, snappedRange);
+    expect(appliedRanges, [
+      initialRange,
+      DateTimeRange(start: DateTime(2025), end: DateTime(2025, 12, 31)),
+    ]);
   });
 }
 
 class _TimelineApi extends Fake implements RustLibApi {
-  final requests = <Completer<api.MapRendererProxy>>[];
+  late Completer<api.MapRendererProxy> pending;
 
   @override
   api.LayerFilter crateApiApiGetCurrentMainMapLayerFilter() => api.LayerFilter(
@@ -222,9 +190,8 @@ class _TimelineApi extends Fake implements RustLibApi {
     required DateTime toDateInclusive,
     required Set<JourneyKind> journeyKinds,
   }) {
-    final request = Completer<api.MapRendererProxy>();
-    requests.add(request);
-    return request.future;
+    pending = Completer<api.MapRendererProxy>();
+    return pending.future;
   }
 }
 

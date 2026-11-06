@@ -259,7 +259,6 @@ class TimeRuler extends StatelessWidget {
     required this.earliest,
     required this.onSelectionChanged,
     this.onDisplayChanged,
-    this.onSettlingChanged,
   });
 
   final TimeRulerMode rulerMode;
@@ -269,7 +268,6 @@ class TimeRuler extends StatelessWidget {
   final DateTime? earliest;
   final void Function(TimeRulerSelection) onSelectionChanged;
   final void Function(TimeRulerSelection)? onDisplayChanged;
-  final ValueChanged<bool>? onSettlingChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -283,7 +281,6 @@ class TimeRuler extends StatelessWidget {
       earliest: earliest ?? DateTime(DateTime.now().year - 1, 1, 1),
       onSelectionChanged: onSelectionChanged,
       onDisplayChanged: onDisplayChanged,
-      onSettlingChanged: onSettlingChanged,
     );
   }
 }
@@ -298,7 +295,6 @@ class _InfiniteTimeRuler extends StatefulWidget {
     required this.earliest,
     required this.onSelectionChanged,
     this.onDisplayChanged,
-    this.onSettlingChanged,
   });
 
   final TimeRulerMode rulerMode;
@@ -308,7 +304,6 @@ class _InfiniteTimeRuler extends StatefulWidget {
   final DateTime earliest;
   final void Function(TimeRulerSelection) onSelectionChanged;
   final void Function(TimeRulerSelection)? onDisplayChanged;
-  final ValueChanged<bool>? onSettlingChanged;
 
   @override
   State<_InfiniteTimeRuler> createState() => _InfiniteTimeRulerState();
@@ -462,13 +457,7 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
     if (!mounted || !_scrollController.hasClients) return;
     _snapTimer = Timer(kRulerSnapDelay, () async {
       _snapTimer = null;
-      try {
-        await _runSnapAndReport();
-      } finally {
-        if (mounted && !_isScrolling && _snapTimer == null) {
-          widget.onSettlingChanged?.call(false);
-        }
-      }
+      await _runSnapAndReport();
     });
   }
 
@@ -511,7 +500,6 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
                         _isScrolling = true;
                         _snapTimer?.cancel();
                         _snapTimer = null;
-                        widget.onSettlingChanged?.call(true);
                       }
                       if (n is ScrollUpdateNotification) _onScrollUpdate(n);
                       if (n is ScrollEndNotification) _onScrollEnd();

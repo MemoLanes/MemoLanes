@@ -89,7 +89,6 @@ export class MapController {
   private DisableAutoRefresh: boolean;
   private currentJourneyLayer: JourneyLayer | null = null;
   private journeyTileProvider: JourneyTileProvider | null = null;
-  private mapDataRefresh: Promise<boolean | null> | "failed" | null = null;
   private styleLoadRetry: StyleLoadRetry | null = null;
   private pollIntervalId: ReturnType<typeof setInterval> | null = null;
   private polarGlobeLocked = false;
@@ -376,19 +375,9 @@ export class MapController {
   }
 
   captureScreenshot(): Promise<string> {
-    if (this.mapDataRefresh === "failed") void this.refreshMapData();
     return waitForRenderedFrame(
       this.map,
-      () => {
-        if (this.mapDataRefresh === "failed") {
-          throw new Error("Screenshot map data could not be refreshed");
-        }
-        if (this.mapDataRefresh !== null || !this.isFrameReady()) return;
-        const canvas = this.map.getCanvas();
-        if (!canvas.width || !canvas.height)
-          throw new Error("Empty map canvas");
-        return canvas.toDataURL("image/png");
-      },
+      () => this.map.getCanvas().toDataURL("image/png"),
       10000,
     );
   }
@@ -460,17 +449,13 @@ export class MapController {
 
   /** Wait for a displayable frame from whichever renderer is currently active. */
   async waitForDisplay(): Promise<void> {
-    await waitForRenderedFrame(
-      this.map,
-      () => this.isFrameReady() || undefined,
-    );
-  }
-
-  private isFrameReady(): boolean {
-    return (
-      !this.webGLContextLost &&
-      this.currentJourneyLayer?.isReadyForDisplay() === true
-    );
+    await waitForRenderedFrame(this.map, () => {
+      const ready =
+        !this.webGLContextLost &&
+        !!this.map.getLayer(JOURNEY_LAYER_ID) &&
+        this.currentJourneyLayer?.isReadyForDisplay();
+      return ready || undefined;
+    });
   }
 
   /**
@@ -504,28 +489,14 @@ export class MapController {
    * @returns Promise<boolean | null> - true if data was updated, false if no change, null on error
    */
   async refreshMapData(): Promise<boolean | null> {
-    const provider = this.journeyTileProvider;
-    if (!provider) {
+    if (!this.journeyTileProvider) {
       console.warn(
         "[MapController] Cannot refresh: tile provider not initialized",
       );
       return null;
     }
     console.log("[MapController] Refreshing map data");
-    const refresh = provider.pollForJourneyUpdates(true);
-    this.mapDataRefresh = refresh;
-    const updated = await refresh;
-    if (this.mapDataRefresh === refresh) {
-      // A polar-only refresh can succeed without updating a Mercator buffer.
-      this.mapDataRefresh =
-        updated === null ||
-        (updated === false && provider.getViewRange() !== null) ||
-        this.currentJourneyLayer?.isReadyForDisplay() === false
-          ? "failed"
-          : null;
-      this.map.triggerRepaint();
-    }
-    return updated;
+    return await this.journeyTileProvider.pollForJourneyUpdates(true);
   }
 
   /**
@@ -775,7 +746,6 @@ export class MapController {
     }
     this.journeyTileProvider?.dispose();
     this.journeyTileProvider = null;
-    this.mapDataRefresh = null;
     this.map.remove();
   }
 

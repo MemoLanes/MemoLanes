@@ -44,8 +44,7 @@ async function withMap(latitude, check, run) {
     const gate = holds.get(plane);
     if (gate) {
       gate.started.resolve();
-      if ((await gate.response.promise) === false)
-        return new Response("Tile download failed", { status: 500 });
+      await gate.response.promise;
     }
     return new Response(
       encodeTileRangeResponse(range, [], Number(q.get("buffer_size_power"))),
@@ -136,51 +135,18 @@ export async function checkPolarDisplay(check) {
         const refresh = controller.refreshMapData().then(() => {
           refreshed = true;
         });
-        let captured = false;
-        const capture = controller.captureScreenshot().then((png) => {
-          captured = true;
-          return png;
-        });
         await refreshGate.started;
-        await waitForIdle(map);
-        check(!refreshed, "an explicit refresh waits for the polar download");
-        check(!captured, "screenshots wait for fresh polar data");
-        refreshGate.release();
-        await refresh;
-        check(
-          (await capture).startsWith("data:image/png;base64,"),
-          "a polar-only viewport exports a PNG without Mercator demand",
-        );
-
-        const requestCount = requests.length;
-        await controller.captureScreenshot();
-        check(
-          requests.length === requestCount,
-          "capture reuses settled map data",
-        );
-
-        if (sign === 1) {
-          const failedGate = hold(hemisphere);
-          const refresh = controller.refreshMapData();
-          const captureError = controller.captureScreenshot().then(
-            () => null,
-            (error) => error,
-          );
-          await failedGate.started;
-          failedGate.release(false);
-          await refresh;
-          check(
-            (await captureError)?.message ===
-              "Screenshot map data could not be refreshed",
-            "a failed polar refresh must not export the previous tracks",
-          );
-          hold(hemisphere).release();
+        try {
           check(
             (await controller.captureScreenshot()).startsWith(
               "data:image/png;base64,",
             ),
-            "screenshots recover after the polar download succeeds",
+            "the current polar frame can be captured during refresh",
           );
+          check(!refreshed, "an explicit refresh waits for the polar download");
+        } finally {
+          refreshGate.release();
+          await refresh;
         }
 
         // Leaving and re-entering a polar-only view reactivates Mercator demand.

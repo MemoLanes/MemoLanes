@@ -14,42 +14,31 @@ Future<void> showMapScreenshotPreview(
   BuildContext context, {
   required BaseMapWebviewState? map,
   required bool Function() isActive,
-  DateTimeRange? Function()? readTimeRange,
+  DateTimeRange? timeRange,
   JourneyHeader? journey,
 }) async {
   final loading = GlobalLoadingManager.instance;
   if (loading.isLoading || loading.isNavigationBlocked) {
-    Fluttertoast.showToast(msg: context.tr('screenshot.not_ready'));
+    Fluttertoast.showToast(msg: context.tr('screenshot.busy'));
     return;
   }
 
   ui.Image? mapImage;
   try {
     final screenshot = await loading.runWithLoading(() async {
-      // Read the range after the current map proxy and layout are applied.
-      await WidgetsBinding.instance.endOfFrame;
       if (!context.mounted || !isActive()) return null;
-      final timeRange = readTimeRange?.call();
-      if (readTimeRange != null && timeRange == null) {
-        Fluttertoast.showToast(msg: context.tr('screenshot.not_ready'));
-        return null;
-      }
       if (map == null) throw StateError('Map is unavailable');
       final frame = await map.captureScreenshot();
       final image = await decodeScreenshot(frame.png);
       mapImage = image;
-      return (
-        image: image,
-        logicalSize: frame.logicalSize,
-        timeRange: timeRange,
-      );
+      return (image: image, logicalSize: frame.logicalSize);
     }, blockNavigation: true);
     if (screenshot == null || !context.mounted || !isActive()) return;
     final route = MaterialPageRoute<bool>(
       builder: (_) => ScreenshotPreviewPage(
         map: screenshot.image,
         logicalSize: screenshot.logicalSize,
-        timeRange: screenshot.timeRange,
+        timeRange: timeRange,
         journey: journey,
       ),
     );
