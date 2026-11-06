@@ -62,7 +62,7 @@
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Photo Library Access Warning</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>Save the travel screenshot you choose to your photo library.</string>
+	<string>Allow MemoLanes to save screenshots of your tracks to your photo library.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UIApplicationSceneManifest</key>
