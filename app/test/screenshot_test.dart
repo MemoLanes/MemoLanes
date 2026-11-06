@@ -202,7 +202,7 @@ void main() {
       });
     }
 
-    final info = find.widgetWithText(FilterChip, '时间信息');
+    final info = find.widgetWithText(FilterChip, '日期信息');
     final caption = find.text('2025.01.02 — 2025.03.04');
     await tester.tap(info);
     await tester.pump();
@@ -229,7 +229,7 @@ void main() {
 
     await export('保存到相册', () => savedPng != null);
     await tester.pumpAndSettle();
-    expect(find.text('没有保存相册的权限，请在系统设置中允许后重试'), findsOneWidget);
+    expect(find.text('未获得保存图片的权限，请在系统设置中允许后重试'), findsOneWidget);
 
     denySave = false;
     savedPng = null;

@@ -3,9 +3,9 @@
     "logo_topRight": "Top right",
     "logo_bottomRight": "Bottom right",
     "logo_hidden": "Hidden",
-    "time_info_option": "Time info",
-    "include_time_info": "Include time information",
-    "selected_time": "The time machine takes you to",
+    "time_info_option": "Dates",
+    "include_time_info": "Include dates",
+    "selected_time": "Travel back to",
     "button_label": "Screenshot",
     "generating": "Preparing screenshot…",
     "content_options": "Image content",
@@ -17,9 +17,9 @@
     "saved": "Image saved to Photos",
     "busy": "Wait for the current operation to finish before taking a screenshot.",
     "failed": "Could not capture the map. Please try again.",
-    "save_failed": "Could not save. Check available storage and try again.",
+    "save_failed": "Could not save the image. Please try again.",
     "share_failed": "Could not share the image. Please try again.",
-    "permission_denied": "Photo permission was denied. Allow it in system settings and try again."
+    "permission_denied": "Permission to save images was denied. Allow it in system settings and try again."
   },
   "home": {
     "start_new_journey": "Start new journey",
