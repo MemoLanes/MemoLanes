@@ -2,6 +2,25 @@ syntax = "proto3";
 
 package journey;
 
+message TransportDetailsProto {
+  oneof details {
+    FlightDetails flight = 1;
+    TrainDetails train = 2;
+  }
+}
+
+message FlightDetails {
+  optional string flight_number = 1;
+  optional string operating_airline_icao = 2;
+  optional string aircraft_type_icao = 3;
+  optional string registration = 4;
+}
+
+message TrainDetails {
+  optional string service_name = 1;
+  optional string operator_name = 2;
+}
+
 message Header {
   message Kind {
     enum BuiltIn {
@@ -34,4 +53,5 @@ message Header {
   optional string postprocessor_algo = 11;
   // Whether this stored or exported journey includes a raw-data attachment.
   bool has_raw_data = 12;
+  TransportDetailsProto transport_details = 13;
 }
