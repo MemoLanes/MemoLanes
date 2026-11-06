@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package journey;
 
-message TransportDetails {
+message TransportDetailsProto {
   oneof details {
     FlightDetails flight = 1;
     TrainDetails train = 2;
@@ -53,5 +53,5 @@ message Header {
   optional string postprocessor_algo = 11;
   // Whether this stored or exported journey includes a raw-data attachment.
   bool has_raw_data = 12;
-  TransportDetails transport_details = 13;
+  TransportDetailsProto transport_details = 13;
 }

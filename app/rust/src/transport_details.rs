@@ -28,7 +28,7 @@ pub enum TransportDetailsView {
 #[derive(Clone, Debug, Default, PartialEq)]
 #[frb(opaque)]
 pub struct TransportDetails {
-    pub(crate) proto: Box<protos::journey::TransportDetails>,
+    pub(crate) proto: Box<protos::journey::TransportDetailsProto>,
 }
 
 impl TransportDetails {
@@ -38,7 +38,7 @@ impl TransportDetails {
         aircraft_type_icao: Option<String>,
         registration: Option<String>,
     ) -> Self {
-        let mut proto = Box::new(protos::journey::TransportDetails::new());
+        let mut proto = Box::new(protos::journey::TransportDetailsProto::new());
         proto.set_flight(protos::journey::FlightDetails {
             flight_number,
             operating_airline_icao,
@@ -50,7 +50,7 @@ impl TransportDetails {
     }
 
     pub fn train(service_name: Option<String>, operator_name: Option<String>) -> Self {
-        let mut proto = Box::new(protos::journey::TransportDetails::new());
+        let mut proto = Box::new(protos::journey::TransportDetailsProto::new());
         proto.set_train(protos::journey::TrainDetails {
             service_name,
             operator_name,
@@ -60,7 +60,7 @@ impl TransportDetails {
     }
 
     pub fn view(&self) -> Option<TransportDetailsView> {
-        use protos::journey::transport_details::Details;
+        use protos::journey::transport_details_proto::Details;
         self.proto.details.as_ref().map(|details| match details {
             Details::Flight(flight) => TransportDetailsView::Flight {
                 flight_number: flight.flight_number.clone(),
