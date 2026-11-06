@@ -201,7 +201,10 @@ class AppBootstrap {
 
   /// Runs the home page's startup UI in order, then releases pending shares.
   /// Call after the home page's first frame, when its Navigator is mounted.
-  static Future<void> completeUiStartup(BuildContext context) async {
+  static Future<void> completeUiStartup(
+    BuildContext context, {
+    Future<void> Function()? showOnboarding,
+  }) async {
     if (!context.mounted) return;
     await showFirstLaunchSetupIfNeeded(context);
     if (!context.mounted) return;
@@ -220,6 +223,8 @@ class AppBootstrap {
         context.tr('startup_error.map_initialization_failed'),
       );
     }
+    if (!context.mounted) return;
+    await showOnboarding?.call();
     if (!context.mounted) return;
     await tryShowPermissionSheetIfFirstTime();
     if (!context.mounted) return;

@@ -748,6 +748,13 @@ class _AboutSettingsPageState extends State<AboutSettingsPage> {
                 },
               ),
               SettingsTile(
+                label: context.tr('onboarding.title'),
+                position: LabelTilePosition.middle,
+                bottom: false,
+                trailing: const LabelTileContent(showArrow: true),
+                onTap: () => Navigator.of(context).pop(true),
+              ),
+              SettingsTile(
                 label: context.tr('privacy.name'),
                 position: LabelTilePosition.bottom,
                 bottom: false,

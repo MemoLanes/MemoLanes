@@ -2,6 +2,7 @@ import 'package:memolanes/theme/app_colors.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:memolanes/common/component/app_button.dart';
+import 'package:memolanes/common/onboarding.dart';
 import 'package:memolanes/constants/app_typography.dart';
 
 enum JourneyListEmptyType { all, filtered, day }
@@ -49,59 +50,70 @@ class JourneyListEmptyState extends StatelessWidget {
           compact ? 8 : 24,
           compact ? 12 : 24,
         ),
-        child: Container(
-          width: double.infinity,
-          padding: EdgeInsets.all(compact ? 18 : 24),
-          decoration: BoxDecoration(
-            color: context.appColors.surfaceColor,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: context.appColors.lineColor),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: context.appColors.softYellow,
-                  shape: BoxShape.circle,
+        child: _guideTarget(
+          child: Container(
+            width: double.infinity,
+            padding: EdgeInsets.all(compact ? 18 : 24),
+            decoration: BoxDecoration(
+              color: context.appColors.surfaceColor,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: context.appColors.lineColor),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: context.appColors.softYellow,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    icon,
+                    color: context.appColors.deepYellow,
+                    size: 25,
+                  ),
                 ),
-                child: Icon(
-                  icon,
-                  color: context.appColors.deepYellow,
-                  size: 25,
+                const SizedBox(height: 14),
+                Text(
+                  context.tr(titleKey),
+                  textAlign: TextAlign.center,
+                  style: AppTypography.subpageTitle.copyWith(
+                    color: context.appColors.inkColor,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 14),
-              Text(
-                context.tr(titleKey),
-                textAlign: TextAlign.center,
-                style: AppTypography.subpageTitle.copyWith(
-                  color: context.appColors.inkColor,
+                const SizedBox(height: 6),
+                Text(
+                  context.tr(descriptionKey),
+                  textAlign: TextAlign.center,
+                  style: AppTypography.supporting.copyWith(
+                    color: context.appColors.mutedInkColor,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                context.tr(descriptionKey),
-                textAlign: TextAlign.center,
-                style: AppTypography.supporting.copyWith(
-                  color: context.appColors.mutedInkColor,
-                ),
-              ),
-              if (onShowAll != null) ...[
-                const SizedBox(height: 12),
-                AppButton(
-                  onPressed: onShowAll,
-                  icon: Icons.layers_outlined,
-                  size: compact ? AppButtonSize.compact : AppButtonSize.regular,
-                  label: context.tr('journey.list.show_all_layers'),
-                ),
+                if (onShowAll != null) ...[
+                  const SizedBox(height: 12),
+                  AppButton(
+                    onPressed: onShowAll,
+                    icon: Icons.layers_outlined,
+                    size: compact
+                        ? AppButtonSize.compact
+                        : AppButtonSize.regular,
+                    label: context.tr('journey.list.show_all_layers'),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),
     );
   }
+
+  // With no journeys yet, introduce the real empty-state card. Once data
+  // exists, JourneyBody anchors the same step to its calendar instead.
+  Widget _guideTarget({required Widget child}) =>
+      type == JourneyListEmptyType.all
+      ? OnboardingTarget(anchor: OnboardingAnchor.journeys, child: child)
+      : child;
 }

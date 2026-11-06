@@ -1,4 +1,50 @@
 {
+  "onboarding": {
+    "title": "Getting started",
+    "skip": "Skip",
+    "previous": "Back",
+    "next": "Next",
+    "finish": "Done",
+    "progress": "{page} · {current} / {total}",
+    "waiting": "Loading this screen. You can continue or skip the tour.",
+    "tabs": {
+      "0": "Record",
+      "1": "Time Machine",
+      "2": "Journeys",
+      "3": "Achievements",
+      "4": "Settings"
+    },
+    "recording": {
+      "title": "Start a journey",
+      "body": "Tap the main button to record your footsteps. Pause or resume recording, then tap the square stop button to finish and save.",
+      "rec_hint": "REC appears in the upper left while recording. It disappears when you pause or finish."
+    },
+    "map_controls": {
+      "title": "Map tools",
+      "body": "Arrow: show your location and follow it on the map. Tap again to turn it off.\n\nACC: check GPS accuracy; smaller numbers are better. With a GPS fix, tap for details.\n\nLayers: show your current journey, ground tracks, or flights, together or separately."
+    },
+    "time_range": {
+      "title": "Select time",
+      "body": "Drag the timeline or tap the date button on the left to view journeys by year, month, day, or a custom date range."
+    },
+    "journeys": {
+      "title": "Select a journey date",
+      "body": "Select a date to view that day's journeys in the records below."
+    },
+    "journey_record": {
+      "title": "Select a journey",
+      "body": "Tap a journey in the day's records to view its route and details, edit notes, or draw and erase tracks. Save your changes when finished.",
+      "example": "Example journey · For this tour only"
+    },
+    "achievements": {
+      "title": "Achievements",
+      "body": "The Achievements screen shows your explored area and visited countries and regions."
+    },
+    "settings": {
+      "title": "Settings",
+      "body": "Tap to open Settings, adjust recording, maps, and appearance, or manage journey data. Replay this guide in About MemoLanes → Getting started."
+    }
+  },
   "screenshot": {
     "logo_topRight": "Top right",
     "logo_bottomRight": "Bottom right",

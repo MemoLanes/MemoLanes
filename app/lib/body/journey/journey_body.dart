@@ -12,6 +12,7 @@ import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
 import 'package:memolanes/common/journey_kind_visuals.dart';
 import 'package:memolanes/common/loading_manager.dart';
+import 'package:memolanes/common/onboarding.dart';
 import 'package:memolanes/common/simple_date_utils.dart';
 import 'package:memolanes/constants/index.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
@@ -42,6 +43,14 @@ class _JourneyBodyState extends State<JourneyBody> {
   final ScrollController _journeyListScrollController = ScrollController();
   // Keep the selected calendar mode/month when its viewport changes shape.
   final _calendarKey = GlobalKey();
+  final _firstJourneyRowKey = GlobalKey();
+  OnboardingController? _onboarding;
+  OnboardingAnchor? _lastGuideAnchor;
+  bool _guideScrollScheduled = false;
+
+  bool get _showRecordGuide =>
+      _onboarding?.isActive == true &&
+      _onboarding?.step.anchor == OnboardingAnchor.journeyRecord;
 
   @override
   void initState() {
@@ -60,7 +69,23 @@ class _JourneyBodyState extends State<JourneyBody> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final onboarding = OnboardingScope.maybeOf(context);
+    if (_onboarding != onboarding) {
+      _onboarding?.removeListener(_onGuideChanged);
+      _onboarding = onboarding;
+      _onboarding?.addListener(_onGuideChanged);
+      _onGuideChanged();
+    }
+    // Reposition the highlighted row after a rotation or text-size change.
+    MediaQuery.of(context);
+    _scheduleGuideScroll();
+  }
+
+  @override
   void dispose() {
+    _onboarding?.removeListener(_onGuideChanged);
     _controller
       ..removeListener(_onControllerChanged)
       ..dispose();
@@ -70,9 +95,58 @@ class _JourneyBodyState extends State<JourneyBody> {
 
   void _onControllerChanged() {
     if (mounted) setState(() {});
+    _scheduleGuideScroll();
+  }
+
+  void _onGuideChanged() {
+    final anchor = _onboarding?.isActive == true
+        ? _onboarding?.step.anchor
+        : null;
+    if (anchor == _lastGuideAnchor) return;
+    _lastGuideAnchor = anchor;
+    if (mounted) setState(() {});
+    _scheduleGuideScroll();
+  }
+
+  void _scheduleGuideScroll() {
+    if (_guideScrollScheduled || _onboarding?.isActive != true) return;
+    _guideScrollScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _guideScrollScheduled = false;
+      if (!mounted || _onboarding?.isActive != true) return;
+      if (_showRecordGuide) {
+        final rowContext = _firstJourneyRowKey.currentContext;
+        if (rowContext != null) {
+          unawaited(Scrollable.ensureVisible(rowContext, alignment: 0.55));
+        }
+      } else if (_onboarding?.step.anchor == OnboardingAnchor.journeys &&
+          _journeyListScrollController.hasClients) {
+        _journeyListScrollController.jumpTo(0);
+      }
+    });
   }
 
   Widget _buildJourneySliver() {
+    if (_showRecordGuide &&
+        !_controller.isJourneyListLoading &&
+        _controller.journeyHeaders.isEmpty) {
+      // A first-time user still needs a visible row to learn this interaction.
+      // This is a presentation-only example, never a stored JourneyHeader.
+      return SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.only(right: 12, bottom: 20),
+          child: _recordTarget(
+            LabelTile(
+              label: '09:00:00',
+              desc: context.tr('onboarding.journey_record.example'),
+              descMaxLines: 2,
+              prefix: _journeyKindBadge(JourneyKind.defaultKind),
+              trailing: const LabelTileContent(showArrow: true),
+            ),
+          ),
+        ),
+      );
+    }
     if (_controller.firstDate == null) {
       return const SliverFillRemaining(
         hasScrollBody: false,
@@ -103,10 +177,19 @@ class _JourneyBodyState extends State<JourneyBody> {
     final timeFormat = DateFormat('HH:mm:ss');
     return SliverPadding(
       padding: const EdgeInsets.only(right: 12, bottom: 20),
-      sliver: SliverList.builder(
-        itemCount: _controller.journeyHeaders.length,
-        itemBuilder: (context, index) =>
-            _buildJourneyRow(context, index, timeFormat),
+      sliver: SliverMainAxisGroup(
+        slivers: [
+          // Build the first row even below a tall calendar, so the guide can
+          // scroll to its actual RenderBox without guessing calendar heights.
+          if (_controller.journeyHeaders.isNotEmpty)
+            SliverToBoxAdapter(child: _buildJourneyRow(context, 0, timeFormat)),
+          if (_controller.journeyHeaders.length > 1)
+            SliverList.builder(
+              itemCount: _controller.journeyHeaders.length - 1,
+              itemBuilder: (context, index) =>
+                  _buildJourneyRow(context, index + 1, timeFormat),
+            ),
+        ],
       ),
     );
   }
@@ -134,6 +217,8 @@ class _JourneyBodyState extends State<JourneyBody> {
           controller: _journeyListScrollController,
           slivers: [
             if (header != null) SliverToBoxAdapter(child: header),
+            if (header == null && _showRecordGuide)
+              SliverToBoxAdapter(child: _recordsHeading()),
             _buildJourneySliver(),
           ],
         ),
@@ -147,41 +232,53 @@ class _JourneyBodyState extends State<JourneyBody> {
     DateFormat timeFormat,
   ) {
     final header = _controller.journeyHeaders[index];
-    return LabelTile(
+    final tile = LabelTile(
       label: header.start != null
           ? timeFormat.format(header.start!.toLocal())
           : header.journeyDate.toSimpleDate().toString(),
-      prefix: Padding(
-        padding: const EdgeInsets.only(right: 12),
-        child: Container(
-          width: 34,
-          height: 34,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: context.appColors.softGreen,
-            borderRadius: BorderRadius.circular(11),
-          ),
-          child: JourneyKindIcon(
-            kind: header.journeyKind,
-            color: context.appColors.deepGreen,
-            size: 18,
-          ),
-        ),
-      ),
-      trailing: LabelTileContent(showArrow: true),
+      prefix: _journeyKindBadge(header.journeyKind),
+      trailing: const LabelTileContent(showArrow: true),
       onTap: () async {
         AppHaptics.selection();
         await widget.onJourneySelected(header);
       },
     );
+    return index == 0 ? _recordTarget(tile) : tile;
   }
 
-  Widget _calendar(SimpleDate firstDate) => _CalendarSurface(
-    child: JourneyListCalendar(
-      key: _calendarKey,
-      controller: _controller,
-      firstDate: firstDate,
-      fitLabels: true,
+  Widget _recordTarget(Widget child) => OnboardingTarget(
+    key: _firstJourneyRowKey,
+    anchor: OnboardingAnchor.journeyRecord,
+    child: child,
+  );
+
+  Widget _journeyKindBadge(JourneyKind kind) => Padding(
+    padding: const EdgeInsets.only(right: 12),
+    child: Container(
+      width: 34,
+      height: 34,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: context.appColors.softGreen,
+        borderRadius: BorderRadius.circular(11),
+      ),
+      child: JourneyKindIcon(
+        kind: kind,
+        color: context.appColors.deepGreen,
+        size: 18,
+      ),
+    ),
+  );
+
+  Widget _calendar(SimpleDate firstDate) => OnboardingTarget(
+    anchor: OnboardingAnchor.journeys,
+    child: _CalendarSurface(
+      child: JourneyListCalendar(
+        key: _calendarKey,
+        controller: _controller,
+        firstDate: firstDate,
+        fitLabels: true,
+      ),
     ),
   );
 
@@ -190,15 +287,19 @@ class _JourneyBodyState extends State<JourneyBody> {
     children: [
       _calendar(firstDate),
       const SizedBox(height: 10),
-      Text(
-        context.tr('journey.records_title'),
-        style: AppTypography.itemTitle.copyWith(
-          color: context.appColors.inkColor,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-      const SizedBox(height: 6),
+      _recordsHeading(),
     ],
+  );
+
+  Widget _recordsHeading() => Padding(
+    padding: const EdgeInsets.only(bottom: 6),
+    child: Text(
+      context.tr('journey.records_title'),
+      style: AppTypography.itemTitle.copyWith(
+        color: context.appColors.inkColor,
+        fontWeight: FontWeight.w700,
+      ),
+    ),
   );
 
   void _showAllJourneyKinds() {

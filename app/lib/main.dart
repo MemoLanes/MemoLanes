@@ -21,10 +21,12 @@ import 'package:memolanes/common/component/app_navigation_shell.dart';
 import 'package:memolanes/common/component/bottom_nav_bar.dart';
 import 'package:memolanes/common/component/database_version_too_new_gate.dart';
 import 'package:memolanes/common/component/map_controls/map_copyright_button.dart';
+import 'package:memolanes/common/component/onboarding_overlay.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/duo_device.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/mmkv_util.dart';
+import 'package:memolanes/common/onboarding.dart';
 import 'package:memolanes/utils/nav_helper.dart';
 import 'package:memolanes/common/update_notifier.dart';
 import 'package:memolanes/common/loading_manager.dart';
@@ -179,6 +181,7 @@ class _MyHomePageState extends State<MyHomePage> {
   bool _recordMapOnly = false;
   bool _hasMapAttribution = false;
   final _journeys = JourneyFlowController();
+  late final _onboarding = OnboardingController(selectTab: _selectTab);
   DateTime? _lastExitPopAt;
   late final StreamSubscription<void> _screenshotSubscription;
 
@@ -194,17 +197,40 @@ class _MyHomePageState extends State<MyHomePage> {
   void initState() {
     super.initState();
     _journeys.addListener(_onJourneysChanged);
+    _onboarding.addListener(_onOnboardingChanged);
     _screenshotSubscription = listenForSystemScreenshots(() {
-      if (_selectedIndex <= 2) {
+      if (_selectedIndex <= 2 && !_onboarding.isActive) {
         unawaited(_mapBodyKey.currentState?.takeScreenshot());
       }
     });
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await AppBootstrap.completeUiStartup(context);
+      await AppBootstrap.completeUiStartup(
+        context,
+        showOnboarding: () async {
+          if (!MMKVUtil.getBool(MMKVKey.onboardingCompleted)) {
+            await _showOnboarding();
+          }
+        },
+      );
     });
   }
 
   void _onJourneysChanged() => setState(() {});
+
+  void _onOnboardingChanged() => setState(() {});
+
+  Future<void> _showOnboarding() async {
+    if (!mounted || _onboarding.isActive) return;
+    final returnTab = _selectedIndex;
+    setState(() {
+      _recordMapOnly = false;
+      _lastExitPopAt = null;
+    });
+    final dismissed = await _onboarding.start();
+    if (!mounted) return;
+    if (dismissed) MMKVUtil.putBool(MMKVKey.onboardingCompleted, true);
+    _selectTab(returnTab);
+  }
 
   void _onMapAttributionChanged(bool available) {
     if (!mounted || _selectedIndex > 2 || _hasMapAttribution == available) {
@@ -236,6 +262,8 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   void dispose() {
+    _onboarding.removeListener(_onOnboardingChanged);
+    _onboarding.dispose();
     unawaited(_screenshotSubscription.cancel());
     _journeys.removeListener(_onJourneysChanged);
     _journeys.dispose();
@@ -264,6 +292,14 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   Future<void> _handleOnPop() async {
+    if (_onboarding.isActive) {
+      if (_onboarding.index == 0) {
+        _onboarding.finish();
+      } else {
+        _onboarding.previous();
+      }
+      return;
+    }
     final loading = GlobalLoadingManager.instance;
     if (loading.isLoading || loading.isNavigationBlocked) return;
     if (_recordMapOnly) {
@@ -347,6 +383,7 @@ class _MyHomePageState extends State<MyHomePage> {
         () => settings.SettingsBody(
           topSafeArea: topSafeArea,
           bottomSafeArea: bottomSafeArea,
+          onShowOnboarding: _showOnboarding,
         ),
       ),
       _ => throw RangeError('Invalid tab index: $index'),
@@ -361,27 +398,33 @@ class _MyHomePageState extends State<MyHomePage> {
         if (didPop) return;
         await _handleOnPop();
       },
-      child: AppNavigationShell(
-        bodyBuilder: _buildPageContent,
-        navigationVisible: _journeys.appChromeVisible && !_recordMapOnly,
-        animateNavigationVisibility: _selectedIndex == 0,
-        contentMode: _selectedIndex > 2
-            ? AppNavigationContentMode.inset
-            : AppNavigationContentMode.fullBleed,
-        navigationBuilder: (context, {required axis}) => BottomNavBar(
-          axis: axis,
-          selectedIndex: _selectedIndex,
-          onIndexChanged: _selectTab,
-          hasUpdateNotification: context
-              .watch<UpdateNotifier>()
-              .hasUpdateNotification,
+      child: OnboardingScope(
+        controller: _onboarding,
+        child: AppNavigationShell(
+          foregroundOverlay: _onboarding.isActive
+              ? OnboardingOverlay(controller: _onboarding)
+              : null,
+          bodyBuilder: _buildPageContent,
+          navigationVisible: _journeys.appChromeVisible && !_recordMapOnly,
+          animateNavigationVisibility: _selectedIndex == 0,
+          contentMode: _selectedIndex > 2
+              ? AppNavigationContentMode.inset
+              : AppNavigationContentMode.fullBleed,
+          navigationBuilder: (context, {required axis}) => BottomNavBar(
+            axis: axis,
+            selectedIndex: _selectedIndex,
+            onIndexChanged: _selectTab,
+            hasUpdateNotification: context
+                .watch<UpdateNotifier>()
+                .hasUpdateNotification,
+          ),
+          bottomTrailingOverlay: _selectedIndex <= 2 && _hasMapAttribution
+              ? MapCopyrightButton(
+                  readAttribution: () async =>
+                      await _mapBodyKey.currentState?.getMapAttribution(),
+                )
+              : null,
         ),
-        bottomTrailingOverlay: _selectedIndex <= 2 && _hasMapAttribution
-            ? MapCopyrightButton(
-                readAttribution: () async =>
-                    await _mapBodyKey.currentState?.getMapAttribution(),
-              )
-            : null,
       ),
     );
   }
