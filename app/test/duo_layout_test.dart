@@ -41,6 +41,33 @@ void contained(Rect child, Rect bounds) {
 }
 
 void main() {
+  test('Duo screenshot clears the fold and the visible navigation', () {
+    const fold = DuoRegion(Rect.fromLTWH(413, 0, 40, 669), isActive: true);
+    for (final edge in [DuoBarEdge.left, DuoBarEdge.right]) {
+      for (final details in [false, true]) {
+        final resolved = layout(
+          edge: edge,
+          navigation: !details,
+          padding: const EdgeInsets.symmetric(horizontal: 9),
+          fold: _duo.copyWith(
+            status: DuoHingeStatus.partiallyOpen,
+            folds: [fold],
+          ),
+        );
+        final button = resolved.screenshotControlBounds(
+          backButtonVisible: details,
+        );
+        expect(button.size, const Size.square(StyleConstants.mapControlSize));
+        contained(button, resolved.safeBounds);
+        expect(button.overlaps(fold.frame), isFalse);
+        final navigation = details
+            ? resolved.primaryNavigationBounds
+            : resolved.navigationBounds;
+        expect(button.overlaps(navigation), isFalse);
+      }
+    }
+  });
+
   test('content widths preserve centering and phone navigation scale', () {
     for (final hardware in [DuoHardware.none, _duo]) {
       var previous = 0.0;

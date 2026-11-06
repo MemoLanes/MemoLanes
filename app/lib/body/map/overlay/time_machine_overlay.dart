@@ -25,7 +25,8 @@ Set<JourneyKind> _initialJourneyKindsFromMainMap() {
 class TimeMachineOverlay extends StatefulWidget {
   const TimeMachineOverlay({super.key, required this.onJourneyRangeLoaded});
 
-  final void Function(api.MapRendererProxy? proxy) onJourneyRangeLoaded;
+  final void Function(api.MapRendererProxy proxy, DateTimeRange range)
+  onJourneyRangeLoaded;
 
   @override
   State<TimeMachineOverlay> createState() => _TimeMachineOverlayState();
@@ -86,7 +87,13 @@ class _TimeMachineOverlayState extends State<TimeMachineOverlay> {
         journeyKinds: journeyKinds,
       );
       if (mounted && _loadGuard.isActive(loadToken)) {
-        widget.onJourneyRangeLoaded(proxy);
+        widget.onJourneyRangeLoaded(
+          proxy,
+          DateTimeRange(
+            start: from.toLocalDateTime(),
+            end: to.toLocalDateTime(),
+          ),
+        );
       }
     } catch (error, stackTrace) {
       log.error('$_loadErrorMessage: $error', stackTrace);
@@ -99,6 +106,8 @@ class _TimeMachineOverlayState extends State<TimeMachineOverlay> {
   }
 
   void _scheduleJourneyRangeLoad(SimpleDate from, SimpleDate to) {
+    // Invalidate immediately: an older request may finish during the debounce.
+    _loadGuard.invalidate();
     _requestedFrom = from;
     _requestedTo = to;
     _rangeLoadDebounceTimer?.cancel();

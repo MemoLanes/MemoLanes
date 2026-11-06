@@ -399,7 +399,7 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
       } finally {
         _isSnapping = false;
       }
-      if (!mounted) return;
+      if (!mounted || _isScrolling) return;
     }
     // Skip if _onScrollUpdate already vibrated for this tick.
     final shouldHaptic = !aligned || _lastHapticIndex != idx;
@@ -450,14 +450,14 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
     }
   }
 
-  void _onScrollEnd(ScrollNotification n) {
+  void _onScrollEnd() {
     _isScrolling = false;
     if (_isSnapping) return;
     _snapTimer?.cancel();
     if (!mounted || !_scrollController.hasClients) return;
     _snapTimer = Timer(kRulerSnapDelay, () async {
+      _snapTimer = null;
       await _runSnapAndReport();
-      if (mounted) _snapTimer = null;
     });
   }
 
@@ -502,7 +502,7 @@ class _InfiniteTimeRulerState extends State<_InfiniteTimeRuler> {
                         _snapTimer = null;
                       }
                       if (n is ScrollUpdateNotification) _onScrollUpdate(n);
-                      if (n is ScrollEndNotification) _onScrollEnd(n);
+                      if (n is ScrollEndNotification) _onScrollEnd();
                       return false;
                     },
                     child: ListView.builder(

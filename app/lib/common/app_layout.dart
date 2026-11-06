@@ -142,6 +142,26 @@ class AppLayout {
   Axis get mapControlsAxis =>
       _mapControlsRegion.height < 260 ? Axis.horizontal : Axis.vertical;
 
+  /// Place the camera near the top right of the clear map controls pane.
+  Rect screenshotControlBounds({required bool backButtonVisible}) {
+    final available = geometry.insetRect(
+      _mapControlsRegion,
+      const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+    );
+    const extent = StyleConstants.mapControlSize;
+    const gap = StyleConstants.mapControlSpacing;
+    final candidates = geometry
+        .clearRegions(available, [
+          if (backButtonVisible) primaryNavigationBounds.inflate(gap),
+          if (!navigationBounds.isEmpty) navigationBounds.inflate(gap),
+        ])
+        .where((region) => region.width >= extent && region.height >= extent)
+        .toList();
+    if (candidates.isEmpty) return Rect.zero;
+    final region = geometry.nearestRegion(candidates, available.topRight);
+    return Rect.fromLTWH(region.right - extent, region.top, extent, extent);
+  }
+
   Rect get mapControlsBounds {
     final region = _mapControlsRegion;
     final horizontal = mapControlsAxis == Axis.horizontal;

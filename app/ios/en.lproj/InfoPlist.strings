@@ -3,5 +3,6 @@
 */
 
 "CFBundleDisplayName" = "MemoLanes";
+"NSPhotoLibraryAddUsageDescription" = "Allow MemoLanes to save screenshots of your tracks to your photo library.";
 "NSLocationAlwaysAndWhenInUseUsageDescription" = "This app needs your location to record your tracks in the background.";
 "NSLocationWhenInUseUsageDescription" = "This app needs your location to record your tracks.";

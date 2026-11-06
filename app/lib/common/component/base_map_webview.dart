@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 import 'dart:io';
 
 import 'package:easy_localization/easy_localization.dart';
@@ -50,6 +51,7 @@ class BaseMapWebview extends StatefulWidget {
   final TrackingMode trackingMode;
   final bool isEditor;
   final void Function()? onMapMoved;
+  final VoidCallback? onMapTap;
   final void Function(MapView)? onRoughMapViewUpdate;
   final void Function(int)? onMapZoomChanged;
   final List<BaseMapJavaScriptChannel> extraJavaScriptChannels;
@@ -67,6 +69,7 @@ class BaseMapWebview extends StatefulWidget {
     this.trackingMode = TrackingMode.off,
     this.isEditor = false,
     this.onMapMoved,
+    this.onMapTap,
     this.onRoughMapViewUpdate,
     this.onMapZoomChanged,
     this.extraJavaScriptChannels = const [],
@@ -124,6 +127,39 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     await _webViewController?.evaluateJavascript(source: javaScript);
   }
 
+  /// Export only the map canvas, without Flutter controls or system chrome.
+  Future<({Uint8List png, Size logicalSize})> captureScreenshot() async {
+    final controller = _webViewController;
+    if (controller == null || !_readyForDisplay) {
+      throw StateError('Map is not ready for a screenshot');
+    }
+    final box = context.findRenderObject();
+    if (box is! RenderBox || !box.hasSize) {
+      throw StateError('Map layout is unavailable');
+    }
+    final logicalSize = box.size;
+    final result = await controller
+        .callAsyncJavaScript(
+          functionBody: 'return await window.captureMapScreenshot();',
+        )
+        .timeout(const Duration(seconds: 20));
+    final value = result?.value;
+    const prefix = 'data:image/png;base64,';
+    if (result?.error != null ||
+        value is! String ||
+        !value.startsWith(prefix)) {
+      throw StateError('Map screenshot failed: ${result?.error}');
+    }
+    // The map can still resize during a fold or rotation.
+    if (!box.attached || box.size != logicalSize) {
+      throw StateError('Map resized during screenshot');
+    }
+    return (
+      png: base64Decode(value.substring(prefix.length)),
+      logicalSize: logicalSize,
+    );
+  }
+
   Future<String?> getMapAttribution() async {
     final controller = _webViewController;
     if (controller == null || !_readyForDisplay) return null;
@@ -173,6 +209,9 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   @override
   void didUpdateWidget(BaseMapWebview oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if ((oldWidget.onMapTap != null) != (widget.onMapTap != null)) {
+      unawaited(_syncMapTapListener());
+    }
     if (oldWidget.trackingMode != widget.trackingMode) {
       if (widget.trackingMode == TrackingMode.off) {
         _hideLocationMarker();
@@ -189,6 +228,20 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
         oldWidget.boundsPadding != widget.boundsPadding ||
         oldWidget.overlayPanel != widget.overlayPanel) {
       _scheduleMapSync();
+    }
+  }
+
+  Future<void> _syncMapTapListener() async {
+    if (!mounted || !_readyForDisplay) return;
+    try {
+      await runJavaScript(
+        'window.setMapTapEnabled?.(${widget.onMapTap != null});',
+      );
+    } catch (error, stackTrace) {
+      log.error(
+        '[base_map_webview] Updating map tap listener failed: $error',
+        stackTrace,
+      );
     }
   }
 
@@ -339,6 +392,16 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
         ),
       controller.addWebMessageListener(
         WebMessageListener(
+          jsObjectName: 'onMapTap',
+          allowedOriginRules: {'*'},
+          onPostMessage: (message, sourceOrigin, isMainFrame, replyProxy) {
+            if (!mounted || !_readyForDisplay || !isMainFrame) return;
+            widget.onMapTap?.call();
+          },
+        ),
+      ),
+      controller.addWebMessageListener(
+        WebMessageListener(
           jsObjectName: 'onMapMoved',
           allowedOriginRules: {'*'},
           onPostMessage: (message, sourceOrigin, isMainFrame, replyProxy) {
@@ -358,6 +421,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
             _setStateIfMounted(() {
               _readyForDisplay = true;
             });
+            unawaited(_syncMapTapListener());
             if (_pendingMapDataSync) unawaited(_syncMapDataAndCamera());
             if (recoveredAfterReload) {
               log.info(

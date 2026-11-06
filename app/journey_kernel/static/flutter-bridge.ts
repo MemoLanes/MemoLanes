@@ -12,6 +12,7 @@ import * as maplibregl from "maplibre-gl";
 import { MapController } from "./map-controller";
 import { LocationFollowController } from "./location-follow-controller";
 import { MAX_MAP_ZOOM } from "./layer-config";
+import { observeSingleMapTap } from "./single-map-tap";
 
 interface MapBounds {
   west: number;
@@ -43,6 +44,8 @@ declare global {
   interface Window {
     readyForDisplay?: FlutterMessageChannel;
     onMapMoved?: FlutterMessageChannel;
+    onMapTap?: FlutterMessageChannel;
+    setMapTapEnabled?: (enabled: boolean) => void;
     onMapViewChanged?: FlutterMessageChannel;
     onMapZoomChanged?: FlutterMessageChannel;
     onMapAttributionChanged?: FlutterMessageChannel;
@@ -54,6 +57,7 @@ declare global {
       flyto?: boolean,
     ) => void;
     getCurrentMapView?: () => string;
+    captureMapScreenshot?: () => Promise<string>;
     getMapAttribution?: () => string | null;
     refreshMapData?: () => Promise<boolean | null>;
     flyToBounds?: (bounds: MapBounds, padding: MapPadding) => void;
@@ -232,6 +236,19 @@ export class FlutterBridge {
    * Setup all window methods that Flutter can call
    */
   setupFlutterCallableMethods(): void {
+    let stopObservingTaps: (() => void) | undefined;
+    window.setMapTapEnabled = (enabled) => {
+      if (enabled) {
+        stopObservingTaps ??= observeSingleMapTap(this.map, () => {
+          window.onMapTap?.postMessage("");
+        });
+      } else {
+        stopObservingTaps?.();
+        stopObservingTaps = undefined;
+      }
+    };
+    this.map.once("remove", () => stopObservingTaps?.());
+
     // Update location marker
     window.updateLocationMarker = (
       lng: number,
@@ -262,6 +279,7 @@ export class FlutterBridge {
 
     // Refresh map data - allows Flutter to trigger a data refresh
     window.refreshMapData = () => this.mapController.refreshMapData();
+    window.captureMapScreenshot = () => this.mapController.captureScreenshot();
 
     // Focus a journey within the visible area above its Flutter detail card.
     window.flyToBounds = (bounds, padding) => {
