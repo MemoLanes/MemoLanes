@@ -154,7 +154,7 @@ jobs:
         run: yarn install --frozen-lockfile
 
       - name: Install wasm-pack
-        run: cargo binstall -y --force --no-track wasm-pack@0.15.0
+        run: cargo binstall -y --force --no-track wasm-pack@0.15.1
 
       - name: Build Journey Kernel
         working-directory: app
