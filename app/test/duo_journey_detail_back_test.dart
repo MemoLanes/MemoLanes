@@ -8,10 +8,12 @@ import 'support/duo_hardware_test_data.dart';
 import 'package:memolanes/body/map/journey_flow_controller.dart';
 import 'package:memolanes/body/map/overlay/journey_detail_overlay.dart';
 import 'package:memolanes/common/app_translation_loader.dart';
+import 'package:memolanes/common/component/map_controls/screenshot_button.dart';
 import 'package:memolanes/common/component/map_glass_back_button.dart';
 import 'package:memolanes/common/component/map_overlay_panel.dart';
 import 'package:memolanes/common/duo_device.dart';
 import 'package:memolanes/common/app_layout.dart';
+import 'package:memolanes/constants/style_constants.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/frb_generated.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
@@ -71,14 +73,31 @@ void main() {
     variant: const TargetPlatformVariant({TargetPlatform.iOS}),
   );
 
-  testWidgets('Duo detail Back receives taps', (tester) async {
+  testWidgets('Duo detail actions share a column and receive taps', (
+    tester,
+  ) async {
+    var captures = 0;
     final flow = await _openDetail(
       tester,
       DuoBarEdge.right,
       const EdgeInsets.fromLTRB(0, 0, 84, 34),
+      screenshotAction: MapScreenshotButton(
+        busy: false,
+        onPressed: () => captures++,
+      ),
     );
     final back = find.byType(MapGlassBackButton);
-    expect(back.hitTestable(), findsOneWidget);
+    final camera = find.byType(MapScreenshotButton);
+    final backBounds = tester.getRect(back);
+    expect(
+      tester.getRect(camera),
+      backBounds.translate(
+        0,
+        backBounds.height + StyleConstants.mapControlSpacing,
+      ),
+    );
+    await tester.tap(camera);
+    expect(captures, 1);
     await tester.tap(back);
     await tester.pumpAndSettle();
     expect(flow.phase, JourneyPhase.picker);
@@ -105,6 +124,7 @@ Future<JourneyFlowController> _openDetail(
   DuoBarEdge edge,
   EdgeInsets padding, {
   GlobalKey<MapOverlayPanelState>? panelKey,
+  Widget? screenshotAction,
 }) async {
   tester.view.physicalSize = _size;
   tester.view.devicePixelRatio = 1;
@@ -168,6 +188,7 @@ Future<JourneyFlowController> _openDetail(
                             key: ValueKey(flow.session!.journey.id),
                             controller: flow,
                             panelKey: panelKey,
+                            screenshotAction: screenshotAction,
                           ),
                   ),
                 ),

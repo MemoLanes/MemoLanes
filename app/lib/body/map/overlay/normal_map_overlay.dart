@@ -29,18 +29,12 @@ class NormalMapOverlay extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.end,
         spacing: StyleConstants.mapControlSpacing,
         children: [
-          for (final child in [
-            TrackingButton(
-              trackingMode: trackingMode,
-              onPressed: onTrackingPressed,
-            ),
-            const AccuracyDisplay(),
-            const LayerButton(),
-          ])
-            SizedBox.square(
-              dimension: StyleConstants.mapControlSize,
-              child: child,
-            ),
+          TrackingButton(
+            trackingMode: trackingMode,
+            onPressed: onTrackingPressed,
+          ),
+          const AccuracyDisplay(),
+          const LayerButton(),
         ],
       ),
     );

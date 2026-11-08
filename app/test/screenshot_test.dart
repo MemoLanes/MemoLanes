@@ -11,7 +11,6 @@ import 'package:material_ui/material_ui.dart';
 import 'package:memolanes/body/map/screenshot/map_screenshot_flow.dart';
 import 'package:memolanes/body/map/screenshot/screenshot_composition.dart';
 import 'package:memolanes/body/map/screenshot/screenshot_preview_page.dart';
-import 'package:memolanes/common/app_translation_loader.dart';
 import 'package:memolanes/common/component/app_button.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
 import 'package:memolanes/theme/app_theme.dart';
@@ -19,7 +18,6 @@ import 'package:memolanes/theme/app_theme.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   const locale = Locale('zh', 'CN');
-  const loader = AppTranslationLoader();
   const logicalSize = Size(320, 640);
   const mapSize = Size(640, 1280);
   final messenger =
@@ -31,7 +29,7 @@ void main() {
       (call) async => call.method == 'getAll' ? <String, Object>{} : null,
     );
     await EasyLocalization.ensureInitialized();
-    await loader.load('assets/translations', locale);
+    await rootBundle.loadString('assets/translations/zh-CN.json');
   });
 
   Future<void> pumpApp(WidgetTester tester, Widget home) async {
@@ -40,8 +38,6 @@ void main() {
         EasyLocalization(
           supportedLocales: const [locale],
           path: 'assets/translations',
-          assetLoader: loader,
-          fallbackLocale: locale,
           startLocale: locale,
           saveLocale: false,
           child: Builder(
@@ -63,79 +59,47 @@ void main() {
     await tester.pump();
   }
 
-  // SVG loading and image encoding need the real event loop and Flutter frames.
-  Future<void> waitUntil(WidgetTester tester, bool Function() ready) async {
+  final composition = find.byType(ScreenshotComposition);
+  final logo = find.descendant(
+    of: composition,
+    matching: find.byType(CustomPaint),
+  );
+  Finder action(String label) => find.widgetWithText(AppButton, label);
+
+  // Asset loading and PNG encoding need real time as well as Flutter frames.
+  Future<void> pumpUntil(WidgetTester tester, bool Function() ready) async {
     final deadline = DateTime.now().add(const Duration(seconds: 10));
-    while (!ready() && DateTime.now().isBefore(deadline)) {
+    while (!ready()) {
+      if (!DateTime.now().isBefore(deadline)) fail('Screenshot did not finish');
       await tester.pump();
       await Future<void>.delayed(const Duration(milliseconds: 10));
     }
-    expect(ready(), isTrue);
   }
 
   Future<void> waitForLogo(WidgetTester tester) async {
-    final options = find.byType(SegmentedButton<ScreenshotLogoPosition>);
     await tester.runAsync(
-      () => waitUntil(
-        tester,
-        () =>
-            tester
-                .widget<SegmentedButton<ScreenshotLogoPosition>>(options)
-                .onSelectionChanged !=
-            null,
-      ),
+      () => pumpUntil(tester, () => logo.evaluate().isNotEmpty),
     );
   }
 
-  Future<ui.Image> renderImage(Size size, void Function(Canvas) draw) async {
+  ui.Image testMap() {
     final recorder = ui.PictureRecorder();
-    draw(Canvas(recorder));
-    final picture = recorder.endRecording();
-    try {
-      final image = await picture.toImage(
-        size.width.toInt(),
-        size.height.toInt(),
-      );
-      addTearDown(image.dispose);
-      return image;
-    } finally {
-      picture.dispose();
-    }
-  }
-
-  Future<ui.Image> testMap(WidgetTester tester) async {
     // Leave transparent pixels beyond the map and a landmark away from center.
-    return (await tester.runAsync(
-      () => renderImage(mapSize, (canvas) {
-        canvas
-          ..drawRect(
-            Rect.fromLTRB(0, 16, mapSize.width, mapSize.height),
-            Paint()..color = Colors.blue,
-          )
-          ..drawRect(
-            const Rect.fromLTWH(90, 190, 20, 20),
-            Paint()..color = Colors.red,
-          );
-      }),
-    ))!;
-  }
-
-  Future<ui.Image> capturePreview(
-    WidgetTester tester,
-    double pixelRatio,
-  ) async {
-    final boundary = tester.renderObject<RenderRepaintBoundary>(
-      find
-          .ancestor(
-            of: find.byType(ScreenshotComposition),
-            matching: find.byType(RepaintBoundary),
-          )
-          .first,
+    Canvas(recorder)
+      ..drawRect(
+        Rect.fromLTRB(0, 16, mapSize.width, mapSize.height),
+        Paint()..color = Colors.blue,
+      )
+      ..drawRect(
+        const Rect.fromLTWH(90, 190, 20, 20),
+        Paint()..color = Colors.red,
+      );
+    final picture = recorder.endRecording();
+    addTearDown(picture.dispose);
+    final image = picture.toImageSync(
+      mapSize.width.toInt(),
+      mapSize.height.toInt(),
     );
-    final layer = boundary.debugLayer as OffsetLayer;
-    final image = (await tester.runAsync(
-      () => layer.toImage(Offset.zero & boundary.size, pixelRatio: pixelRatio),
-    ))!;
     addTearDown(image.dispose);
     return image;
   }
@@ -148,8 +112,8 @@ void main() {
   testWidgets('preview, Photos and share export the same composition', (
     tester,
   ) async {
-    final map = await testMap(tester);
-    await pumpApp(tester, const Scaffold(body: Text('Map')));
+    final map = testMap();
+    await pumpApp(tester, const Scaffold());
     final finishSave = Completer<void>();
     Uint8List? savedPng;
     var denySave = true;
@@ -192,10 +156,10 @@ void main() {
       temp.deleteSync(recursive: true);
     });
 
-    Future<void> export(String label, bool Function() received) async {
+    Future<void> export(String label, bool Function() ready) async {
       await tester.runAsync(() async {
-        await tester.tap(find.widgetWithText(AppButton, label));
-        await waitUntil(tester, received);
+        await tester.tap(action(label));
+        await pumpUntil(tester, ready);
       });
     }
 
@@ -209,8 +173,14 @@ void main() {
     await export('分享', () => sharedPng != null);
     await tester.pumpAndSettle();
     expect(caption, findsOneWidget);
-    final preview = await capturePreview(tester, 2);
+    final boundary = tester.renderObject<RenderRepaintBoundary>(
+      find
+          .ancestor(of: composition, matching: find.byType(RepaintBoundary))
+          .first,
+    );
     await tester.runAsync(() async {
+      final preview = await boundary.toImage(pixelRatio: 2);
+      addTearDown(preview.dispose);
       final exported = await decodeScreenshot(sharedPng!);
       addTearDown(exported.dispose);
       expect(
@@ -248,7 +218,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
-    final map = await testMap(tester);
+    final map = testMap();
     final journey = JourneyHeader(
       id: 'screenshot-layout',
       revision: '1',
@@ -271,11 +241,7 @@ void main() {
     );
     await waitForLogo(tester);
     final caption = find.text(journey.note!);
-    final logo = find.descendant(
-      of: find.byType(ScreenshotComposition),
-      matching: find.byType(CustomPaint),
-    );
-    final save = find.widgetWithText(AppButton, '保存到相册');
+    final save = action('保存到相册');
     for (final (size, label) in [
       (const Size(844, 390), '右上角'),
       (const Size(320, 568), '右下角'),

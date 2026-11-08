@@ -1,6 +1,5 @@
-import 'package:memolanes/theme/app_colors.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:memolanes/common/component/liquid_glass_surface.dart';
+import 'package:memolanes/common/component/map_controls/map_floating_control.dart';
 
 /// Back button shared by cards and controls floating directly over the map.
 class MapGlassBackButton extends StatelessWidget {
@@ -10,27 +9,13 @@ class MapGlassBackButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LiquidGlassSurface(
-      circular: true,
-      backgroundAlpha: 0.62,
-      blurSigma: 28,
-      reflectionAlpha: 0.1,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onPressed,
-          customBorder: const CircleBorder(),
-          child: SizedBox.square(
-            dimension: 42,
-            child: Icon(
-              Icons.arrow_back_ios_new_rounded,
-              size: 18,
-              color: context.appColors.deepGreen,
-              semanticLabel: MaterialLocalizations.of(context)
-                  .backButtonTooltip,
-            ),
-          ),
-        ),
+    // Inline headers reserve 42 pt; the Duo rail supplies its own slot size.
+    return SizedBox.square(
+      dimension: 42,
+      child: MapFloatingControl.button(
+        icon: Icons.arrow_back_ios_new_rounded,
+        onPressed: onPressed,
+        tooltip: MaterialLocalizations.of(context).backButtonTooltip,
       ),
     );
   }

@@ -8,7 +8,10 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:memolanes/body/map/screenshot/screenshot_composition.dart';
 import 'package:memolanes/body/map/screenshot/screenshot_export.dart';
+import 'package:memolanes/common/app_layout.dart';
 import 'package:memolanes/common/component/app_button.dart';
+import 'package:memolanes/common/component/capsule_style_app_bar.dart'
+    show DetachedAppBarAction;
 import 'package:memolanes/common/component/page_content_layout.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/constants/app_typography.dart';
@@ -414,74 +417,81 @@ class _ScreenshotPreviewPageState extends State<ScreenshotPreviewPage> {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    return PopScope(
-      canPop: !_busy,
-      child: Scaffold(
-        appBar: AppBar(
-          toolbarHeight: 48,
-          automaticallyImplyLeading: false,
-          leadingWidth: 72,
-          leading: Padding(
-            padding: const EdgeInsets.only(left: 16),
-            child: Center(
-              child: IconButton.outlined(
-                tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
-                onPressed: _busy ? null : () => Navigator.of(context).pop(),
-                style: IconButton.styleFrom(
-                  foregroundColor: colors.inkColor,
-                  backgroundColor: colors.surfaceColor,
-                  side: BorderSide(color: colors.lineColor),
-                  fixedSize: const Size.square(44),
-                ),
-                icon: const Icon(Icons.close_rounded, size: 21),
+    final detached = AppLayout.fromContext(context).detachedBackBounds != null;
+    final close = IconButton.outlined(
+      tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+      onPressed: _busy ? null : () => Navigator.of(context).pop(),
+      style: IconButton.styleFrom(
+        foregroundColor: colors.inkColor,
+        backgroundColor: colors.surfaceColor,
+        side: BorderSide(color: colors.lineColor),
+        fixedSize: const Size.square(44),
+      ),
+      icon: const Icon(Icons.close_rounded, size: 21),
+    );
+    final page = Scaffold(
+      appBar: AppBar(
+        toolbarHeight: 48,
+        automaticallyImplyLeading: false,
+        leadingWidth: 72,
+        leading: detached
+            ? null
+            : Padding(
+                padding: const EdgeInsets.only(left: 16),
+                child: Center(child: close),
               ),
-            ),
-          ),
-        ),
-        body: PageContentInsets(
-          maintainViewPadding: true,
-          child: SafeArea(
-            top: false,
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final landscape =
-                    constraints.maxWidth >= 600 &&
-                    constraints.maxWidth > constraints.maxHeight;
-                final preview = Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
-                  child: _buildPreview(),
-                );
-                final tools = SingleChildScrollView(
-                  primary: false,
-                  child: _buildTools(),
-                );
-                if (landscape) {
-                  return Row(
-                    children: [
-                      Expanded(child: preview),
-                      SizedBox(
-                        width: math.min(340.0, constraints.maxWidth * 0.42),
-                        child: Center(child: tools),
-                      ),
-                    ],
-                  );
-                }
-                return Column(
+      ),
+      body: PageContentInsets(
+        maintainViewPadding: true,
+        child: SafeArea(
+          top: false,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final landscape =
+                  constraints.maxWidth >= 600 &&
+                  constraints.maxWidth > constraints.maxHeight;
+              final preview = Padding(
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+                child: _buildPreview(),
+              );
+              final tools = SingleChildScrollView(
+                primary: false,
+                child: _buildTools(),
+              );
+              if (landscape) {
+                return Row(
                   children: [
                     Expanded(child: preview),
-                    ConstrainedBox(
-                      constraints: BoxConstraints(
-                        maxWidth: PageContentFrame.maxContentWidth,
-                        maxHeight: constraints.maxHeight * 0.55,
-                      ),
-                      child: tools,
+                    SizedBox(
+                      width: math.min(340.0, constraints.maxWidth * 0.42),
+                      child: Center(child: tools),
                     ),
                   ],
                 );
-              },
-            ),
+              }
+              return Column(
+                children: [
+                  Expanded(child: preview),
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: PageContentFrame.maxContentWidth,
+                      maxHeight: constraints.maxHeight * 0.55,
+                    ),
+                    child: tools,
+                  ),
+                ],
+              );
+            },
           ),
         ),
+      ),
+    );
+    return PopScope(
+      canPop: !_busy,
+      child: DetachedAppBarAction(
+        detached: detached,
+        actionBuilder: (_) => close,
+        child: page,
       ),
     );
   }

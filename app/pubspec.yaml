@@ -21,7 +21,7 @@ version: 0.0.1+1
 
 environment:
   sdk: '>=3.13.0 <4.0.0'
-  flutter: '>=3.47.0'
+  flutter: '>=3.47.8'
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
@@ -75,6 +75,7 @@ dependencies:
   pointer_interceptor: ^0.10.1+3
   # Data only; our existing components consume native Duo geometry.
   duo_dynamic_sizing: 2.0.5
+  duo_rail_kit: 0.2.1
   font_awesome_flutter: ^11.0.0
   flutter_markdown_plus: ^1.0.3
   path: ^1.9.1

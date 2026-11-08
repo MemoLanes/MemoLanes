@@ -10,7 +10,7 @@ import 'package:memolanes/body/journey/journey_track_edit_page.dart';
 import 'package:memolanes/common/component/app_button.dart';
 import 'package:memolanes/common/component/app_dialog.dart';
 import 'package:memolanes/common/component/app_option_tile.dart';
-import 'package:memolanes/common/component/back_button_target.dart';
+import 'package:memolanes/common/component/map_controls/map_overlay_actions.dart';
 import 'package:memolanes/common/component/map_glass_back_button.dart';
 import 'package:memolanes/common/component/map_overlay_panel.dart';
 import 'package:memolanes/body/map/journey_flow_controller.dart';
@@ -32,9 +32,11 @@ class JourneyDetailOverlay extends StatefulWidget {
     super.key,
     required this.controller,
     this.panelKey,
+    this.screenshotAction,
   });
 
   final GlobalKey<MapOverlayPanelState>? panelKey;
+  final Widget? screenshotAction;
 
   final JourneyFlowController controller;
 
@@ -235,9 +237,11 @@ class _JourneyDetailOverlayState extends State<JourneyDetailOverlay> {
     final mediaQuery = MediaQuery.of(context);
     final viewPadding = mediaQuery.viewPadding;
     final layout = AppLayoutScope.of(context);
-    final backButton = BackButtonTarget.positioned(
-      onPressed: _requestBack,
-      child: MapGlassBackButton(onPressed: _requestBack),
+    final overlayActions = MapOverlayActions(
+      back: _controller.isEditing
+          ? null
+          : MapGlassBackButton(onPressed: _requestBack),
+      actions: [?widget.screenshotAction],
     );
     return Stack(
       fit: StackFit.expand,
@@ -260,8 +264,7 @@ class _JourneyDetailOverlayState extends State<JourneyDetailOverlay> {
             ),
           ),
         ),
-        if (!_controller.isEditing && layout.backPrecedesEdgeGesture)
-          backButton,
+        if (layout.backPrecedesEdgeGesture) overlayActions,
         // Details share the root route, which cannot supply Cupertino's edge
         // gesture. Intercept only the edge so the native WebView still handles
         // map gestures everywhere else; use the same back action as the button.
@@ -292,8 +295,7 @@ class _JourneyDetailOverlayState extends State<JourneyDetailOverlay> {
           ),
         // A detached navigation column can lie inside the edge-swipe region;
         // give its Back target priority while preserving the ordinary order.
-        if (!_controller.isEditing && !layout.backPrecedesEdgeGesture)
-          backButton,
+        if (!layout.backPrecedesEdgeGesture) overlayActions,
       ],
     );
   }

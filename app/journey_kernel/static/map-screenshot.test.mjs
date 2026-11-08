@@ -1,59 +1,39 @@
 import assert from "node:assert/strict";
+import { EventEmitter } from "node:events";
 import test from "node:test";
 
 import { captureMapScreenshot } from "./map-screenshot.ts";
 
-function fakeMap(readPixels) {
-  const listeners = new Map();
-  return {
-    listeners,
-    repaintRequested: false,
-    on(type, listener) {
-      listeners.set(type, listener);
-    },
-    off(type, listener) {
-      assert.equal(listeners.get(type), listener);
-      listeners.delete(type);
-    },
-    triggerRepaint() {
-      this.repaintRequested = true;
-    },
-    getCanvas() {
-      return { toDataURL: readPixels };
-    },
-    emit(type) {
-      listeners.get(type)?.();
-    },
-  };
+function fakeMap(t, readPixels) {
+  const map = Object.assign(new EventEmitter(), {
+    triggerRepaint: t.mock.fn(),
+    getCanvas: () => ({ toDataURL: readPixels }),
+  });
+  t.mock.method(map, "off");
+  return map;
 }
 
 test("capture reads pixels synchronously inside render", async (t) => {
   t.mock.timers.enable({ apis: ["setTimeout"] });
   const png = "data:image/png;base64,test";
-  let rendering = false;
-  let reads = 0;
-  const map = fakeMap((type) => {
-    assert.equal(type, "image/png");
-    assert.equal(rendering, true);
-    reads++;
-    return png;
-  });
+  const readPixels = t.mock.fn(() => png);
+  const map = fakeMap(t, readPixels);
   const frame = captureMapScreenshot(map);
-  assert.equal(map.repaintRequested, true);
-  assert.equal(reads, 0);
-  rendering = true;
+  assert.equal(map.triggerRepaint.mock.callCount(), 1);
+  assert.equal(readPixels.mock.callCount(), 0);
   map.emit("render");
-  rendering = false;
-  assert.equal(reads, 1);
+  assert.equal(readPixels.mock.callCount(), 1);
+  assert.deepEqual(readPixels.mock.calls[0].arguments, ["image/png"]);
   assert.equal(await frame, png);
-  assert.equal(map.listeners.size, 0);
+  assert.equal(map.listenerCount("render"), 0);
   t.mock.timers.tick(10000);
+  assert.equal(map.off.mock.callCount(), 1);
 });
 
 test("read failures and timeouts release the capture listener", async (t) => {
   t.mock.timers.enable({ apis: ["setTimeout"] });
   for (const event of ["render", "timeout"]) {
-    const map = fakeMap(() => {
+    const map = fakeMap(t, () => {
       throw new Error("Tainted canvas");
     });
     const frame = captureMapScreenshot(map);
@@ -63,8 +43,8 @@ test("read failures and timeouts release the capture listener", async (t) => {
       frame,
       event === "timeout" ? /timed out/ : /Tainted canvas/,
     );
-    assert.equal(map.listeners.size, 0);
-    map.emit("render");
+    assert.equal(map.listenerCount("render"), 0);
     t.mock.timers.tick(10000);
+    assert.equal(map.off.mock.callCount(), 1);
   }
 });

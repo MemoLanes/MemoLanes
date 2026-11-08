@@ -11,6 +11,7 @@ import 'package:memolanes/body/map/overlay/time_machine_overlay.dart';
 import 'package:memolanes/body/map/screenshot/map_screenshot_flow.dart';
 import 'package:memolanes/common/component/base_map_webview.dart';
 import 'package:memolanes/common/component/fading_overlay.dart';
+import 'package:memolanes/common/component/map_controls/map_overlay_actions.dart';
 import 'package:memolanes/common/component/map_controls/screenshot_button.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/component/map_overlay_panel.dart';
@@ -319,9 +320,14 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
     );
   }
 
+  MapScreenshotButton _screenshotButton() => MapScreenshotButton(
+    busy: _screenshotInProgress,
+    onPressed: takeScreenshot,
+  );
+
   /// Returns the overlay for the given mode; each overlay lives in its own
   /// file.
-  Widget _buildOverlay(BuildContext context, MapMode mode) {
+  Widget _buildOverlay(MapMode mode) {
     switch (mode) {
       case MapMode.normal:
         return NormalMapOverlay(
@@ -346,6 +352,9 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
                   key: ValueKey(session.journey.id),
                   controller: widget.journeys,
                   panelKey: _detailPanelKey,
+                  screenshotAction: _canTakeScreenshot
+                      ? _screenshotButton()
+                      : null,
                 ),
         );
     }
@@ -358,26 +367,16 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
     final children = <Widget>[
       _buildMapLayer(),
       if (mode == MapMode.normal) ...[
-        FadingOverlay(
-          child: widget.recordMapOnly ? null : _buildOverlay(context, mode),
-        ),
+        FadingOverlay(child: widget.recordMapOnly ? null : _buildOverlay(mode)),
         FadingOverlay(
           child: widget.recordMapOnly
-              ? MapScreenshotButton(
-                  busy: _screenshotInProgress,
-                  backButtonVisible: false,
-                  onPressed: takeScreenshot,
-                )
+              ? MapOverlayActions(actions: [_screenshotButton()])
               : null,
         ),
       ] else
-        _buildOverlay(context, mode),
-      if (mode != MapMode.normal && _canTakeScreenshot)
-        MapScreenshotButton(
-          busy: _screenshotInProgress,
-          backButtonVisible: mode == MapMode.journeys,
-          onPressed: takeScreenshot,
-        ),
+        _buildOverlay(mode),
+      if (mode == MapMode.timeMachine)
+        MapOverlayActions(actions: [_screenshotButton()]),
     ];
 
     return Stack(children: children);

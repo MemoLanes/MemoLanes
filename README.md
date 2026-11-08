@@ -73,7 +73,7 @@ There are two main components of this app: 1. A rust library for the core logic;
 6. Run relevant cargo command to make sure the setup is completed (e.g. `cargo check`, `cargo test`).
 
 ### 2. Flutter Setup
-1. Install [Flutter](https://docs.flutter.dev/get-started/install).
+1. Install [Flutter](https://docs.flutter.dev/get-started/install) 3.47.8 or later. For iOS builds, use Xcode with the iOS 27.1 SDK or later.
 2. Install [flutter_rust_bridge](https://cjycode.com/flutter_rust_bridge/quickstart). It is recommended to install the specific version that this project is using with `cargo install 'flutter_rust_bridge_codegen@2.13.0'`. The actual version can be found using `just get-frb-version` or looking at `app/pubspec.yaml`.
 3. (For Windows) Install [Git Bash](https://git-scm.com/downloads) and make sure `bash` is available on `PATH`. MemoLanes uses Bash to run `just` recipes on all supported platforms.
 4. Install the native `wasm-pack` CLI manually with `cargo install wasm-pack`, then run `rustup target add wasm32-unknown-unknown`.

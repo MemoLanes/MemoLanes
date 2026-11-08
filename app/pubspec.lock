@@ -265,6 +265,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.0.5"
+  duo_rail_kit:
+    dependency: "direct main"
+    description:
+      name: duo_rail_kit
+      sha256: d1cb0bf78247da8c8fb55eedb316e798393bac3793d1f4e746acab240cb41499
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.2.1"
   easy_localization:
     dependency: "direct main"
     description:
@@ -1762,4 +1770,4 @@ packages:
     version: "1.0.1"
 sdks:
   dart: ">=3.13.0 <4.0.0"
-  flutter: ">=3.47.0"
+  flutter: ">=3.47.8"
