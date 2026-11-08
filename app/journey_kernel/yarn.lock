@@ -248,10 +248,10 @@
   dependencies:
     kdbush "^4.1.0"
 
-"@maplibre/maplibre-gl-style-spec@^26.4.4":
-  version "26.4.4"
-  resolved "https://registry.yarnpkg.com/@maplibre/maplibre-gl-style-spec/-/maplibre-gl-style-spec-26.4.4.tgz#e103d50f9eed8a44f1fde1c4970c5d2a47b19b78"
-  integrity sha512-hG4RZR4PBd/+6A3ODdZ3AnQRF106ZQk1y3bhwDg8bH/A4Oz2tnRUJVVWs9BZa6gXZ1d3UKe89C+Mm+olGBELvA==
+"@maplibre/maplibre-gl-style-spec@^26.5.1":
+  version "26.5.1"
+  resolved "https://registry.yarnpkg.com/@maplibre/maplibre-gl-style-spec/-/maplibre-gl-style-spec-26.5.1.tgz#fb86cb7d4a66951a01ae21d6c0a646ce1e2f80cf"
+  integrity sha512-9ufQ5LR+Ldn87SILPVyRNz4wVm/sBrM2ZRv9VfjLRKYKIGAcvC1VFw/DEkJLAHqfMV8m03zDz1DUNTIUj/GvdA==
   dependencies:
     "@mapbox/jsonlint-lines-primitives" "^2.0.3"
     "@mapbox/unitbezier" "^1.0.0"
@@ -1704,17 +1704,17 @@ lru-cache@^11.0.0:
   resolved "https://registry.yarnpkg.com/lru-cache/-/lru-cache-11.5.3.tgz#a7767b4034e35269562d2b9da2b185b5df70c421"
   integrity sha512-U4N8FgzmWxc8k1VH8Kr6lQg18U7Fjvby6wXHVRX/ZZ7IwWbRMgrRbP0Wrb5q5NVinryp4SQampHKdvtecItxUg==
 
-maplibre-gl@^6.16.0:
-  version "6.16.0"
-  resolved "https://registry.yarnpkg.com/maplibre-gl/-/maplibre-gl-6.16.0.tgz#ace29d707f7338e3a8631057c734019e9a73ce8c"
-  integrity sha512-gApO66EMtoDZuio680RUBvskR7ahFd/NNhLN4tBAs+Y7FeT4gQV8zVFgYVMRmFxQznOEzecW19w6xOd9XjZjiA==
+maplibre-gl@^6.17.0:
+  version "6.17.0"
+  resolved "https://registry.yarnpkg.com/maplibre-gl/-/maplibre-gl-6.17.0.tgz#efbfcbf7a432f45577c8dc7146e635d59d07a2de"
+  integrity sha512-2chIZwpLGenoUQOcnm9Pk4SLbA8ppNFq8jlpXiq9vcYm3Y1wJ3fc82FL0GLwBaPYJCLzPv/mC46KEupVov75rQ==
   dependencies:
     "@mapbox/point-geometry" "^1.1.0"
     "@mapbox/tiny-sdf" "^2.3.0"
     "@mapbox/unitbezier" "^1.0.0"
     "@mapbox/vector-tile" "^3.0.0"
     "@maplibre/geojson-vt" "^6.3.0"
-    "@maplibre/maplibre-gl-style-spec" "^26.4.4"
+    "@maplibre/maplibre-gl-style-spec" "^26.5.1"
     "@maplibre/mlt" "^1.3.0"
     "@maplibre/vt-pbf" "^4.3.3"
     "@types/geojson" "^7946.0.16"
