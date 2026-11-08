@@ -1,6 +1,5 @@
 import 'dart:ui' show lerpDouble;
 
-import 'package:flutter/material.dart' as legacy show Theme;
 import 'package:material_ui/material_ui.dart';
 import 'package:memolanes/common/component/liquid_glass_surface.dart';
 import 'package:memolanes/common/app_layout.dart';
@@ -197,29 +196,23 @@ Future<T?> showAppDialog<T>(
     // Preserve showDialog's native foldable behavior. DuoDeviceProvider clears
     // engine features on actual Duo, where AppModalRegion owns placement.
     modalDecorator: (child) => themes.wrap(
-      // Wolt still reads the SDK Material theme and localizations.
-      // ignore: deprecated_member_use
-      MaterialUiCompatibilityBridge(
-        child: Builder(
-          builder: (context) {
-            final theme = legacy.Theme.of(context);
-            return legacy.Theme(
-              data: theme.copyWith(
-                extensions: [
-                  ...theme.extensions.values,
-                  const WoltModalSheetThemeData(
-                    modalElevation: 0,
-                    clipBehavior: Clip.none,
-                    mainContentScrollPhysics: NeverScrollableScrollPhysics(),
-                  ),
-                ],
-              ),
-              child: DisplayFeatureSubScreen(
-                child: AppModalRegion(child: child),
-              ),
-            );
-          },
-        ),
+      Builder(
+        builder: (context) {
+          final theme = Theme.of(context);
+          return Theme(
+            data: theme.copyWith(
+              extensions: [
+                ...theme.extensions.values,
+                const WoltModalSheetThemeData(
+                  modalElevation: 0,
+                  clipBehavior: Clip.none,
+                  mainContentScrollPhysics: NeverScrollableScrollPhysics(),
+                ),
+              ],
+            ),
+            child: DisplayFeatureSubScreen(child: AppModalRegion(child: child)),
+          );
+        },
       ),
     ),
     pageContentDecorator: (child) => PointerInterceptor(child: child),
