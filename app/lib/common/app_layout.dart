@@ -142,35 +142,19 @@ class AppLayout {
   Axis get mapControlsAxis =>
       _mapControlsRegion.height < 260 ? Axis.horizontal : Axis.vertical;
 
-  /// Use the side status column when it has room, otherwise the map corner.
+  /// Place the camera near the top right of the clear map controls pane.
   Rect screenshotControlBounds({required bool backButtonVisible}) {
-    const extent = StyleConstants.mapControlSize;
-    const gap = StyleConstants.mapControlSpacing;
-    final back = primaryNavigationBounds;
-    final occupied = [
-      if (backButtonVisible) back.inflate(gap),
-      if (!navigationBounds.isEmpty) navigationBounds.inflate(gap),
-    ];
-    if (navigationAxis == Axis.vertical) {
-      final button = Rect.fromLTWH(
-        back.left,
-        backButtonVisible ? back.bottom + gap : back.top,
-        extent,
-        extent,
-      );
-      if (_primaryNavigationRegions.any(
-            (region) => region.intersect(button) == button,
-          ) &&
-          !occupied.any(button.overlaps)) {
-        return button;
-      }
-    }
     final available = geometry.insetRect(
       _mapControlsRegion,
-      const EdgeInsets.fromLTRB(16, 22, 16, 14),
+      const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
     );
+    const extent = StyleConstants.mapControlSize;
+    const gap = StyleConstants.mapControlSpacing;
     final candidates = geometry
-        .clearRegions(available, occupied)
+        .clearRegions(available, [
+          if (backButtonVisible) primaryNavigationBounds.inflate(gap),
+          if (!navigationBounds.isEmpty) navigationBounds.inflate(gap),
+        ])
         .where((region) => region.width >= extent && region.height >= extent)
         .toList();
     if (candidates.isEmpty) return Rect.zero;

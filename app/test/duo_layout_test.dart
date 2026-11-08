@@ -349,7 +349,7 @@ void main() {
   });
 
   test(
-    'Back and screenshot use the native tab column even when tabs are hidden',
+    'top Back and bottom tabs share the native column even with tabs hidden',
     () {
       const size = Size(951, 669);
       const stripWidth = 108.0;
@@ -407,20 +407,9 @@ void main() {
         expect(back.bottom, lessThan(root.navigationBounds.top));
         contained(back, strip);
         contained(root.navigationBounds, strip);
-        final screenshot = root.screenshotControlBounds(
-          backButtonVisible: false,
-        );
-        final detailScreenshot = details.screenshotControlBounds(
-          backButtonVisible: true,
-        );
-        expect(screenshot, back);
-        expect(detailScreenshot.center.dx, back.center.dx);
-        expect(detailScreenshot.top, greaterThan(back.bottom));
-        contained(detailScreenshot, strip);
         for (final bounds in [camera, status]) {
           expect(back.overlaps(bounds), isFalse);
           expect(root.navigationBounds.overlaps(bounds), isFalse);
-          expect(detailScreenshot.overlaps(bounds), isFalse);
         }
       }
     },

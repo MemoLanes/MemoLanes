@@ -134,7 +134,10 @@ void main() {
     );
     final layer = boundary.debugLayer as OffsetLayer;
     final image = (await tester.runAsync(
-      () => layer.toImage(Offset.zero & boundary.size, pixelRatio: pixelRatio),
+      () => layer.toImage(
+        Offset.zero & boundary.size,
+        pixelRatio: pixelRatio,
+      ),
     ))!;
     addTearDown(image.dispose);
     return image;
