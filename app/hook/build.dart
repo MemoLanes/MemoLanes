@@ -33,8 +33,10 @@ Map<String, String> _cargoEnvironmentVariablesFor(BuildInput input) {
 
   // Use the same target as Flutter's generated framework Info.plist. The app
   // may require a newer iOS version than this library.
+  final version = input.config.code.iOS.deploymentVersion;
   return <String, String>{
-    'IPHONEOS_DEPLOYMENT_TARGET': '${input.config.code.iOS.targetVersion}.0',
+    'IPHONEOS_DEPLOYMENT_TARGET':
+        '${version.major}.${version.minor}.${version.patch}',
   };
 }
 
