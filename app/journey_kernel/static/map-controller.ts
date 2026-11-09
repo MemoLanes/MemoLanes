@@ -37,6 +37,7 @@ import { JOURNEY_LAYER_ID } from "./layers/journey-layer-interface";
 import type { JourneyLayer } from "./layers/journey-layer-interface";
 import { MAX_MAP_ZOOM } from "./layer-config";
 import { waitForRenderedFrame } from "./display-ready";
+import { captureMapScreenshot } from "./map-screenshot";
 import {
   PLACEHOLDER_STYLE_METADATA_KEY,
   StyleLoadRetry,
@@ -372,6 +373,10 @@ export class MapController {
    */
   getMap(): MaplibreMap {
     return this.map;
+  }
+
+  captureScreenshot(): Promise<string> {
+    return captureMapScreenshot(this.map);
   }
 
   /** Prepare the spherical camera before MapLibre computes a destination.

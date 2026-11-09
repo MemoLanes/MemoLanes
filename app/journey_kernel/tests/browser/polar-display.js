@@ -140,10 +140,18 @@ export async function checkPolarDisplay(check) {
           refreshed = true;
         });
         await refreshGate.started;
-        await waitForIdle(map);
-        check(!refreshed, "an explicit refresh waits for the polar download");
-        refreshGate.release();
-        await refresh;
+        try {
+          check(
+            (await controller.captureScreenshot()).startsWith(
+              "data:image/png;base64,",
+            ),
+            "the current polar frame can be captured during refresh",
+          );
+          check(!refreshed, "an explicit refresh waits for the polar download");
+        } finally {
+          refreshGate.release();
+          await refresh;
+        }
 
         // Leaving and re-entering a polar-only view reactivates Mercator demand.
         controller.jumpTo({ center: [0, sign * 70], zoom: 14 });
@@ -178,7 +186,7 @@ export async function checkPolarDisplay(check) {
       },
     );
     results.push(
-      `${hemisphere} production initialization, visible-plane readiness and refresh`,
+      `${hemisphere} production initialization, visible-plane readiness, refresh and screenshot`,
     );
 
     await withMap(

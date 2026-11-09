@@ -41,10 +41,10 @@ class CapsuleStyleAppBar extends StatelessWidget
   Widget build(BuildContext context) {
     final padding = MediaQuery.paddingOf(context);
     final topInset = padding.top * 0.8;
-    final layout = AppLayout.fromContext(context);
+    final detached = AppLayout.fromContext(context).detachedBackBounds != null;
     final content = CapsuleBarContent(
       showOnlyBackButton: false,
-      showBackButton: layout.detachedBackBounds == null,
+      showBackButton: !detached,
       title: title,
       subtitle: subtitle,
       onBack: onBack,
@@ -56,9 +56,10 @@ class CapsuleStyleAppBar extends StatelessWidget
       showTitleBackground: showTitleBackground,
     );
 
-    return _DetachedAppBarBack(
-      bounds: layout.detachedBackBounds,
-      content: content,
+    return DetachedAppBarAction(
+      detached: detached,
+      actionBuilder: (context) =>
+          content.buildBackButton(context, expandedTouchTarget: true),
       child: Container(
         height:
             topInset +
@@ -92,29 +93,30 @@ class CapsuleStyleAppBar extends StatelessWidget
 }
 
 /// The native navigation column can extend below Scaffold's app-bar slot.
-/// A portal keeps Back owned by its page and below subsequent routes/modals.
-class _DetachedAppBarBack extends StatefulWidget {
-  const _DetachedAppBarBack({
-    required this.bounds,
-    required this.content,
+/// A portal keeps the action owned by its page and below subsequent routes.
+class DetachedAppBarAction extends StatefulWidget {
+  const DetachedAppBarAction({
+    super.key,
+    required this.detached,
+    required this.actionBuilder,
     required this.child,
   });
 
-  final Rect? bounds;
-  final CapsuleBarContent content;
+  final bool detached;
+  final WidgetBuilder actionBuilder;
   final Widget child;
 
   @override
-  State<_DetachedAppBarBack> createState() => _DetachedAppBarBackState();
+  State<DetachedAppBarAction> createState() => _DetachedAppBarActionState();
 }
 
-class _DetachedAppBarBackState extends State<_DetachedAppBarBack> {
+class _DetachedAppBarActionState extends State<DetachedAppBarAction> {
   final _controller = OverlayPortalController();
   bool _syncScheduled = false;
 
   bool get _visible {
     final route = ModalRoute.of(context);
-    return widget.bounds != null &&
+    return widget.detached &&
         route?.isCurrent == true &&
         route?.willHandlePopInternally != true;
   }
@@ -145,12 +147,7 @@ class _DetachedAppBarBackState extends State<_DetachedAppBarBack> {
         }
         return Positioned.fromRect(
           rect: bounds,
-          child: PointerInterceptor(
-            child: widget.content.buildBackButton(
-              context,
-              expandedTouchTarget: true,
-            ),
-          ),
+          child: PointerInterceptor(child: widget.actionBuilder(context)),
         );
       },
       child: widget.child,

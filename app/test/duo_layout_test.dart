@@ -1,3 +1,5 @@
+import 'package:duo_rail_kit/duo_rail_kit.dart'
+    show HorizontalEdge, VerticalBarRegion;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -22,6 +24,7 @@ AppLayout layout({
   EdgeInsets keyboard = EdgeInsets.zero,
   DuoHardware fold = _duo,
   DuoBarEdge edge = DuoBarEdge.right,
+  VerticalBarRegion? verticalBarRegion,
   TargetPlatform platform = TargetPlatform.iOS,
   bool navigation = true,
 }) => AppLayout.resolve(
@@ -29,6 +32,7 @@ AppLayout layout({
   size: bodySize ?? size,
   hardware: fold,
   barEdge: edge,
+  verticalBarRegion: verticalBarRegion,
   platform: platform,
   navigationVisible: navigation,
 );
@@ -41,6 +45,28 @@ void contained(Rect child, Rect bounds) {
 }
 
 void main() {
+  test('Duo screenshot clears the fold and the visible navigation', () {
+    const fold = DuoRegion(Rect.fromLTWH(413, 0, 40, 669), isActive: true);
+    const footprint = Size.square(StyleConstants.mapControlSize);
+    final hardware = _duo.copyWith(
+      status: DuoHingeStatus.partiallyOpen,
+      folds: [fold],
+    );
+    for (final tabsVisible in [true, false]) {
+      final resolved = layout(
+        navigation: tabsVisible,
+        padding: const EdgeInsets.symmetric(horizontal: 9),
+        fold: tabsVisible ? hardware : _duo,
+      );
+      final back = tabsVisible ? null : resolved.primaryNavigationBounds;
+      final button = resolved.mapActionBoundsFor(footprint, back: back);
+      expect(button.size, footprint);
+      contained(button, resolved.safeBounds);
+      if (tabsVisible) expect(button.right, lessThanOrEqualTo(fold.frame.left));
+      expect(button.overlaps(back ?? resolved.navigationBounds), isFalse);
+    }
+  });
+
   test('content widths preserve centering and phone navigation scale', () {
     for (final hardware in [DuoHardware.none, _duo]) {
       var previous = 0.0;
@@ -475,22 +501,49 @@ void main() {
     }
   });
 
-  test(
-    'the hardware strip uses actual camera bounds and independent safe edges',
-    () {
-      const camera = DuoRegion(Rect.fromLTWH(867, 0, 84, 172), isActive: true);
-      final duo = layout(
-        padding: const EdgeInsets.only(left: 9, right: 84),
-        fold: _duo.copyWith(cameras: [camera]),
-      );
-      expect(duo.safeBounds.left, 9);
-      expect(duo.safeBounds.right, 867);
-      expect(duo.navigationBounds.left, greaterThanOrEqualTo(867));
-      expect(duo.navigationBounds.overlaps(camera.frame), isFalse);
-      contained(duo.panelBounds, duo.safeBounds);
-      contained(duo.mapControlsBounds, duo.controlRegion);
-    },
-  );
+  test('Duo actions follow the system column and clear the tabs', () {
+    const size = Size(678, 466);
+    const camera = DuoRegion(Rect.fromLTWH(594, 0, 84, 64), isActive: true);
+    const systemBar = Rect.fromLTRB(606, 82, 654, 432);
+    AppLayout resolve(bool navigation, {Rect bar = systemBar}) => layout(
+      size: size,
+      padding: const EdgeInsets.only(left: 9, right: 84, bottom: 34),
+      fold: _duo.copyWith(cameras: [camera]),
+      verticalBarRegion: VerticalBarRegion(
+        rect: bar,
+        edge: HorizontalEdge.right,
+        viewSize: size,
+      ),
+      navigation: navigation,
+    );
+    final duo = resolve(true);
+    expect(duo.safeBounds.left, 9);
+    expect(duo.safeBounds.right, 594);
+    expect(duo.navigationBounds.center.dx, systemBar.center.dx);
+    expect(duo.navigationBounds.left, greaterThanOrEqualTo(594));
+    expect(duo.navigationBounds.overlaps(camera.frame), isFalse);
+    contained(duo.panelBounds, duo.safeBounds);
+    contained(duo.mapControlsBounds, duo.controlRegion);
+
+    final button = duo.duoActionBoundsFor(
+      const Size.square(StyleConstants.mapControlSize),
+    )!;
+    contained(button, systemBar);
+    expect(button.center.dx, duo.navigationBounds.center.dx);
+    expect(button.bottom, lessThanOrEqualTo(duo.navigationBounds.top));
+
+    final back = resolve(false).primaryNavigationBounds;
+    contained(back, systemBar);
+    expect(back.center.dx, button.center.dx);
+
+    final tallerStatus = resolve(
+      false,
+      bar: const Rect.fromLTRB(606, 120, 654, 432),
+    );
+    final shiftedBack = back.translate(0, 38);
+    expect(tallerStatus.primaryNavigationBounds, shiftedBack);
+    expect(tallerStatus.detachedBackBounds, shiftedBack);
+  });
 
   test(
     'book fold uses its reported coordinates even while activation lags',

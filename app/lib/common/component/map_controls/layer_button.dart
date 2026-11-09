@@ -7,11 +7,10 @@ import 'package:material_ui/material_ui.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:memolanes/common/app_haptics.dart';
 import 'package:memolanes/common/component/app_menu.dart';
+import 'package:memolanes/common/component/map_controls/map_floating_control.dart';
 import 'package:memolanes/common/component/map_controls/map_popup_surface.dart';
-import 'package:memolanes/common/component/liquid_glass_surface.dart';
 import 'package:memolanes/common/journey_kind_visuals.dart';
 import 'package:memolanes/constants/app_typography.dart';
-import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/journey_header.dart';
 
@@ -25,18 +24,7 @@ class LayerButton extends StatelessWidget {
       position: AppMenuPosition.side,
       offset: const Offset(16, 0),
       surfaceBuilder: (_, child) => MapPopupSurface(child: child),
-      child: PointerInterceptor(
-        child: LiquidGlassSurface(
-          circular: true,
-          child: Center(
-            child: Icon(
-              Icons.layers,
-              color: context.appColors.deepGreen,
-              size: 20,
-            ),
-          ),
-        ),
-      ),
+      child: const MapFloatingControl(child: Center(child: Icon(Icons.layers))),
     );
   }
 }

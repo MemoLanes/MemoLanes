@@ -1,8 +1,7 @@
-import 'package:memolanes/theme/app_colors.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:memolanes/common/app_haptics.dart';
 import 'package:memolanes/common/component/base_map_webview.dart';
-import 'package:memolanes/common/component/liquid_glass_surface.dart';
+import 'package:memolanes/common/component/map_controls/map_floating_control.dart';
 
 class TrackingButton extends StatelessWidget {
   final TrackingMode trackingMode;
@@ -16,22 +15,15 @@ class TrackingButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LiquidGlassSurface(
-      circular: true,
-      child: IconButton(
-        onPressed: () {
-          AppHaptics.selection();
-          onPressed();
-        },
-        icon: Icon(
-          trackingMode == TrackingMode.off
-              ? Icons.near_me_disabled
-              : Icons.near_me,
-          color: trackingMode == TrackingMode.displayAndTracking
-              ? context.appColors.deepGreen
-              : context.appColors.mutedInkColor,
-        ),
-      ),
+    return MapFloatingControl.button(
+      icon: trackingMode == TrackingMode.off
+          ? Icons.near_me_disabled
+          : Icons.near_me,
+      muted: trackingMode != TrackingMode.displayAndTracking,
+      onPressed: () {
+        AppHaptics.selection();
+        onPressed();
+      },
     );
   }
 }

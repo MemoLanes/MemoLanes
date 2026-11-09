@@ -11,6 +11,7 @@ import 'package:memolanes/body/achievement/achievement_body.dart'
     deferred as achievement;
 import 'package:memolanes/body/map/map_body.dart';
 import 'package:memolanes/body/map/journey_flow_controller.dart';
+import 'package:memolanes/body/map/screenshot/system_screenshot_listener.dart';
 import 'package:memolanes/body/settings/settings_body.dart'
     deferred as settings;
 import 'package:memolanes/common/achievement_stats_store.dart';
@@ -175,9 +176,11 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   int _selectedIndex = 0;
+  bool _recordMapOnly = false;
   bool _hasMapAttribution = false;
   final _journeys = JourneyFlowController();
   DateTime? _lastExitPopAt;
+  late final StreamSubscription<void> _screenshotSubscription;
 
   Future<void>? _achievementLib;
   Future<void>? _settingsLib;
@@ -191,6 +194,11 @@ class _MyHomePageState extends State<MyHomePage> {
   void initState() {
     super.initState();
     _journeys.addListener(_onJourneysChanged);
+    _screenshotSubscription = listenForSystemScreenshots(() {
+      if (_selectedIndex <= 2) {
+        unawaited(_mapBodyKey.currentState?.takeScreenshot());
+      }
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await AppBootstrap.completeUiStartup(context);
     });
@@ -213,12 +221,22 @@ class _MyHomePageState extends State<MyHomePage> {
     if (_selectedIndex == 2 && !_journeys.leave()) return;
     setState(() {
       _selectedIndex = index;
+      _recordMapOnly = false;
       if (index > 2) _hasMapAttribution = false;
+    });
+  }
+
+  void _toggleRecordMapOnly() {
+    if (_selectedIndex != 0) return;
+    setState(() {
+      _recordMapOnly = !_recordMapOnly;
+      _lastExitPopAt = null;
     });
   }
 
   @override
   void dispose() {
+    unawaited(_screenshotSubscription.cancel());
     _journeys.removeListener(_onJourneysChanged);
     _journeys.dispose();
     super.dispose();
@@ -248,6 +266,10 @@ class _MyHomePageState extends State<MyHomePage> {
   Future<void> _handleOnPop() async {
     final loading = GlobalLoadingManager.instance;
     if (loading.isLoading || loading.isNavigationBlocked) return;
+    if (_recordMapOnly) {
+      _toggleRecordMapOnly();
+      return;
+    }
     if (_journeys.requestBack() != JourneyBackResult.unhandled) return;
 
     if (_selectedIndex != 0) {
@@ -281,6 +303,8 @@ class _MyHomePageState extends State<MyHomePage> {
           key: _mapBodyKey,
           journeys: _journeys,
           onMapAttributionChanged: _onMapAttributionChanged,
+          recordMapOnly: _recordMapOnly,
+          onRecordMapTap: _toggleRecordMapOnly,
           mode: switch (_selectedIndex) {
             0 => MapMode.normal,
             1 => MapMode.timeMachine,
@@ -339,7 +363,8 @@ class _MyHomePageState extends State<MyHomePage> {
       },
       child: AppNavigationShell(
         bodyBuilder: _buildPageContent,
-        navigationVisible: _journeys.appChromeVisible,
+        navigationVisible: _journeys.appChromeVisible && !_recordMapOnly,
+        animateNavigationVisibility: _selectedIndex == 0,
         contentMode: _selectedIndex > 2
             ? AppNavigationContentMode.inset
             : AppNavigationContentMode.fullBleed,

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:duo_dynamic_sizing/duo_dynamic_sizing.dart'
     as native
     show DuoBarEdge, DuoBridge, DuoHardware, DuoHardwareScope;
+import 'package:duo_rail_kit/duo_rail_kit.dart' show VerticalBarEdge;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
@@ -77,10 +78,12 @@ class _DuoDeviceProviderState extends State<DuoDeviceProvider> {
         data: edge == DuoBarEdge.unknown
             ? ambient
             : ambient.copyWith(displayFeatures: const []),
-        child: DuoBarScope(
-          edge: edge,
-          isReady: _hardware != null,
-          child: widget.child,
+        child: VerticalBarEdge(
+          child: DuoBarScope(
+            edge: edge,
+            isReady: _hardware != null,
+            child: widget.child,
+          ),
         ),
       ),
     );

@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:duo_dynamic_sizing/duo_dynamic_sizing.dart'
     show DuoHardware, DuoHingeStatus, DuoRegion;
+import 'package:duo_rail_kit/duo_rail_kit.dart'
+    show HorizontalEdge, VerticalBarRegion;
 import 'package:memolanes/common/duo_device.dart';
 import 'package:memolanes/common/layout_geometry.dart' as geometry;
 import 'package:memolanes/common/map_viewport.dart' as map_viewport;
@@ -31,6 +33,7 @@ class AppLayout {
     required this._primaryNavigationRegions,
     required this._reservedRegions,
     required this._barEdge,
+    this._duoActionRegion,
   });
 
   // Only the resolver knows how native regions differ from a single viewport.
@@ -56,6 +59,7 @@ class AppLayout {
   final List<Rect> _primaryNavigationRegions;
   final List<Rect> _reservedRegions;
   final DuoBarEdge _barEdge;
+  final Rect? _duoActionRegion;
 
   // A map Scaffold keeps its full viewport; a regular Scaffold may already
   // have consumed some or all of the keyboard height in its body constraints.
@@ -83,6 +87,10 @@ class AppLayout {
         42,
       );
     }
+    const footprint = Size.square(StyleConstants.mapControlSize);
+    final rail = duoActionBoundsFor(footprint);
+    if (rail != null) return rail;
+
     final fitting = _primaryNavigationRegions
         .where((r) => r.width >= 44 && r.height >= 44)
         .toList();
@@ -141,6 +149,44 @@ class AppLayout {
 
   Axis get mapControlsAxis =>
       _mapControlsRegion.height < 260 ? Axis.horizontal : Axis.vertical;
+
+  /// The action group shares the system column with the tabs.
+  Rect? duoActionBoundsFor(Size footprint) {
+    final region = _duoActionRegion;
+    if (region == null ||
+        region.width < footprint.width ||
+        region.height < footprint.height) {
+      return null;
+    }
+    final gap = math.min(
+      StyleConstants.mapControlSpacing,
+      (region.height - footprint.height) / 2,
+    );
+    return Alignment.topCenter.inscribe(footprint, region).translate(0, gap);
+  }
+
+  /// Place actions at the top right of the clear map pane without a side rail.
+  Rect mapActionBoundsFor(Size footprint, {Rect? back}) {
+    const gap = StyleConstants.mapControlSpacing;
+    final available = geometry.insetRect(
+      _mapControlsRegion,
+      const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+    );
+    final candidates = geometry
+        .clearRegions(available, [
+          if (back != null) back.inflate(gap),
+          if (!navigationBounds.isEmpty) navigationBounds.inflate(gap),
+        ])
+        .where(
+          (region) =>
+              region.width >= footprint.width &&
+              region.height >= footprint.height,
+        )
+        .toList();
+    if (candidates.isEmpty) return Rect.zero;
+    final region = geometry.nearestRegion(candidates, available.topRight);
+    return Alignment.topRight.inscribe(footprint, region);
+  }
 
   Rect get mapControlsBounds {
     final region = _mapControlsRegion;
@@ -492,6 +538,7 @@ class AppLayout {
         );
 
   Rect? get detachedBackBounds => _usesRegions ? primaryNavigationBounds : null;
+
   Rect get headerBounds =>
       _usesRegions ? regionFor(safeBounds.topLeft) : Offset.zero & size;
   double get headerTopInset => _usesRegions ? 0 : _media.padding.top * .8;
@@ -562,6 +609,7 @@ class AppLayout {
           Size(media.size.width, media.size.height - media.viewInsets.bottom),
       hardware: hardware,
       barEdge: DuoBarScope.of(context),
+      verticalBarRegion: VerticalBarRegion.of(context),
       chromeReady: DuoBarScope.isReadyOf(context),
       platform: defaultTargetPlatform,
       navigationVisible: navigationVisible,
@@ -575,6 +623,7 @@ class AppLayout {
     required DuoHardware hardware,
     required DuoBarEdge barEdge,
     required TargetPlatform platform,
+    VerticalBarRegion? verticalBarRegion,
     bool navigationVisible = true,
     bool chromeReady = true,
     MediaQueryData? navigationMedia,
@@ -720,11 +769,30 @@ class AppLayout {
       StyleConstants.navBarHeight,
       math.max(0.0, free.width - 24),
     );
-    final barLeft = band == safe
-        ? (barEdge == DuoBarEdge.left
-              ? free.left + 12
-              : free.right - barWidth - 12)
-        : free.center.dx - barWidth / 2;
+    // The two plugins can report different edges while the window moves.
+    final systemBar = switch ((barEdge, verticalBarRegion)) {
+      (
+        DuoBarEdge.left,
+        VerticalBarRegion(edge: HorizontalEdge.left, :final rect),
+      ) ||
+      (
+        DuoBarEdge.right,
+        VerticalBarRegion(edge: HorizontalEdge.right, :final rect),
+      )
+          when hardware.hasHinge &&
+              rect.center.dx >= free.left + barWidth / 2 &&
+              rect.center.dx <= free.right - barWidth / 2 =>
+        rect,
+      _ => null,
+    };
+    final barLeft = switch (systemBar) {
+      final rect? => rect.center.dx - barWidth / 2,
+      _ when band != safe => free.center.dx - barWidth / 2,
+      _ =>
+        barEdge == DuoBarEdge.left
+            ? free.left + 12
+            : free.right - barWidth - 12,
+    };
     final primaryWidth = math.min(44.0, band.width);
     final primaryBand = vertical
         ? Rect.fromLTWH(
@@ -826,6 +894,17 @@ class AppLayout {
       primaryNavigationRegions: primaryNavigationRegions,
       reservedRegions: reserved,
       barEdge: barEdge,
+      duoActionRegion: hardware.hasHinge && (systemBar != null || band != safe)
+          ? Rect.fromLTRB(
+              barLeft,
+              math.max(free.top, systemBar?.top ?? free.top),
+              barLeft + barWidth,
+              math.min(
+                navigation.isEmpty ? free.bottom : navigation.top,
+                systemBar?.bottom ?? free.bottom,
+              ),
+            )
+          : null,
     );
   }
 

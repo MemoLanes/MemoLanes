@@ -7,12 +7,11 @@ import 'package:memolanes/theme/app_colors.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:memolanes/common/component/app_menu.dart';
+import 'package:memolanes/common/component/map_controls/map_floating_control.dart';
 import 'package:memolanes/common/component/map_controls/map_popup_surface.dart';
-import 'package:memolanes/common/component/liquid_glass_surface.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/constants/app_typography.dart';
 import 'package:memolanes/constants/style_constants.dart';
-import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:provider/provider.dart';
 
 class AccuracyDisplay extends StatelessWidget {
@@ -26,12 +25,10 @@ class AccuracyDisplay extends StatelessWidget {
         final accuracy = position?.accuracy ?? 0.0;
         final hasData = position != null;
         final accuracyLevel = getAccuracyLevel(accuracy);
-        final button = PointerInterceptor(
-          child: _AccuracyButton(
-            hasData: hasData,
-            accuracy: accuracy,
-            accuracyLevel: accuracyLevel,
-          ),
+        final button = _AccuracyButton(
+          hasData: hasData,
+          accuracy: accuracy,
+          accuracyLevel: accuracyLevel,
         );
 
         if (!hasData) return button;
@@ -102,37 +99,32 @@ class _AccuracyButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LiquidGlassSurface(
-      circular: true,
-      backgroundAlpha: hasData ? 0.36 : 0.32,
-      child: Material(
-        color: Colors.transparent,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            Center(
-              child: Text(
-                hasData ? '${accuracy.round()}m\nACC' : 'NO\nGPS',
-                textAlign: TextAlign.center,
-                style: AppTypography.micro.copyWith(
-                  color: context.appColors.mutedInkColor,
-                  height: 1.1,
-                ),
+    return MapFloatingControl(
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Center(
+            child: Text(
+              hasData ? '${accuracy.round()}m\nACC' : 'NO\nGPS',
+              textAlign: TextAlign.center,
+              style: AppTypography.micro.copyWith(
+                color: context.appColors.mutedInkColor,
+                height: 1.1,
               ),
             ),
-            if (hasData)
-              CustomPaint(
-                size: const ui.Size.square(StyleConstants.mapControlSize),
-                painter: AccuracyTicksPainter(
-                  inactiveColor: context.appColors.mutedInkColor.withValues(
-                    alpha: 0.52,
-                  ),
-                  filledTicks: accuracyLevel.filledTicks,
-                  color: getStatusColor(context.appColors, accuracyLevel),
+          ),
+          if (hasData)
+            CustomPaint(
+              size: const ui.Size.square(StyleConstants.mapControlSize),
+              painter: AccuracyTicksPainter(
+                inactiveColor: context.appColors.mutedInkColor.withValues(
+                  alpha: 0.52,
                 ),
+                filledTicks: accuracyLevel.filledTicks,
+                color: getStatusColor(context.appColors, accuracyLevel),
               ),
-          ],
-        ),
+            ),
+        ],
       ),
     );
   }
