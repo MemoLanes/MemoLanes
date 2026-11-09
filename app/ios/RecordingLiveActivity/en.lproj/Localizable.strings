@@ -1,0 +1,10 @@
+"status_recording" = "Recording";
+"status_paused" = "Paused";
+"status_unknown" = "Check status";
+"accessibility_unknown" = "Recording status needs confirmation";
+"locating" = "Locating";
+"open_app" = "Open app to check";
+"gps_updated" = "GPS updated";
+"accuracy_title" = "Accuracy";
+"accuracy_value" = "±%.0f m";
+"gps_updated_at %@" = "Updated %@";
