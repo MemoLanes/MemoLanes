@@ -325,8 +325,6 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
     onPressed: takeScreenshot,
   );
 
-  /// Returns the overlay for the given mode; each overlay lives in its own
-  /// file.
   Widget _buildOverlay(MapMode mode) {
     switch (mode) {
       case MapMode.normal:

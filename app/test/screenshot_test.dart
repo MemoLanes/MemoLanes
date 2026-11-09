@@ -249,13 +249,15 @@ void main() {
       tester.view.physicalSize = size;
       await tester.pumpAndSettle();
       final bounds = tester.getRect(caption);
-      expect(bounds.overlaps(tester.getRect(logo)), isFalse);
+      final previousLogoBounds = tester.getRect(logo);
       final position = find.text(label);
       await tester.ensureVisible(position);
       await tester.tap(position);
       await tester.pumpAndSettle();
+      final logoBounds = tester.getRect(logo);
+      expect(logoBounds, isNot(previousLogoBounds));
       expect(tester.getRect(caption), bounds);
-      expect(bounds.overlaps(tester.getRect(logo)), isFalse);
+      expect(bounds.overlaps(logoBounds), isFalse);
 
       await tester.ensureVisible(save);
       expect(tester.getRect(save).overlaps(Offset.zero & size), isTrue);

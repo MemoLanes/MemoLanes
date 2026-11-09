@@ -76,8 +76,7 @@ class ScreenshotComposition extends StatelessWidget {
                     _imageEdgeInset,
                     32,
                     _imageEdgeInset,
-                    // Keep a fixed footer for the watermark, including when
-                    // hidden or moved, so larger text never overlaps or jumps.
+                    // Keep the caption stable when the watermark moves.
                     _imageEdgeInset + _logoMaxHeight + _captionLogoGap,
                   ),
                   child: FittedBox(

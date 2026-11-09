@@ -18,7 +18,7 @@ import 'package:memolanes/constants/app_typography.dart';
 import 'package:memolanes/src/rust/journey_header.dart';
 import 'package:memolanes/theme/app_colors.dart';
 
-/// The caller owns the frozen images and disposes them when this route closes.
+/// The caller owns the map image until the route transition ends.
 class ScreenshotPreviewPage extends StatefulWidget {
   const ScreenshotPreviewPage({
     super.key,
@@ -275,6 +275,9 @@ class _ScreenshotPreviewPageState extends State<ScreenshotPreviewPage> {
 
   Widget _buildTools() {
     final colors = context.appColors;
+    final captionStyle = AppTypography.caption.copyWith(
+      color: colors.mutedInkColor,
+    );
     final canExport = !_busy && !_loadingLogo;
     final optionHeight = math.max(
       48.0,
@@ -289,73 +292,24 @@ class _ScreenshotPreviewPageState extends State<ScreenshotPreviewPage> {
           Divider(height: 1, color: colors.lineColor),
           const SizedBox(height: 12),
           if (widget.journey != null || widget.timeRange != null) ...[
-            Text(
-              context.tr('screenshot.content_options'),
-              style: AppTypography.caption.copyWith(
-                color: colors.mutedInkColor,
-              ),
-            ),
+            Text(context.tr('screenshot.content_options'), style: captionStyle),
             const SizedBox(height: 10),
             SizedBox(height: optionHeight, child: _buildInfoOption()),
             const SizedBox(height: 10),
           ],
-          Text(
-            context.tr('screenshot.logo_option'),
-            style: AppTypography.caption.copyWith(color: colors.mutedInkColor),
-          ),
+          Text(context.tr('screenshot.logo_option'), style: captionStyle),
           const SizedBox(height: 4),
-          SegmentedButton<ScreenshotLogoPosition>(
-            expandedInsets: EdgeInsets.zero,
-            showSelectedIcon: false,
-            segments: [
-              for (final position in ScreenshotLogoPosition.values)
-                ButtonSegment(
-                  value: position,
-                  label: Text(
-                    context.tr('screenshot.logo_${position.name}'),
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-            ],
-            selected: {_logoPosition},
-            onSelectionChanged: !canExport || _logo == null
-                ? null
-                : (selection) =>
-                      setState(() => _logoPosition = selection.single),
-            style: ButtonStyle(
-              backgroundColor: WidgetStateProperty.resolveWith((states) {
-                return states.contains(WidgetState.selected)
-                    ? colors.softGreen
-                    : colors.surfaceColor;
-              }),
-              foregroundColor: WidgetStateProperty.resolveWith((states) {
-                if (states.contains(WidgetState.disabled)) {
-                  return colors.subtleInkColor;
-                }
-                return states.contains(WidgetState.selected)
-                    ? colors.deepGreen
-                    : colors.mutedInkColor;
-              }),
-              side: WidgetStatePropertyAll(BorderSide(color: colors.lineColor)),
-              shape: WidgetStatePropertyAll(
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              ),
-              minimumSize: const WidgetStatePropertyAll(Size(0, 48)),
-              padding: const WidgetStatePropertyAll(
-                EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-              ),
-              textStyle: const WidgetStatePropertyAll(AppTypography.label),
-            ),
+          _ScreenshotLogoPicker(
+            position: _logoPosition,
+            onChanged: canExport && _logo != null
+                ? (position) => setState(() => _logoPosition = position)
+                : null,
           ),
           if (!_loadingLogo && _logo == null) ...[
             const SizedBox(height: 10),
             Text(
               context.tr('screenshot.logo_unavailable'),
-              style: AppTypography.caption.copyWith(
-                color: colors.mutedInkColor,
-              ),
+              style: captionStyle,
             ),
           ],
           if (_error != null) ...[
@@ -492,6 +446,63 @@ class _ScreenshotPreviewPageState extends State<ScreenshotPreviewPage> {
         detached: detached,
         actionBuilder: (_) => close,
         child: page,
+      ),
+    );
+  }
+}
+
+class _ScreenshotLogoPicker extends StatelessWidget {
+  const _ScreenshotLogoPicker({required this.position, this.onChanged});
+
+  final ScreenshotLogoPosition position;
+  final ValueChanged<ScreenshotLogoPosition>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final onChanged = this.onChanged;
+    return SegmentedButton<ScreenshotLogoPosition>(
+      expandedInsets: EdgeInsets.zero,
+      showSelectedIcon: false,
+      segments: [
+        for (final option in ScreenshotLogoPosition.values)
+          ButtonSegment(
+            value: option,
+            label: Text(
+              context.tr('screenshot.logo_${option.name}'),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+      ],
+      selected: {position},
+      onSelectionChanged: onChanged == null
+          ? null
+          : (selection) => onChanged(selection.single),
+      style: ButtonStyle(
+        backgroundColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? colors.softGreen
+              : colors.surfaceColor,
+        ),
+        foregroundColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.disabled)) {
+            return colors.subtleInkColor;
+          }
+          return states.contains(WidgetState.selected)
+              ? colors.deepGreen
+              : colors.mutedInkColor;
+        }),
+        side: WidgetStatePropertyAll(BorderSide(color: colors.lineColor)),
+        shape: WidgetStatePropertyAll(
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        ),
+        minimumSize: const WidgetStatePropertyAll(Size(0, 48)),
+        padding: const WidgetStatePropertyAll(
+          EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+        ),
+        textStyle: const WidgetStatePropertyAll(AppTypography.label),
       ),
     );
   }
