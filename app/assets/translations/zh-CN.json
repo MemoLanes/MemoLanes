@@ -375,7 +375,37 @@
       "rebuild_cache": "重建缓存",
       "reset_local_prefs": "重置偏好设置",
       "reset_local_prefs_message": "该操作会重置所有偏好设置并立即关闭应用。不会删除旅程数据。",
-      "render_diagnostics": "渲染诊断"
+      "render_diagnostics": "渲染诊断",
+      "debug": {
+        "title": "调试",
+        "motion": {
+          "title": "运动检测调试",
+          "motion_state": "Tracelet 运动状态",
+          "moving": "移动",
+          "stationary": "静止",
+          "idle": "未录制",
+          "idle_hint": "使用 Tracelet 开始录制旅途后，即可查看运动状态。",
+          "latest_callback_details": "第 {count} 次定位回调\n来源（Tracelet 判定）：{source}\n定位时间 {fixTime} · 定位点间隔 {fixInterval}\n收到时间 {receivedTime} · 回调间隔 {callbackInterval}\n点龄 {age} · 速度 {speed} · 水平精度 {accuracy}",
+          "source_gps": "卫星定位（GPS）",
+          "source_wifi": "Wi-Fi",
+          "source_cell": "蜂窝网络",
+          "source_network": "网络定位",
+          "source_unknown": "未知",
+          "ios_source_estimate": "iOS 的来源分类由 Tracelet 根据水平精度推断。",
+          "mock_fix": "模拟定位",
+          "reduced_accuracy_fix": "模糊定位",
+          "start_capture": "开始采集",
+          "stop_capture": "停止采集",
+          "capturing": "正在采集，测试时可以离开此页面。",
+          "capture_hint": "测试前开始采集，测试后停止采集即可导出日志。日志不包含经纬度。",
+          "recent_events": "最近事件",
+          "saved_logs": "已保存日志",
+          "no_logs": "暂无已保存日志。",
+          "logs_unavailable": "无法读取已保存的日志。",
+          "action_failed": "无法完成调试操作。",
+          "write_failed": "日志写入失败。停止采集后可导出已保存的记录。"
+        }
+      }
     },
     "appearance": {
       "title": "外观",

@@ -375,7 +375,37 @@
       "rebuild_cache": "Rebuild Cache",
       "reset_local_prefs": "Reset Preferences",
       "reset_local_prefs_message": "This will reset all preferences and immediately shut down the app. Journey data will not be deleted.",
-      "render_diagnostics": "Render Diagnostics"
+      "render_diagnostics": "Render Diagnostics",
+      "debug": {
+        "title": "Debug",
+        "motion": {
+          "title": "Motion Detection Debugging",
+          "motion_state": "Tracelet Motion State",
+          "moving": "Moving",
+          "stationary": "Stationary",
+          "idle": "Not recording",
+          "idle_hint": "Start recording a journey with Tracelet to see its motion state.",
+          "latest_callback_details": "Location callback #{count}\nSource (Tracelet): {source}\nFix time {fixTime} · Fix interval {fixInterval}\nReceived {receivedTime} · Callback interval {callbackInterval}\nFix age {age} · Speed {speed} · Horizontal accuracy {accuracy}",
+          "source_gps": "Satellite (GPS)",
+          "source_wifi": "Wi-Fi",
+          "source_cell": "Cellular",
+          "source_network": "Network",
+          "source_unknown": "Unknown",
+          "ios_source_estimate": "On iOS, Tracelet infers the source from horizontal accuracy.",
+          "mock_fix": "Simulated location",
+          "reduced_accuracy_fix": "Approximate location",
+          "start_capture": "Start Capture",
+          "stop_capture": "Stop Capture",
+          "capturing": "Capture is active. You can leave this page while testing.",
+          "capture_hint": "Start capture before your test, then stop it to export the log. Logs exclude coordinates.",
+          "recent_events": "Recent Events",
+          "saved_logs": "Saved Logs",
+          "no_logs": "No saved logs yet.",
+          "logs_unavailable": "Could not read saved logs.",
+          "action_failed": "Could not complete the diagnostic action.",
+          "write_failed": "Writing the log failed. Stop capture to export the entries already saved."
+        }
+      }
     },
     "appearance": {
       "title": "Appearance",
