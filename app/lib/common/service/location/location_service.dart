@@ -29,17 +29,28 @@ class LocationData {
 }
 
 enum LocationBackend {
-  native;
+  native,
+  tracelet;
 
   String displayName(BuildContext context) {
     switch (this) {
       case LocationBackend.native:
         return context.tr("location_service.location_backend.native");
+      case LocationBackend.tracelet:
+        return 'Tracelet';
     }
   }
 }
 
 abstract class ILocationService {
+  bool get handlesRecording => false;
+
+  Future<void> initialize() async {}
+
+  Future<bool> prepareRecording() async => true;
+
+  Future<void> flushRecording() async {}
+
   Future<void> startLocationUpdates(bool enableBackground);
 
   Future<void> stopLocationUpdates();

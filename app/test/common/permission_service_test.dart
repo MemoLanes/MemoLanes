@@ -1,0 +1,303 @@
+import 'dart:ffi';
+
+import 'package:easy_localization/easy_localization.dart';
+// MMKV exposes its platform fake through transitive packages.
+// ignore: depend_on_referenced_packages
+import 'package:ffi/ffi.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:memolanes/common/component/permission_request_sheet.dart';
+import 'package:memolanes/common/mmkv_util.dart';
+import 'package:memolanes/common/service/permission_service.dart';
+import 'package:memolanes/theme/app_theme.dart';
+// ignore: depend_on_referenced_packages
+import 'package:mmkv_platform_interface/mmkv_platform_interface.dart';
+import 'package:permission_handler/permission_handler.dart';
+
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  const permissionChannel = MethodChannel(
+    'flutter.baseflow.com/permissions/methods',
+  );
+  const geolocatorChannel = MethodChannel('flutter.baseflow.com/geolocator');
+  const preferencesChannel = MethodChannel(
+    'plugins.flutter.io/shared_preferences',
+  );
+  final messenger =
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+  final preferences = _Preferences();
+  final service = PermissionService();
+  final checked = <int>[];
+  final requested = <int>[];
+  var motion = PermissionStatus.denied;
+  var motionResult = PermissionStatus.denied;
+  var notification = PermissionStatus.granted;
+
+  setUpAll(() async {
+    MMKVPluginPlatform.instance = preferences;
+    await MMKVUtil.init();
+    messenger.setMockMethodCallHandler(
+      preferencesChannel,
+      (call) async => call.method == 'getAll' ? <String, Object>{} : null,
+    );
+    await EasyLocalization.ensureInitialized();
+  });
+  tearDownAll(() {
+    messenger.setMockMethodCallHandler(preferencesChannel, null);
+  });
+  setUp(() {
+    preferences.values.clear();
+    preferences.failedKey = null;
+    checked.clear();
+    requested.clear();
+    motion = PermissionStatus.denied;
+    motionResult = PermissionStatus.denied;
+    notification = PermissionStatus.granted;
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    messenger.setMockMethodCallHandler(geolocatorChannel, (call) async {
+      expect(call.method, 'isLocationServiceEnabled');
+      return true;
+    });
+    messenger.setMockMethodCallHandler(permissionChannel, (call) async {
+      switch (call.method) {
+        case 'checkPermissionStatus':
+          final permission = call.arguments as int;
+          checked.add(permission);
+          if (permission == Permission.sensors.value) return motion.index;
+          if (permission == Permission.notification.value) {
+            return notification.index;
+          }
+          return PermissionStatus.granted.index;
+        case 'requestPermissions':
+          final permissions = (call.arguments as List).cast<int>();
+          expect(permissions, [Permission.sensors.value]);
+          requested.addAll(permissions);
+          motion = motionResult;
+          return {Permission.sensors.value: motion.index};
+        default:
+          throw UnsupportedError('Unexpected permission call: ${call.method}');
+      }
+    });
+  });
+  tearDown(() {
+    messenger.setMockMethodCallHandler(permissionChannel, null);
+    messenger.setMockMethodCallHandler(geolocatorChannel, null);
+    debugDefaultTargetPlatformOverride = null;
+  });
+
+  test(
+    'motion denial stays optional and is not automatically offered again',
+    () async {
+      final initial = await service.readPermissionSnapshot();
+      expect(initial.motion.granted, isFalse);
+      expect(initial.motion.denied, isFalse);
+      expect(await service.needAnyPermission(), isTrue);
+      expect(requested, isEmpty);
+
+      final effects = await service.runMotionRequest();
+      expect(
+        effects.single.messageTrKey,
+        'permission_sheet.motion_permission_denied',
+      );
+      expect(effects.single.openAppSettings, isFalse);
+      expect(preferences.values[MMKVKey.requestedMotion], isTrue);
+      final denied = await service.readPermissionSnapshot();
+      expect(denied.motion.denied, isTrue);
+      expect(denied.location.granted, isTrue);
+      expect(await service.checkLocationPermission(), isTrue);
+      expect(await service.needAnyPermission(), isFalse);
+      expect(await service.needAnyPermission(), isFalse);
+      expect(requested, [Permission.sensors.value]);
+
+      motionResult = PermissionStatus.granted;
+      expect(await service.runMotionRequest(), isEmpty);
+      expect((await service.readPermissionSnapshot()).motion.granted, isTrue);
+      expect(requested, [Permission.sensors.value, Permission.sensors.value]);
+    },
+  );
+
+  test('an existing motion grant never requests permission again', () async {
+    motion = PermissionStatus.granted;
+    expect((await service.readPermissionSnapshot()).motion.granted, isTrue);
+    expect(await service.needAnyPermission(), isFalse);
+    expect(await service.runMotionRequest(), isEmpty);
+    expect(requested, isEmpty);
+  });
+
+  test(
+    'permanently denied motion points to settings without another request',
+    () async {
+      motion = PermissionStatus.permanentlyDenied;
+      expect(
+        (await service.readPermissionSnapshot()).motion.permanentlyDenied,
+        isTrue,
+      );
+      expect(await service.needAnyPermission(), isFalse);
+      final effects = await service.runMotionRequest();
+      expect(
+        effects.single.messageTrKey,
+        'permission_sheet.motion_permission_denied',
+      );
+      expect(effects.single.openAppSettings, isTrue);
+      expect(requested, isEmpty);
+      expect(await service.checkLocationPermission(), isTrue);
+    },
+  );
+
+  test(
+    'non-iOS platforms neither read nor request motion permission',
+    () async {
+      for (final platform in TargetPlatform.values.where(
+        (value) => value != TargetPlatform.iOS,
+      )) {
+        debugDefaultTargetPlatformOverride = platform;
+        expect(service.supportsMotionPermission, isFalse);
+        expect((await service.readPermissionSnapshot()).motion.granted, isTrue);
+        expect(await service.runMotionRequest(), isEmpty);
+        expect(await service.needAnyPermission(), isFalse);
+      }
+      expect(checked, isNot(contains(Permission.sensors.value)));
+      expect(requested, isEmpty);
+    },
+  );
+
+  test(
+    'an unsaved motion request marker cannot trigger an untracked prompt',
+    () async {
+      preferences.failedKey = MMKVKey.requestedMotion;
+      await expectLater(service.runMotionRequest(), throwsStateError);
+      expect(requested, isEmpty);
+      expect(preferences.values[MMKVKey.requestedMotion], isNull);
+    },
+  );
+
+  testWidgets(
+    'the unified sheet requests optional motion only after Enable All',
+    (tester) async {
+      try {
+        await _pumpPermissionHost(tester);
+        await tester.tap(find.text('Permissions'));
+        await tester.pumpAndSettle();
+        expect(find.text(tr('permission_sheet.motion_title')), findsOneWidget);
+        expect(requested, isEmpty);
+
+        await tester.tap(find.text(tr('permission_sheet.enable_all')));
+        await tester.pumpAndSettle();
+        expect(requested, [Permission.sensors.value]);
+        expect(
+          find.text(tr('permission_sheet.motion_permission_denied')),
+          findsOneWidget,
+        );
+        await tester.tap(find.text(tr('common.ok')));
+        await tester.pumpAndSettle();
+        expect(find.text(tr('permission_sheet.title')), findsNothing);
+        expect(await service.checkLocationPermission(), isTrue);
+        expect(await service.needAnyPermission(), isFalse);
+
+        await tester.tap(find.text('Permissions'));
+        await tester.pumpAndSettle();
+        expect(find.text(tr('permission_sheet.motion_title')), findsOneWidget);
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        await tester.pump(const Duration(milliseconds: 250));
+        await tester.pumpAndSettle();
+        expect(requested, [Permission.sensors.value]);
+        await tester.tap(find.text(tr('permission_sheet.skip')));
+        await tester.pumpAndSettle();
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    },
+  );
+
+  testWidgets('the unified sheet hides motion outside iOS', (tester) async {
+    try {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      notification = PermissionStatus.denied;
+      await _pumpPermissionHost(tester);
+      await tester.tap(find.text('Permissions'));
+      await tester.pumpAndSettle();
+      expect(find.text(tr('permission_sheet.title')), findsOneWidget);
+      expect(find.text(tr('permission_sheet.motion_title')), findsNothing);
+      expect(checked, isNot(contains(Permission.sensors.value)));
+      expect(requested, isEmpty);
+      await tester.tap(find.text(tr('permission_sheet.skip')));
+      await tester.pumpAndSettle();
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
+}
+
+Future<void> _pumpPermissionHost(WidgetTester tester) async {
+  const locale = Locale('en', 'US');
+  await tester.runAsync(() async {
+    await tester.pumpWidget(
+      EasyLocalization(
+        supportedLocales: const [locale],
+        path: 'assets/translations',
+        startLocale: locale,
+        saveLocale: false,
+        child: Builder(
+          builder: (context) => MaterialApp(
+            theme: AppTheme.light,
+            localizationsDelegates: [
+              ...GlobalMaterialLocalizations.delegates,
+              ...context.localizationDelegates,
+            ],
+            supportedLocales: context.supportedLocales,
+            locale: context.locale,
+            home: Builder(
+              builder: (context) => Scaffold(
+                body: TextButton(
+                  onPressed: () => showPermissionRequestSheet(context),
+                  child: const Text('Permissions'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 100));
+  });
+  await tester.pumpAndSettle();
+}
+
+class _Preferences extends MMKVPluginPlatform {
+  final values = <String, bool>{};
+  String? failedKey;
+
+  @override
+  Future<String> getApplicationDocumentsPath() async => '/test';
+
+  @override
+  Future<String> initialize(
+    String rootDir, {
+    String? groupDir,
+    int logLevel = 1,
+    Pointer<NativeFunction<LogCallbackWrap>>? logHandler,
+  }) async => rootDir;
+
+  @override
+  Pointer<Void> Function(int, Pointer<Utf8>, int, int, int, int, int, int, int)
+  getDefaultMMKVFunc() =>
+      (_, _, _, _, _, _, _, _, _) => Pointer<Void>.fromAddress(1);
+
+  @override
+  int Function(Pointer<Void>, Pointer<Utf8>, int) encodeBoolFunc() =>
+      (_, key, value) {
+        final name = key.toDartString();
+        if (name == failedKey) return 0;
+        values[name] = value != 0;
+        return 1;
+      };
+
+  @override
+  int Function(Pointer<Void>, Pointer<Utf8>, int) decodeBoolFunc() =>
+      (_, key, fallback) =>
+          (values[key.toDartString()] ?? (fallback != 0)) ? 1 : 0;
+}

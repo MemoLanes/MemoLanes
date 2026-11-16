@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/mmkv_util.dart';
@@ -36,15 +37,17 @@ class PermissionSnapshot {
   final PermissionTileStatus location;
   final PermissionTileStatus battery;
   final PermissionTileStatus notification;
+  final PermissionTileStatus motion;
 
   const PermissionSnapshot({
     required this.location,
     required this.battery,
     required this.notification,
+    required this.motion,
   });
 }
 
-/// Location / notification / battery checks and request flows only — no Flutter UI.
+/// Permission checks and request flows only — no Flutter UI.
 class PermissionService {
   PermissionService._privateConstructor();
 
@@ -52,6 +55,9 @@ class PermissionService {
       PermissionService._privateConstructor();
 
   factory PermissionService() => _instance;
+
+  bool get supportsMotionPermission =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
 
   bool _isPermanentlyDeniedFromStatus(PermissionStatus status) {
     // Android status cannot distinguish permanent denial from "Ask every time".
@@ -71,6 +77,9 @@ class PermissionService {
           ? '${await Permission.ignoreBatteryOptimizations.status}'
           : 'n/a';
       final notificationStatus = await Permission.notification.status;
+      final motionStatus = supportsMotionPermission
+          ? '${await Permission.sensors.status}'
+          : 'n/a';
       final permissionSheetShown = MMKVUtil.getBool(
         MMKVKey.permissionSheetShown,
         defaultValue: false,
@@ -87,6 +96,7 @@ class PermissionService {
         MMKVKey.requestedNotification,
         defaultValue: false,
       );
+      final requestedMotion = MMKVUtil.getBool(MMKVKey.requestedMotion);
       final unexpectedExitNotificationEnabled = MMKVUtil.getBool(
         MMKVKey.isUnexpectedExitNotificationEnabled,
         defaultValue: true,
@@ -97,11 +107,12 @@ class PermissionService {
         'os={locationServiceEnabled=$locationServiceEnabled '
         'location=$locationStatus locationAlways=$locationAlwaysStatus '
         'batteryOptimization=$batteryOptimizationStatus '
-        'notification=$notificationStatus} '
+        'notification=$notificationStatus motion=$motionStatus} '
         'mmkv={permissionSheetShown=$permissionSheetShown '
         'requestedLocation=$requestedLocation '
         'requestedBatteryOptimization=$requestedBatteryOptimization '
         'requestedNotification=$requestedNotification '
+        'requestedMotion=$requestedMotion '
         'unexpectedExitNotificationEnabled='
         '$unexpectedExitNotificationEnabled}',
       );
@@ -117,6 +128,9 @@ class PermissionService {
     final batteryGranted =
         !isAndroid || await Permission.ignoreBatteryOptimizations.isGranted;
     final notificationStatus = await Permission.notification.status;
+    final motionStatus = supportsMotionPermission
+        ? await Permission.sensors.status
+        : PermissionStatus.granted;
     final notificationGranted = notificationStatus.isGranted;
     final locationPermanentlyDenied = _isPermanentlyDeniedFromStatus(locStatus);
     final notificationPermanentlyDenied = _isPermanentlyDeniedFromStatus(
@@ -134,6 +148,7 @@ class PermissionService {
       MMKVKey.requestedNotification,
       defaultValue: false,
     );
+    final motionRequested = MMKVUtil.getBool(MMKVKey.requestedMotion);
 
     final snapshot = PermissionSnapshot(
       location: PermissionTileStatus(
@@ -152,6 +167,14 @@ class PermissionService {
             notificationRequested &&
             !notificationPermanentlyDenied,
         permanentlyDenied: notificationPermanentlyDenied,
+      ),
+      motion: PermissionTileStatus(
+        granted: motionStatus.isGranted,
+        denied:
+            !motionStatus.isGranted &&
+            motionRequested &&
+            !motionStatus.isPermanentlyDenied,
+        permanentlyDenied: motionStatus.isPermanentlyDenied,
       ),
     );
     return snapshot;
@@ -175,6 +198,14 @@ class PermissionService {
         !MMKVUtil.getBool(MMKVKey.requestedNotification, defaultValue: false) &&
         !_isPermanentlyDeniedFromStatus(notificationStatus)) {
       return true;
+    }
+    if (supportsMotionPermission) {
+      final motionStatus = await Permission.sensors.status;
+      if (!motionStatus.isGranted &&
+          !MMKVUtil.getBool(MMKVKey.requestedMotion) &&
+          !motionStatus.isPermanentlyDenied) {
+        return true;
+      }
     }
     return false;
   }
@@ -329,6 +360,37 @@ class PermissionService {
         PermissionEffect(
           messageTrKey:
               'unexpected_exit_notification.notification_permission_denied',
+        ),
+      ];
+    }
+    return const [];
+  }
+
+  Future<List<PermissionEffect>> runMotionRequest() async {
+    if (!supportsMotionPermission) return const [];
+    final status = await Permission.sensors.status;
+    if (status.isGranted) return const [];
+    if (!MMKVUtil.putBool(MMKVKey.requestedMotion, true)) {
+      throw StateError('Could not save the motion permission request state');
+    }
+    if (status.isPermanentlyDenied) {
+      log.info(
+        '[PermissionService] runMotionRequest open app settings: status=$status',
+      );
+      return const [
+        PermissionEffect(
+          messageTrKey: 'permission_sheet.motion_permission_denied',
+          openAppSettings: true,
+        ),
+      ];
+    }
+    final result = await Permission.sensors.request();
+    log.info('[PermissionService] runMotionRequest requested result=$result');
+    if (!result.isGranted) {
+      return [
+        PermissionEffect(
+          messageTrKey: 'permission_sheet.motion_permission_denied',
+          openAppSettings: result.isPermanentlyDenied,
         ),
       ];
     }

@@ -4,6 +4,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:memolanes/body/settings/render_diagnostics.dart';
 import 'package:memolanes/body/settings/settings_section.dart';
+import 'package:memolanes/body/settings/location_service_settings.dart';
 import 'package:memolanes/common/component/app_button.dart';
 import 'package:memolanes/common/component/capsule_style_app_bar.dart';
 import 'package:memolanes/common/component/common_export.dart';
@@ -48,13 +49,7 @@ class AdvancedSettingsPage extends StatelessWidget {
                   }
                 },
               ),
-              SettingsTile(
-                label: context.tr('location_service.location_backend.title'),
-                position: LabelTilePosition.middle,
-                trailing: LabelTileContent(
-                  content: gpsManager.locationBackend.displayName(context),
-                ),
-              ),
+              locationBackendSettingsTile(context, gpsManager),
               SettingsTile(
                 label: context.tr(
                   'general.advanced_settings.render_diagnostics',

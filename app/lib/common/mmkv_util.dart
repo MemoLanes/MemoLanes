@@ -24,6 +24,7 @@ class MMKVKey {
   static const String requestedLocation = 'Permission.requestedLocation';
   static const String requestedNotification =
       'Permission.requestedNotification';
+  static const String requestedMotion = 'Permission.requestedMotion';
   static const String permissionSheetShown = 'Permission.sheetShown';
 }
 
