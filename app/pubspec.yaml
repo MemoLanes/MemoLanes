@@ -100,17 +100,17 @@ dependency_overrides:
   tracelet:
     git:
       url: https://github.com/kuailezhiyuan/Tracelet.git
-      ref: codex/continuous-stationary-tracking
+      ref: 8f5ce018c394712e5e3517d2173a1a7d6bac2ec6
       path: packages/tracelet
   tracelet_ios:
     git:
       url: https://github.com/kuailezhiyuan/Tracelet.git
-      ref: codex/continuous-stationary-tracking
+      ref: 8f5ce018c394712e5e3517d2173a1a7d6bac2ec6
       path: packages/tracelet_ios
   tracelet_platform_interface:
     git:
       url: https://github.com/kuailezhiyuan/Tracelet.git
-      ref: codex/continuous-stationary-tracking
+      ref: 8f5ce018c394712e5e3517d2173a1a7d6bac2ec6
       path: packages/tracelet_platform_interface
   flutter_inappwebview_platform_interface:
     git: 

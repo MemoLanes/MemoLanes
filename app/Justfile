@@ -26,48 +26,8 @@ copy-webview-assets:
 [group: 'utils']
 frb-generate:
     @echo "🔗 Generating FRB code"
-    @just tracelet-prepare
     @flutter_rust_bridge_codegen generate
     @echo "✅ FRB code generation completed"
-
-[group: 'utils']
-[positional-arguments]
-tracelet-prepare target="dart":
-    #!/usr/bin/env bash
-    set -euo pipefail
-    package_config=.dart_tool/package_config.json
-    if [[ ! -s "$package_config" || pubspec.yaml -nt "$package_config" ||
-          pubspec.lock -nt "$package_config" ]]; then
-        flutter pub get
-    fi
-    # Git dependencies omit the generated files included in hosted packages.
-    tracelet_interface=$(python3 - <<'PY'
-    import json
-    from pathlib import Path
-    from urllib.parse import unquote, urljoin, urlparse
-
-    config = Path(".dart_tool/package_config.json").resolve()
-    packages = json.loads(config.read_text())["packages"]
-    package = next(p for p in packages if p["name"] == "tracelet_platform_interface")
-    uri = urlparse(urljoin(config.as_uri(), package["rootUri"]))
-    print(Path(unquote(uri.path)))
-    PY
-    )
-    tracelet_root=$(cd "$tracelet_interface/../.." && pwd)
-    if [[ ! -s "$tracelet_interface/lib/src/rust/frb_generated.dart" ||
-          ! -s "$tracelet_interface/lib/src/rust/frb_generated.io.dart" ||
-          ! -s "$tracelet_interface/lib/src/rust/frb_generated.web.dart" ]]; then
-        (cd "$tracelet_interface" && flutter pub get && flutter_rust_bridge_codegen generate)
-    fi
-    case "$1" in
-        dart) ;;
-        ios)
-            if [[ ! -s "$tracelet_root/sdk/rust-core/out/TraceletCore.xcframework/Info.plist" ]]; then
-                bash "$tracelet_root/sdk/rust-core/build-ios.sh"
-            fi
-            ;;
-        *) printf 'Unknown Tracelet build target: %s\n' "$1" >&2; exit 2 ;;
-    esac
 
 [group: 'utils']
 [working-directory: 'rust']
@@ -239,7 +199,6 @@ pre-build:
     just journey-kernel-build
     just copy-webview-assets
     just frb-generate
-    @if [ "$(uname -s)" = Darwin ]; then just tracelet-prepare ios; fi
     @echo "✅ Pre-build completed"
 
 

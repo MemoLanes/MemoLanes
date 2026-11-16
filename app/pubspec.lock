@@ -1476,8 +1476,8 @@ packages:
     dependency: "direct main"
     description:
       path: "packages/tracelet"
-      ref: "codex/continuous-stationary-tracking"
-      resolved-ref: "82ae6ba0c1d9f8eaac151908c28b362f2d5e1e49"
+      ref: "8f5ce018c394712e5e3517d2173a1a7d6bac2ec6"
+      resolved-ref: "8f5ce018c394712e5e3517d2173a1a7d6bac2ec6"
       url: "https://github.com/kuailezhiyuan/Tracelet.git"
     source: git
     version: "3.8.10"
@@ -1493,8 +1493,8 @@ packages:
     dependency: "direct overridden"
     description:
       path: "packages/tracelet_ios"
-      ref: "codex/continuous-stationary-tracking"
-      resolved-ref: "82ae6ba0c1d9f8eaac151908c28b362f2d5e1e49"
+      ref: "8f5ce018c394712e5e3517d2173a1a7d6bac2ec6"
+      resolved-ref: "8f5ce018c394712e5e3517d2173a1a7d6bac2ec6"
       url: "https://github.com/kuailezhiyuan/Tracelet.git"
     source: git
     version: "3.8.10"
@@ -1502,8 +1502,8 @@ packages:
     dependency: "direct overridden"
     description:
       path: "packages/tracelet_platform_interface"
-      ref: "codex/continuous-stationary-tracking"
-      resolved-ref: "82ae6ba0c1d9f8eaac151908c28b362f2d5e1e49"
+      ref: "8f5ce018c394712e5e3517d2173a1a7d6bac2ec6"
+      resolved-ref: "8f5ce018c394712e5e3517d2173a1a7d6bac2ec6"
       url: "https://github.com/kuailezhiyuan/Tracelet.git"
     source: git
     version: "3.8.10"
