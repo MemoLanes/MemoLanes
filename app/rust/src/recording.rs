@@ -33,6 +33,8 @@ pub(crate) fn record_location(
     else {
         return Ok(RecordedLocation::ignored());
     };
+    // Native providers can deliver fixes out of order (observed on Android).
+    // Check persisted capture time before changing preprocessing state.
     if txn
         .last_recording_timestamp_ms()?
         .is_some_and(|last| timestamp_ms <= last)

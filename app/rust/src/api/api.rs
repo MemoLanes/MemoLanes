@@ -427,11 +427,14 @@ pub fn get_map_renderer_proxy_for_journey_data(
     get_map_renderer_proxy_for_journey_data_internal(journey_data)
 }
 
-/// Returns whether a meaningful point was kept; persistence errors can be retried.
+/// Returns `true` for a kept track point, or `false` for an ignored or rejected fix.
+/// Persistence errors propagate so callers can retry.
 pub fn on_location_update(data: ExtendedRawGPSPoint) -> Result<bool> {
     let state = get();
+    // Keep preprocessing, persistence, and map updates serialized.
     let mut gps_preprocessor = state.gps_preprocessor.lock().unwrap();
     let mut next_preprocessor = gps_preprocessor.clone();
+    // Commit before taking the renderer lock so disk I/O does not block tile generation.
     let recorded = state.storage.with_db_txn(|txn| {
         recording::record_location(
             txn,

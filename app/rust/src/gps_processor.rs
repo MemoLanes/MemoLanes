@@ -244,6 +244,7 @@ impl GpsPreprocessor {
     }
 
     pub(crate) fn accept_location(&mut self, curr_data: &RawGPSPoint) -> bool {
+        // Bad fixes must not advance the preprocessing state.
         !self.bad_data_detector.is_bad_data(curr_data)
     }
 
