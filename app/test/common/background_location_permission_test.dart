@@ -2,7 +2,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:logging/logging.dart';
 import 'package:memolanes/common/service/location/tracelet_location_service.dart';
-import 'package:memolanes/common/service/location/tracelet_recording_permission.dart';
+import 'package:memolanes/utils/nav_helper.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 void main() {
@@ -36,7 +36,7 @@ void main() {
       return PermissionStatus.granted.index;
     });
 
-    expect(await offerTraceletRecordingPermission(), isTrue);
+    expect(await checkAndRequestBackgroundLocationPermission(), isTrue);
   });
 
   test(
@@ -52,7 +52,7 @@ void main() {
         );
       });
 
-      expect(await offerTraceletRecordingPermission(), isFalse);
+      expect(await checkAndRequestBackgroundLocationPermission(), isFalse);
       final record = records.single;
       expect(record.message, contains('Requesting background location failed'));
       expect(record.message, contains('permission_unavailable'));

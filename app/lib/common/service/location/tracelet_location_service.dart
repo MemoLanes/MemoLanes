@@ -5,13 +5,14 @@ import 'package:flutter/foundation.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/common/service/permission_service.dart';
+import 'package:memolanes/utils/nav_helper.dart'
+    show checkAndRequestBackgroundLocationPermission;
 import 'package:mutex/mutex.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:tracelet/tracelet.dart' as tl;
 import 'package:uuid/uuid.dart';
 
 import 'location_service.dart';
-import 'tracelet_recording_permission.dart';
 
 class TraceletLocationService extends ILocationService {
   static const _pendingQueueKey =
@@ -35,7 +36,8 @@ class TraceletLocationService extends ILocationService {
   @override
   bool get handlesRecording => true;
 
-  Future<bool> get canResumeRecording => Permission.locationAlways.isGranted;
+  Future<bool> get canResumeRecording =>
+      PermissionService().checkBackgroundLocationPermission();
 
   bool get _hasPendingRecording => MMKVUtil.getBool(_pendingQueueKey);
 
@@ -53,7 +55,8 @@ class TraceletLocationService extends ILocationService {
   });
 
   @override
-  Future<bool> prepareRecording() => offerTraceletRecordingPermission();
+  Future<bool> prepareRecording() =>
+      checkAndRequestBackgroundLocationPermission();
 
   void _saveQueuePending(bool pending) {
     if (!MMKVUtil.putBool(_pendingQueueKey, pending)) {

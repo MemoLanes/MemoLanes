@@ -12,7 +12,6 @@ import 'package:material_ui/material_ui.dart';
 import 'package:memolanes/common/component/permission_request_sheet.dart';
 import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/common/service/permission_service.dart';
-import 'package:memolanes/common/service/location/tracelet_recording_permission.dart';
 import 'package:memolanes/theme/app_theme.dart';
 import 'package:memolanes/utils/nav_helper.dart' as navigation;
 // ignore: depend_on_referenced_packages
@@ -241,7 +240,7 @@ void _permissionTests(TargetPlatform target, _Preferences preferences) {
         }
       });
       await _pumpPermissionHost(tester, navigatorKey: navigation.navigatorKey);
-      final result = offerTraceletRecordingPermission();
+      final result = navigation.checkAndRequestBackgroundLocationPermission();
       await tester.pumpAndSettle();
       expect(
         find.text(tr('location_service.always_location_required')),
@@ -268,14 +267,17 @@ void _permissionTests(TargetPlatform target, _Preferences preferences) {
       );
       expect(
         preferences.values['Permission.requestedBackgroundLocation'],
-        isTrue,
+        target == TargetPlatform.iOS ? isTrue : isNull,
       );
       if (target == TargetPlatform.android) {
         expect(allowed, isFalse);
         expect(openedSettings, 1);
         expect(requested, isEmpty);
         background = PermissionStatus.granted;
-        expect(await offerTraceletRecordingPermission(), isTrue);
+        expect(
+          await navigation.checkAndRequestBackgroundLocationPermission(),
+          isTrue,
+        );
       } else {
         expect(allowed, isTrue);
         expect(openedSettings, 0);

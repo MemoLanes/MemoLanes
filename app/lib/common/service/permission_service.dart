@@ -223,6 +223,16 @@ class PermissionService {
     }
   }
 
+  Future<bool> checkBackgroundLocationPermission() =>
+      Permission.locationAlways.isGranted;
+
+  Future<void> requestBackgroundLocationPermission() async {
+    final result = await Permission.locationAlways.request();
+    log.info(
+      '[PermissionService] Requested background location result=$result',
+    );
+  }
+
   /// GPS off → open system location page. No pre-request dialogs.
   Future<List<PermissionEffect>> runLocationRequest() async {
     if (!await Geolocator.isLocationServiceEnabled()) {
@@ -275,10 +285,7 @@ class PermissionService {
     }
 
     if (status.isGranted && Platform.isIOS) {
-      final alwaysResult = await Permission.locationAlways.request();
-      log.info(
-        '[PermissionService] runLocationRequest iOS always result=$alwaysResult',
-      );
+      await requestBackgroundLocationPermission();
     }
 
     return const [];

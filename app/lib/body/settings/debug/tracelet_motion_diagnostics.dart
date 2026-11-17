@@ -395,16 +395,13 @@ class TraceletMotionDiagnostics extends ChangeNotifier
       'stationaryAccuracy': config.motion.stationaryPeriodicAccuracy.name,
       'speedMovingThresholdMps': config.motion.speedMovingThreshold,
       'speedWakeConfirmCount': config.motion.speedWakeConfirmCount,
-      'androidLocationUpdateIntervalMs': config.android.locationUpdateInterval,
-      'androidStationaryLocationUpdateIntervalMs':
-          config.android.stationaryLocationUpdateInterval,
-      'androidReleaseWakelockWhenStationary':
-          config.android.releaseWakelockWhenStationary,
-      if (config.motion.stationaryTrackingMode ==
-          tl.StationaryTrackingMode.periodic) ...{
-        'periodicLocationIntervalSeconds': config.geo.periodicLocationInterval,
-        'stationaryPeriodicIntervalSeconds':
-            config.motion.stationaryPeriodicInterval,
+      if (Platform.isAndroid) ...{
+        'androidLocationUpdateIntervalMs':
+            config.android.locationUpdateInterval,
+        'androidStationaryLocationUpdateIntervalMs':
+            config.android.stationaryLocationUpdateInterval,
+        'androidReleaseWakelockWhenStationary':
+            config.android.releaseWakelockWhenStationary,
       },
     };
   }
