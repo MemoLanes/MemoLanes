@@ -21,7 +21,7 @@ version: 0.0.1+1
 
 environment:
   sdk: '>=3.13.0 <4.0.0'
-  flutter: '>=3.47.8'
+  flutter: '>=3.50.0'
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
@@ -32,15 +32,15 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  material_ui: ^1.10.0
-  cupertino_ui: ^1.1.6
+  material_ui: ^1.11.1
+  cupertino_ui: ^1.1.7
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^2.0.0
   flutter_rust_bridge: 2.13.0
   flutter_rust_bridge_hooks: 2.13.0
-  native_toolchain_rust: 1.0.7
+  native_toolchain_rust: 1.1.1
   # Meta package pinned by flutter SDK
   meta: ^1.12.0
   uuid: ^4.4.2
@@ -51,7 +51,7 @@ dependencies:
   share_plus: ^13.3.0
   file_saver: ^0.7.0
   permission_handler: ^13.0.2
-  file_picker: ^13.3.2
+  file_picker: ^13.3.3
   freezed_annotation: ^3.1.0
   fluttertoast: ^10.0.2
   intl: ^0.20.2
@@ -60,7 +60,7 @@ dependencies:
   device_info_plus: ^13.3.0
   url_launcher: ^6.3.3
   badges: ^4.0.1
-  flutter_local_notifications: ^23.0.0
+  flutter_local_notifications: ^23.0.2
   notification_when_app_is_killed: ^0.1.0
   easy_localization: ^3.0.7
   json_annotation: ^4.12.0
@@ -87,11 +87,11 @@ dependencies:
   zikzak_share_handler: ^1.0.1
   flutter_fgbg: ^0.8.0
   flutter_app_intents: ^0.7.0
-  haptic_feedback: ^0.8.0
+  haptic_feedback: ^0.9.0
   country_flags: ^4.1.2
   code_assets: ^2.2.0
   wolt_modal_sheet: 0.12.0
-  flutter_svg: ^2.3.0
+  flutter_svg: ^2.4.0
   screenshot_detect: ^2.0.0
   tracelet: ^3.8.10
 
