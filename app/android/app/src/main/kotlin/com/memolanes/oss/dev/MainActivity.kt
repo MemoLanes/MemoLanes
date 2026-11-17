@@ -8,7 +8,7 @@ class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         flutterEngine.plugins.add(DeviceRegionPlugin())
-        if (BuildConfig.DEBUG) {
+        if (BuildConfig.BUILD_TYPE == "debug") {
             // The diagnostics implementation is compiled only in the debug source set.
             val plugin = Class.forName("com.memolanes.oss.dev.TraceletMotionDiagnosticsPlugin")
                 .getDeclaredConstructor().newInstance() as FlutterPlugin
