@@ -51,7 +51,7 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: "stable"
-          flutter-version: 3.50.0
+          flutter-version: '3.50'
           cache: true
 
       - uses: dtolnay/rust-toolchain@1.99.1
