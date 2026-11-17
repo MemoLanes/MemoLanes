@@ -24,11 +24,6 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         multiDexEnabled = true
-        ndk {
-            // Flutter's default ABI filters are merged with each build type.
-            abiFilters.clear()
-            abiFilters += "arm64-v8a"
-        }
     }
 
     signingConfigs {
@@ -89,6 +84,7 @@ kotlin {
 }
 
 dependencies {
+    // Opt in to Tracelet's GMS activity recognition; its locations use LocationManager.
     implementation("com.google.android.gms:play-services-location:21.4.0")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
     implementation(
