@@ -45,8 +45,6 @@ enum LocationBackend {
 abstract class ILocationService {
   bool get handlesRecording => false;
 
-  bool get stopsOnAppTermination => true;
-
   Future<void> initialize() async {}
 
   Future<bool> prepareRecording() async => true;

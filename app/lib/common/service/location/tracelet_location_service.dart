@@ -35,10 +35,6 @@ class TraceletLocationService extends ILocationService {
   @override
   bool get handlesRecording => true;
 
-  @override
-  bool get stopsOnAppTermination =>
-      tl.Tracelet.activeConfig.app.stopOnTerminate;
-
   Future<bool> get canResumeRecording => Permission.locationAlways.isGranted;
 
   bool get _hasPendingRecording => MMKVUtil.getBool(_pendingQueueKey);

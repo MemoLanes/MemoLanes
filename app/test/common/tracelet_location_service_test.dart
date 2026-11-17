@@ -107,21 +107,10 @@ void _providerTests(TargetPlatform target, _Preferences preferences) {
     expect(selectedLocationBackend, LocationBackend.native);
     saveLocationBackend(LocationBackend.tracelet);
     expect(selectedLocationBackend, LocationBackend.tracelet);
-    for (final platform in TargetPlatform.values) {
-      debugDefaultTargetPlatformOverride = platform;
-      expect(
-        supportedLocationBackends.contains(LocationBackend.tracelet),
-        platform == TargetPlatform.iOS || platform == TargetPlatform.android,
-      );
-      if (platform != TargetPlatform.iOS &&
-          platform != TargetPlatform.android) {
-        expect(selectedLocationBackend, LocationBackend.native);
-        expect(
-          () => createLocationService(LocationBackend.tracelet),
-          throwsUnsupportedError,
-        );
-      }
-    }
+    expect(supportedLocationBackends, [
+      LocationBackend.tracelet,
+      LocationBackend.native,
+    ]);
   });
 
   test('idle initialization and flush do not access native tracking', () async {
@@ -151,7 +140,6 @@ void _providerTests(TargetPlatform target, _Preferences preferences) {
       final service = TraceletLocationService(_recordLocation);
       await service.startLocationUpdates(true);
       expect(platform.config!.app.heartbeatInterval, 60);
-      expect(service.stopsOnAppTermination, target != TargetPlatform.android);
       expect(
         platform.config!.app.stopOnTerminate,
         target != TargetPlatform.android,
@@ -478,17 +466,13 @@ void _providerTests(TargetPlatform target, _Preferences preferences) {
       },
     );
 
-    test('exit warnings follow the provider termination policy', () async {
+    test('recording retains the existing exit notification behavior', () async {
       notificationPermission = PermissionStatus.granted;
       manager.readyToStart();
       await manager.toggleMapTracking(false);
       expect(manager.recordingStatus, GpsRecordingStatus.recording);
       expect(
         exitNotificationCalls.contains('setNotificationOnKillService'),
-        target != TargetPlatform.android,
-      );
-      expect(
-        createLocationService(LocationBackend.native).stopsOnAppTermination,
         isTrue,
       );
     });

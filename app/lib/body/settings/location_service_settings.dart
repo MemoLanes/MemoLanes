@@ -15,15 +15,14 @@ Widget locationBackendSettingsTile(
   BuildContext context,
   GpsManager gpsManager,
 ) {
-  final canChooseBackend = supportedLocationBackends.length > 1;
   return SettingsTile(
     label: context.tr('location_service.location_backend.title'),
     position: LabelTilePosition.middle,
     trailing: LabelTileContent(
       content: gpsManager.locationBackend.displayName(context),
-      showArrow: canChooseBackend,
+      showArrow: true,
     ),
-    onTap: canChooseBackend ? () => _chooseBackend(context, gpsManager) : null,
+    onTap: () => _chooseBackend(context, gpsManager),
   );
 }
 

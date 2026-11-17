@@ -163,24 +163,6 @@ void _permissionTests(TargetPlatform target, _Preferences preferences) {
   );
 
   test(
-    'desktop platforms neither read nor request motion permission',
-    () async {
-      for (final platform in TargetPlatform.values.where(
-        (value) =>
-            value != TargetPlatform.iOS && value != TargetPlatform.android,
-      )) {
-        debugDefaultTargetPlatformOverride = platform;
-        expect(service.supportsMotionPermission, isFalse);
-        expect((await service.readPermissionSnapshot()).motion.granted, isTrue);
-        expect(await service.runMotionRequest(), isEmpty);
-        expect(await service.needAnyPermission(), isFalse);
-      }
-      expect(checked, isNot(contains(motionPermission.value)));
-      expect(requested, isEmpty);
-    },
-  );
-
-  test(
     'an unsaved motion request marker cannot trigger an untracked prompt',
     () async {
       preferences.failedKey = MMKVKey.requestedMotion;
@@ -229,24 +211,6 @@ void _permissionTests(TargetPlatform target, _Preferences preferences) {
       }
     },
   );
-
-  testWidgets('the unified sheet hides motion on desktop', (tester) async {
-    try {
-      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
-      notification = PermissionStatus.denied;
-      await _pumpPermissionHost(tester);
-      await tester.tap(find.text('Permissions'));
-      await tester.pumpAndSettle();
-      expect(find.text(tr('permission_sheet.title')), findsOneWidget);
-      expect(find.text(tr('permission_sheet.motion_title')), findsNothing);
-      expect(checked, isNot(contains(motionPermission.value)));
-      expect(requested, isEmpty);
-      await tester.tap(find.text(tr('permission_sheet.skip')));
-      await tester.pumpAndSettle();
-    } finally {
-      debugDefaultTargetPlatformOverride = null;
-    }
-  });
 
   testWidgets('recording requires an explicit background location grant', (
     tester,

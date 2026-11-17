@@ -18,7 +18,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUp(() {
-    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
     PackageInfo.setMockInitialValues(
       appName: 'MemoLanes',
       packageName: 'com.memolanes.test',
@@ -32,6 +32,21 @@ void main() {
   test(
     'preserves the motion timeline after capture stops and reopens',
     () async {
+      final sdk = _MotionPlatform();
+      final previousPlatform = platform.TraceletPlatform.instance;
+      platform.TraceletPlatform.instance = sdk;
+      const nativeChannel = MethodChannel(
+        'com.memolanes/tracelet_motion_diagnostics',
+      );
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      messenger.setMockMethodCallHandler(nativeChannel, (_) async => null);
+      addTearDown(() async {
+        tl.Tracelet.removeListeners();
+        await sdk.close();
+        platform.TraceletPlatform.instance = previousPlatform;
+        messenger.setMockMethodCallHandler(nativeChannel, null);
+      });
       final directory = await Directory.systemTemp.createTemp(
         'tracelet-motion-',
       );
@@ -39,6 +54,7 @@ void main() {
       final diagnostics = TraceletMotionDiagnostics(() async => directory);
       addTearDown(() async {
         await diagnostics.stopCapture();
+        await diagnostics.detach();
         diagnostics.dispose();
       });
 

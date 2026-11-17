@@ -122,7 +122,7 @@ class _PermissionRequestSheetContentState
     return s.location.granted &&
         (!Platform.isAndroid || s.battery.granted) &&
         s.notification.granted &&
-        (!_permissions.supportsMotionPermission || s.motion.granted);
+        s.motion.granted;
   }
 
   void _closeSheet() {
@@ -179,9 +179,7 @@ class _PermissionRequestSheetContentState
   }
 
   Future<void> _requestMotion({bool closeIfComplete = true}) async {
-    if (!_permissions.supportsMotionPermission || _motion.granted || !mounted) {
-      return;
-    }
+    if (_motion.granted || !mounted) return;
     final effects = await _permissions.runMotionRequest();
     await _applyEffects(effects);
     await _refreshStatus(closeIfComplete: closeIfComplete);
@@ -196,9 +194,7 @@ class _PermissionRequestSheetContentState
     if (!mounted) return;
     if (!_location.granted) await _requestLocation(closeIfComplete: false);
     if (!mounted) return;
-    if (_permissions.supportsMotionPermission && !_motion.granted) {
-      await _requestMotion(closeIfComplete: false);
-    }
+    if (!_motion.granted) await _requestMotion(closeIfComplete: false);
     if (!mounted) return;
     if (Platform.isAndroid && !_battery.granted) {
       await _requestBattery(closeIfComplete: false);
@@ -254,17 +250,16 @@ class _PermissionRequestSheetContentState
             onTap: _requestLocation,
             onRationaleTap: _showLocationRationaleDialog,
           ),
-          if (_permissions.supportsMotionPermission)
-            _PermissionTile(
-              icon: Icons.directions_walk,
-              title: context.tr('permission_sheet.motion_title'),
-              description: context.tr(
-                'permission_sheet.motion_permission_reason',
-              ),
-              status: _motion,
-              onTap: _requestMotion,
-              onRationaleTap: _showMotionRationaleDialog,
+          _PermissionTile(
+            icon: Icons.directions_walk,
+            title: context.tr('permission_sheet.motion_title'),
+            description: context.tr(
+              'permission_sheet.motion_permission_reason',
             ),
+            status: _motion,
+            onTap: _requestMotion,
+            onRationaleTap: _showMotionRationaleDialog,
+          ),
           if (Platform.isAndroid)
             _PermissionTile(
               icon: Icons.battery_charging_full,

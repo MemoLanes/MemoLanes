@@ -295,7 +295,6 @@ class GpsManager extends ChangeNotifier {
               defaultValue: true,
             );
         if (newState == _InternalState.recording &&
-            _locationService.stopsOnAppTermination &&
             unexpectedExitNotificationStatus) {
           await _notificationWhenAppIsKilledPlugin.setNotificationOnKillService(
             ArgsForKillNotification(

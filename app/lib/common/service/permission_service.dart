@@ -61,11 +61,6 @@ class PermissionService {
     _ => Permission.sensors,
   };
 
-  bool get supportsMotionPermission =>
-      !kIsWeb &&
-      (defaultTargetPlatform == TargetPlatform.iOS ||
-          defaultTargetPlatform == TargetPlatform.android);
-
   bool _isPermanentlyDeniedFromStatus(PermissionStatus status) {
     // Android status cannot distinguish permanent denial from "Ask every time".
     // Only request() results can report permanent denial there.
@@ -84,9 +79,7 @@ class PermissionService {
           ? '${await Permission.ignoreBatteryOptimizations.status}'
           : 'n/a';
       final notificationStatus = await Permission.notification.status;
-      final motionStatus = supportsMotionPermission
-          ? '${await motionPermission.status}'
-          : 'n/a';
+      final motionStatus = await motionPermission.status;
       final permissionSheetShown = MMKVUtil.getBool(
         MMKVKey.permissionSheetShown,
         defaultValue: false,
@@ -135,9 +128,7 @@ class PermissionService {
     final batteryGranted =
         !isAndroid || await Permission.ignoreBatteryOptimizations.isGranted;
     final notificationStatus = await Permission.notification.status;
-    final motionStatus = supportsMotionPermission
-        ? await motionPermission.status
-        : PermissionStatus.granted;
+    final motionStatus = await motionPermission.status;
     final notificationGranted = notificationStatus.isGranted;
     final locationPermanentlyDenied = _isPermanentlyDeniedFromStatus(locStatus);
     final notificationPermanentlyDenied = _isPermanentlyDeniedFromStatus(
@@ -206,13 +197,11 @@ class PermissionService {
         !_isPermanentlyDeniedFromStatus(notificationStatus)) {
       return true;
     }
-    if (supportsMotionPermission) {
-      final motionStatus = await motionPermission.status;
-      if (!motionStatus.isGranted &&
-          !MMKVUtil.getBool(MMKVKey.requestedMotion) &&
-          !motionStatus.isPermanentlyDenied) {
-        return true;
-      }
+    final motionStatus = await motionPermission.status;
+    if (!motionStatus.isGranted &&
+        !MMKVUtil.getBool(MMKVKey.requestedMotion) &&
+        !motionStatus.isPermanentlyDenied) {
+      return true;
     }
     return false;
   }
@@ -374,7 +363,6 @@ class PermissionService {
   }
 
   Future<List<PermissionEffect>> runMotionRequest() async {
-    if (!supportsMotionPermission) return const [];
     final status = await motionPermission.status;
     if (status.isGranted) return const [];
     if (!MMKVUtil.putBool(MMKVKey.requestedMotion, true)) {
