@@ -1,0 +1,2 @@
+// Widget builds use the app's version without linking Pods-Runner.
+#include "Generated.xcconfig"
