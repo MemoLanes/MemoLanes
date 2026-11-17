@@ -16,7 +16,10 @@ class DebugSettingsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final showMotion =
-        kDebugMode && !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+        kDebugMode &&
+        !kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.iOS ||
+            defaultTargetPlatform == TargetPlatform.android);
     return Scaffold(
       appBar: CapsuleStyleAppBar(
         title: context.tr('general.advanced_settings.debug.title'),

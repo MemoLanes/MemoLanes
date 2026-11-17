@@ -48,6 +48,12 @@ const _third = '00000000-0000-4000-8000-000000000004';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   final preferences = _Preferences();
+  for (final target in [TargetPlatform.iOS, TargetPlatform.android]) {
+    group(target.name, () => _providerTests(target, preferences));
+  }
+}
+
+void _providerTests(TargetPlatform target, _Preferences preferences) {
   const permissionChannel = MethodChannel(
     'flutter.baseflow.com/permissions/methods',
   );
@@ -55,6 +61,7 @@ void main() {
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
   var permission = PermissionStatus.granted;
   var motionPermission = PermissionStatus.granted;
+  var notificationPermission = PermissionStatus.denied;
 
   setUpAll(() async {
     MMKVPluginPlatform.instance = preferences;
@@ -65,13 +72,21 @@ void main() {
     preferences.failedKey = null;
     permission = PermissionStatus.granted;
     motionPermission = PermissionStatus.granted;
-    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    notificationPermission = PermissionStatus.denied;
+    debugDefaultTargetPlatformOverride = target;
     messenger.setMockMethodCallHandler(permissionChannel, (call) async {
       expect(call.method, 'checkPermissionStatus');
       if (call.arguments == Permission.notification.value) {
-        return PermissionStatus.denied.index;
+        return notificationPermission.index;
       }
-      if (call.arguments == Permission.sensors.value) {
+      if (call.arguments == Permission.sensors.value ||
+          call.arguments == Permission.activityRecognition.value) {
+        expect(
+          call.arguments,
+          target == TargetPlatform.android
+              ? Permission.activityRecognition.value
+              : Permission.sensors.value,
+        );
         return motionPermission.index;
       }
       expect(
@@ -86,7 +101,7 @@ void main() {
     debugDefaultTargetPlatformOverride = null;
   });
 
-  test('Tracelet is available only on iOS and can switch to native', () {
+  test('Tracelet is available on mobile and can switch to native', () {
     expect(selectedLocationBackend, LocationBackend.tracelet);
     saveLocationBackend(LocationBackend.native);
     expect(selectedLocationBackend, LocationBackend.native);
@@ -96,9 +111,10 @@ void main() {
       debugDefaultTargetPlatformOverride = platform;
       expect(
         supportedLocationBackends.contains(LocationBackend.tracelet),
-        platform == TargetPlatform.iOS,
+        platform == TargetPlatform.iOS || platform == TargetPlatform.android,
       );
-      if (platform != TargetPlatform.iOS) {
+      if (platform != TargetPlatform.iOS &&
+          platform != TargetPlatform.android) {
         expect(selectedLocationBackend, LocationBackend.native);
         expect(
           () => createLocationService(LocationBackend.tracelet),
@@ -135,6 +151,17 @@ void main() {
       final service = TraceletLocationService(_recordLocation);
       await service.startLocationUpdates(true);
       expect(platform.config!.app.heartbeatInterval, 60);
+      expect(service.stopsOnAppTermination, target != TargetPlatform.android);
+      expect(
+        platform.config!.app.stopOnTerminate,
+        target != TargetPlatform.android,
+      );
+      expect(platform.config!.android.useLocationManager, isTrue);
+      expect(platform.config!.android.locationUpdateInterval, 1000);
+      expect(platform.config!.android.fastestLocationUpdateInterval, 1000);
+      expect(platform.config!.android.stationaryLocationUpdateInterval, 10000);
+      expect(platform.config!.android.releaseWakelockWhenStationary, isTrue);
+      expect(platform.config!.android.foregroundService?.enabled, isTrue);
       expect(platform.config!.motion.disableMotionActivityUpdates, false);
       expect(platform.motionActivityDisabledOnReady, isFalse);
       expect(
@@ -155,6 +182,10 @@ void main() {
       final map = TraceletLocationService(_recordLocation);
       await map.startLocationUpdates(false);
       expect(platform.config!.app.heartbeatInterval, -1);
+      expect(platform.config!.app.stopOnTerminate, isTrue);
+      expect(platform.config!.android.stationaryLocationUpdateInterval, 0);
+      expect(platform.config!.android.releaseWakelockWhenStationary, isFalse);
+      expect(platform.config!.android.foregroundService?.enabled, isFalse);
       expect(platform.config!.motion.disableMotionActivityUpdates, true);
       expect(platform.motionRequests, 0);
       await map.stopLocationUpdates();
@@ -344,6 +375,7 @@ void main() {
     late _TraceletQueue platform;
     late TraceletPlatform previousPlatform;
     late GpsManager manager;
+    final exitNotificationCalls = <String>[];
     late GeolocatorPlatform previousNativePlatform;
     late _NativeLocationPlatform nativePlatform;
     const notificationChannel = MethodChannel(
@@ -363,13 +395,21 @@ void main() {
       nativePlatform = _NativeLocationPlatform();
       GeolocatorPlatform.instance = nativePlatform;
       messenger.setMockMethodCallHandler(notificationChannel, (call) async {
-        expect(call.method, 'cancelNotificationOnKillService');
+        expect(
+          call.method,
+          anyOf(
+            'cancelNotificationOnKillService',
+            'setNotificationOnKillService',
+          ),
+        );
+        exitNotificationCalls.add(call.method);
         return true;
       });
       messenger.setMockMethodCallHandler(toastChannel, (call) async {
         expect(call.method, 'showToast');
         return true;
       });
+      exitNotificationCalls.clear();
       manager = GpsManager();
       await manager.toggleMapTracking(false);
     });
@@ -437,6 +477,21 @@ void main() {
         expect(backend.recorded, isEmpty);
       },
     );
+
+    test('exit warnings follow the provider termination policy', () async {
+      notificationPermission = PermissionStatus.granted;
+      manager.readyToStart();
+      await manager.toggleMapTracking(false);
+      expect(manager.recordingStatus, GpsRecordingStatus.recording);
+      expect(
+        exitNotificationCalls.contains('setNotificationOnKillService'),
+        target != TargetPlatform.android,
+      );
+      expect(
+        createLocationService(LocationBackend.native).stopsOnAppTermination,
+        isTrue,
+      );
+    });
 
     test('recording prevents switching providers', () async {
       manager.readyToStart();

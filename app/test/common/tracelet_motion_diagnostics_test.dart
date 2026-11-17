@@ -102,175 +102,233 @@ void main() {
     },
   );
 
-  group('independent SDK observation', () {
-    const nativeChannel = MethodChannel(
-      'com.memolanes/tracelet_motion_diagnostics',
-    );
-    const permissionChannel = MethodChannel(
-      'flutter.baseflow.com/permissions/methods',
-    );
-    final messenger =
-        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
-    late platform.TraceletPlatform previousPlatform;
-    late _MotionPlatform sdk;
-    late Directory directory;
-    late TraceletMotionDiagnostics diagnostics;
-    final nativeCalls = <MethodCall>[];
-    final permissionCalls = <MethodCall>[];
-    final businessSubscriptions = <StreamSubscription<dynamic>>[];
-
-    setUp(() async {
-      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
-      sdk = _MotionPlatform();
-      previousPlatform = platform.TraceletPlatform.instance;
-      platform.TraceletPlatform.instance = sdk;
-      directory = await Directory.systemTemp.createTemp('tracelet-motion-sdk-');
-      diagnostics = TraceletMotionDiagnostics(() async => directory);
-      nativeCalls.clear();
-      permissionCalls.clear();
-      businessSubscriptions.clear();
-      messenger.setMockMethodCallHandler(nativeChannel, (call) async {
-        nativeCalls.add(call);
-        expect(call.method, 'snapshot');
-        expect((call.arguments as Map).keys, ['fixAtMs']);
-        return <String, Object?>{
-          'available': true,
-          'rawFixMatched': (call.arguments as Map)['fixAtMs'] != null,
-          'rawSpeedMps': 1.5,
-        };
-      });
-      messenger.setMockMethodCallHandler(permissionChannel, (call) async {
-        permissionCalls.add(call);
-        throw StateError('Diagnostics must not request or check permissions');
-      });
-    });
-
-    tearDown(() async {
-      await diagnostics.stopCapture();
-      await diagnostics.detach();
-      diagnostics.dispose();
-      for (final subscription in businessSubscriptions) {
-        await subscription.cancel();
-      }
-      // Reset SDK caches only after the isolation assertions have completed.
-      tl.Tracelet.removeListeners();
-      await sdk.close();
-      platform.TraceletPlatform.instance = previousPlatform;
-      messenger.setMockMethodCallHandler(nativeChannel, null);
-      messenger.setMockMethodCallHandler(permissionChannel, null);
-      await directory.delete(recursive: true);
-    });
-
-    test('keeps capturing after detach without disturbing recording', () async {
-      final businessFixes = <tl.Location>[];
-      final businessMotion = <bool>[];
-      businessSubscriptions.add(tl.Tracelet.onLocation(businessFixes.add));
-      businessSubscriptions.add(
-        tl.Tracelet.onMotionChange((location) {
-          businessMotion.add(location.isMoving);
-        }),
+  for (final target in [TargetPlatform.iOS, TargetPlatform.android]) {
+    group('independent SDK observation on ${target.name}', () {
+      const nativeChannel = MethodChannel(
+        'com.memolanes/tracelet_motion_diagnostics',
       );
-
-      await diagnostics.attach();
-      expect(sdk.stateReads, 1);
-      expect(diagnostics.isMoving, true);
-      expect(diagnostics.fixCount, 0);
-      expect(sdk.enabled.hasListener, true);
-      expect(sdk.speedMotion.hasListener, false);
-
-      await diagnostics.startCapture();
-      await diagnostics.detach();
-      expect(diagnostics.capturing, true);
-      expect(sdk.enabled.hasListener, true);
-      expect(sdk.speedMotion.hasListener, true);
-
-      const firstFix = 1760000000000;
-      sdk.locations.add(_fix(firstFix, true));
-      await _deliverEvents();
-      sdk.motion.add(_fix(firstFix + 1000, false));
-      sdk.speedMotion.add(_stationaryTransition());
-      sdk.locations.add(_fix(firstFix + 60000, false));
-      await _deliverEvents();
-      expect(diagnostics.fixCount, 2);
-      expect(diagnostics.lastFix?.fixIntervalMs, 60000);
-      expect(diagnostics.isMoving, false);
-      expect(businessFixes, hasLength(2));
-      expect(businessMotion, [false]);
-
-      await diagnostics.stopCapture();
-      expect(diagnostics.capturing, false);
-      expect(diagnostics.writeError, isNull);
-      expect(sdk.enabled.hasListener, false);
-      expect(sdk.speedMotion.hasListener, false);
-      final recentLines = diagnostics.recentLines;
-      final snapshotCount = nativeCalls.length;
-      final stateReads = sdk.stateReads;
-      final file = (await diagnostics.savedLogs()).single;
-      final text = await file.readAsString();
-      final rows = _rows(text);
-      expect(rows.first['type'], 'capture_started');
-      expect(rows.first['isMoving'], true);
-      expect(rows.last['type'], 'capture_stopped');
-      expect(rows.where((row) => row['type'] == 'location'), hasLength(2));
-      expect(
-        rows.singleWhere((row) => row['type'] == 'speed_motion_changed'),
-        containsPair('speedState', 'stationary'),
+      const permissionChannel = MethodChannel(
+        'flutter.baseflow.com/permissions/methods',
       );
-      expect(nativeCalls, isNotEmpty);
-      _expectNoCoordinates(text);
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      late platform.TraceletPlatform previousPlatform;
+      late _MotionPlatform sdk;
+      late Directory directory;
+      late TraceletMotionDiagnostics diagnostics;
+      final nativeCalls = <MethodCall>[];
+      final permissionCalls = <MethodCall>[];
+      final businessSubscriptions = <StreamSubscription<dynamic>>[];
 
-      sdk.locations.add(_fix(firstFix + 120000, true));
-      sdk.motion.add(_fix(firstFix + 120000, true));
-      sdk.enabled.add(true);
-      sdk.speedMotion.add(_stationaryTransition());
-      await _deliverEvents();
-      expect(diagnostics.fixCount, 0);
-      expect(diagnostics.lastFix, isNull);
-      expect(diagnostics.isMoving, isNull);
-      expect(diagnostics.recentLines, recentLines);
-      expect(await file.readAsString(), text);
-      expect(nativeCalls, hasLength(snapshotCount));
-      expect(sdk.stateReads, stateReads);
-      expect(businessFixes, hasLength(3));
-      expect(businessMotion, [false, true]);
-      expect(sdk.mutations, isEmpty);
-      expect(permissionCalls, isEmpty);
-    });
-
-    test(
-      'releases its subscriptions when the log directory cannot open',
-      () async {
-        final businessFixes = <tl.Location>[];
-        businessSubscriptions.add(tl.Tracelet.onLocation(businessFixes.add));
-        await File('${directory.path}/tracelet_motion_logs')
-            .writeAsString('file');
-
-        await expectLater(
-          diagnostics.startCapture(),
-          throwsA(isA<FileSystemException>()),
+      setUp(() async {
+        debugDefaultTargetPlatformOverride = target;
+        sdk = _MotionPlatform();
+        previousPlatform = platform.TraceletPlatform.instance;
+        platform.TraceletPlatform.instance = sdk;
+        directory = await Directory.systemTemp.createTemp(
+          'tracelet-motion-sdk-',
         );
-        expect(diagnostics.capturing, false);
-        expect(sdk.stateReads, 1);
-        expect(sdk.enabled.hasListener, false);
-        expect(sdk.speedMotion.hasListener, false);
+        diagnostics = TraceletMotionDiagnostics(() async => directory);
+        nativeCalls.clear();
+        permissionCalls.clear();
+        businessSubscriptions.clear();
+        messenger.setMockMethodCallHandler(nativeChannel, (call) async {
+          nativeCalls.add(call);
+          expect(call.method, 'snapshot');
+          expect((call.arguments as Map).keys, ['fixAtMs']);
+          return <String, Object?>{
+            'available': true,
+            'accelerometerMoving': false,
+            'speedMoving': true,
+            'speedState': 'moving',
+            'motionFixAtMs': (call.arguments as Map)['fixAtMs'],
+            'motionSpeedMps': 0.75,
+            'motionSpeedSource': 'position_delta',
+            'motionSpeedReason': 'valid',
+            'rawFixMatched': (call.arguments as Map)['fixAtMs'] != null,
+            'rawSpeedMps': 1.5,
+          };
+        });
+        messenger.setMockMethodCallHandler(permissionChannel, (call) async {
+          permissionCalls.add(call);
+          throw StateError('Diagnostics must not request or check permissions');
+        });
+      });
 
-        sdk.locations.add(_fix(1760000000000, true));
-        sdk.motion.add(_fix(1760000000000, true));
-        sdk.enabled.add(true);
-        sdk.speedMotion.add(_stationaryTransition());
-        await _deliverEvents();
-        expect(diagnostics.fixCount, 0);
-        expect(diagnostics.lastFix, isNull);
-        expect(diagnostics.isMoving, isNull);
-        expect(diagnostics.recentLines, isEmpty);
-        expect(sdk.stateReads, 1);
-        expect(businessFixes, hasLength(1));
-        expect(nativeCalls, isEmpty);
-        expect(sdk.mutations, isEmpty);
-        expect(permissionCalls, isEmpty);
-      },
-    );
-  });
+      tearDown(() async {
+        await diagnostics.stopCapture();
+        await diagnostics.detach();
+        diagnostics.dispose();
+        for (final subscription in businessSubscriptions) {
+          await subscription.cancel();
+        }
+        // Reset SDK caches only after the isolation assertions have completed.
+        tl.Tracelet.removeListeners();
+        await sdk.close();
+        platform.TraceletPlatform.instance = previousPlatform;
+        messenger.setMockMethodCallHandler(nativeChannel, null);
+        messenger.setMockMethodCallHandler(permissionChannel, null);
+        await directory.delete(recursive: true);
+      });
+
+      test(
+        'detaches without capture without removing business listeners',
+        () async {
+          final businessFixes = <tl.Location>[];
+          businessSubscriptions.add(tl.Tracelet.onLocation(businessFixes.add));
+          await diagnostics.attach();
+          sdk.locations.add(_fix(1760000000000, true));
+          await _deliverEvents();
+          expect(diagnostics.fixCount, 1);
+
+          await diagnostics.detach();
+          expect(sdk.enabled.hasListener, false);
+          expect(sdk.speedMotion.hasListener, false);
+          sdk.locations.add(_fix(1760000001000, true));
+          sdk.enabled.add(true);
+          await _deliverEvents();
+          expect(businessFixes, hasLength(2));
+          expect(diagnostics.fixCount, 0);
+          expect(diagnostics.isMoving, isNull);
+          expect(sdk.stateReads, 1);
+          expect(diagnostics.recentLines, isEmpty);
+          expect(nativeCalls, isEmpty);
+          expect(sdk.mutations, isEmpty);
+          expect(permissionCalls, isEmpty);
+        },
+      );
+
+      test(
+        'keeps capturing after detach without disturbing recording',
+        () async {
+          final businessFixes = <tl.Location>[];
+          final businessMotion = <bool>[];
+          businessSubscriptions.add(tl.Tracelet.onLocation(businessFixes.add));
+          businessSubscriptions.add(
+            tl.Tracelet.onMotionChange((location) {
+              businessMotion.add(location.isMoving);
+            }),
+          );
+
+          await diagnostics.attach();
+          expect(sdk.stateReads, 1);
+          expect(diagnostics.isMoving, true);
+          expect(diagnostics.fixCount, 0);
+          expect(sdk.enabled.hasListener, true);
+          expect(sdk.speedMotion.hasListener, false);
+
+          await diagnostics.startCapture();
+          await diagnostics.detach();
+          expect(diagnostics.capturing, true);
+          expect(sdk.enabled.hasListener, true);
+          expect(sdk.speedMotion.hasListener, true);
+
+          const firstFix = 1760000000000;
+          sdk.locations.add(_fix(firstFix, true));
+          await _deliverEvents();
+          sdk.motion.add(_fix(firstFix + 1000, false));
+          sdk.speedMotion.add(_stationaryTransition());
+          sdk.locations.add(_fix(firstFix + 60000, false));
+          await _deliverEvents();
+          expect(diagnostics.fixCount, 2);
+          expect(diagnostics.lastFix?.fixIntervalMs, 60000);
+          expect(diagnostics.isMoving, false);
+          expect(businessFixes, hasLength(2));
+          expect(businessMotion, [false]);
+
+          await diagnostics.stopCapture();
+          expect(diagnostics.capturing, false);
+          expect(diagnostics.writeError, isNull);
+          expect(sdk.enabled.hasListener, false);
+          expect(sdk.speedMotion.hasListener, false);
+          final recentLines = diagnostics.recentLines;
+          final snapshotCount = nativeCalls.length;
+          final stateReads = sdk.stateReads;
+          final file = (await diagnostics.savedLogs()).single;
+          final text = await file.readAsString();
+          final rows = _rows(text);
+          expect(rows.first['type'], 'capture_started');
+          expect(rows.first['isMoving'], true);
+          expect(rows.last['type'], 'capture_stopped');
+          expect(rows.where((row) => row['type'] == 'location'), hasLength(2));
+          final firstNativeMotion =
+              rows.firstWhere(
+                    (row) => row['type'] == 'location',
+                  )['nativeMotion']
+                  as Map<String, Object?>;
+          expect(firstNativeMotion, containsPair('accelerometerMoving', false));
+          expect(firstNativeMotion, containsPair('speedMoving', true));
+          expect(firstNativeMotion, containsPair('speedState', 'moving'));
+          expect(firstNativeMotion, containsPair('motionFixAtMs', firstFix));
+          expect(firstNativeMotion, containsPair('motionSpeedMps', 0.75));
+          expect(
+            firstNativeMotion,
+            containsPair('motionSpeedSource', 'position_delta'),
+          );
+          expect(firstNativeMotion, containsPair('motionSpeedReason', 'valid'));
+          expect(firstNativeMotion, containsPair('sdkSpeedMps', 1.5));
+          expect(firstNativeMotion, containsPair('sdkSpeedSource', 'platform'));
+          expect(
+            rows.singleWhere((row) => row['type'] == 'speed_motion_changed'),
+            containsPair('speedState', 'stationary'),
+          );
+          expect(nativeCalls, isNotEmpty);
+          _expectNoCoordinates(text);
+
+          sdk.locations.add(_fix(firstFix + 120000, true));
+          sdk.motion.add(_fix(firstFix + 120000, true));
+          sdk.enabled.add(true);
+          sdk.speedMotion.add(_stationaryTransition());
+          await _deliverEvents();
+          expect(diagnostics.fixCount, 0);
+          expect(diagnostics.lastFix, isNull);
+          expect(diagnostics.isMoving, isNull);
+          expect(diagnostics.recentLines, recentLines);
+          expect(await file.readAsString(), text);
+          expect(nativeCalls, hasLength(snapshotCount));
+          expect(sdk.stateReads, stateReads);
+          expect(businessFixes, hasLength(3));
+          expect(businessMotion, [false, true]);
+          expect(sdk.mutations, isEmpty);
+          expect(permissionCalls, isEmpty);
+        },
+      );
+
+      test(
+        'releases its subscriptions when the log directory cannot open',
+        () async {
+          final businessFixes = <tl.Location>[];
+          businessSubscriptions.add(tl.Tracelet.onLocation(businessFixes.add));
+          await File('${directory.path}/tracelet_motion_logs')
+              .writeAsString('file');
+
+          await expectLater(
+            diagnostics.startCapture(),
+            throwsA(isA<FileSystemException>()),
+          );
+          expect(diagnostics.capturing, false);
+          expect(sdk.stateReads, 1);
+          expect(sdk.enabled.hasListener, false);
+          expect(sdk.speedMotion.hasListener, false);
+
+          sdk.locations.add(_fix(1760000000000, true));
+          sdk.motion.add(_fix(1760000000000, true));
+          sdk.enabled.add(true);
+          sdk.speedMotion.add(_stationaryTransition());
+          await _deliverEvents();
+          expect(diagnostics.fixCount, 0);
+          expect(diagnostics.lastFix, isNull);
+          expect(diagnostics.isMoving, isNull);
+          expect(diagnostics.recentLines, isEmpty);
+          expect(sdk.stateReads, 1);
+          expect(businessFixes, hasLength(1));
+          expect(nativeCalls, isEmpty);
+          expect(sdk.mutations, isEmpty);
+          expect(permissionCalls, isEmpty);
+        },
+      );
+    });
+  }
 }
 
 List<Map<String, Object?>> _rows(String text) => const LineSplitter()

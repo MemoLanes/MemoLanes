@@ -1,7 +1,10 @@
 import 'dart:async';
 
+import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/foundation.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/mmkv_util.dart';
+import 'package:memolanes/common/service/permission_service.dart';
 import 'package:mutex/mutex.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:tracelet/tracelet.dart' as tl;
@@ -31,6 +34,10 @@ class TraceletLocationService extends ILocationService {
 
   @override
   bool get handlesRecording => true;
+
+  @override
+  bool get stopsOnAppTermination =>
+      tl.Tracelet.activeConfig.app.stopOnTerminate;
 
   Future<bool> get canResumeRecording => Permission.locationAlways.isGranted;
 
@@ -249,7 +256,7 @@ class TraceletLocationService extends ILocationService {
       await _stopPersistedTracking();
     }
     final motionAuthorization = enableBackground
-        ? await Permission.sensors.status
+        ? await PermissionService().motionPermission.status
         : PermissionStatus.denied;
     await tl.Tracelet.ready(
       _config(enableBackground, motionAuthorization.isGranted),
@@ -278,9 +285,31 @@ class TraceletLocationService extends ILocationService {
         ),
       ),
       app: base.app.copyWith(
-        stopOnTerminate: true,
+        stopOnTerminate:
+            !enableBackground ||
+            defaultTargetPlatform != TargetPlatform.android,
         startOnBoot: false,
         heartbeatInterval: enableBackground ? 60 : -1,
+      ),
+      android: base.android.copyWith(
+        useLocationManager: true,
+        locationUpdateInterval: 1000,
+        fastestLocationUpdateInterval: 1000,
+        stationaryLocationUpdateInterval: enableBackground ? 10000 : 0,
+        releaseWakelockWhenStationary: enableBackground,
+        foregroundService: enableBackground
+            ? tl.ForegroundServiceConfig(
+                channelName: tr(
+                  'location_service.android_foreground_notification_channel_name',
+                ),
+                notificationTitle: tr(
+                  'location_service.android_foreground_notification_title',
+                ),
+                notificationText: tr(
+                  'location_service.android_foreground_notification_text',
+                ),
+              )
+            : const tl.ForegroundServiceConfig(enabled: false),
       ),
       ios: base.ios.copyWith(
         locationAuthorizationRequest: enableBackground

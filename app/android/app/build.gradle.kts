@@ -19,11 +19,16 @@ android {
 
     defaultConfig {
         applicationId = "com.memolanes.oss.dev"
-        minSdk = flutter.minSdkVersion
+        minSdk = 26 // Required by the Tracelet SDK.
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         multiDexEnabled = true
+        ndk {
+            // Flutter's default ABI filters are merged with each build type.
+            abiFilters.clear()
+            abiFilters += "arm64-v8a"
+        }
     }
 
     signingConfigs {
@@ -63,6 +68,10 @@ android {
         }
     }
 
+    buildFeatures {
+        buildConfig = true
+    }
+
     lint {
         abortOnError = false
         checkReleaseBuilds = false
@@ -80,6 +89,7 @@ kotlin {
 }
 
 dependencies {
+    implementation("com.google.android.gms:play-services-location:21.4.0")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
     implementation(
         fileTree(

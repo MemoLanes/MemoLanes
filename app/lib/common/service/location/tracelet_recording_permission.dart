@@ -1,4 +1,5 @@
 import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/foundation.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/common/utils.dart';
@@ -12,19 +13,21 @@ Future<bool> offerTraceletRecordingPermission() async {
   try {
     if (await Permission.locationAlways.isGranted) return true;
     final wasOffered = MMKVUtil.getBool(_requestedBackgroundLocation);
+    final openSettings =
+        wasOffered || defaultTargetPlatform == TargetPlatform.android;
     final context = navigatorKey.currentState?.context;
     if (context == null || !context.mounted) return false;
     final confirmed = await showCommonDialog(
       context,
-      context.tr('location_service.ios_always_location_required'),
+      context.tr('location_service.always_location_required'),
       hasCancel: true,
-      confirmButtonText: wasOffered
+      confirmButtonText: openSettings
           ? context.tr('permission_sheet.open_system_settings')
           : null,
     );
     if (!context.mounted) return false;
     if (confirmed) {
-      if (wasOffered) {
+      if (openSettings) {
         if (!await openAppSettings()) {
           throw StateError(
             'Could not open app settings for background location',
@@ -38,7 +41,7 @@ Future<bool> offerTraceletRecordingPermission() async {
     if (!wasOffered && !MMKVUtil.putBool(_requestedBackgroundLocation, true)) {
       throw StateError('Could not save the background location prompt state');
     }
-    if (confirmed && wasOffered) return false;
+    if (confirmed && openSettings) return false;
     return await Permission.locationAlways.isGranted;
   } catch (error, stackTrace) {
     log.error(

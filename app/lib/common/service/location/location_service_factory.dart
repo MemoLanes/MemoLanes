@@ -9,7 +9,9 @@ import 'tracelet_location_service.dart';
 const _legacyPreference = 'Settings.useLegacyLocationBackend';
 
 List<LocationBackend> get supportedLocationBackends => [
-  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS)
+  if (!kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.iOS ||
+          defaultTargetPlatform == TargetPlatform.android))
     LocationBackend.tracelet,
   LocationBackend.native,
 ];

@@ -38,7 +38,9 @@ class TraceletMotionDiagnostics extends ChangeNotifier
     'com.memolanes/tracelet_motion_diagnostics',
   );
   static bool get _supportsNativeMotion =>
-      !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.iOS ||
+          defaultTargetPlatform == TargetPlatform.android);
 
   final Future<Directory> Function() _documents;
   final _clock = Stopwatch()..start();
@@ -399,9 +401,17 @@ class TraceletMotionDiagnostics extends ChangeNotifier
       'stationaryAccuracy': config.motion.stationaryPeriodicAccuracy.name,
       'speedMovingThresholdMps': config.motion.speedMovingThreshold,
       'speedWakeConfirmCount': config.motion.speedWakeConfirmCount,
+      'androidLocationUpdateIntervalMs': config.android.locationUpdateInterval,
+      'androidStationaryLocationUpdateIntervalMs':
+          config.android.stationaryLocationUpdateInterval,
+      'androidReleaseWakelockWhenStationary':
+          config.android.releaseWakelockWhenStationary,
       if (config.motion.stationaryTrackingMode ==
-          tl.StationaryTrackingMode.periodic)
-        'stationaryIntervalSeconds': config.geo.periodicLocationInterval,
+          tl.StationaryTrackingMode.periodic) ...{
+        'periodicLocationIntervalSeconds': config.geo.periodicLocationInterval,
+        'stationaryPeriodicIntervalSeconds':
+            config.motion.stationaryPeriodicInterval,
+      },
     };
   }
 

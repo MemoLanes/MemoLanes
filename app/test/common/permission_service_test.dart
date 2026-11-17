@@ -7,17 +7,27 @@ import 'package:ffi/ffi.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:logging/logging.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:memolanes/common/component/permission_request_sheet.dart';
 import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/common/service/permission_service.dart';
+import 'package:memolanes/common/service/location/tracelet_recording_permission.dart';
 import 'package:memolanes/theme/app_theme.dart';
+import 'package:memolanes/utils/nav_helper.dart' as navigation;
 // ignore: depend_on_referenced_packages
 import 'package:mmkv_platform_interface/mmkv_platform_interface.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  final preferences = _Preferences();
+  for (final target in [TargetPlatform.iOS, TargetPlatform.android]) {
+    group(target.name, () => _permissionTests(target, preferences));
+  }
+}
+
+void _permissionTests(TargetPlatform target, _Preferences preferences) {
   const permissionChannel = MethodChannel(
     'flutter.baseflow.com/permissions/methods',
   );
@@ -27,8 +37,10 @@ void main() {
   );
   final messenger =
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
-  final preferences = _Preferences();
   final service = PermissionService();
+  final motionPermission = target == TargetPlatform.android
+      ? Permission.activityRecognition
+      : Permission.sensors;
   final checked = <int>[];
   final requested = <int>[];
   var motion = PermissionStatus.denied;
@@ -55,7 +67,7 @@ void main() {
     motion = PermissionStatus.denied;
     motionResult = PermissionStatus.denied;
     notification = PermissionStatus.granted;
-    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    debugDefaultTargetPlatformOverride = target;
     messenger.setMockMethodCallHandler(geolocatorChannel, (call) async {
       expect(call.method, 'isLocationServiceEnabled');
       return true;
@@ -65,17 +77,17 @@ void main() {
         case 'checkPermissionStatus':
           final permission = call.arguments as int;
           checked.add(permission);
-          if (permission == Permission.sensors.value) return motion.index;
+          if (permission == motionPermission.value) return motion.index;
           if (permission == Permission.notification.value) {
             return notification.index;
           }
           return PermissionStatus.granted.index;
         case 'requestPermissions':
           final permissions = (call.arguments as List).cast<int>();
-          expect(permissions, [Permission.sensors.value]);
+          expect(permissions, [motionPermission.value]);
           requested.addAll(permissions);
           motion = motionResult;
-          return {Permission.sensors.value: motion.index};
+          return {motionPermission.value: motion.index};
         default:
           throw UnsupportedError('Unexpected permission call: ${call.method}');
       }
@@ -85,6 +97,10 @@ void main() {
     messenger.setMockMethodCallHandler(permissionChannel, null);
     messenger.setMockMethodCallHandler(geolocatorChannel, null);
     debugDefaultTargetPlatformOverride = null;
+  });
+
+  test('uses the platform motion permission', () {
+    expect(service.motionPermission, motionPermission);
   });
 
   test(
@@ -109,12 +125,12 @@ void main() {
       expect(await service.checkLocationPermission(), isTrue);
       expect(await service.needAnyPermission(), isFalse);
       expect(await service.needAnyPermission(), isFalse);
-      expect(requested, [Permission.sensors.value]);
+      expect(requested, [motionPermission.value]);
 
       motionResult = PermissionStatus.granted;
       expect(await service.runMotionRequest(), isEmpty);
       expect((await service.readPermissionSnapshot()).motion.granted, isTrue);
-      expect(requested, [Permission.sensors.value, Permission.sensors.value]);
+      expect(requested, [motionPermission.value, motionPermission.value]);
     },
   );
 
@@ -147,10 +163,11 @@ void main() {
   );
 
   test(
-    'non-iOS platforms neither read nor request motion permission',
+    'desktop platforms neither read nor request motion permission',
     () async {
       for (final platform in TargetPlatform.values.where(
-        (value) => value != TargetPlatform.iOS,
+        (value) =>
+            value != TargetPlatform.iOS && value != TargetPlatform.android,
       )) {
         debugDefaultTargetPlatformOverride = platform;
         expect(service.supportsMotionPermission, isFalse);
@@ -158,7 +175,7 @@ void main() {
         expect(await service.runMotionRequest(), isEmpty);
         expect(await service.needAnyPermission(), isFalse);
       }
-      expect(checked, isNot(contains(Permission.sensors.value)));
+      expect(checked, isNot(contains(motionPermission.value)));
       expect(requested, isEmpty);
     },
   );
@@ -185,7 +202,7 @@ void main() {
 
         await tester.tap(find.text(tr('permission_sheet.enable_all')));
         await tester.pumpAndSettle();
-        expect(requested, [Permission.sensors.value]);
+        expect(requested, [motionPermission.value]);
         expect(
           find.text(tr('permission_sheet.motion_permission_denied')),
           findsOneWidget,
@@ -204,7 +221,7 @@ void main() {
         );
         await tester.pump(const Duration(milliseconds: 250));
         await tester.pumpAndSettle();
-        expect(requested, [Permission.sensors.value]);
+        expect(requested, [motionPermission.value]);
         await tester.tap(find.text(tr('permission_sheet.skip')));
         await tester.pumpAndSettle();
       } finally {
@@ -213,16 +230,16 @@ void main() {
     },
   );
 
-  testWidgets('the unified sheet hides motion outside iOS', (tester) async {
+  testWidgets('the unified sheet hides motion on desktop', (tester) async {
     try {
-      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
       notification = PermissionStatus.denied;
       await _pumpPermissionHost(tester);
       await tester.tap(find.text('Permissions'));
       await tester.pumpAndSettle();
       expect(find.text(tr('permission_sheet.title')), findsOneWidget);
       expect(find.text(tr('permission_sheet.motion_title')), findsNothing);
-      expect(checked, isNot(contains(Permission.sensors.value)));
+      expect(checked, isNot(contains(motionPermission.value)));
       expect(requested, isEmpty);
       await tester.tap(find.text(tr('permission_sheet.skip')));
       await tester.pumpAndSettle();
@@ -230,9 +247,86 @@ void main() {
       debugDefaultTargetPlatformOverride = null;
     }
   });
+
+  testWidgets('recording requires an explicit background location grant', (
+    tester,
+  ) async {
+    try {
+      final records = <LogRecord>[];
+      final subscription = Logger('App').onRecord.listen(records.add);
+      addTearDown(subscription.cancel);
+      var background = PermissionStatus.denied;
+      var openedSettings = 0;
+      messenger.setMockMethodCallHandler(permissionChannel, (call) async {
+        switch (call.method) {
+          case 'checkPermissionStatus':
+            expectSync(call.arguments, Permission.locationAlways.value);
+            return background.index;
+          case 'requestPermissions':
+            expectSync(call.arguments, [Permission.locationAlways.value]);
+            requested.add(Permission.locationAlways.value);
+            background = PermissionStatus.granted;
+            return {Permission.locationAlways.value: background.index};
+          case 'openAppSettings':
+            openedSettings++;
+            return true;
+          default:
+            throw UnsupportedError(
+              'Unexpected permission call: ${call.method}',
+            );
+        }
+      });
+      await _pumpPermissionHost(tester, navigatorKey: navigation.navigatorKey);
+      final result = offerTraceletRecordingPermission();
+      await tester.pumpAndSettle();
+      expect(
+        find.text(tr('location_service.always_location_required')),
+        findsOneWidget,
+      );
+      await tester.tap(
+        find.text(
+          tr(
+            target == TargetPlatform.android
+                ? 'permission_sheet.open_system_settings'
+                : 'common.ok',
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final allowed = await result;
+      expect(
+        allowed,
+        target == TargetPlatform.iOS,
+        reason: records
+            .map((record) => '${record.message}\n${record.stackTrace}')
+            .join('\n'),
+      );
+      expect(
+        preferences.values['Permission.requestedBackgroundLocation'],
+        isTrue,
+      );
+      if (target == TargetPlatform.android) {
+        expect(allowed, isFalse);
+        expect(openedSettings, 1);
+        expect(requested, isEmpty);
+        background = PermissionStatus.granted;
+        expect(await offerTraceletRecordingPermission(), isTrue);
+      } else {
+        expect(allowed, isTrue);
+        expect(openedSettings, 0);
+        expect(requested, [Permission.locationAlways.value]);
+      }
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
 }
 
-Future<void> _pumpPermissionHost(WidgetTester tester) async {
+Future<void> _pumpPermissionHost(
+  WidgetTester tester, {
+  GlobalKey<NavigatorState>? navigatorKey,
+}) async {
   const locale = Locale('en', 'US');
   await tester.runAsync(() async {
     await tester.pumpWidget(
@@ -243,6 +337,7 @@ Future<void> _pumpPermissionHost(WidgetTester tester) async {
         saveLocale: false,
         child: Builder(
           builder: (context) => MaterialApp(
+            navigatorKey: navigatorKey,
             theme: AppTheme.light,
             localizationsDelegates: [
               ...GlobalMaterialLocalizations.delegates,
