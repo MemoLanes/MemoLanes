@@ -40,6 +40,7 @@ Future<void> _pumpApp(
   Widget home = const Scaffold(key: _homeKey),
   Locale locale = const Locale('en', 'US'),
   double textScale = 1,
+  GpsManager Function() createGps = NoLocationGps.new,
 }) async {
   await tester.runAsync(() async {
     await tester.pumpWidget(
@@ -50,7 +51,7 @@ Future<void> _pumpApp(
         path: 'assets/translations',
         assetLoader: const _Translations(),
         child: ChangeNotifierProvider<GpsManager>(
-          create: (_) => NoLocationGps(),
+          create: (_) => createGps(),
           child: Builder(
             builder: (context) => MaterialApp(
               theme: AppTheme.light,
@@ -106,6 +107,7 @@ void main() {
     addTearDown(RustLib.dispose);
     await _pumpApp(
       tester,
+      createGps: _RecordingGps.new,
       home: AppNavigationShell(
         key: _homeKey,
         navigationBuilder: (_, {required axis}) => const SizedBox.expand(),
@@ -125,6 +127,8 @@ void main() {
     final result = _tour.show(home);
     await tester.pumpAndSettle();
     expect(_controller(tester).step, OnboardingStep.recording);
+    expect(find.text(home.tr('home.start_new_journey')), findsOneWidget);
+    expect(find.text('REC'), findsOneWidget);
     final recordingControl = _controller(tester).targetBounds;
     expect(recordingControl, isNotNull);
     await tester.tapAt(recordingControl!.center);
@@ -132,6 +136,7 @@ void main() {
     await tester.tap(_next);
     await tester.pumpAndSettle();
     expect(_controller(tester).step, OnboardingStep.mapControls);
+    expect(find.byKey(const ValueKey('record-active')), findsOneWidget);
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     expect(_controller(tester).step, OnboardingStep.recording);
@@ -231,6 +236,11 @@ void main() {
     await tester.pumpAndSettle();
     expect(await result, isTrue);
   });
+}
+
+class _RecordingGps extends NoLocationGps {
+  @override
+  GpsRecordingStatus get recordingStatus => GpsRecordingStatus.recording;
 }
 
 class _EmptyJourneyApi extends Fake implements RustLibApi {

@@ -11,6 +11,7 @@ import 'package:memolanes/common/component/app_navigation_shell.dart';
 import 'package:memolanes/common/component/base_map_webview.dart';
 import 'package:memolanes/common/component/bottom_nav_bar.dart';
 import 'package:memolanes/common/component/map_overlay_panel.dart';
+import 'package:memolanes/common/component/recording_buttons.dart';
 import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/common/simple_date_utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
@@ -122,12 +123,14 @@ class _OnboardingPageState extends State<OnboardingPage> {
     ]);
   }
 
-  Widget _buildControls(BuildContext context, int tab) {
-    return switch (tab) {
+  Widget _buildControls(BuildContext context, OnboardingStep step) {
+    return switch (step.tab) {
       0 => NormalMapOverlay(
         trackingMode: TrackingMode.off,
         onTrackingPressed: () {},
-        recordingControlsKey: _recordingKey,
+        recordingControls: step == OnboardingStep.recording
+            ? StartJourneyButton(key: _recordingKey)
+            : null,
         mapControlsKey: _mapControlsKey,
       ),
       1 => MapOverlayPanel.controls(
@@ -197,7 +200,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                   geometryChanges: _journeyScroll,
                   child: Stack(
                     fit: StackFit.expand,
-                    children: [widget.map, _buildControls(context, step.tab)],
+                    children: [widget.map, _buildControls(context, step)],
                   ),
                 ),
               ),
