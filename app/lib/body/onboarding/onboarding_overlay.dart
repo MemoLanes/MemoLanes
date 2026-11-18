@@ -7,7 +7,7 @@ import 'package:memolanes/common/component/app_button.dart';
 import 'package:memolanes/common/component/app_dialog.dart';
 import 'package:memolanes/common/component/rec_indicator.dart';
 import 'package:memolanes/common/layout_geometry.dart' as geometry_helpers;
-import 'package:memolanes/common/onboarding.dart';
+import 'package:memolanes/body/onboarding/onboarding_controller.dart';
 import 'package:memolanes/constants/app_typography.dart';
 import 'package:memolanes/theme/app_colors.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
@@ -17,7 +17,7 @@ const _actionGap = 2.0;
 const _minCardWidth = 240.0;
 const _minCardHeight = 144.0;
 
-/// A transparent, input-blocking layer above the real app, including its WebView.
+/// A transparent, input-blocking layer above the preview controls and map.
 class OnboardingOverlay extends StatefulWidget {
   const OnboardingOverlay({super.key, required this.controller});
 
@@ -43,7 +43,6 @@ class _OnboardingOverlayState extends State<OnboardingOverlay> {
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: controller,
     builder: (context, _) {
-      if (!controller.isActive) return const SizedBox.shrink();
       final layout = AppLayoutScope.of(context);
       return LayoutBuilder(
         builder: (context, constraints) {
@@ -71,8 +70,8 @@ class _OnboardingOverlayState extends State<OnboardingOverlay> {
                   vertical ? nav.height / 5 : nav.height,
                 );
           // Introduce these whole pages through their navigation entries.
-          if (controller.step.anchor == OnboardingAnchor.achievements ||
-              controller.step.anchor == OnboardingAnchor.settings) {
+          if (controller.step == OnboardingStep.achievements ||
+              controller.step == OnboardingStep.settings) {
             target = navigation;
           }
           final placement = _SpotlightGeometry(
@@ -96,7 +95,7 @@ class _OnboardingOverlayState extends State<OnboardingOverlay> {
                     delegate: _CoachLayout(
                       placement,
                       allowCompactPlacement:
-                          controller.step.anchor == OnboardingAnchor.journeys,
+                          controller.step == OnboardingStep.journeys,
                     ),
                     children: [
                       LayoutId(
@@ -139,7 +138,7 @@ class _GuideActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final last = controller.index == OnboardingController.steps.length - 1;
+    final last = controller.index == OnboardingStep.values.length - 1;
     // Keep the painted button compact while preserving the padded tap target.
     final buttonStyle = ButtonStyle(
       minimumSize: const WidgetStatePropertyAll(
@@ -166,7 +165,7 @@ class _GuideActions extends StatelessWidget {
             namedArgs: {
               'page': context.tr('onboarding.tabs.${controller.step.tab}'),
               'current': '${controller.index + 1}',
-              'total': '${OnboardingController.steps.length}',
+              'total': '${OnboardingStep.values.length}',
             },
           ),
           style: AppTypography.caption.copyWith(color: colors.mutedInkColor),
@@ -240,7 +239,7 @@ class _CoachCard extends StatelessWidget {
             ],
           ),
         ),
-        if (controller.step.anchor == OnboardingAnchor.recording) ...[
+        if (controller.step == OnboardingStep.recording) ...[
           const SizedBox(height: 14),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,

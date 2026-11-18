@@ -5,7 +5,6 @@ import 'package:memolanes/body/time_machine/time_range_picker.dart';
 import 'package:memolanes/common/async_load_token.dart';
 import 'package:memolanes/common/component/map_overlay_panel.dart';
 import 'package:memolanes/common/log.dart';
-import 'package:memolanes/common/onboarding.dart';
 import 'package:memolanes/common/simple_date_utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/journey_header.dart';
@@ -145,16 +144,13 @@ class _TimeMachineOverlayState extends State<TimeMachineOverlay> {
     return Stack(
       children: [
         MapOverlayPanel.controls(
-          child: OnboardingTarget(
-            anchor: OnboardingAnchor.timeRange,
-            child: TimeRangePicker(
-              earliestDate: earliest,
-              loading: _loading,
-              onRangeChanged: _scheduleJourneyRangeLoad,
-              onRangeCommitted: _loadJourneyForRange,
-              selectedJourneyKinds: _selectedJourneyKinds,
-              onJourneyKindsChanged: _onJourneyKindsChanged,
-            ),
+          child: TimeRangePicker(
+            earliestDate: earliest,
+            loading: _loading,
+            onRangeChanged: _scheduleJourneyRangeLoad,
+            onRangeCommitted: _loadJourneyForRange,
+            selectedJourneyKinds: _selectedJourneyKinds,
+            onJourneyKindsChanged: _onJourneyKindsChanged,
           ),
         ),
       ],

@@ -27,6 +27,29 @@ class JourneyOverlay extends StatelessWidget {
   final Widget? detail;
 
   @override
+  Widget build(BuildContext context) => JourneyPickerOverlay(
+    isLoading: isLoading,
+    detail: detail,
+    child: JourneyBody(
+      onJourneySelected: onJourneySelected,
+      refreshRevision: refreshRevision,
+    ),
+  );
+}
+
+class JourneyPickerOverlay extends StatelessWidget {
+  const JourneyPickerOverlay({
+    super.key,
+    required this.child,
+    this.isLoading = false,
+    this.detail,
+  });
+
+  final Widget child;
+  final bool isLoading;
+  final Widget? detail;
+
+  @override
   Widget build(BuildContext context) {
     return Stack(
       children: [
@@ -36,11 +59,7 @@ class JourneyOverlay extends StatelessWidget {
             children: [
               MapOverlayPanel.picker(
                 child: PointerInterceptor(
-                  child: _JourneyPickerCard(
-                    onJourneySelected: onJourneySelected,
-                    isLoading: isLoading,
-                    refreshRevision: refreshRevision,
-                  ),
+                  child: _JourneyPickerCard(isLoading: isLoading, child: child),
                 ),
               ),
             ],
@@ -53,15 +72,10 @@ class JourneyOverlay extends StatelessWidget {
 }
 
 class _JourneyPickerCard extends StatelessWidget {
-  const _JourneyPickerCard({
-    required this.onJourneySelected,
-    required this.isLoading,
-    required this.refreshRevision,
-  });
+  const _JourneyPickerCard({required this.isLoading, required this.child});
 
-  final Future<void> Function(JourneyHeader journey) onJourneySelected;
   final bool isLoading;
-  final int refreshRevision;
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
@@ -105,13 +119,7 @@ class _JourneyPickerCard extends StatelessWidget {
                 height: 1,
                 color: context.appColors.lineColor.withValues(alpha: 0.9),
               ),
-              Flexible(
-                fit: FlexFit.loose,
-                child: JourneyBody(
-                  onJourneySelected: onJourneySelected,
-                  refreshRevision: refreshRevision,
-                ),
-              ),
+              Flexible(child: child),
             ],
           ),
           if (isLoading)

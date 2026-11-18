@@ -4,11 +4,17 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:memolanes/body/onboarding/onboarding_page.dart';
 import 'package:memolanes/common/component/common_dialog.dart';
-import 'package:memolanes/common/onboarding.dart';
+import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/share_handler_util.dart';
 import 'package:memolanes/theme/app_theme.dart';
+import 'package:provider/provider.dart';
 import 'package:zikzak_share_handler/zikzak_share_handler.dart';
+
+import 'support/no_location_gps.dart';
+
+const _homeKey = ValueKey('share-test-home');
 
 SharedMedia _media(String name) => SharedMedia(
   attachments: [
@@ -58,7 +64,7 @@ Widget _app(GlobalKey<NavigatorState> key) => EasyLocalization(
       ],
       supportedLocales: context.supportedLocales,
       locale: context.locale,
-      home: const Scaffold(),
+      home: const Scaffold(key: _homeKey),
     ),
   ),
 );
@@ -158,22 +164,30 @@ void main() {
     final handler = _ShareHandler();
     final uiReady = Completer<void>();
     final key = GlobalKey<NavigatorState>();
-    final controller = OnboardingController(selectTab: (_) {});
     final service = ShareHandlerUtil(
       navigatorKey: key,
       uiReady: uiReady.future,
       handler: handler,
     )..init();
     addTearDown(() async {
-      controller.dispose();
       await service.dispose();
       if (!uiReady.isCompleted) uiReady.complete();
       await handler.events.close();
     });
 
+    await tester.pumpWidget(
+      ChangeNotifierProvider<GpsManager>(
+        create: (_) => NoLocationGps(),
+        child: _app(key),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final home = tester.element(find.byKey(_homeKey));
+    const tour = OnboardingPage(map: SizedBox.expand());
+    final tourPage = find.byType(OnboardingPage);
     bool? completed;
     final startup = service.runBeforeStartupShare((shareArrivals) async {
-      completed = await controller.start(interruptOn: shareArrivals);
+      completed = await tour.show(home, interruptOn: shareArrivals);
     });
     unawaited(
       startup.then((_) {
@@ -181,25 +195,38 @@ void main() {
       }),
     );
     handler.initialShare.complete(null);
-    await tester.pumpWidget(_app(key));
     await tester.pumpAndSettle();
-    expect(controller.isActive, isTrue);
+    expect(tourPage, findsOneWidget);
 
     handler.events.add(SharedMedia(content: 'text without a file'));
     await tester.pump();
-    expect(controller.isActive, isTrue);
+    expect(tourPage, findsOneWidget);
 
     handler.events.add(_media('late.mldx'));
     await tester.pumpAndSettle();
-    expect(controller.isActive, isFalse);
+    expect(tourPage, findsNothing);
     expect(completed, isFalse);
     expect(find.text('Receive late.mldx?'), findsOneWidget);
 
-    final replay = controller.start();
+    tester
+        .widget<CommonDialog>(find.byType(CommonDialog))
+        .buttons
+        .first
+        .onPressed();
+    await tester.pumpAndSettle();
+    final replay = tour.show(home);
+    await tester.pumpAndSettle();
     handler.events.add(_media('latest.mldx'));
     await tester.pumpAndSettle();
-    expect(controller.isActive, isTrue);
-    controller.finish();
+    expect(tourPage, findsOneWidget);
+    tester
+        .widget<CommonDialog>(find.byType(CommonDialog))
+        .buttons
+        .first
+        .onPressed();
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('onboarding-skip')));
+    await tester.pumpAndSettle();
     expect(await replay, isTrue);
   });
 }

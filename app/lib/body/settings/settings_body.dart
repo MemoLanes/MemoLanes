@@ -19,12 +19,10 @@ class SettingsBody extends StatelessWidget {
     super.key,
     required this.topSafeArea,
     required this.bottomSafeArea,
-    this.onShowOnboarding,
   });
 
   final double topSafeArea;
   final double bottomSafeArea;
-  final Future<void> Function()? onShowOnboarding;
 
   @override
   Widget build(BuildContext context) {
@@ -164,12 +162,7 @@ class SettingsBody extends StatelessWidget {
               ],
             )
           : const LabelTileContent(showArrow: true),
-      onTap: () async {
-        final replayGuide = await navigatorPush(context, page: page);
-        if (key == 'about' && replayGuide == true && context.mounted) {
-          await onShowOnboarding?.call();
-        }
-      },
+      onTap: () => navigatorPush(context, page: page),
     );
   }
 }

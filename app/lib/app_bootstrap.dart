@@ -6,6 +6,7 @@ import 'package:cupertino_ui/cupertino_ui.dart';
 import 'package:flutter/foundation.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:memolanes/body/first_launch_setup.dart';
+import 'package:memolanes/body/onboarding/onboarding_page.dart';
 import 'package:memolanes/common/app_lifecycle_service.dart';
 import 'package:memolanes/common/share_handler_util.dart';
 import 'package:memolanes/common/shortcut_handler_util.dart';
@@ -201,10 +202,7 @@ class AppBootstrap {
 
   /// Runs the home page's startup UI in order, then releases pending shares.
   /// Call after the home page's first frame, when its Navigator is mounted.
-  static Future<void> completeUiStartup(
-    BuildContext context, {
-    Future<void> Function(Listenable shareArrivals)? showOnboarding,
-  }) async {
+  static Future<void> completeUiStartup(BuildContext context) async {
     if (!context.mounted) return;
     await showFirstLaunchSetupIfNeeded(context);
     if (!context.mounted) return;
@@ -224,10 +222,11 @@ class AppBootstrap {
       );
     }
     if (!context.mounted) return;
-    if (showOnboarding != null) {
-      await _shareImport.runBeforeStartupShare((shareArrivals) async {
-        if (context.mounted) await showOnboarding(shareArrivals);
-      });
+    if (!MMKVUtil.getBool(MMKVKey.onboardingCompleted)) {
+      await _shareImport.runBeforeStartupShare(
+        (shareArrivals) =>
+            showGettingStarted(context, interruptOn: shareArrivals),
+      );
     }
     if (!context.mounted) return;
     await tryShowPermissionSheetIfFirstTime();

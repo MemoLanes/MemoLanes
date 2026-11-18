@@ -7,7 +7,6 @@ import 'package:memolanes/common/component/rec_indicator.dart';
 import 'package:memolanes/common/component/recording_buttons.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/app_layout.dart';
-import 'package:memolanes/common/onboarding.dart';
 import 'package:memolanes/constants/style_constants.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:provider/provider.dart';
@@ -17,29 +16,31 @@ class NormalMapOverlay extends StatelessWidget {
     super.key,
     required this.trackingMode,
     required this.onTrackingPressed,
+    this.recordingControlsKey,
+    this.mapControlsKey,
   });
 
   final TrackingMode trackingMode;
   final VoidCallback onTrackingPressed;
+  final Key? recordingControlsKey;
+  final Key? mapControlsKey;
 
   Widget _buildMapControls(Axis axis) {
     return PointerInterceptor(
-      child: OnboardingTarget(
-        anchor: OnboardingAnchor.mapControls,
-        child: Flex(
-          direction: axis,
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          spacing: StyleConstants.mapControlSpacing,
-          children: [
-            TrackingButton(
-              trackingMode: trackingMode,
-              onPressed: onTrackingPressed,
-            ),
-            const AccuracyDisplay(),
-            const LayerButton(),
-          ],
-        ),
+      child: Flex(
+        key: mapControlsKey,
+        direction: axis,
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        spacing: StyleConstants.mapControlSpacing,
+        children: [
+          TrackingButton(
+            trackingMode: trackingMode,
+            onPressed: onTrackingPressed,
+          ),
+          const AccuracyDisplay(),
+          const LayerButton(),
+        ],
       ),
     );
   }
@@ -60,13 +61,10 @@ class NormalMapOverlay extends StatelessWidget {
             const Size(RecordingButtons.maximumWidth, RecordingButtons.height),
             minimumWidth: RecordingButtons.minimumWidth,
           ),
-          child: const Align(
+          child: Align(
             heightFactor: 1,
             alignment: Alignment.center,
-            child: OnboardingTarget(
-              anchor: OnboardingAnchor.recording,
-              child: RecordingButtons(),
-            ),
+            child: RecordingButtons(key: recordingControlsKey),
           ),
         ),
         Positioned.fromRect(
