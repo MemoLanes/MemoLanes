@@ -203,7 +203,7 @@ class AppBootstrap {
   /// Call after the home page's first frame, when its Navigator is mounted.
   static Future<void> completeUiStartup(
     BuildContext context, {
-    Future<void> Function()? showOnboarding,
+    Future<void> Function(Listenable shareArrivals)? showOnboarding,
   }) async {
     if (!context.mounted) return;
     await showFirstLaunchSetupIfNeeded(context);
@@ -224,7 +224,11 @@ class AppBootstrap {
       );
     }
     if (!context.mounted) return;
-    await showOnboarding?.call();
+    if (showOnboarding != null) {
+      await _shareImport.runBeforeStartupShare((shareArrivals) async {
+        if (context.mounted) await showOnboarding(shareArrivals);
+      });
+    }
     if (!context.mounted) return;
     await tryShowPermissionSheetIfFirstTime();
     if (!context.mounted) return;

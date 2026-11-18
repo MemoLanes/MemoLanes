@@ -4,12 +4,18 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:memolanes/common/app_layout.dart';
 import 'package:memolanes/common/component/app_button.dart';
+import 'package:memolanes/common/component/app_dialog.dart';
 import 'package:memolanes/common/component/rec_indicator.dart';
 import 'package:memolanes/common/layout_geometry.dart' as geometry_helpers;
 import 'package:memolanes/common/onboarding.dart';
 import 'package:memolanes/constants/app_typography.dart';
 import 'package:memolanes/theme/app_colors.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
+
+const _cardPadding = EdgeInsets.fromLTRB(14, 12, 14, 4);
+const _actionGap = 2.0;
+const _minCardWidth = 240.0;
+const _minCardHeight = 144.0;
 
 /// A transparent, input-blocking layer above the real app, including its WebView.
 class OnboardingOverlay extends StatefulWidget {
@@ -72,11 +78,11 @@ class _OnboardingOverlayState extends State<OnboardingOverlay> {
           final placement = _SpotlightGeometry(
             target: target,
             navigation: navigation,
-            regions: [
-              layout.regionFor(target?.center ?? layout.controlRegion.center),
-            ],
+            cardRegion: layout.regionFor(
+              target?.center ?? layout.controlRegion.center,
+            ),
             navigationBounds: nav,
-            toolbarRegion: layout.regionFor(layout.safeBounds.topCenter),
+            skipRegion: layout.regionFor(layout.safeBounds.topRight),
           );
 
           return BlockSemantics(
@@ -87,11 +93,23 @@ class _OnboardingOverlayState extends State<OnboardingOverlay> {
                 child: CustomPaint(
                   painter: _SpotlightPainter(placement),
                   child: CustomMultiChildLayout(
-                    delegate: _CoachLayout(placement),
+                    delegate: _CoachLayout(
+                      placement,
+                      allowCompactPlacement:
+                          controller.step.anchor == OnboardingAnchor.journeys,
+                    ),
                     children: [
                       LayoutId(
-                        id: 'toolbar',
-                        child: _GuideToolbar(controller: controller),
+                        id: 'skip',
+                        child: AppButton(
+                          key: const ValueKey('onboarding-skip'),
+                          label: context.tr('onboarding.skip'),
+                          variant: AppButtonVariant.secondary,
+                          borderRadius: 24,
+                          fontSize: 13,
+                          labelMaxLines: 2,
+                          onPressed: controller.finish,
+                        ),
                       ),
                       LayoutId(
                         id: 'card',
@@ -113,68 +131,75 @@ class _OnboardingOverlayState extends State<OnboardingOverlay> {
   );
 }
 
-class _GuideToolbar extends StatelessWidget {
-  const _GuideToolbar({required this.controller});
+class _GuideActions extends StatelessWidget {
+  const _GuideActions({required this.controller});
 
   final OnboardingController controller;
 
   @override
   Widget build(BuildContext context) {
-    // Reserve two text lines even on steps with shorter labels. All three
-    // controls keep the same position and size throughout the tour.
-    final height = math.max(
-      44.0,
-      MediaQuery.textScalerOf(context).scale(12) * 1.15 * 2 + 16,
-    );
+    final colors = context.appColors;
     final last = controller.index == OnboardingController.steps.length - 1;
-    return Material(
-      key: const ValueKey('onboarding-toolbar'),
-      color: context.appColors.canvasColor,
-      borderRadius: BorderRadius.circular(20),
-      elevation: 8,
-      child: Padding(
-        padding: const EdgeInsets.all(8),
-        child: SizedBox(
-          height: height,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            spacing: 8,
-            children: [
-              Expanded(
-                child: AppButton(
-                  key: const ValueKey('onboarding-skip'),
-                  label: context.tr('onboarding.skip'),
-                  size: AppButtonSize.compact,
-                  variant: AppButtonVariant.secondary,
-                  labelMaxLines: 2,
-                  onPressed: controller.finish,
-                ),
-              ),
-              Expanded(
-                child: AppButton(
-                  key: const ValueKey('onboarding-previous'),
-                  label: context.tr('onboarding.previous'),
-                  size: AppButtonSize.compact,
-                  variant: AppButtonVariant.secondary,
-                  labelMaxLines: 2,
-                  onPressed: controller.index == 0 ? null : controller.previous,
-                ),
-              ),
-              Expanded(
-                child: AppButton(
-                  key: const ValueKey('onboarding-next'),
-                  label: context.tr(
-                    last ? 'onboarding.finish' : 'onboarding.next',
-                  ),
-                  size: AppButtonSize.compact,
-                  labelMaxLines: 2,
-                  onPressed: controller.next,
-                ),
-              ),
-            ],
-          ),
-        ),
+    // Keep the painted button compact while preserving the padded tap target.
+    final buttonStyle = ButtonStyle(
+      minimumSize: const WidgetStatePropertyAll(
+        Size(kMinInteractiveDimension, 28),
       ),
+      padding: const WidgetStatePropertyAll(
+        EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      ),
+      tapTargetSize: MaterialTapTargetSize.padded,
+      visualDensity: VisualDensity.standard,
+      textStyle: const WidgetStatePropertyAll(AppTypography.sectionLabel),
+      shape: WidgetStatePropertyAll(
+        RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
+      ),
+    );
+    return OverflowBar(
+      alignment: MainAxisAlignment.spaceBetween,
+      spacing: 6,
+      overflowAlignment: OverflowBarAlignment.end,
+      children: [
+        Text(
+          context.tr(
+            'onboarding.progress',
+            namedArgs: {
+              'page': context.tr('onboarding.tabs.${controller.step.tab}'),
+              'current': '${controller.index + 1}',
+              'total': '${OnboardingController.steps.length}',
+            },
+          ),
+          style: AppTypography.caption.copyWith(color: colors.mutedInkColor),
+        ),
+        Wrap(
+          spacing: 6,
+          alignment: WrapAlignment.end,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            TextButton(
+              key: const ValueKey('onboarding-previous'),
+              onPressed: controller.index == 0 ? null : controller.previous,
+              style: TextButton.styleFrom(
+                foregroundColor: colors.mutedInkColor,
+                disabledForegroundColor: colors.subtleInkColor,
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+              ).merge(buttonStyle),
+              child: Text(context.tr('onboarding.previous')),
+            ),
+            FilledButton(
+              key: const ValueKey('onboarding-next'),
+              onPressed: controller.next,
+              style: FilledButton.styleFrom(
+                backgroundColor: colors.selectedSurfaceColor,
+                foregroundColor: colors.deepGreen,
+              ).merge(buttonStyle),
+              child: Text(
+                context.tr(last ? 'onboarding.finish' : 'onboarding.next'),
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }
@@ -193,85 +218,93 @@ class _CoachCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final prefix = 'onboarding.${controller.step.translationKey}';
+    final copy = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Semantics(
+          liveRegion: true,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            spacing: 5,
+            children: [
+              Text(
+                context.tr('$prefix.title'),
+                style: AppTypography.surfaceTitle.copyWith(
+                  color: colors.deepGreen,
+                ),
+              ),
+              Text(
+                context.tr(targetReady ? '$prefix.body' : 'onboarding.waiting'),
+                style: AppTypography.body.copyWith(color: colors.inkColor),
+              ),
+            ],
+          ),
+        ),
+        if (controller.step.anchor == OnboardingAnchor.recording) ...[
+          const SizedBox(height: 14),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            spacing: 12,
+            children: [
+              const RecIndicator(isRecording: true),
+              Expanded(
+                child: Text(
+                  context.tr('onboarding.recording.rec_hint'),
+                  style: AppTypography.supporting.copyWith(
+                    color: colors.mutedInkColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ],
+    );
     return Semantics(
       scopesRoute: true,
       namesRoute: true,
       explicitChildNodes: true,
       label: context.tr('onboarding.title'),
-      child: Material(
+      child: AppDialogSurface(
         key: const ValueKey('onboarding-coach-card'),
-        color: colors.canvasColor,
-        elevation: 8,
-        shadowColor: colors.shadowColor,
-        borderRadius: BorderRadius.circular(22),
-        clipBehavior: Clip.antiAlias,
-        child: SingleChildScrollView(
-          primary: false,
-          padding: const EdgeInsets.all(18),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                context.tr(
-                  'onboarding.progress',
-                  namedArgs: {
-                    'page': context.tr(
-                      'onboarding.tabs.${controller.step.tab}',
+        backgroundColor: colors.surfaceColor,
+        borderRadius: const BorderRadius.all(Radius.circular(16)),
+        child: Padding(
+          padding: _cardPadding,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final scaler = MediaQuery.textScalerOf(context);
+              final caption = AppTypography.caption;
+              final captionHeight =
+                  scaler.scale(caption.fontSize!) * caption.height!;
+              // Leave room for up to two action rows and wrapping progress.
+              final scrollWholeCard =
+                  constraints.maxHeight <
+                      2 * kMinInteractiveDimension +
+                          3 * captionHeight +
+                          _actionGap ||
+                  constraints.maxWidth <
+                      _minCardWidth - _cardPadding.horizontal ||
+                  scaler.scale(AppTypography.sectionLabel.fontSize!) >
+                      2 * AppTypography.sectionLabel.fontSize!;
+              final content = Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                spacing: _actionGap,
+                children: [
+                  if (scrollWholeCard)
+                    copy
+                  else
+                    Flexible(
+                      child: SingleChildScrollView(primary: false, child: copy),
                     ),
-                    'current': '${controller.index + 1}',
-                    'total': '${OnboardingController.steps.length}',
-                  },
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AppTypography.caption.copyWith(
-                  color: colors.mutedInkColor,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Semantics(
-                liveRegion: true,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      context.tr('$prefix.title'),
-                      style: AppTypography.surfaceTitle.copyWith(
-                        color: colors.deepGreen,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      context.tr(
-                        targetReady ? '$prefix.body' : 'onboarding.waiting',
-                      ),
-                      style: AppTypography.body.copyWith(
-                        color: colors.inkColor,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (controller.step.anchor == OnboardingAnchor.recording) ...[
-                const SizedBox(height: 14),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const RecIndicator(isRecording: true),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        context.tr('onboarding.recording.rec_hint'),
-                        style: AppTypography.supporting.copyWith(
-                          color: colors.mutedInkColor,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ],
+                  _GuideActions(controller: controller),
+                ],
+              );
+              return scrollWholeCard
+                  ? SingleChildScrollView(primary: false, child: content)
+                  : content;
+            },
           ),
         ),
       ),
@@ -285,75 +318,68 @@ class _SpotlightGeometry {
   _SpotlightGeometry({
     required this.target,
     required this.navigation,
-    required this.regions,
+    required this.cardRegion,
     required this.navigationBounds,
-    required this.toolbarRegion,
+    required this.skipRegion,
   });
 
   final Rect? target;
   final Rect? navigation;
-  final List<Rect> regions;
+  final Rect cardRegion;
   final Rect navigationBounds;
-  final Rect toolbarRegion;
-  Rect toolbar = Rect.zero;
+  final Rect skipRegion;
   Rect card = Rect.zero;
 }
 
 class _CoachLayout extends MultiChildLayoutDelegate {
-  _CoachLayout(this.geometry);
+  _CoachLayout(this.geometry, {required this.allowCompactPlacement});
 
   final _SpotlightGeometry geometry;
+  final bool allowCompactPlacement;
 
   @override
   void performLayout(Size size) {
-    final target = geometry.target;
-    final toolbarArea = geometryInset(
-      geometry.toolbarRegion.intersect(Offset.zero & size),
-    );
-    final toolbarSize = layoutChild(
-      'toolbar',
-      BoxConstraints.tightFor(width: math.min(520, toolbarArea.width)),
-    );
-    geometry.toolbar = Rect.fromLTWH(
-      toolbarArea.center.dx - toolbarSize.width / 2,
-      toolbarArea.top,
-      toolbarSize.width,
-      toolbarSize.height,
-    );
-    positionChild('toolbar', geometry.toolbar.topLeft);
-    final safeRegions = [
-      for (final region in geometry.regions)
-        geometryInset(region.intersect(Offset.zero & size)),
-    ].where((r) => !r.isEmpty).toList();
-    if (safeRegions.isEmpty) {
-      safeRegions.add(geometryInset(Offset.zero & size));
-    }
+    final target = geometry.target?.inflate(36);
+    final viewport = Offset.zero & size;
+    final skipArea = geometryInset(geometry.skipRegion.intersect(viewport));
+    final skipSize = layoutChild('skip', BoxConstraints.loose(skipArea.size));
+    final skipOffset = skipArea.topRight - Offset(skipSize.width, 0);
+    positionChild('skip', skipOffset);
+    final region = geometryInset(geometry.cardRegion.intersect(viewport));
+    final clearRegions = geometryClear(
+      region.isEmpty ? geometryInset(viewport) : region,
+      (skipOffset & skipSize).inflate(12),
+    ).toList();
     final candidates = <Rect>[];
-    for (final region in safeRegions) {
-      for (final clear in geometryClear(region)) {
-        if (target == null || !clear.overlaps(target.inflate(36))) {
-          candidates.add(clear);
-          continue;
-        }
-        final cut = clear.intersect(target.inflate(36));
-        candidates.addAll([
-          Rect.fromLTRB(clear.left, clear.top, clear.right, cut.top),
-          Rect.fromLTRB(clear.left, cut.bottom, clear.right, clear.bottom),
-          Rect.fromLTRB(clear.left, clear.top, cut.left, clear.bottom),
-          Rect.fromLTRB(cut.right, clear.top, clear.right, clear.bottom),
-        ]);
+    for (final clear in clearRegions) {
+      if (target == null || !clear.overlaps(target)) {
+        candidates.add(clear);
+        continue;
       }
+      final cut = clear.intersect(target);
+      candidates.addAll([
+        Rect.fromLTRB(clear.left, clear.top, clear.right, cut.top),
+        Rect.fromLTRB(clear.left, cut.bottom, clear.right, clear.bottom),
+        Rect.fromLTRB(clear.left, clear.top, cut.left, clear.bottom),
+        Rect.fromLTRB(cut.right, clear.top, clear.right, clear.bottom),
+      ]);
     }
+    final minWidth = math.min(_minCardWidth, size.width - 32);
     final usable = candidates
-        .where(
-          (r) => r.width >= math.min(240, size.width - 32) && r.height >= 100,
-        )
+        .where((r) => r.width >= minWidth && r.height >= _minCardHeight)
         .toList();
+    if (allowCompactPlacement && target != null && usable.isEmpty) {
+      final minScrollableHeight =
+          _cardPadding.vertical + kMinInteractiveDimension;
+      usable.addAll(
+        candidates.where(
+          (r) => r.width >= minWidth && r.height >= minScrollableHeight,
+        ),
+      );
+    }
     // The explanation can overlap a large target in a very short window,
-    // but must always stay clear of the fixed toolbar.
-    final choices = usable.isNotEmpty
-        ? usable
-        : [for (final region in safeRegions) ...geometryClear(region)];
+    // but must always stay clear of the skip button.
+    final choices = usable.isNotEmpty ? usable : clearRegions;
     final area = choices.reduce((a, b) => score(b) > score(a) ? b : a);
     final cardSize = layoutChild(
       'card',
@@ -379,15 +405,28 @@ class _CoachLayout extends MultiChildLayoutDelegate {
   Rect geometryInset(Rect region) =>
       geometry_helpers.insetRect(region, const EdgeInsets.all(16));
 
-  List<Rect> geometryClear(Rect region) =>
-      geometry_helpers.clearRegions(region, [
-        geometry.toolbar.inflate(12),
-        if (!geometry.navigationBounds.isEmpty)
-          geometry.navigationBounds.inflate(8),
-      ]);
+  Iterable<Rect> geometryClear(Rect region, Rect skip) sync* {
+    final navigation = [
+      if (!geometry.navigationBounds.isEmpty)
+        geometry.navigationBounds.inflate(8),
+    ];
+    yield* geometry_helpers.clearRegions(region, [skip, ...navigation]);
+    if (region.overlaps(skip) && skip.left > region.left) {
+      // The card can use the full height to the left of the small skip button.
+      yield* geometry_helpers.clearRegions(
+        Rect.fromLTRB(region.left, region.top, skip.left, region.bottom),
+        navigation,
+      );
+    }
+  }
 
-  double score(Rect rect) =>
-      math.min(rect.width, 360) * math.min(rect.height, 280);
+  double score(Rect rect) {
+    // Count the space that can actually show text above the action row.
+    final fixedHeight =
+        _cardPadding.vertical + _actionGap + kMinInteractiveDimension;
+    final copyHeight = math.min(rect.height, 280) - fixedHeight;
+    return math.min(rect.width, 360) * math.max(1, copyHeight);
+  }
 
   @override
   bool shouldRelayout(_CoachLayout oldDelegate) => true;

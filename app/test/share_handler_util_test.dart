@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:memolanes/common/component/common_dialog.dart';
+import 'package:memolanes/common/onboarding.dart';
 import 'package:memolanes/common/share_handler_util.dart';
 import 'package:memolanes/theme/app_theme.dart';
 import 'package:zikzak_share_handler/zikzak_share_handler.dart';
@@ -17,9 +18,10 @@ SharedMedia _media(String name) => SharedMedia(
 
 class _ShareHandler extends ShareHandlerPlatform {
   final events = StreamController<SharedMedia>.broadcast(sync: true);
+  final initialShare = Completer<SharedMedia?>();
 
   @override
-  Future<SharedMedia?> getInitialSharedMedia() async => _media('cold.mldx');
+  Future<SharedMedia?> getInitialSharedMedia() => initialShare.future;
 
   @override
   Future<void> resetInitialSharedMedia() async {}
@@ -41,6 +43,26 @@ class _Translations extends AssetLoader {
   };
 }
 
+Widget _app(GlobalKey<NavigatorState> key) => EasyLocalization(
+  supportedLocales: const [Locale('en', 'US')],
+  startLocale: const Locale('en', 'US'),
+  path: 'unused',
+  assetLoader: _Translations(),
+  child: Builder(
+    builder: (context) => MaterialApp(
+      theme: AppTheme.light,
+      navigatorKey: key,
+      localizationsDelegates: [
+        ...GlobalMaterialLocalizations.delegates,
+        ...context.localizationDelegates,
+      ],
+      supportedLocales: context.supportedLocales,
+      locale: context.locale,
+      home: const Scaffold(),
+    ),
+  ),
+);
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(() async {
@@ -51,6 +73,35 @@ void main() {
         );
     await EasyLocalization.ensureInitialized();
   });
+
+  for (final earlyShare in [false, true]) {
+    test(
+      'startup checks for ${earlyShare ? 'an early share event' : 'no incoming file'}',
+      () async {
+        final handler = _ShareHandler();
+        final uiReady = Completer<void>();
+        final service = ShareHandlerUtil(
+          navigatorKey: GlobalKey<NavigatorState>(),
+          uiReady: uiReady.future,
+          handler: handler,
+        )..init();
+        addTearDown(() async {
+          await service.dispose();
+          uiReady.complete();
+          await handler.events.close();
+        });
+
+        var showedStartupUi = false;
+        final startup = service.runBeforeStartupShare((_) async {
+          showedStartupUi = true;
+        });
+        if (earlyShare) handler.events.add(_media('early.mldx'));
+        handler.initialShare.complete(null);
+        await startup;
+        expect(showedStartupUi, !earlyShare);
+      },
+    );
+  }
 
   testWidgets('retains a cold share and updates the pending confirmation', (
     tester,
@@ -64,6 +115,10 @@ void main() {
       handler: handler,
     );
     service.init();
+    final startup = service.runBeforeStartupShare((_) async {
+      fail('Startup UI must yield to a cold share');
+    });
+    handler.initialShare.complete(_media('cold.mldx'));
     addTearDown(() async {
       await service.dispose();
       if (!uiReady.isCompleted) uiReady.complete();
@@ -73,27 +128,8 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
     expect(key.currentState, isNull);
-    await tester.pumpWidget(
-      EasyLocalization(
-        supportedLocales: const [Locale('en', 'US')],
-        startLocale: const Locale('en', 'US'),
-        path: 'unused',
-        assetLoader: _Translations(),
-        child: Builder(
-          builder: (context) => MaterialApp(
-            theme: AppTheme.light,
-            navigatorKey: key,
-            localizationsDelegates: [
-              ...GlobalMaterialLocalizations.delegates,
-              ...context.localizationDelegates,
-            ],
-            supportedLocales: context.supportedLocales,
-            locale: context.locale,
-            home: const Scaffold(),
-          ),
-        ),
-      ),
-    );
+    await startup;
+    await tester.pumpWidget(_app(key));
     await tester.pumpAndSettle();
     expect(find.byType(CommonDialog), findsNothing);
 
@@ -114,5 +150,56 @@ void main() {
         .onPressed();
     await tester.pumpAndSettle();
     expect(find.byType(CommonDialog), findsNothing);
+  });
+
+  testWidgets('a late share interrupts the automatic tour and opens import', (
+    tester,
+  ) async {
+    final handler = _ShareHandler();
+    final uiReady = Completer<void>();
+    final key = GlobalKey<NavigatorState>();
+    final controller = OnboardingController(selectTab: (_) {});
+    final service = ShareHandlerUtil(
+      navigatorKey: key,
+      uiReady: uiReady.future,
+      handler: handler,
+    )..init();
+    addTearDown(() async {
+      controller.dispose();
+      await service.dispose();
+      if (!uiReady.isCompleted) uiReady.complete();
+      await handler.events.close();
+    });
+
+    bool? completed;
+    final startup = service.runBeforeStartupShare((shareArrivals) async {
+      completed = await controller.start(interruptOn: shareArrivals);
+    });
+    unawaited(
+      startup.then((_) {
+        if (!uiReady.isCompleted) uiReady.complete();
+      }),
+    );
+    handler.initialShare.complete(null);
+    await tester.pumpWidget(_app(key));
+    await tester.pumpAndSettle();
+    expect(controller.isActive, isTrue);
+
+    handler.events.add(SharedMedia(content: 'text without a file'));
+    await tester.pump();
+    expect(controller.isActive, isTrue);
+
+    handler.events.add(_media('late.mldx'));
+    await tester.pumpAndSettle();
+    expect(controller.isActive, isFalse);
+    expect(completed, isFalse);
+    expect(find.text('Receive late.mldx?'), findsOneWidget);
+
+    final replay = controller.start();
+    handler.events.add(_media('latest.mldx'));
+    await tester.pumpAndSettle();
+    expect(controller.isActive, isTrue);
+    controller.finish();
+    expect(await replay, isTrue);
   });
 }

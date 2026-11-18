@@ -45,12 +45,31 @@ class _JourneyBodyState extends State<JourneyBody> {
   final _calendarKey = GlobalKey();
   final _firstJourneyRowKey = GlobalKey();
   OnboardingController? _onboarding;
+  JourneyListController? _guideCalendarController;
   OnboardingAnchor? _lastGuideAnchor;
   bool _guideScrollScheduled = false;
 
   bool get _showRecordGuide =>
-      _onboarding?.isActive == true &&
-      _onboarding?.step.anchor == OnboardingAnchor.journeyRecord;
+      _lastGuideAnchor == OnboardingAnchor.journeyRecord;
+
+  bool get _showExampleCalendar =>
+      _controller.firstDate == null &&
+      (_lastGuideAnchor == OnboardingAnchor.journeys || _showRecordGuide);
+
+  JourneyListController get _calendarController {
+    if (!_showExampleCalendar) return _controller;
+    // Example dates belong only to the guide's read-only calendar.
+    final date = SimpleDate.today();
+    return _guideCalendarController ??=
+        JourneyListController(
+            earliestJourneyDateLoader: () async => date,
+            journeyDatesLoader: (_) async => [date],
+            journeyHeadersLoader: (_, _) async => const [],
+          )
+          ..firstDate = date
+          ..selectedDate = date
+          ..journeyDates = [date];
+  }
 
   @override
   void initState() {
@@ -86,6 +105,7 @@ class _JourneyBodyState extends State<JourneyBody> {
   @override
   void dispose() {
     _onboarding?.removeListener(_onGuideChanged);
+    _guideCalendarController?.dispose();
     _controller
       ..removeListener(_onControllerChanged)
       ..dispose();
@@ -104,6 +124,10 @@ class _JourneyBodyState extends State<JourneyBody> {
         : null;
     if (anchor == _lastGuideAnchor) return;
     _lastGuideAnchor = anchor;
+    if (!_showExampleCalendar) {
+      _guideCalendarController?.dispose();
+      _guideCalendarController = null;
+    }
     if (mounted) setState(() {});
     _scheduleGuideScroll();
   }
@@ -127,7 +151,7 @@ class _JourneyBodyState extends State<JourneyBody> {
   }
 
   Widget _buildJourneySliver() {
-    if (_showRecordGuide &&
+    if ((_showRecordGuide || _showExampleCalendar) &&
         !_controller.isJourneyListLoading &&
         _controller.journeyHeaders.isEmpty) {
       // A first-time user still needs a visible row to learn this interaction.
@@ -217,7 +241,7 @@ class _JourneyBodyState extends State<JourneyBody> {
           controller: _journeyListScrollController,
           slivers: [
             if (header != null) SliverToBoxAdapter(child: header),
-            if (header == null && _showRecordGuide)
+            if (header == null && (_showRecordGuide || _showExampleCalendar))
               SliverToBoxAdapter(child: _recordsHeading()),
             _buildJourneySliver(),
           ],
@@ -270,17 +294,25 @@ class _JourneyBodyState extends State<JourneyBody> {
     ),
   );
 
-  Widget _calendar(SimpleDate firstDate) => OnboardingTarget(
-    anchor: OnboardingAnchor.journeys,
-    child: _CalendarSurface(
-      child: JourneyListCalendar(
-        key: _calendarKey,
-        controller: _controller,
-        firstDate: firstDate,
-        fitLabels: true,
+  Widget _calendar(SimpleDate firstDate) {
+    final controller = _calendarController;
+    return OnboardingTarget(
+      anchor: OnboardingAnchor.journeys,
+      child: _CalendarSurface(
+        child: IgnorePointer(
+          ignoring: controller != _controller,
+          child: JourneyListCalendar(
+            key: controller == _controller
+                ? _calendarKey
+                : ObjectKey(controller),
+            controller: controller,
+            firstDate: firstDate,
+            fitLabels: true,
+          ),
+        ),
       ),
-    ),
-  );
+    );
+  }
 
   Widget _stackedHeader(SimpleDate firstDate) => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -316,7 +348,7 @@ class _JourneyBodyState extends State<JourneyBody> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    final firstDate = _controller.firstDate;
+    final firstDate = _calendarController.firstDate;
     if (firstDate == null) return _buildJourneyScrollView();
 
     return LayoutBuilder(

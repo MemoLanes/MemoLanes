@@ -197,7 +197,6 @@ class _MyHomePageState extends State<MyHomePage> {
   void initState() {
     super.initState();
     _journeys.addListener(_onJourneysChanged);
-    _onboarding.addListener(_onOnboardingChanged);
     _screenshotSubscription = listenForSystemScreenshots(() {
       if (_selectedIndex <= 2 && !_onboarding.isActive) {
         unawaited(_mapBodyKey.currentState?.takeScreenshot());
@@ -206,9 +205,9 @@ class _MyHomePageState extends State<MyHomePage> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await AppBootstrap.completeUiStartup(
         context,
-        showOnboarding: () async {
+        showOnboarding: (shareArrivals) async {
           if (!MMKVUtil.getBool(MMKVKey.onboardingCompleted)) {
-            await _showOnboarding();
+            await _showOnboarding(interruptOn: shareArrivals);
           }
         },
       );
@@ -217,17 +216,16 @@ class _MyHomePageState extends State<MyHomePage> {
 
   void _onJourneysChanged() => setState(() {});
 
-  void _onOnboardingChanged() => setState(() {});
-
-  Future<void> _showOnboarding() async {
+  Future<void> _showOnboarding({Listenable? interruptOn}) async {
     if (!mounted || _onboarding.isActive) return;
     final returnTab = _selectedIndex;
     setState(() {
       _recordMapOnly = false;
       _lastExitPopAt = null;
     });
-    final dismissed = await _onboarding.start();
+    final dismissed = await _onboarding.start(interruptOn: interruptOn);
     if (!mounted) return;
+    setState(() {});
     if (dismissed) MMKVUtil.putBool(MMKVKey.onboardingCompleted, true);
     _selectTab(returnTab);
   }
@@ -262,7 +260,6 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   void dispose() {
-    _onboarding.removeListener(_onOnboardingChanged);
     _onboarding.dispose();
     unawaited(_screenshotSubscription.cancel());
     _journeys.removeListener(_onJourneysChanged);

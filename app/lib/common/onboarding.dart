@@ -38,6 +38,7 @@ class OnboardingController extends ChangeNotifier {
   final ValueChanged<int> selectTab;
   final _targets = <OnboardingAnchor, ({Object owner, Rect bounds})>{};
   Completer<bool>? _completion;
+  Listenable? _interruptOn;
   int _index = 0;
   bool _disposed = false;
   bool _notificationScheduled = false;
@@ -47,9 +48,11 @@ class OnboardingController extends ChangeNotifier {
   OnboardingStep get step => steps[_index];
   Rect? get targetBounds => _targets[step.anchor]?.bounds;
 
-  Future<bool> start() {
+  Future<bool> start({Listenable? interruptOn}) {
     if (_completion != null) return _completion!.future;
     final completion = _completion = Completer<bool>();
+    _interruptOn = interruptOn;
+    _interruptOn?.addListener(_interrupt);
     _index = 0;
     selectTab(step.tab);
     notifyListeners();
@@ -76,12 +79,18 @@ class OnboardingController extends ChangeNotifier {
   }
 
   /// Both Skip and Done count as an explicit dismissal.
-  void finish() {
+  void finish() => _end(completed: true);
+
+  void _interrupt() => _end(completed: false);
+
+  void _end({required bool completed}) {
     final completion = _completion;
     if (completion == null) return;
     _completion = null;
-    completion.complete(true);
-    notifyListeners();
+    _interruptOn?.removeListener(_interrupt);
+    _interruptOn = null;
+    completion.complete(completed);
+    if (!_disposed) notifyListeners();
   }
 
   void _report(OnboardingAnchor anchor, Object owner, Rect bounds) {
@@ -113,8 +122,7 @@ class OnboardingController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
-    _completion?.complete(false);
-    _completion = null;
+    _end(completed: false);
     _targets.clear();
     super.dispose();
   }
@@ -177,14 +185,25 @@ class _OnboardingTargetBox extends RenderProxyBox {
   @override
   void paint(PaintingContext context, Offset offset) {
     super.paint(context, offset);
-    final bounds = MatrixUtils.transformRect(
+    final controller = _controller;
+    if (controller == null) return;
+    var bounds = MatrixUtils.transformRect(
       getTransformTo(null),
       Offset.zero & size,
     );
+    final viewport = RenderAbstractViewport.maybeOf(this);
+    if (viewport != null) {
+      bounds = bounds.intersect(
+        MatrixUtils.transformRect(
+          viewport.getTransformTo(null),
+          viewport.paintBounds,
+        ),
+      );
+    }
     if (bounds.isEmpty || !bounds.isFinite) {
-      _controller?._remove(_anchor, this);
+      controller._remove(_anchor, this);
     } else {
-      _controller?._report(_anchor, this, bounds);
+      controller._report(_anchor, this, bounds);
     }
   }
 
