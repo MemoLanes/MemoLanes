@@ -29,6 +29,7 @@ class AppNavigationShell extends StatelessWidget {
     this.animateNavigationVisibility = false,
     this.contentMode = AppNavigationContentMode.fullBleed,
     this.bottomTrailingOverlay,
+    this.foregroundOverlay,
   });
 
   /// Scroll-content offsets resolved by the shared layout on every device.
@@ -40,6 +41,9 @@ class AppNavigationShell extends StatelessWidget {
 
   /// Small map overlay aligned above the navigation, hidden with app chrome.
   final Widget? bottomTrailingOverlay;
+
+  /// A viewport overlay above both content and navigation.
+  final Widget? foregroundOverlay;
 
   @override
   Widget build(BuildContext context) {
@@ -101,6 +105,8 @@ class AppNavigationShell extends StatelessWidget {
                     )
                   : null,
             ),
+            if (foregroundOverlay case final overlay?)
+              Positioned.fill(child: overlay),
           ],
         ),
       ),

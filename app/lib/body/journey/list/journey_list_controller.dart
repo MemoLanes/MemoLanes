@@ -23,6 +23,26 @@ class JourneyListController extends ChangeNotifier {
        _journeyDatesLoader = journeyDatesLoader ?? _loadJourneyDates,
        _journeyHeadersLoader = journeyHeadersLoader ?? _loadJourneyHeaders;
 
+  /// Uses a local snapshot with the same date selection and filtering rules.
+  factory JourneyListController.inMemory(Iterable<JourneyHeader> headers) {
+    final recordsByDate = <SimpleDate, List<JourneyHeader>>{};
+    for (final header in headers) {
+      (recordsByDate[header.journeyDate.toSimpleDate()] ??= []).add(header);
+    }
+    final dates = recordsByDate.keys.toList()..sort(calendarDaysBetween);
+    return JourneyListController(
+      earliestJourneyDateLoader: () async => dates.firstOrNull,
+      journeyDatesLoader: (kinds) async => dates.where((date) {
+        return recordsByDate[date]!.any(
+          (row) => kinds.contains(row.journeyKind),
+        );
+      }).toList(),
+      journeyHeadersLoader: (date, kinds) async => (recordsByDate[date] ?? [])
+          .where((row) => kinds.contains(row.journeyKind))
+          .toList(),
+    );
+  }
+
   final EarliestJourneyDateLoader _earliestJourneyDateLoader;
   final JourneyDatesLoader _journeyDatesLoader;
   final JourneyHeadersLoader _journeyHeadersLoader;

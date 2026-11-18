@@ -70,7 +70,7 @@ class _RecordingButtonsState extends State<RecordingButtons> {
           ),
         ),
         child: switch (status) {
-          GpsRecordingStatus.none => _StartJourneyButton(
+          GpsRecordingStatus.none => StartJourneyButton(
             key: const ValueKey('record-start'),
             onPressed: () {
               AppHaptics.heavy();
@@ -101,10 +101,10 @@ class _RecordingButtonsState extends State<RecordingButtons> {
   }
 }
 
-class _StartJourneyButton extends StatelessWidget {
-  const _StartJourneyButton({super.key, required this.onPressed});
+class StartJourneyButton extends StatelessWidget {
+  const StartJourneyButton({super.key, this.onPressed});
 
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
 
   static const _iconGap = 7.0;
 

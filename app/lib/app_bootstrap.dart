@@ -6,6 +6,7 @@ import 'package:cupertino_ui/cupertino_ui.dart';
 import 'package:flutter/foundation.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:memolanes/body/first_launch_setup.dart';
+import 'package:memolanes/body/onboarding/onboarding_page.dart';
 import 'package:memolanes/common/app_lifecycle_service.dart';
 import 'package:memolanes/common/share_handler_util.dart';
 import 'package:memolanes/common/shortcut_handler_util.dart';
@@ -218,6 +219,13 @@ class AppBootstrap {
       await showCommonDialog(
         context,
         context.tr('startup_error.map_initialization_failed'),
+      );
+    }
+    if (!context.mounted) return;
+    if (!MMKVUtil.getBool(MMKVKey.onboardingCompleted)) {
+      await _shareImport.runBeforeStartupShare(
+        (shareArrivals) =>
+            showGettingStarted(context, interruptOn: shareArrivals),
       );
     }
     if (!context.mounted) return;

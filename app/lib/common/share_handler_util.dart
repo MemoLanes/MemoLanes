@@ -39,6 +39,7 @@ class ShareHandlerUtil {
   final Future<void> uiReady;
   final ShareHandlerPlatform _handler;
   StreamSubscription<SharedMedia>? _subscription;
+  Future<void>? _initialShareRead;
   final _pendingPaths = ValueNotifier<List<String>>([]);
   _ShareState _state = _ShareState.idle;
   OverlayEntry? _busyNotice;
@@ -55,7 +56,16 @@ class ShareHandlerUtil {
         log.error('Error in sharedMediaStream: $err');
       },
     );
-    unawaited(_readInitialShare());
+    _initialShareRead = _readInitialShare();
+  }
+
+  /// Runs optional startup UI and lets it listen for shares queued while open.
+  Future<void> runBeforeStartupShare(
+    Future<void> Function(Listenable shareArrivals) action,
+  ) async {
+    await _initialShareRead;
+    if (_disposed || _state != _ShareState.idle) return;
+    await action(_pendingPaths);
   }
 
   Future<void> _readInitialShare() async {

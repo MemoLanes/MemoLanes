@@ -16,14 +16,21 @@ class NormalMapOverlay extends StatelessWidget {
     super.key,
     required this.trackingMode,
     required this.onTrackingPressed,
+    this.recordingControls,
+    this.mapControlsKey,
   });
 
   final TrackingMode trackingMode;
   final VoidCallback onTrackingPressed;
 
+  /// Replaces the recorder controls and omits the live REC indicator.
+  final Widget? recordingControls;
+  final Key? mapControlsKey;
+
   Widget _buildMapControls(Axis axis) {
     return PointerInterceptor(
       child: Flex(
+        key: mapControlsKey,
         direction: axis,
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.end,
@@ -44,10 +51,6 @@ class NormalMapOverlay extends StatelessWidget {
   Widget build(BuildContext context) {
     final layout = AppLayoutScope.of(context);
     if (!layout.chromeReady) return const SizedBox.shrink();
-    final isRecording = context.select<GpsManager, bool>(
-      (gpsManager) =>
-          gpsManager.recordingStatus == GpsRecordingStatus.recording,
-    );
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -56,21 +59,27 @@ class NormalMapOverlay extends StatelessWidget {
             const Size(RecordingButtons.maximumWidth, RecordingButtons.height),
             minimumWidth: RecordingButtons.minimumWidth,
           ),
-          child: const Align(
+          child: Align(
             heightFactor: 1,
             alignment: Alignment.center,
-            child: RecordingButtons(),
+            child: recordingControls ?? const RecordingButtons(),
           ),
         ),
         Positioned.fromRect(
           rect: layout.mapControlsBounds,
           child: _buildMapControls(layout.mapControlsAxis),
         ),
-        Positioned(
-          left: layout.recordingIndicatorOffset.dx,
-          top: layout.recordingIndicatorOffset.dy,
-          child: RecIndicator(isRecording: isRecording),
-        ),
+        if (recordingControls == null)
+          Positioned(
+            left: layout.recordingIndicatorOffset.dx,
+            top: layout.recordingIndicatorOffset.dy,
+            child: RecIndicator(
+              isRecording: context.select<GpsManager, bool>(
+                (gpsManager) =>
+                    gpsManager.recordingStatus == GpsRecordingStatus.recording,
+              ),
+            ),
+          ),
       ],
     );
   }

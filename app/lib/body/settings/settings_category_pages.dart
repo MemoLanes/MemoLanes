@@ -1,4 +1,5 @@
 import 'package:memolanes/body/settings/appearance_picker.dart';
+import 'package:memolanes/body/onboarding/onboarding_page.dart';
 import 'package:memolanes/common/app_theme_controller.dart';
 import 'package:badges/badges.dart' as badges;
 import 'package:easy_localization/easy_localization.dart';
@@ -746,6 +747,13 @@ class _AboutSettingsPageState extends State<AboutSettingsPage> {
                     );
                   }
                 },
+              ),
+              SettingsTile(
+                label: context.tr('onboarding.title'),
+                position: LabelTilePosition.middle,
+                bottom: false,
+                trailing: const LabelTileContent(showArrow: true),
+                onTap: () => showGettingStarted(context),
               ),
               SettingsTile(
                 label: context.tr('privacy.name'),

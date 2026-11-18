@@ -22,10 +22,22 @@ class JourneyBody extends StatefulWidget {
     super.key,
     required this.onJourneySelected,
     this.refreshRevision = 0,
+    this.createController,
+    this.scrollController,
+    this.calendarKey,
+    this.firstRecordKey,
+    this.showNotes = false,
   });
 
   /// Handles the selected journey; the parent owns navigation.
-  final Future<void> Function(JourneyHeader journey) onJourneySelected;
+  final Future<void> Function(JourneyHeader journey)? onJourneySelected;
+
+  /// Supplies the controller that this body initializes and owns.
+  final JourneyListController Function()? createController;
+  final ScrollController? scrollController;
+  final Key? calendarKey;
+  final Key? firstRecordKey;
+  final bool showNotes;
 
   /// Change this value to refresh data using the existing list controller.
   /// The current calendar month, selected date, and journey-kind filters stay
@@ -39,14 +51,17 @@ class JourneyBody extends StatefulWidget {
 
 class _JourneyBodyState extends State<JourneyBody> {
   late final JourneyListController _controller;
-  final ScrollController _journeyListScrollController = ScrollController();
+  final ScrollController _defaultScrollController = ScrollController();
+  ScrollController get _journeyListScrollController =>
+      widget.scrollController ?? _defaultScrollController;
   // Keep the selected calendar mode/month when its viewport changes shape.
   final _calendarKey = GlobalKey();
 
   @override
   void initState() {
     super.initState();
-    _controller = JourneyListController()..addListener(_onControllerChanged);
+    _controller = (widget.createController?.call() ?? JourneyListController())
+      ..addListener(_onControllerChanged);
     _controller.initialize();
   }
 
@@ -64,7 +79,7 @@ class _JourneyBodyState extends State<JourneyBody> {
     _controller
       ..removeListener(_onControllerChanged)
       ..dispose();
-    _journeyListScrollController.dispose();
+    _defaultScrollController.dispose();
     super.dispose();
   }
 
@@ -147,10 +162,14 @@ class _JourneyBodyState extends State<JourneyBody> {
     DateFormat timeFormat,
   ) {
     final header = _controller.journeyHeaders[index];
+    final onJourneySelected = widget.onJourneySelected;
     return LabelTile(
+      key: index == 0 ? widget.firstRecordKey : null,
       label: header.start != null
           ? timeFormat.format(header.start!.toLocal())
           : header.journeyDate.toSimpleDate().toString(),
+      desc: widget.showNotes ? header.note ?? '' : '',
+      descMaxLines: widget.showNotes ? 2 : 1,
       prefix: Padding(
         padding: const EdgeInsets.only(right: 12),
         child: Container(
@@ -169,14 +188,17 @@ class _JourneyBodyState extends State<JourneyBody> {
         ),
       ),
       trailing: LabelTileContent(showArrow: true),
-      onTap: () async {
-        AppHaptics.selection();
-        await widget.onJourneySelected(header);
-      },
+      onTap: onJourneySelected == null
+          ? null
+          : () async {
+              AppHaptics.selection();
+              await onJourneySelected(header);
+            },
     );
   }
 
   Widget _calendar(SimpleDate firstDate) => _CalendarSurface(
+    key: widget.calendarKey,
     child: JourneyListCalendar(
       key: _calendarKey,
       controller: _controller,
@@ -252,7 +274,7 @@ class _JourneyBodyState extends State<JourneyBody> {
 }
 
 class _CalendarSurface extends StatelessWidget {
-  const _CalendarSurface({required this.child});
+  const _CalendarSurface({super.key, required this.child});
 
   final Widget child;
 
