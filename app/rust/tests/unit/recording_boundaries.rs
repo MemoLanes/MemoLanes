@@ -297,6 +297,71 @@ fn upgrade_uses_existing_ongoing_journey_before_any_cursor_was_saved() {
 }
 
 #[test]
+fn untimed_legacy_points_do_not_hide_a_journey_or_block_new_fixes() {
+    let mut recorder = Recorder::new();
+    let points = two_journeys();
+    let mut untimed = points[0].clone();
+    untimed.timestamp_ms = None;
+    recorder
+        .db
+        .record(&untimed, ProcessResult::NewSegment)
+        .unwrap();
+    assert!(recorder
+        .db
+        .with_txn(|txn| txn.has_ongoing_journey())
+        .unwrap());
+    assert_eq!(recorder.ongoing(), None);
+    recorder
+        .db
+        .record(&points[0], ProcessResult::Append)
+        .unwrap();
+    recorder.db.record(&untimed, ProcessResult::Append).unwrap();
+    recorder.restart();
+
+    assert_eq!(
+        recorder.record(&points[0]).process_result,
+        ProcessResult::Ignore
+    );
+    assert_eq!(
+        recorder.record(&points[1]).process_result,
+        ProcessResult::NewSegment
+    );
+    assert_eq!(recorder.ongoing(), Some(range(&points[..2])));
+}
+
+#[test]
+fn future_fix_does_not_split_the_journey_or_advance_the_cursor() {
+    let mut recorder = Recorder::new();
+    let points = two_journeys();
+    recorder.record(&points[0]);
+    let mut future = delivered(&points[1]);
+    future.raw_gps_point.timestamp_ms =
+        Some(future.received_timestamp_ms + 3 * 24 * 60 * 60 * 1000);
+
+    let rejected = recorder
+        .db
+        .with_txn(|txn| record_location(txn, &mut recorder.processor, &future, true))
+        .unwrap();
+    assert_eq!(rejected.process_result, ProcessResult::Ignore);
+    assert!(!rejected.journey_finalized);
+    assert_eq!(recorder.ongoing(), Some(range(&points[..1])));
+    assert!(recorder
+        .db
+        .with_txn(|txn| txn.get_ongoing_journey_raw_data())
+        .unwrap()
+        .is_empty());
+
+    let mut next = delivered(&points[1]);
+    next.received_timestamp_ms -= 60_000;
+    let accepted = recorder
+        .db
+        .with_txn(|txn| record_location(txn, &mut recorder.processor, &next, false))
+        .unwrap();
+    assert_ne!(accepted.process_result, ProcessResult::Ignore);
+    assert_eq!(recorder.ongoing(), Some(range(&points[..2])));
+}
+
+#[test]
 fn crossing_midnight_uses_the_location_date() {
     let mut recorder = Recorder::new();
     let first = point(23, 59, 0.0);

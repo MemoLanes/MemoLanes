@@ -144,14 +144,17 @@ class GpsManager extends ChangeNotifier with WidgetsBindingObserver {
     _journeyFinalizedController.add(null);
   }
 
-  Future<void> _syncInternalStateWithoutLock() async {
+  Future<void> _syncInternalStateWithoutLock([
+    GpsRecordingStatus? requestedStatus,
+  ]) async {
     // do nothing until fully ready, we will sync it again when it becomes ready
     // for the first time.
     if (!_fullyReady || _disposed) {
       return;
     }
 
-    var newState = switch (recordingStatus) {
+    final targetStatus = requestedStatus ?? recordingStatus;
+    var newState = switch (targetStatus) {
       GpsRecordingStatus.recording => _InternalState.recording,
       GpsRecordingStatus.paused ||
       GpsRecordingStatus.none => switch (mapTracking) {
@@ -167,7 +170,7 @@ class GpsManager extends ChangeNotifier with WidgetsBindingObserver {
       // Map tracking should only use GPS when app is visible.
       newState = _InternalState.off;
     }
-    var oldState = _internalState;
+    final oldState = _internalState;
     if (oldState != newState || _recordingSession.needsStop) {
       // state changed
 
@@ -175,16 +178,6 @@ class GpsManager extends ChangeNotifier with WidgetsBindingObserver {
         await _locationService.stopLocationUpdates();
         await _locationUpdateSub?.cancel();
         _locationUpdateSub = null;
-      }
-
-      // turning off if needed
-      if (oldState != _InternalState.off || _recordingSession.needsStop) {
-        if (oldState == _InternalState.recording ||
-            _recordingSession.needsStop) {
-          await _recordingSession.stop(stopAcquisition);
-        } else {
-          await stopAcquisition();
-        }
         latestPosition = null;
         lastKnownPosition = null;
         _lastPositionTooOldTimer?.cancel();
@@ -194,6 +187,13 @@ class GpsManager extends ChangeNotifier with WidgetsBindingObserver {
               .cancelNotificationOnKillService();
         }
         _internalState = _InternalState.off;
+      }
+
+      // turning off if needed
+      if (oldState == _InternalState.recording || _recordingSession.needsStop) {
+        await _recordingSession.stop(stopAcquisition);
+      } else if (oldState != _InternalState.off) {
+        await stopAcquisition();
       }
 
       // turnning on if needed
@@ -280,7 +280,7 @@ class GpsManager extends ChangeNotifier with WidgetsBindingObserver {
         }
       }
       _internalState = newState;
-      RecordingHealthService.instance.handleRecordingStatus(recordingStatus);
+      RecordingHealthService.instance.handleRecordingStatus(targetStatus);
       notifyListeners();
     }
   }
@@ -338,25 +338,38 @@ class GpsManager extends ChangeNotifier with WidgetsBindingObserver {
       }
     }
 
-    var needToFinalize = false;
     await _m.protect(() async {
-      needToFinalize = recordingStatus != to && to == GpsRecordingStatus.none;
-      recordingStatus = to;
-
-      notifyListeners();
-
-      await _syncInternalStateWithoutLock();
-      await _tryFinalizePausedWithoutLock();
-      MMKVUtil.putBool(
-        MMKVKey.isRecording,
-        recordingStatus == GpsRecordingStatus.recording,
-      );
-
-      if (needToFinalize) {
-        if (!await _recordingSession.finish()) {
+      final needToFinalize =
+          recordingStatus != GpsRecordingStatus.none &&
+          to == GpsRecordingStatus.none;
+      try {
+        await _syncInternalStateWithoutLock(to);
+        if (to == GpsRecordingStatus.paused &&
+            !_recordingSession.isPaused &&
+            !_disposed) {
+          _recordingSession.restorePaused();
+        }
+        if (needToFinalize && !await _recordingSession.finish()) {
           Fluttertoast.showToast(msg: tr("journey.finalize_empty"));
           _notifyJourneyFinalized();
         }
+        recordingStatus = to;
+        if (_fullyReady) await _tryFinalizePausedWithoutLock();
+      } catch (_) {
+        if (_internalState == _InternalState.recording) {
+          recordingStatus = GpsRecordingStatus.recording;
+        } else if (recordingStatus != GpsRecordingStatus.none ||
+            _recordingSession.needsStop) {
+          recordingStatus = GpsRecordingStatus.paused;
+        }
+        RecordingHealthService.instance.handleRecordingStatus(recordingStatus);
+        rethrow;
+      } finally {
+        MMKVUtil.putBool(
+          MMKVKey.isRecording,
+          recordingStatus == GpsRecordingStatus.recording,
+        );
+        if (!_disposed) notifyListeners();
       }
     });
   }

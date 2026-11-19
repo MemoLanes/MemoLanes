@@ -5,6 +5,8 @@ use crate::gps::{ExtendedRawGPSPoint, Point};
 use crate::gps_processor::{GpsPreprocessor, ProcessResult};
 use crate::main_db::Txn;
 
+const MAX_FUTURE_FIX_SKEW_MS: i64 = 60_000;
+
 pub(crate) struct RecordedLocation {
     pub process_result: ProcessResult,
     pub previous_point: Option<Point>,
@@ -36,9 +38,13 @@ pub(crate) fn record_location(
     let Some(time) = DateTime::from_timestamp_millis(timestamp_ms) else {
         return Ok(RecordedLocation::ignored());
     };
-    if txn
-        .last_recording_timestamp_ms()?
-        .is_some_and(|last| timestamp_ms <= last)
+    if timestamp_ms
+        > data
+            .received_timestamp_ms
+            .saturating_add(MAX_FUTURE_FIX_SKEW_MS)
+        || txn
+            .last_recording_timestamp_ms()?
+            .is_some_and(|last| timestamp_ms <= last)
         || !location.point.latitude.is_finite()
         || !location.point.longitude.is_finite()
         || !(-90.0..=90.0).contains(&location.point.latitude)

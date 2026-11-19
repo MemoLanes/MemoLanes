@@ -187,20 +187,27 @@ impl Txn<'_> {
         ))
     }
 
-    // the fist timestamp is the start time, the second is the end time
+    pub(crate) fn has_ongoing_journey(&self) -> Result<bool> {
+        Ok(self.db_txn.query_row(
+            "SELECT EXISTS (SELECT 1 FROM ongoing_journey);",
+            (),
+            |row| row.get(0),
+        )?)
+    }
+
+    /// Returns the first and last timed points, skipping untimed legacy rows.
     pub fn get_ongoing_journey_timestamp_range(
         &self,
     ) -> Result<Option<(DateTime<Utc>, DateTime<Utc>)>> {
-        // `id` in `ongoing_journey` is auto incremented and I assume it has index, so I didn't just linear scan timestamp.
-        let mut query = self
-            .db_txn
-            .prepare("SELECT * FROM (SELECT timestamp_sec FROM ongoing_journey ORDER BY id ASC LIMIT 1) UNION ALL SELECT * FROM (SELECT timestamp_sec FROM ongoing_journey ORDER BY id DESC LIMIT 1);")?;
+        let mut query = self.db_txn.prepare_cached(
+            "SELECT * FROM (
+                SELECT timestamp_sec FROM ongoing_journey WHERE timestamp_sec IS NOT NULL ORDER BY id ASC LIMIT 1
+            ) UNION ALL SELECT * FROM (
+                SELECT timestamp_sec FROM ongoing_journey WHERE timestamp_sec IS NOT NULL ORDER BY id DESC LIMIT 1
+            );",
+        )?;
         let mut results = query
-            .query_map((), |row| {
-                // `timestamp_sec` cannot be null
-                let timestamp_sec: i64 = row.get(0)?;
-                Ok(timestamp_sec)
-            })
+            .query_map((), |row| row.get::<_, i64>(0))
             .context("get_ongoing_journey_timestamp_range")?;
 
         match results.next() {

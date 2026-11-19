@@ -32,7 +32,7 @@ class RecordingSession {
   bool get isPaused => _paused;
   bool get needsStop => _stopPending;
 
-  /// Used only when startup restores a previously stopped recording.
+  /// Marks a recording paused before acquisition has started.
   void restorePaused() {
     assert(!_accepting && _pending.isEmpty);
     _paused = true;
