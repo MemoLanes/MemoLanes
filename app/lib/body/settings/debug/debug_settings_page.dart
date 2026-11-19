@@ -1,5 +1,4 @@
 import 'package:easy_localization/easy_localization.dart';
-import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:memolanes/body/settings/settings_section.dart';
 import 'package:memolanes/common/component/capsule_style_app_bar.dart';
@@ -9,14 +8,14 @@ import 'package:memolanes/utils/nav_helper.dart';
 
 import 'render_diagnostics.dart';
 import 'tracelet_motion_debug_page.dart';
+import 'tracelet_motion_diagnostics.dart';
 
 class DebugSettingsPage extends StatelessWidget {
   const DebugSettingsPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final showMotion =
-        kDebugMode && !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+    final showMotion = TraceletMotionDiagnostics.isSupported;
     return Scaffold(
       appBar: CapsuleStyleAppBar(
         title: context.tr('general.advanced_settings.debug.title'),
