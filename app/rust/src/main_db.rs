@@ -73,6 +73,11 @@ fn generate_random_revision() -> String {
 // will also use this to make sure the `cache_db` is in sync.
 impl Txn<'_> {
     pub(crate) fn last_recording_timestamp_ms(&self) -> Result<Option<i64>> {
+        // Databases written before cursor cleanup can still have a saved value.
+        let Some((_, end)) = self.get_ongoing_journey_timestamp_range()? else {
+            return Ok(None);
+        };
+        let ongoing = end.timestamp_millis();
         let saved: Option<String> = self
             .db_txn
             .query_row(
@@ -82,10 +87,7 @@ impl Txn<'_> {
             )
             .optional()?;
         let saved = saved.map(|value| value.parse::<i64>()).transpose()?;
-        let ongoing = self
-            .get_ongoing_journey_timestamp_range()?
-            .map(|(_, end)| end.timestamp_millis());
-        Ok(saved.into_iter().chain(ongoing).max())
+        Ok(Some(saved.unwrap_or(ongoing).max(ongoing)))
     }
 
     pub(crate) fn set_last_recording_timestamp_ms(&mut self, timestamp_ms: i64) -> Result<()> {
@@ -558,6 +560,10 @@ impl Txn<'_> {
             (),
         )?;
 
+        self.db_txn.execute(
+            "DELETE FROM setting WHERE key = 'RECORDING_LAST_TIMESTAMP_MS'",
+            (),
+        )?;
         info!("Ongoing journey finalized: new_journey_added={new_journey_added}");
         Ok(new_journey_added)
     }

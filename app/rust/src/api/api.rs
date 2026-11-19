@@ -427,50 +427,29 @@ pub fn get_map_renderer_proxy_for_journey_data(
     get_map_renderer_proxy_for_journey_data_internal(journey_data)
 }
 
-/// Returns `true` for a kept track point, or `false` for an ignored or rejected fix.
-/// Persistence errors propagate so callers can retry.
-pub fn on_location_update(data: ExtendedRawGPSPoint) -> Result<bool> {
-    Ok(on_location_updates(vec![data])?.meaningful)
-}
-
-pub struct RecordingResult {
-    /// Whether at least one point was kept by the GPS preprocessor.
-    pub meaningful: bool,
-    pub journeys_finalized: u32,
-}
-
-/// Batch boundaries and delivery time do not affect journey boundaries.
-/// Locations must be ordered by provider timestamp; duplicates and late
-/// locations are ignored, including after a recording process restarts.
-pub fn on_location_updates(updates: Vec<ExtendedRawGPSPoint>) -> Result<RecordingResult> {
+/// Records a batch and reports whether a journey was finalized.
+/// Provide locations in capture order within each clock timeline. Keep the
+/// original receipt times when retrying a failed batch.
+pub fn on_location_updates(updates: Vec<ExtendedRawGPSPoint>) -> Result<bool> {
     let state = get();
     let mut gps_preprocessor = state.gps_preprocessor.lock().unwrap();
     let mut next_preprocessor = gps_preprocessor.clone();
-    // All boundaries, points and the replay cursor commit together. Do not
+    // The boundaries, points and last recording timestamp commit together. Do not
     // hold the renderer lock here: the commit callback reloads its bitmap.
     let recorded = state.storage.with_db_txn(|txn| {
-        let retain_raw_data = state.storage.get_raw_data_mode();
-        updates
-            .iter()
-            .map(|update| {
-                recording::record_location(txn, &mut next_preprocessor, update, retain_raw_data)
-            })
-            .collect::<Result<Vec<_>>>()
+        recording::record_locations(
+            txn,
+            &mut next_preprocessor,
+            &updates,
+            state.storage.get_raw_data_mode(),
+        )
     })?;
     *gps_preprocessor = next_preprocessor;
-    let result = RecordingResult {
-        meaningful: recorded
-            .iter()
-            .any(|location| location.process_result != ProcessResult::Ignore),
-        journeys_finalized: recorded
-            .iter()
-            .filter(|location| location.journey_finalized)
-            .count() as u32,
-    };
+    let journey_finalized = recorded.iter().any(|location| location.journey_finalized);
 
     let mut main_map_state = state.main_map_state.lock().unwrap();
     // A finalization callback already reloaded the entire committed batch.
-    if result.journeys_finalized == 0
+    if !journey_finalized
         && !main_map_state.dropped_for_power_saving
         && main_map_state.layer_filter.current_journey
     {
@@ -486,7 +465,7 @@ pub fn on_location_updates(updates: Vec<ExtendedRawGPSPoint>) -> Result<Recordin
             }
         });
     }
-    Ok(result)
+    Ok(journey_finalized)
 }
 
 pub fn list_all_legacy_raw_data() -> Result<Vec<LegacyRawDataFile>> {
@@ -551,7 +530,7 @@ where
 {
     let state = get();
     // TODO: I think we need to hold the gps_preprocessor lock first, otherwise
-    // we might have a deadlock because the locking story in `on_location_update`
+    // we might have a deadlock because the locking story in `on_location_updates`
     // is quite complex. We should fix all the locking mess.
     let mut gps_preprocessor = state.gps_preprocessor.lock().unwrap();
     let finalized = finalize_op(&state.storage)?;

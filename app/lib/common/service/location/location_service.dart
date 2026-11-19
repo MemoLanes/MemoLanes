@@ -7,6 +7,7 @@ class LocationData {
   final double latitude;
   final double longitude;
   final int timestampMs;
+  final int receivedTimestampMs = DateTime.now().millisecondsSinceEpoch;
   final double accuracy;
   final double? altitude;
   final double? speed;

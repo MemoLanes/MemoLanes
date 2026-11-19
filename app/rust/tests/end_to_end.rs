@@ -35,10 +35,10 @@ fn basic() {
 
     assert!(!api::has_ongoing_journey().unwrap());
     for (i, raw_data) in first_elements.iter().enumerate() {
-        api::on_location_update(ExtendedRawGPSPoint {
+        api::on_location_updates(vec![ExtendedRawGPSPoint {
             raw_gps_point: raw_data.clone(),
             received_timestamp_ms: raw_data.timestamp_ms.unwrap(),
-        })
+        }])
         .unwrap();
         if i == 1000 {
             assert!(api::has_ongoing_journey().unwrap());
@@ -67,10 +67,10 @@ fn basic() {
     assert!(!api::finalize_ongoing_journey().unwrap());
 
     for raw_data in remaining_elements {
-        api::on_location_update(ExtendedRawGPSPoint {
+        api::on_location_updates(vec![ExtendedRawGPSPoint {
             raw_gps_point: raw_data.clone(),
             received_timestamp_ms: raw_data.timestamp_ms.unwrap(),
-        })
+        }])
         .unwrap();
     }
 

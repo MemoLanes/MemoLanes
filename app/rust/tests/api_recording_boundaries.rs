@@ -69,23 +69,26 @@ fn delayed_batches_finalize_each_journey_and_keep_the_map_consistent() {
         path.to_string_lossy().into_owned()
     };
     api::init(sub("temp"), sub("doc"), sub("support"), sub("cache")).unwrap();
+    let cache = rusqlite::Connection::open(dir.path().join("cache/cache.db")).unwrap();
+    cache
+        .execute_batch(
+            "CREATE TRIGGER fail_cache_write BEFORE INSERT ON journey_cache__full
+             BEGIN SELECT RAISE(ABORT, 'injected cache write failure'); END;",
+        )
+        .unwrap();
     let mut journeys = vec![
         journey(11, 8, 0.0),
         journey(11, 15, 0.1),
         journey(11, 22, 0.2),
     ];
     let points: Vec<_> = journeys.iter().flatten().cloned().collect();
-    let result = api::on_location_updates(updates(&points)).unwrap();
-    assert!(result.meaningful);
-    assert_eq!(result.journeys_finalized, 2);
+    assert!(api::on_location_updates(updates(&points)).unwrap());
     assert_eq!(api::list_all_journeys().unwrap().len(), 2);
     assert!(api::has_ongoing_journey().unwrap());
     assert_map(bitmap(&journeys));
-
-    let replay = api::on_location_updates(updates(&points)).unwrap();
-    assert!(!replay.meaningful);
-    assert_eq!(replay.journeys_finalized, 0);
-    assert_map(bitmap(&journeys));
+    cache
+        .execute_batch("DROP TRIGGER fail_cache_write")
+        .unwrap();
 
     api::set_main_map_layer_filter(&LayerFilter {
         current_journey: false,
@@ -103,8 +106,7 @@ fn delayed_batches_finalize_each_journey_and_keep_the_map_consistent() {
 
     api::free_resource_for_long_time_background();
     journeys.push(journey(12, 5, 0.3));
-    let result = api::on_location_updates(updates(journeys.last().unwrap())).unwrap();
-    assert_eq!(result.journeys_finalized, 1);
+    assert!(api::on_location_updates(updates(journeys.last().unwrap())).unwrap());
     assert_map(JourneyBitmap::new());
     api::reload_resource_for_foreground().unwrap();
     assert_map(bitmap(&journeys));

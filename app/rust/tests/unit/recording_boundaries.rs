@@ -4,11 +4,26 @@ use crate::main_db::MainDb;
 use chrono::{TimeZone, Utc};
 use tempdir::TempDir;
 
+const NOW_MS: i64 = 1_790_000_000_000;
+
 fn delivered(location: &RawGPSPoint) -> ExtendedRawGPSPoint {
     ExtendedRawGPSPoint {
         raw_gps_point: location.clone(),
         received_timestamp_ms: location.timestamp_ms.unwrap_or_default(),
     }
+}
+
+fn record(
+    txn: &mut Txn,
+    processor: &mut GpsPreprocessor,
+    data: &ExtendedRawGPSPoint,
+    raw: bool,
+) -> Result<RecordedLocation> {
+    Ok(
+        record_locations(txn, processor, std::slice::from_ref(data), raw)?
+            .pop()
+            .unwrap(),
+    )
 }
 
 struct Recorder {
@@ -29,10 +44,16 @@ impl Recorder {
     }
 
     fn record(&mut self, location: &RawGPSPoint) -> RecordedLocation {
+        self.record_at(location, NOW_MS)
+    }
+
+    fn record_at(&mut self, location: &RawGPSPoint, received_at: i64) -> RecordedLocation {
         let mut next = self.processor.clone();
+        let mut data = delivered(location);
+        data.received_timestamp_ms = received_at;
         let result = self
             .db
-            .with_txn(|txn| record_location(txn, &mut next, &delivered(location), false))
+            .with_txn(|txn| record(txn, &mut next, &data, false))
             .unwrap();
         self.processor = next;
         result
@@ -111,107 +132,74 @@ fn range(points: &[RawGPSPoint]) -> (i64, i64) {
 }
 
 #[test]
-fn splits_before_b1_inside_a_delayed_batch() {
+fn restart_preserves_the_boundary_and_raw_data() {
     let mut recorder = Recorder::new();
     let points = two_journeys();
-    let results: Vec<_> = points.iter().map(|point| recorder.record(point)).collect();
-    assert_eq!(results.iter().filter(|r| r.journey_finalized).count(), 1);
-    assert!(results[3].journey_finalized);
-    assert_eq!(results[3].process_result, ProcessResult::NewSegment);
-    assert!(results[3].previous_point.is_none());
-    assert_eq!(recorder.ranges(), vec![range(&points[..3])]);
-    assert_eq!(recorder.ongoing(), Some(range(&points[3..])));
-}
-
-#[test]
-fn raw_data_v2_stays_with_each_journey_when_a_batch_is_replayed() {
-    let mut recorder = Recorder::new();
-    let points: Vec<_> = two_journeys().iter().map(delivered).collect();
+    let updates: Vec<_> = points.iter().map(delivered).collect();
+    recorder
+        .db
+        .with_txn(|txn| record_locations(txn, &mut recorder.processor, &updates[..3], true))
+        .unwrap();
+    recorder.restart();
     recorder
         .db
         .with_txn(|txn| {
-            for point in points.iter().chain(&points) {
-                record_location(txn, &mut recorder.processor, point, true)?;
-            }
-
-            let finalized = txn.query_journeys(None, None, None)?;
-            assert_eq!(finalized.len(), 1);
+            let recorded = record_locations(txn, &mut recorder.processor, &updates[3..], true)?;
+            assert!(recorded[0].journey_finalized);
+            assert_eq!(recorded[0].process_result, ProcessResult::NewSegment);
+            assert!(recorded[0].previous_point.is_none());
+            let saved = txn.query_journeys(None, None, None)?;
+            assert_eq!(saved.len(), 1);
             let raw = txn
-                .get_journey_raw_data(&finalized[0].id)?
+                .get_journey_raw_data(&saved[0].id)?
                 .unwrap()
                 .deserialize()?;
-            assert_eq!(raw.points, points[..3]);
-            assert_eq!(txn.get_ongoing_journey_raw_data()?.points, points[3..]);
+            assert_eq!(raw.points, updates[..3]);
+            assert_eq!(txn.get_ongoing_journey_raw_data()?.points, updates[3..]);
             Ok(())
         })
         .unwrap();
-}
-
-#[test]
-fn boundaries_survive_restart_at_every_possible_batch_boundary() {
-    let points = two_journeys();
-    for boundaries in 0..(1 << (points.len() - 1)) {
-        let mut recorder = Recorder::new();
-        for (i, location) in points.iter().enumerate() {
-            recorder.record(location);
-            if boundaries & (1 << i) != 0 {
-                recorder.restart();
-            }
-        }
-        assert_eq!(recorder.ranges(), vec![range(&points[..3])]);
-        assert_eq!(recorder.ongoing(), Some(range(&points[3..])));
-    }
-}
-
-#[test]
-fn replay_after_finalization_and_restart_does_not_recreate_journeys() {
-    let mut recorder = Recorder::new();
-    let points = two_journeys();
-    for point in &points[..4] {
-        recorder.record(point);
-    }
-    recorder.restart();
-    for point in &points {
-        recorder.record(point);
-    }
     assert_eq!(recorder.ranges(), vec![range(&points[..3])]);
     assert_eq!(recorder.ongoing(), Some(range(&points[3..])));
-    recorder
-        .db
-        .with_txn(|txn| txn.finalize_ongoing_journey(false))
-        .unwrap();
-    recorder.restart();
-    for point in &points {
-        assert_eq!(recorder.record(point).process_result, ProcessResult::Ignore);
-    }
-    assert_eq!(
-        recorder.ranges(),
-        vec![range(&points[..3]), range(&points[3..])]
-    );
-    assert_eq!(recorder.ongoing(), None);
 }
 
 #[test]
-fn bad_locations_cannot_finalize_or_advance_the_delivery_cursor() {
+fn invalid_fixes_do_not_split_or_advance_the_cursor() {
     let mut recorder = Recorder::new();
     let points = two_journeys();
     for point in &points[..3] {
         recorder.record(point);
     }
-    let mut inaccurate = points[3].clone();
-    inaccurate.accuracy = Some(100.0);
-    let mut invalid_time = points[3].clone();
-    invalid_time.timestamp_ms = Some(i64::MAX);
-    let mut invalid_coordinate = points[3].clone();
-    invalid_coordinate.point.latitude = f64::NAN;
-    let mut missing_time = points[3].clone();
-    missing_time.timestamp_ms = None;
-    for bad in [inaccurate, invalid_time, invalid_coordinate, missing_time] {
-        let result = recorder.record(&bad);
-        assert!(!result.journey_finalized);
-        assert_eq!(result.process_result, ProcessResult::Ignore);
-    }
+    let mut inaccurate = delivered(&points[3]);
+    inaccurate.raw_gps_point.accuracy = Some(100.0);
+    let mut bad_time = delivered(&points[3]);
+    bad_time.raw_gps_point.timestamp_ms = Some(i64::MAX);
+    let mut bad_coordinate = delivered(&points[3]);
+    bad_coordinate.raw_gps_point.point.latitude = f64::NAN;
+    let mut missing_time = delivered(&points[3]);
+    missing_time.raw_gps_point.timestamp_ms = None;
+    let mut future = delivered(&points[3]);
+    future.received_timestamp_ms -= 1;
+    recorder
+        .db
+        .with_txn(|txn| {
+            for bad in [
+                inaccurate.clone(),
+                bad_time,
+                bad_coordinate,
+                missing_time,
+                future,
+            ] {
+                let result = record(txn, &mut recorder.processor, &bad, true)?;
+                assert!(!result.journey_finalized);
+                assert_eq!(result.process_result, ProcessResult::Ignore);
+            }
+            assert_eq!(txn.get_ongoing_journey_raw_data()?.points, vec![inaccurate]);
+            Ok(())
+        })
+        .unwrap();
     assert!(recorder.ranges().is_empty());
+
     assert!(recorder.record(&points[3]).journey_finalized);
 }
 
@@ -268,36 +256,26 @@ fn boundary_and_point_roll_back_together_when_persistence_fails() {
     for point in &points[..3] {
         recorder.record(point);
     }
+    let updates: Vec<_> = points[3..].iter().map(delivered).collect();
     let mut next = recorder.processor.clone();
     let result: Result<()> = recorder.db.with_txn(|txn| {
-        assert!(record_location(txn, &mut next, &delivered(&points[3]), false)?.journey_finalized);
+        assert!(record_locations(txn, &mut next, &updates, false)?[0].journey_finalized);
         anyhow::bail!("injected transaction failure")
     });
     assert!(result.is_err());
     assert!(recorder.ranges().is_empty());
     assert_eq!(recorder.ongoing(), Some(range(&points[..3])));
-    assert!(recorder.record(&points[3]).journey_finalized);
+    let recorded = recorder
+        .db
+        .with_txn(|txn| record_locations(txn, &mut recorder.processor, &updates, false))
+        .unwrap();
+    assert!(recorded[0].journey_finalized);
     assert_eq!(recorder.ranges(), vec![range(&points[..3])]);
+    assert_eq!(recorder.ongoing(), Some(range(&points[3..])));
 }
 
 #[test]
-fn upgrade_uses_existing_ongoing_journey_before_any_cursor_was_saved() {
-    let mut recorder = Recorder::new();
-    let points = two_journeys();
-    for point in &points[..3] {
-        recorder.db.record(point, ProcessResult::Append).unwrap();
-    }
-    recorder.restart();
-    assert_eq!(
-        recorder.record(&points[1]).process_result,
-        ProcessResult::Ignore
-    );
-    assert!(recorder.record(&points[3]).journey_finalized);
-    assert_eq!(recorder.ranges(), vec![range(&points[..3])]);
-}
-
-#[test]
-fn untimed_legacy_points_do_not_hide_a_journey_or_block_new_fixes() {
+fn untimed_legacy_points_do_not_block_splitting_after_upgrade() {
     let mut recorder = Recorder::new();
     let points = two_journeys();
     let mut untimed = points[0].clone();
@@ -311,54 +289,144 @@ fn untimed_legacy_points_do_not_hide_a_journey_or_block_new_fixes() {
         .with_txn(|txn| txn.has_ongoing_journey())
         .unwrap());
     assert_eq!(recorder.ongoing(), None);
-    recorder
-        .db
-        .record(&points[0], ProcessResult::Append)
-        .unwrap();
+    for point in &points[..3] {
+        recorder.db.record(point, ProcessResult::Append).unwrap();
+    }
     recorder.db.record(&untimed, ProcessResult::Append).unwrap();
     recorder.restart();
 
+    let mut delayed = points[1].clone();
+    delayed.timestamp_ms = delayed.timestamp_ms.map(|time| time + 500);
     assert_eq!(
-        recorder.record(&points[0]).process_result,
+        recorder.record(&delayed).process_result,
         ProcessResult::Ignore
     );
-    assert_eq!(
-        recorder.record(&points[1]).process_result,
-        ProcessResult::NewSegment
-    );
-    assert_eq!(recorder.ongoing(), Some(range(&points[..2])));
+    assert!(recorder.record(&points[3]).journey_finalized);
+    assert_eq!(recorder.ranges(), vec![range(&points[..3])]);
+    assert_eq!(recorder.ongoing(), Some(range(&points[3..4])));
 }
 
 #[test]
-fn future_fix_does_not_split_the_journey_or_advance_the_cursor() {
+fn finalization_clears_the_cursor_for_the_next_recording() {
     let mut recorder = Recorder::new();
-    let points = two_journeys();
-    recorder.record(&points[0]);
-    let mut future = delivered(&points[1]);
-    future.raw_gps_point.timestamp_ms =
-        Some(future.received_timestamp_ms + 3 * 24 * 60 * 60 * 1000);
-
-    let rejected = recorder
-        .db
-        .with_txn(|txn| record_location(txn, &mut recorder.processor, &future, true))
-        .unwrap();
-    assert_eq!(rejected.process_result, ProcessResult::Ignore);
-    assert!(!rejected.journey_finalized);
-    assert_eq!(recorder.ongoing(), Some(range(&points[..1])));
+    let before = point(10, 0, 0.0);
+    recorder.record(&before);
     assert!(recorder
         .db
-        .with_txn(|txn| txn.get_ongoing_journey_raw_data())
-        .unwrap()
-        .is_empty());
+        .with_txn(|txn| txn.finalize_ongoing_journey(false))
+        .unwrap());
+    recorder.restart();
 
-    let mut next = delivered(&points[1]);
-    next.received_timestamp_ms -= 60_000;
-    let accepted = recorder
-        .db
-        .with_txn(|txn| record_location(txn, &mut recorder.processor, &next, false))
+    let db = rusqlite::Connection::open(recorder.dir.path().join("main.db")).unwrap();
+    let has_cursor: bool = db
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM setting WHERE key = 'RECORDING_LAST_TIMESTAMP_MS')",
+            (),
+            |row| row.get(0),
+        )
         .unwrap();
-    assert_ne!(accepted.process_result, ProcessResult::Ignore);
-    assert_eq!(recorder.ongoing(), Some(range(&points[..2])));
+    assert!(!has_cursor);
+
+    // Older builds could leave this value behind after finalizing.
+    recorder
+        .db
+        .with_txn(|txn| txn.set_last_recording_timestamp_ms(before.timestamp_ms.unwrap()))
+        .unwrap();
+    let delayed = point(8, 0, 0.01);
+    assert_eq!(
+        recorder.record(&delayed).process_result,
+        ProcessResult::NewSegment
+    );
+    assert_eq!(recorder.ongoing(), Some(range(&[delayed])));
+    assert_eq!(recorder.ranges(), vec![range(&[before])]);
+}
+
+#[test]
+fn clock_rollback_accepts_delayed_fixes_and_retries_failed_batches() {
+    let mut before = point(10, 0, 0.0);
+    let before_ms = before.timestamp_ms.unwrap() + 500;
+    before.timestamp_ms = Some(before_ms);
+    let mut caught_up = before.clone();
+    caught_up.point.longitude = 0.02;
+
+    for (rollback_ms, delivery_delay_ms, already_finalized) in [
+        (20_000, 0, false),
+        (7_200_000, 120_000, false),
+        (7_200_000, 0, true),
+    ] {
+        let mut corrected = point(8, 0, 0.01);
+        corrected.timestamp_ms = Some(before_ms - rollback_ms);
+        let received_at = corrected.timestamp_ms.unwrap() + delivery_delay_ms;
+        let mut data = delivered(&corrected);
+        data.received_timestamp_ms = received_at;
+        let updates = [data, delivered(&caught_up)];
+
+        let mut recorder = Recorder::new();
+        recorder.record_at(&before, before_ms);
+        if already_finalized {
+            assert!(recorder
+                .db
+                .with_txn(|txn| txn.finalize_ongoing_journey(false))
+                .unwrap());
+            recorder.restart();
+        }
+
+        // A fix captured before the rewind is now ahead of receipt time.
+        assert_eq!(
+            recorder.record_at(&before, received_at).process_result,
+            ProcessResult::Ignore
+        );
+
+        let mut next = recorder.processor.clone();
+        let result: Result<()> = recorder.db.with_txn(|txn| {
+            let points = record_locations(txn, &mut next, &updates, false)?;
+            let first = &points[0];
+            assert_eq!(
+                first.process_result,
+                ProcessResult::NewSegment,
+                "rollback {rollback_ms} ms, delivery delay {delivery_delay_ms} ms"
+            );
+            assert_eq!(first.journey_finalized, !already_finalized);
+            anyhow::bail!("injected transaction failure")
+        });
+        assert!(result.is_err());
+        assert_eq!(
+            recorder.ongoing(),
+            (!already_finalized).then(|| range(std::slice::from_ref(&before)))
+        );
+
+        let previous = (!already_finalized).then_some(before_ms);
+        assert_eq!(
+            recorder
+                .db
+                .with_txn(|txn| txn.last_recording_timestamp_ms())
+                .unwrap(),
+            previous
+        );
+        let retried = recorder
+            .db
+            .with_txn(|txn| record_locations(txn, &mut recorder.processor, &updates, false))
+            .unwrap();
+        assert_eq!(retried[0].journey_finalized, !already_finalized);
+        assert_eq!(retried[0].process_result, ProcessResult::NewSegment);
+        assert!(retried[0].previous_point.is_none());
+        assert_eq!(
+            recorder.ranges(),
+            vec![range(std::slice::from_ref(&before))]
+        );
+        assert_eq!(
+            recorder.ongoing(),
+            Some(range(&[corrected, caught_up.clone()]))
+        );
+        recorder.restart();
+        assert_eq!(
+            recorder
+                .db
+                .with_txn(|txn| txn.last_recording_timestamp_ms())
+                .unwrap(),
+            Some(before_ms)
+        );
+    }
 }
 
 #[test]

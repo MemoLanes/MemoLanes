@@ -79,7 +79,11 @@ impl CacheDb for CacheDbV1 {
                     }
                 };
 
-                full_table::set(&self.conn, layer_kind, &mut result)?;
+                if let Err(error) = full_table::set(&self.conn, layer_kind, &mut result) {
+                    warn!(
+                        "Failed to write full journey bitmap cache for {layer_kind:?}: {error:?}"
+                    );
+                }
                 Ok(result)
             }
         }
