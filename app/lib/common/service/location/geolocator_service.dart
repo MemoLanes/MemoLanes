@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:async/async.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
@@ -46,14 +45,14 @@ class _PokeGeolocatorTask {
 class GeoLocatorService implements ILocationService {
   StreamSubscription<Position>? _positionStreamSub;
   _PokeGeolocatorTask? _pokeTask;
-  Timer? _tooOldTimer;
-  RestartableTimer? _bufferFlushTimer;
+  Timer? _bufferFlushTimer;
+  int _bufferDelayMs = 100;
+  int? _lastReceivedTimestampMs;
 
   final _locationUpdateController = StreamController<LocationData>.broadcast();
 
-  LocationData? _latestLocation;
-  final List<LocationData> _buffer = [];
-  DateTime? _firstBufferReceiveTime;
+  final _bufferClock = Stopwatch()..start();
+  final _buffer = <(LocationData, int)>[];
 
   @override
   LocationBackend get locationBackend => LocationBackend.native;
@@ -61,6 +60,8 @@ class GeoLocatorService implements ILocationService {
   @override
   Future<void> startLocationUpdates(bool enableBackground) async {
     final settings = _buildLocationSettings(enableBackground);
+    // shortcut: reorder within one second of receipt, extend only if the providers need a longer window.
+    _bufferDelayMs = enableBackground ? 1000 : 100;
 
     _positionStreamSub =
         Geolocator.getPositionStream(locationSettings: settings).listen(
@@ -71,14 +72,6 @@ class GeoLocatorService implements ILocationService {
         );
 
     _pokeTask = _PokeGeolocatorTask.start(settings);
-
-    _tooOldTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      final now = DateTime.now().millisecondsSinceEpoch;
-      final ts = _latestLocation?.timestampMs;
-      if (ts != null && now - ts > 5000) {
-        _latestLocation = null;
-      }
-    });
   }
 
   @override
@@ -89,19 +82,12 @@ class GeoLocatorService implements ILocationService {
     _pokeTask?.cancel();
     _pokeTask = null;
 
-    _tooOldTimer?.cancel();
-    _tooOldTimer = null;
-
-    _bufferFlushTimer?.cancel();
-    _bufferFlushTimer = null;
-
-    _buffer.clear();
-    _firstBufferReceiveTime = null;
+    _flushBuffer(drain: true);
+    // Let listeners enqueue the final buffered positions before stop returns.
+    await Future<void>.delayed(Duration.zero);
   }
 
   void _onPositionReceived(Position pos) {
-    final now = DateTime.now();
-
     final data = LocationData(
       latitude: pos.latitude,
       longitude: pos.longitude,
@@ -111,32 +97,39 @@ class GeoLocatorService implements ILocationService {
       speed: pos.speed,
     );
 
-    _latestLocation = data;
-    _buffer.add(data);
-    _firstBufferReceiveTime ??= now;
-
-    if (_bufferFlushTimer == null) {
-      _bufferFlushTimer = RestartableTimer(
-        const Duration(milliseconds: 100),
-        _flushBuffer,
-      );
-    } else {
-      _bufferFlushTimer?.reset();
+    // Preserve receipt order across a clock change.
+    final lastReceived = _lastReceivedTimestampMs;
+    if (lastReceived != null && data.receivedTimestampMs < lastReceived) {
+      _flushBuffer(drain: true);
     }
+    _lastReceivedTimestampMs = data.receivedTimestampMs;
+    _buffer.add((data, _bufferClock.elapsedMilliseconds));
+    _bufferFlushTimer ??= Timer(
+      Duration(milliseconds: _bufferDelayMs),
+      _flushBuffer,
+    );
   }
 
-  void _flushBuffer() {
-    if (_buffer.isEmpty) return;
+  void _flushBuffer({bool drain = false}) {
+    _bufferFlushTimer?.cancel();
+    _bufferFlushTimer = null;
+    _buffer.sort((a, b) => a.$1.timestampMs.compareTo(b.$1.timestampMs));
 
-    final sorted = List<LocationData>.from(_buffer)
-      ..sort((a, b) => a.timestampMs.compareTo(b.timestampMs));
-
-    for (final loc in sorted) {
-      _locationUpdateController.add(loc);
+    final readyBy = _bufferClock.elapsedMilliseconds - _bufferDelayMs;
+    var sent = 0;
+    for (final (fix, receivedAt) in _buffer) {
+      if (!drain && receivedAt > readyBy) {
+        // Keep later timestamps queued until this older fix can be sent.
+        _bufferFlushTimer = Timer(
+          Duration(milliseconds: receivedAt - readyBy),
+          _flushBuffer,
+        );
+        break;
+      }
+      _locationUpdateController.add(fix);
+      sent++;
     }
-
-    _buffer.clear();
-    _firstBufferReceiveTime = null;
+    _buffer.removeRange(0, sent);
   }
 
   @override

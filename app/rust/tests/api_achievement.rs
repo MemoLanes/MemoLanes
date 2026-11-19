@@ -42,10 +42,11 @@ fn import_gpx_as_journey(path: &str) {
     assert!(!points.is_empty(), "no timestamped points in {path}");
     for p in points {
         let received_timestamp_ms = p.timestamp_ms.unwrap();
-        api::on_location_update(ExtendedRawGPSPoint {
+        api::on_location_updates(vec![ExtendedRawGPSPoint {
             raw_gps_point: p,
             received_timestamp_ms,
-        });
+        }])
+        .unwrap();
     }
     assert!(api::finalize_ongoing_journey().unwrap(), "finalize {path}");
 }

@@ -12,7 +12,7 @@ use uuid::Uuid;
 pub use crate::cache_db::CacheEntry;
 use crate::gps_processor::{self, GpsPostprocessor, PreprocessedData, ProcessResult};
 use crate::journey_data::JourneyData;
-use crate::journey_date_picker::JourneyDatePicker;
+use crate::journey_date_picker::{BoundaryTracker, JourneyDatePicker};
 use crate::journey_header::{JourneyHeader, JourneyKind, JourneyType};
 use crate::journey_vector::{JourneyVector, TrackPoint};
 use crate::{gps, protos, raw_data, utils};
@@ -72,6 +72,59 @@ fn generate_random_revision() -> String {
 // NOTE: the `Txn` here is not only for making operation atomic, the `storage`
 // will also use this to make sure the `cache_db` is in sync.
 impl Txn<'_> {
+    pub(crate) fn last_recording_timestamp_ms(&self) -> Result<Option<i64>> {
+        // Databases written before cursor cleanup can still have a saved value.
+        let Some((_, end)) = self.get_ongoing_journey_timestamp_range()? else {
+            return Ok(None);
+        };
+        let ongoing = end.timestamp_millis();
+        let saved: Option<String> = self
+            .db_txn
+            .query_row(
+                "SELECT value FROM setting WHERE key = 'RECORDING_LAST_TIMESTAMP_MS'",
+                (),
+                |row| row.get(0),
+            )
+            .optional()?;
+        let saved = saved.map(|value| value.parse::<i64>()).transpose()?;
+        Ok(Some(saved.unwrap_or(ongoing).max(ongoing)))
+    }
+
+    pub(crate) fn set_last_recording_timestamp_ms(&mut self, timestamp_ms: i64) -> Result<()> {
+        self.db_txn.execute(
+            "INSERT OR REPLACE INTO setting (key, value) VALUES ('RECORDING_LAST_TIMESTAMP_MS', ?1)",
+            (timestamp_ms.to_string(),),
+        )?;
+        Ok(())
+    }
+
+    pub(crate) fn record(
+        &mut self,
+        raw_gps_point: &gps::RawGPSPoint,
+        process_result: ProcessResult,
+        raw_data: Option<&gps::ExtendedRawGPSPoint>,
+    ) -> Result<()> {
+        if process_result != ProcessResult::Ignore {
+            let process_result = process_result.to_int();
+            assert!(process_result >= 0);
+            self.db_txn.prepare_cached(
+                "INSERT INTO ongoing_journey (timestamp_sec, lat, lng, process_result) VALUES (?1, ?2, ?3, ?4);",
+            )?.execute((
+                raw_gps_point.timestamp_ms.map(|x| x / 1000),
+                raw_gps_point.point.latitude,
+                raw_gps_point.point.longitude,
+                process_result,
+            ))?;
+        }
+        if let Some(raw_data) = raw_data {
+            let bytes = raw_data.serialize()?;
+            self.db_txn
+                .prepare_cached("INSERT INTO ongoing_journey_raw_data (data) VALUES (?1);")?
+                .execute([bytes])?;
+        }
+        Ok(())
+    }
+
     fn set_invalidate_action(&mut self, new_entries: Vec<CacheEntry>) -> Result<()> {
         self.action = Some(match self.action.take() {
             Some(Action::CompleteRebuilt) => Action::CompleteRebuilt,
@@ -136,20 +189,27 @@ impl Txn<'_> {
         ))
     }
 
-    // the fist timestamp is the start time, the second is the end time
+    pub(crate) fn has_ongoing_journey(&self) -> Result<bool> {
+        Ok(self.db_txn.query_row(
+            "SELECT EXISTS (SELECT 1 FROM ongoing_journey);",
+            (),
+            |row| row.get(0),
+        )?)
+    }
+
+    /// Returns the first and last timed points, skipping untimed legacy rows.
     pub fn get_ongoing_journey_timestamp_range(
         &self,
     ) -> Result<Option<(DateTime<Utc>, DateTime<Utc>)>> {
-        // `id` in `ongoing_journey` is auto incremented and I assume it has index, so I didn't just linear scan timestamp.
-        let mut query = self
-            .db_txn
-            .prepare("SELECT * FROM (SELECT timestamp_sec FROM ongoing_journey ORDER BY id ASC LIMIT 1) UNION ALL SELECT * FROM (SELECT timestamp_sec FROM ongoing_journey ORDER BY id DESC LIMIT 1);")?;
+        let mut query = self.db_txn.prepare_cached(
+            "SELECT * FROM (
+                SELECT timestamp_sec FROM ongoing_journey WHERE timestamp_sec IS NOT NULL ORDER BY id ASC LIMIT 1
+            ) UNION ALL SELECT * FROM (
+                SELECT timestamp_sec FROM ongoing_journey WHERE timestamp_sec IS NOT NULL ORDER BY id DESC LIMIT 1
+            );",
+        )?;
         let mut results = query
-            .query_map((), |row| {
-                // `timestamp_sec` cannot be null
-                let timestamp_sec: i64 = row.get(0)?;
-                Ok(timestamp_sec)
-            })
+            .query_map((), |row| row.get::<_, i64>(0))
             .context("get_ongoing_journey_timestamp_range")?;
 
         match results.next() {
@@ -500,6 +560,10 @@ impl Txn<'_> {
             (),
         )?;
 
+        self.db_txn.execute(
+            "DELETE FROM setting WHERE key = 'RECORDING_LAST_TIMESTAMP_MS'",
+            (),
+        )?;
         info!("Ongoing journey finalized: new_journey_added={new_journey_added}");
         Ok(new_journey_added)
     }
@@ -759,30 +823,20 @@ impl Txn<'_> {
     // TODO: consider moving this to `storage.rs`
     #[auto_context]
     pub fn try_auto_finalize_journey(&mut self, retain_raw_data: bool) -> Result<bool> {
-        match self.get_ongoing_journey_timestamp_range()? {
-            None => Ok(false),
-            Some((start, end)) => {
-                // NOTE: this logic is not called very frequently
+        self.try_auto_finalize_journey_at(Local::now(), retain_raw_data)
+    }
 
-                let now = Local::now();
-                let recording_length_hours = (now.timestamp() - start.timestamp()) / 60 / 60;
-                let required_gap_mins =
-                    crate::journey_date_picker::min_gap(start, now, recording_length_hours);
-
-                let gap_mins = (now.timestamp() - end.timestamp()).max(0) / 60;
-
-                let try_finalize = gap_mins >= required_gap_mins;
-
-                info!(
-                    "Auto finalize ongoing journey: recording_length_hours={recording_length_hours}, gap_mins={gap_mins}, required_gap_mins={required_gap_mins}, try_finalize={try_finalize}"
-                );
-                if try_finalize {
-                    self.finalize_ongoing_journey(retain_raw_data)
-                } else {
-                    Ok(false)
-                }
+    pub(crate) fn try_auto_finalize_journey_at(
+        &mut self,
+        time: DateTime<Local>,
+        retain_raw_data: bool,
+    ) -> Result<bool> {
+        if let Some((start, end)) = self.get_ongoing_journey_timestamp_range()? {
+            if BoundaryTracker::from_range(start, end).should_end_at(time) {
+                return self.finalize_ongoing_journey(retain_raw_data);
             }
         }
+        Ok(false)
     }
 
     pub fn earliest_journey_date(&self) -> Result<Option<NaiveDate>> {
@@ -1098,7 +1152,7 @@ impl MainDb {
         raw_gps_point: &gps::RawGPSPoint,
         process_result: ProcessResult,
     ) -> Result<()> {
-        self.record_impl(raw_gps_point, process_result, None)
+        self.with_txn(|txn| txn.record(raw_gps_point, process_result, None))
     }
 
     /// Records the processed point and, when supplied, the raw protobuf row in
@@ -1111,39 +1165,13 @@ impl MainDb {
         process_result: ProcessResult,
         record_raw_data: bool,
     ) -> Result<()> {
-        let raw_data = record_raw_data.then_some(data);
-        self.record_impl(&data.raw_gps_point, process_result, raw_data)
-    }
-
-    fn record_impl(
-        &mut self,
-        raw_gps_point: &gps::RawGPSPoint,
-        process_result: ProcessResult,
-        raw_data: Option<&gps::ExtendedRawGPSPoint>,
-    ) -> Result<()> {
-        if process_result == ProcessResult::Ignore && raw_data.is_none() {
-            return Ok(());
-        }
-
-        let tx = self.conn.transaction()?;
-        if process_result != ProcessResult::Ignore {
-            let process_result = process_result.to_int();
-            assert!(process_result >= 0);
-            let sql = "INSERT INTO ongoing_journey (timestamp_sec, lat, lng, process_result) VALUES (?1, ?2, ?3, ?4);";
-            tx.prepare_cached(sql)?.execute((
-                raw_gps_point.timestamp_ms.map(|x| x / 1000),
-                raw_gps_point.point.latitude,
-                raw_gps_point.point.longitude,
+        self.with_txn(|txn| {
+            txn.record(
+                &data.raw_gps_point,
                 process_result,
-            ))?;
-        }
-        if let Some(raw_data) = raw_data {
-            let bytes = raw_data.serialize()?;
-            tx.prepare_cached("INSERT INTO ongoing_journey_raw_data (data) VALUES (?1);")?
-                .execute([bytes])?;
-        }
-        tx.commit()?;
-        Ok(())
+                record_raw_data.then_some(data),
+            )
+        })
     }
 
     #[auto_context]

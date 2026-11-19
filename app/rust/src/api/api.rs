@@ -20,7 +20,7 @@ use crate::logs;
 use crate::renderer::internal_server::{dispatch_request, WebviewResponse};
 use crate::renderer::MapRenderer;
 use crate::storage::Storage;
-use crate::{archive, build_info, export_data};
+use crate::{archive, build_info, export_data, recording};
 
 use crate::utils::{db::DbError, get_bounds_from_journey_bitmap, MapBounds};
 
@@ -427,49 +427,45 @@ pub fn get_map_renderer_proxy_for_journey_data(
     get_map_renderer_proxy_for_journey_data_internal(journey_data)
 }
 
-// Return `true` if this update contains meaningful data.
-// Meaningful data means it is not ignored by the gps preprocessor.
-pub fn on_location_update(data: ExtendedRawGPSPoint) -> bool {
+/// Records a batch and reports whether a journey was finalized.
+/// Provide locations in capture order within each clock timeline. Keep the
+/// original receipt times when retrying a failed batch.
+pub fn on_location_updates(updates: Vec<ExtendedRawGPSPoint>) -> Result<bool> {
     let state = get();
-    // NOTE: On Android, we might received a batch of location updates that are out of order.
-    // Not very sure why yet.
-
-    // we need handle a batch in one go so we hold the lock for the whole time
     let mut gps_preprocessor = state.gps_preprocessor.lock().unwrap();
+    let mut next_preprocessor = gps_preprocessor.clone();
+    // The boundaries, points and last recording timestamp commit together. Do not
+    // hold the renderer lock here: the commit callback reloads its bitmap.
+    let recorded = state.storage.with_db_txn(|txn| {
+        recording::record_locations(
+            txn,
+            &mut next_preprocessor,
+            &updates,
+            state.storage.get_raw_data_mode(),
+        )
+    })?;
+    *gps_preprocessor = next_preprocessor;
+    let journey_finalized = recorded.iter().any(|location| location.journey_finalized);
+
     let mut main_map_state = state.main_map_state.lock().unwrap();
-
-    let raw_gps_point = &data.raw_gps_point;
-    let last_point = gps_preprocessor.last_kept_point();
-    let process_result = gps_preprocessor.preprocess(raw_gps_point);
-    if !main_map_state.dropped_for_power_saving && main_map_state.layer_filter.current_journey {
-        let line_to_add = match process_result {
-            ProcessResult::Ignore => None,
-            ProcessResult::NewSegment => Some((&raw_gps_point.point, &raw_gps_point.point)),
-            ProcessResult::Append => {
-                let start = last_point.as_ref().unwrap_or(&raw_gps_point.point);
-                Some((start, &raw_gps_point.point))
+    // A finalization callback already reloaded the entire committed batch.
+    if !journey_finalized
+        && !main_map_state.dropped_for_power_saving
+        && main_map_state.layer_filter.current_journey
+    {
+        main_map_state.map_renderer.update(|editor| {
+            for (update, recorded) in updates.iter().zip(&recorded) {
+                let end = &update.raw_gps_point.point;
+                let start = match recorded.process_result {
+                    ProcessResult::Ignore => continue,
+                    ProcessResult::NewSegment => end,
+                    ProcessResult::Append => recorded.previous_point.as_ref().unwrap_or(end),
+                };
+                editor.add_line(start.longitude, start.latitude, end.longitude, end.latitude);
             }
-        };
-        match line_to_add {
-            None => (),
-            Some((start, end)) => {
-                main_map_state.map_renderer.update(|editor| {
-                    editor.add_line(start.longitude, start.latitude, end.longitude, end.latitude);
-                });
-            }
-        };
-    };
-
-    // Tile-range generation uses the same mutex. Release it before the storage
-    // write so persistence does not extend renderer lock hold time.
-    drop(main_map_state);
-
-    state.storage.record_gps_data(&data, process_result);
-
-    match process_result {
-        ProcessResult::Ignore => false,
-        ProcessResult::Append | ProcessResult::NewSegment => true,
+        });
     }
+    Ok(journey_finalized)
 }
 
 pub fn list_all_legacy_raw_data() -> Result<Vec<LegacyRawDataFile>> {
@@ -534,7 +530,7 @@ where
 {
     let state = get();
     // TODO: I think we need to hold the gps_preprocessor lock first, otherwise
-    // we might have a deadlock because the locking story in `on_location_update`
+    // we might have a deadlock because the locking story in `on_location_updates`
     // is quite complex. We should fix all the locking mess.
     let mut gps_preprocessor = state.gps_preprocessor.lock().unwrap();
     let finalized = finalize_op(&state.storage)?;
@@ -549,15 +545,15 @@ pub fn finalize_ongoing_journey() -> Result<bool> {
     reset_gps_preprocessor_if_finalized(Storage::finalize_ongoing_journey)
 }
 
-pub fn try_auto_finalize_journey() -> Result<bool> {
+/// Wall-clock finalization is only safe after recording acquisition has stopped
+/// and all accepted locations have been persisted. Active recording uses the
+/// timestamp of each location inside `on_location_updates` instead.
+pub fn try_finalize_paused_journey() -> Result<bool> {
     reset_gps_preprocessor_if_finalized(Storage::try_auto_finalize_journey)
 }
 
 pub fn has_ongoing_journey() -> Result<bool> {
-    Ok(get()
-        .storage
-        .with_db_txn(|txn| txn.get_ongoing_journey_timestamp_range())?
-        .is_some())
+    get().storage.with_db_txn(|txn| txn.has_ongoing_journey())
 }
 
 /// Lists dates that contain journeys, optionally restricted to selected layers.

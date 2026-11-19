@@ -36,6 +36,13 @@ pub(crate) struct BoundaryTracker {
 }
 
 impl BoundaryTracker {
+    pub(crate) fn from_range(start: DateTime<Utc>, end: DateTime<Utc>) -> Self {
+        Self {
+            start: Some(start),
+            end: Some(end),
+        }
+    }
+
     pub(crate) fn should_end_at<Tz: TimeZone>(&self, now: DateTime<Tz>) -> bool {
         let (Some(start), Some(end)) = (self.start, self.end) else {
             return false;
