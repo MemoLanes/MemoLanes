@@ -1,4 +1,3 @@
-#if DEBUG
 import CoreLocation
 import Flutter
 import Foundation
@@ -61,4 +60,3 @@ final class TraceletMotionDiagnosticsPlugin: NSObject, FlutterPlugin {
     result(details)
   }
 }
-#endif

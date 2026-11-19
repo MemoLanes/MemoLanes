@@ -3,11 +3,11 @@ import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/service/location/location_service.dart';
+import 'package:memolanes/common/service/location/location_service_factory.dart';
 import 'package:mutex/mutex.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
@@ -37,6 +37,9 @@ class TraceletMotionDiagnostics extends ChangeNotifier
   static const _nativeChannel = MethodChannel(
     'com.memolanes/tracelet_motion_diagnostics',
   );
+  static bool get isSupported =>
+      supportedLocationBackends.contains(LocationBackend.tracelet);
+
   final Future<Directory> Function() _documents;
   final _clock = Stopwatch()..start();
   final _captureMutex = Mutex();
@@ -78,7 +81,7 @@ class TraceletMotionDiagnostics extends ChangeNotifier
   });
 
   Future<void> _startObserving() async {
-    if (_observing || !kDebugMode) return;
+    if (_observing || !isSupported) return;
     _observing = true;
     void reportError(Object error, StackTrace stackTrace) {
       log.error(
@@ -224,7 +227,8 @@ class TraceletMotionDiagnostics extends ChangeNotifier
           'isMoving': _isMoving,
           'lifecycle': WidgetsBinding.instance.lifecycleState?.name,
           if (_recording) 'motionConfig': _motionConfig(),
-          if (_recording) 'nativeMotion': await _readNativeMotion(),
+          if (_recording && isSupported)
+            'nativeMotion': await _readNativeMotion(),
         }),
       );
       await file.writeAsString('$header\n', flush: true);
@@ -418,7 +422,7 @@ class TraceletMotionDiagnostics extends ChangeNotifier
     if (file == null || _writeError != null) return;
     final row = _row(type, data);
     // Request the native sample before waiting for earlier disk writes.
-    final nativeMotion = _recording
+    final nativeMotion = _recording && isSupported
         ? _readNativeMotion(
             fixAtMs: data['fixAtMs'] as int?,
             speedMps: data['speedMps'] as double?,
@@ -444,7 +448,7 @@ class TraceletMotionDiagnostics extends ChangeNotifier
   }
 
   void _listenToSpeedMotion() {
-    if (_speedMotionSubscription != null) return;
+    if (!isSupported || _speedMotionSubscription != null) return;
     void reportError(Object error, StackTrace stackTrace) {
       log.error(
         '[Tracelet motion] Speed state stream failed: $error\n$stackTrace',
