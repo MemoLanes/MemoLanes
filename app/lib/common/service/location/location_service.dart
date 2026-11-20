@@ -30,7 +30,11 @@ class LocationData {
 
 enum LocationBackend {
   native,
-  tracelet;
+  tracelet(supportsSmartPowerSaving: true);
+
+  const LocationBackend({this.supportsSmartPowerSaving = false});
+
+  final bool supportsSmartPowerSaving;
 
   String displayName(BuildContext context) {
     switch (this) {

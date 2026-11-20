@@ -97,6 +97,7 @@
     "exit": "Exit"
   },
   "journey": {
+    "setting_applies_next_recording": "Takes effect the next time recording starts.",
     "picker_title": "Choose a journey",
     "picker_subtitle": "Choose a date, then select a journey to view or edit",
     "editor_overview_title": "Edit journeys",
@@ -269,7 +270,6 @@
     "setting_title": "Unexpected exit notification",
     "notification_permission_reason": "In order to remind you when the program exits, we will request notification permission.",
     "notification_permission_denied": "You have denied permission. You can modify it later in settings.",
-    "change_affect_next_time": "Your changes will take effect in the next recording.",
     "notification_title": "Recording was unexpectedly stopped",
     "notification_message": "Recording was unexpectedly stopped, please restart the app."
   },
@@ -366,6 +366,7 @@
     "advanced_settings": {
       "title": "Advanced settings",
       "export_logs": "Export Logs",
+      "smart_power_saving": "Smart Power Saving",
       "raw_data_mode": "Raw Data Mode",
       "raw_data_mode_description": "This feature is off by default.\nJourneys recorded while it is off retain only the processed track.\nWhen it is on, all raw GPS data received during recording is also saved, including location, timestamps, accuracy, altitude, and speed. Saving raw data uses more storage space.",
       "raw_data_files": "Raw Data Files (Deprecated)",

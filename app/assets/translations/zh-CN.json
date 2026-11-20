@@ -97,6 +97,7 @@
     "exit": "退出应用"
   },
   "journey": {
+    "setting_applies_next_recording": "下次开始录制时生效。",
     "picker_title": "选择旅途",
     "picker_subtitle": "选择日期，再选择要查看或编辑的旅途",
     "editor_overview_title": "编辑旅途",
@@ -269,7 +270,6 @@
     "setting_title": "意外退出通知",
     "notification_permission_reason": "为了在程序退出时提醒您，我们将请求通知权限。",
     "notification_permission_denied": "您已拒绝获取通知权限，请在设置中打开。",
-    "change_affect_next_time": "您的修改将在下一次记录中生效。",
     "notification_title": "记录意外停止",
     "notification_message": "记录意外停止，请重新启动应用。"
   },
@@ -366,6 +366,7 @@
     "advanced_settings": {
       "title": "高级设置",
       "export_logs": "导出日志",
+      "smart_power_saving": "智能省电",
       "raw_data_mode": "原始数据模式",
       "raw_data_mode_description": "此功能默认关闭。\n关闭时记录的旅程，仅保留处理后的轨迹。\n开启后，会额外保存录制时收到的完整 GPS 原始数据，包括位置、时间戳、精度、海拔和速度。保存原始数据会占用更多存储空间。",
       "raw_data_files": "原始数据列表（弃用）",
