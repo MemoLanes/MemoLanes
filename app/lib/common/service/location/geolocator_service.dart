@@ -43,7 +43,7 @@ class _PokeGeolocatorTask {
   }
 }
 
-class GeoLocatorService implements ILocationService {
+class GeoLocatorService extends ILocationService {
   StreamSubscription<Position>? _positionStreamSub;
   _PokeGeolocatorTask? _pokeTask;
   Timer? _tooOldTimer;

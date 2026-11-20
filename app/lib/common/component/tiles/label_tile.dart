@@ -26,6 +26,7 @@ class LabelTile extends StatelessWidget {
     this.bottom = true,
     this.maxHeight,
     this.minHeight = 54.0,
+    this.margin,
     this.contentPadding = const EdgeInsets.symmetric(
       horizontal: 16,
       vertical: 8,
@@ -71,6 +72,8 @@ class LabelTile extends StatelessWidget {
 
   final double minHeight;
 
+  final EdgeInsetsGeometry? margin;
+
   final EdgeInsetsGeometry contentPadding;
 
   @override
@@ -79,12 +82,12 @@ class LabelTile extends StatelessWidget {
   Widget _buildTile(BuildContext context, BoxConstraints constraints) {
     final radius = Radius.circular(16.0);
 
-    EdgeInsets? margin;
+    EdgeInsets? tileMargin;
     BorderRadius? borderRadius = BorderRadius.zero;
 
     if (position == LabelTilePosition.single ||
         position == LabelTilePosition.bottom) {
-      margin = EdgeInsets.only(bottom: bottom ? 8.0 : 4.0);
+      tileMargin = EdgeInsets.only(bottom: bottom ? 8.0 : 4.0);
       borderRadius = borderRadius.copyWith(
         bottomLeft: radius,
         bottomRight: radius,
@@ -158,7 +161,7 @@ class LabelTile extends StatelessWidget {
     }
 
     return Container(
-      margin: margin,
+      margin: margin ?? tileMargin,
       decoration: decoration,
       child: Material(
         color: Colors.transparent,

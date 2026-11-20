@@ -198,3 +198,9 @@ fn run_though_test_data_laojunshan() {
     assert_eq!(counter[&ProcessResult::Append], 2595);
     assert_eq!(counter[&ProcessResult::Ignore], 348);
 }
+
+#[test]
+fn process_result_to_int() {
+    assert_eq!(ProcessResult::NewSegment.to_int(), 1);
+    assert_eq!(ProcessResult::Ignore.to_int(), -1);
+}
