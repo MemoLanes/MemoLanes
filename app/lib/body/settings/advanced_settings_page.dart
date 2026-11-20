@@ -11,6 +11,7 @@ import 'package:memolanes/common/component/common_export.dart';
 import 'package:memolanes/common/component/tiles/label_tile.dart';
 import 'package:memolanes/common/component/tiles/label_tile_content.dart';
 import 'package:memolanes/common/gps_manager.dart';
+import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
@@ -19,9 +20,14 @@ import 'package:memolanes/utils/nav_helper.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 
-class AdvancedSettingsPage extends StatelessWidget {
+class AdvancedSettingsPage extends StatefulWidget {
   const AdvancedSettingsPage({super.key});
 
+  @override
+  State<AdvancedSettingsPage> createState() => _AdvancedSettingsPageState();
+}
+
+class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
   @override
   Widget build(BuildContext context) {
     final gpsManager = context.watch<GpsManager>();
@@ -50,6 +56,21 @@ class AdvancedSettingsPage extends StatelessWidget {
                 },
               ),
               locationBackendSettingsTile(context, gpsManager),
+              if (gpsManager.locationBackend.supportsSmartPowerSaving)
+                SettingsTile(
+                  label: context.tr(
+                    'general.advanced_settings.smart_power_saving',
+                  ),
+                  position: LabelTilePosition.middle,
+                  trailing: Switch(
+                    value: MMKVUtil.getBool(
+                      MMKVKey.smartPowerSavingEnabled,
+                      defaultValue: true,
+                    ),
+                    onChanged: (value) =>
+                        _setSmartPowerSaving(value, gpsManager),
+                  ),
+                ),
               SettingsTile(
                 label: context.tr('general.advanced_settings.debug.title'),
                 position: LabelTilePosition.bottom,
@@ -77,6 +98,23 @@ class AdvancedSettingsPage extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _setSmartPowerSaving(bool enabled, GpsManager gpsManager) async {
+    if (!MMKVUtil.putBool(MMKVKey.smartPowerSavingEnabled, enabled)) {
+      log.error(
+        '[Settings] Failed to save smart power saving (enabled=$enabled)',
+        StackTrace.current,
+      );
+      return;
+    }
+    setState(() {});
+    if (gpsManager.recordingStatus == GpsRecordingStatus.recording) {
+      await showCommonDialog(
+        context,
+        context.tr('journey.setting_applies_next_recording'),
+      );
+    }
   }
 
   Future<void> _resetPreferences(

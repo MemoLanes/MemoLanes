@@ -35,6 +35,7 @@ import 'package:tracelet_platform_interface/tracelet_platform_interface.dart'
         TlCoords,
         TlBattery,
         TlStationaryTrackingMode,
+        TlMotionDetectionMode,
         TlDesiredAccuracy,
         TraceletPlatform;
 
@@ -160,6 +161,49 @@ void main() {
       await map.stopLocationUpdates();
     },
   );
+
+  test('Smart power saving applies at the next recording start', () async {
+    RustLib.initMock(api: _TraceletRustApi());
+    addTearDown(RustLib.dispose);
+    final platform = _HeartbeatTracelet();
+    final previousPlatform = TraceletPlatform.instance;
+    TraceletPlatform.instance = platform;
+    addTearDown(() {
+      Tracelet.removeListeners();
+      TraceletPlatform.instance = previousPlatform;
+    });
+    final service = TraceletLocationService(_recordLocation);
+    await service.startLocationUpdates(true);
+    expect(
+      platform.config!.motion.motionDetectionMode,
+      TlMotionDetectionMode.smart,
+    );
+    expect(platform.config!.motion.disableStopDetection, isFalse);
+
+    expect(MMKVUtil.putBool(MMKVKey.smartPowerSavingEnabled, false), isTrue);
+    expect(
+      platform.config!.motion.motionDetectionMode,
+      TlMotionDetectionMode.smart,
+    );
+    await service.stopLocationUpdates();
+    await service.startLocationUpdates(true);
+    expect(
+      platform.config!.motion.motionDetectionMode,
+      TlMotionDetectionMode.accelerometer,
+    );
+    expect(platform.config!.motion.disableStopDetection, isTrue);
+    expect(platform.config!.motion.isMoving, isTrue);
+
+    expect(MMKVUtil.putBool(MMKVKey.smartPowerSavingEnabled, true), isTrue);
+    await service.stopLocationUpdates();
+    await service.startLocationUpdates(true);
+    expect(
+      platform.config!.motion.motionDetectionMode,
+      TlMotionDetectionMode.smart,
+    );
+    expect(platform.config!.motion.disableStopDetection, isFalse);
+    await service.stopLocationUpdates();
+  });
 
   for (final status in [
     PermissionStatus.permanentlyDenied,

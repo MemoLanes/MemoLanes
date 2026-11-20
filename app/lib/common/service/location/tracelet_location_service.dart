@@ -266,6 +266,9 @@ class TraceletLocationService extends ILocationService {
   tl.Config _config(bool enableBackground, bool enableMotionActivity) {
     final base = tl.Config.balanced();
     const accelerometerStopDelay = Duration(minutes: 2);
+    final useSmartPowerSaving =
+        enableBackground &&
+        MMKVUtil.getBool(MMKVKey.smartPowerSavingEnabled, defaultValue: true);
     return base.copyWith(
       geo: base.geo.copyWith(
         // Preserve route detail at the moving pace.
@@ -308,10 +311,10 @@ class TraceletLocationService extends ILocationService {
               : null,
           isMoving: true,
           disableMotionActivityUpdates: !enableMotionActivity,
-          motionDetectionMode: enableBackground
+          motionDetectionMode: useSmartPowerSaving
               ? null
               : tl.MotionDetectionMode.accelerometer,
-          disableStopDetection: !enableBackground,
+          disableStopDetection: !useSmartPowerSaving,
         ),
       ),
       persistence: tl.PersistenceConfig(
