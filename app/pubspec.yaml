@@ -93,8 +93,30 @@ dependencies:
   wolt_modal_sheet: 0.12.0
   flutter_svg: ^2.4.0
   screenshot_detect: ^2.0.0
+  tracelet: ^3.8.10
 
 dependency_overrides:
+  # Keep the SDK and its generated transport on the same revision.
+  tracelet:
+    git:
+      url: https://github.com/kuailezhiyuan/Tracelet.git
+      ref: 01e5e9fa7624f6dbb6b594400d811844071eca46
+      path: packages/tracelet
+  tracelet_android:
+    git:
+      url: https://github.com/kuailezhiyuan/Tracelet.git
+      ref: 01e5e9fa7624f6dbb6b594400d811844071eca46
+      path: packages/tracelet_android
+  tracelet_ios:
+    git:
+      url: https://github.com/kuailezhiyuan/Tracelet.git
+      ref: 01e5e9fa7624f6dbb6b594400d811844071eca46
+      path: packages/tracelet_ios
+  tracelet_platform_interface:
+    git:
+      url: https://github.com/kuailezhiyuan/Tracelet.git
+      ref: 01e5e9fa7624f6dbb6b594400d811844071eca46
+      path: packages/tracelet_platform_interface
   flutter_inappwebview_platform_interface:
     git: 
       url: https://github.com/MemoLanes/flutter_inappwebview

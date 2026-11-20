@@ -19,7 +19,7 @@ android {
 
     defaultConfig {
         applicationId = "com.memolanes.oss.dev"
-        minSdk = flutter.minSdkVersion
+        minSdk = 26 // Required by the Tracelet SDK.
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
@@ -80,6 +80,8 @@ kotlin {
 }
 
 dependencies {
+    // Opt in to Tracelet's GMS activity recognition; its locations use LocationManager.
+    implementation("com.google.android.gms:play-services-location:21.4.0")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
     implementation(
         fileTree(

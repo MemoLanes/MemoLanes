@@ -44,6 +44,9 @@
     "skip": "Skip",
     "location_title": "Location",
     "location_desc": "For map display and journey recording",
+    "motion_title": "Motion & Fitness",
+    "motion_permission_reason": "Used to detect movement and stops while recording.",
+    "motion_permission_denied": "Motion & Fitness access is off. Recording remains available. You can allow access in system settings.",
     "battery_title": "Battery optimization",
     "battery_desc": "Reduces system background limits on the app for more stable journey recording",
     "notification_title": "Notifications",
@@ -54,13 +57,15 @@
     "location_permission_denied": "Location permission was not granted, so location-based features are temporarily unavailable. You can allow it later.",
     "location_permission_permanently_denied": "You have denied location permission, therefore location-based features are disabled. If you want to use these features, please enable it in the app settings.",
     "location_permission_reason": "MemoLanes needs location permission to collect your precise location data to record your travel routes and visualize your journey history. All location data is stored locally on your device and is not shared with any third parties.",
+    "always_location_required": "To keep recording when the screen is locked or you use another app, allow location access at all times.",
     "battery_optimization_reason": "To ensure continuous background location updates, please allow the app to ignore battery optimization.",
     "android_foreground_notification_channel_name": "Tracking Service",
     "android_foreground_notification_title": "Recording in Background",
     "android_foreground_notification_text": "MemoLanes will continue to record in the background",
     "location_backend": {
       "title": "Location Service",
-      "native": "Native"
+      "native": "Native",
+      "switch_failed": "Could not switch location services. Please try again."
     }
   },
   "common": {
@@ -361,6 +366,7 @@
     "advanced_settings": {
       "title": "Advanced settings",
       "export_logs": "Export Logs",
+      "smart_power_saving": "Smart Power Saving",
       "raw_data_mode": "Raw Data Mode",
       "raw_data_mode_description": "This feature is off by default.\nJourneys recorded while it is off retain only the processed track.\nWhen it is on, all raw GPS data received during recording is also saved, including location, timestamps, accuracy, altitude, and speed. Saving raw data uses more storage space.",
       "raw_data_files": "Raw Data Files (Deprecated)",
@@ -370,7 +376,37 @@
       "rebuild_cache": "Rebuild Cache",
       "reset_local_prefs": "Reset Preferences",
       "reset_local_prefs_message": "This will reset all preferences and immediately shut down the app. Journey data will not be deleted.",
-      "render_diagnostics": "Render Diagnostics"
+      "render_diagnostics": "Render Diagnostics",
+      "debug": {
+        "title": "Debug",
+        "motion": {
+          "title": "Motion Detection Debugging",
+          "motion_state": "Tracelet Motion State",
+          "moving": "Moving",
+          "stationary": "Stationary",
+          "idle": "Not recording",
+          "idle_hint": "Start recording a journey with Tracelet to see its motion state.",
+          "latest_callback_details": "Location callback #{count}\nSource (Tracelet): {source}\nFix time {fixTime} · Fix interval {fixInterval}\nReceived {receivedTime} · Callback interval {callbackInterval}\nFix age {age} · Speed {speed} · Horizontal accuracy {accuracy}",
+          "source_gps": "Satellite (GPS)",
+          "source_wifi": "Wi-Fi",
+          "source_cell": "Cellular",
+          "source_network": "Network",
+          "source_unknown": "Unknown",
+          "ios_source_estimate": "On iOS, Tracelet infers the source from horizontal accuracy.",
+          "mock_fix": "Simulated location",
+          "reduced_accuracy_fix": "Approximate location",
+          "start_capture": "Start Capture",
+          "stop_capture": "Stop Capture",
+          "capturing": "Capture is active. You can leave this page while testing.",
+          "capture_hint": "Start capture before your test, then stop it to export the log. Logs exclude coordinates.",
+          "recent_events": "Recent Events",
+          "saved_logs": "Saved Logs",
+          "no_logs": "No saved logs yet.",
+          "logs_unavailable": "Could not read saved logs.",
+          "action_failed": "Could not complete the diagnostic action.",
+          "write_failed": "Writing the log failed. Stop capture to export the entries already saved."
+        }
+      }
     },
     "appearance": {
       "title": "Appearance",

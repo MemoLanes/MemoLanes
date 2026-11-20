@@ -1480,6 +1480,50 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.18.0"
+  tracelet:
+    dependency: "direct main"
+    description:
+      path: "packages/tracelet"
+      ref: "01e5e9fa7624f6dbb6b594400d811844071eca46"
+      resolved-ref: "01e5e9fa7624f6dbb6b594400d811844071eca46"
+      url: "https://github.com/kuailezhiyuan/Tracelet.git"
+    source: git
+    version: "3.8.10"
+  tracelet_android:
+    dependency: "direct overridden"
+    description:
+      path: "packages/tracelet_android"
+      ref: "01e5e9fa7624f6dbb6b594400d811844071eca46"
+      resolved-ref: "01e5e9fa7624f6dbb6b594400d811844071eca46"
+      url: "https://github.com/kuailezhiyuan/Tracelet.git"
+    source: git
+    version: "3.8.10"
+  tracelet_ios:
+    dependency: "direct overridden"
+    description:
+      path: "packages/tracelet_ios"
+      ref: "01e5e9fa7624f6dbb6b594400d811844071eca46"
+      resolved-ref: "01e5e9fa7624f6dbb6b594400d811844071eca46"
+      url: "https://github.com/kuailezhiyuan/Tracelet.git"
+    source: git
+    version: "3.8.10"
+  tracelet_platform_interface:
+    dependency: "direct overridden"
+    description:
+      path: "packages/tracelet_platform_interface"
+      ref: "01e5e9fa7624f6dbb6b594400d811844071eca46"
+      resolved-ref: "01e5e9fa7624f6dbb6b594400d811844071eca46"
+      url: "https://github.com/kuailezhiyuan/Tracelet.git"
+    source: git
+    version: "3.8.10"
+  tracelet_web:
+    dependency: transitive
+    description:
+      name: tracelet_web
+      sha256: c6ada9be0be5fc7c2360c16841508be27b00ec4b9096bf659ac9963f2bdeddb6
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.8.10"
   typed_data:
     dependency: transitive
     description:

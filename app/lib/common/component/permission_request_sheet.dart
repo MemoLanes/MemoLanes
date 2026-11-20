@@ -44,6 +44,7 @@ class _PermissionRequestSheetContentState
   PermissionTileStatus _notification = const PermissionTileStatus(
     granted: false,
   );
+  PermissionTileStatus _motion = const PermissionTileStatus(granted: false);
   bool _isClosing = false;
 
   Future<void> _showLocationRationaleDialog() async {
@@ -67,6 +68,14 @@ class _PermissionRequestSheetContentState
     await showCommonDialog(
       context,
       context.tr('unexpected_exit_notification.notification_permission_reason'),
+    );
+  }
+
+  Future<void> _showMotionRationaleDialog() async {
+    if (!mounted) return;
+    await showCommonDialog(
+      context,
+      context.tr('permission_sheet.motion_permission_reason'),
     );
   }
 
@@ -102,6 +111,7 @@ class _PermissionRequestSheetContentState
       _location = s.location;
       _battery = s.battery;
       _notification = s.notification;
+      _motion = s.motion;
     });
     if (closeIfComplete && _hasNoRemainingPermissions(s)) {
       _closeSheet();
@@ -111,7 +121,8 @@ class _PermissionRequestSheetContentState
   bool _hasNoRemainingPermissions(PermissionSnapshot s) {
     return s.location.granted &&
         (!Platform.isAndroid || s.battery.granted) &&
-        s.notification.granted;
+        s.notification.granted &&
+        s.motion.granted;
   }
 
   void _closeSheet() {
@@ -167,6 +178,13 @@ class _PermissionRequestSheetContentState
     await _refreshStatus(closeIfComplete: closeIfComplete);
   }
 
+  Future<void> _requestMotion({bool closeIfComplete = true}) async {
+    if (_motion.granted || !mounted) return;
+    final effects = await _permissions.runMotionRequest();
+    await _applyEffects(effects);
+    await _refreshStatus(closeIfComplete: closeIfComplete);
+  }
+
   void _onSkip() {
     _closeSheet();
   }
@@ -175,6 +193,8 @@ class _PermissionRequestSheetContentState
     await _refreshStatus();
     if (!mounted) return;
     if (!_location.granted) await _requestLocation(closeIfComplete: false);
+    if (!mounted) return;
+    if (!_motion.granted) await _requestMotion(closeIfComplete: false);
     if (!mounted) return;
     if (Platform.isAndroid && !_battery.granted) {
       await _requestBattery(closeIfComplete: false);
@@ -229,6 +249,16 @@ class _PermissionRequestSheetContentState
             status: _location,
             onTap: _requestLocation,
             onRationaleTap: _showLocationRationaleDialog,
+          ),
+          _PermissionTile(
+            icon: Icons.directions_walk,
+            title: context.tr('permission_sheet.motion_title'),
+            description: context.tr(
+              'permission_sheet.motion_permission_reason',
+            ),
+            status: _motion,
+            onTap: _requestMotion,
+            onRationaleTap: _showMotionRationaleDialog,
           ),
           if (Platform.isAndroid)
             _PermissionTile(

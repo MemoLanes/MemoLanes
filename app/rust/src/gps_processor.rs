@@ -35,19 +35,9 @@ impl ProcessResult {
     }
 }
 
-#[cfg(test)]
-mod process_result_tests {
-    use crate::gps_processor::ProcessResult;
-
-    #[test]
-    fn to_int() {
-        assert_eq!(ProcessResult::NewSegment.to_int(), 1);
-        assert_eq!(ProcessResult::Ignore.to_int(), -1);
-    }
-}
-
 // It is unfortunate that we may keep duplicate data but I believe this is
 // clearer and easier to maintain.
+#[derive(Clone)]
 struct BadDataDetector {
     timestamp_ms_and_point: Option<(i64, Point)>,
     speed: Option<f32>,
@@ -113,6 +103,7 @@ impl BadDataDetector {
     }
 }
 
+#[derive(Clone)]
 enum GpsPreprocessorState {
     Empty,
     Moving {
@@ -139,6 +130,7 @@ pub enum SegmentGapRule {
     Spare,
 }
 
+#[derive(Clone)]
 pub struct GpsPreprocessor {
     state: GpsPreprocessorState,
     bad_data_detector: BadDataDetector,
@@ -251,7 +243,22 @@ impl GpsPreprocessor {
         }
     }
 
+    pub(crate) fn accept_location(&mut self, curr_data: &RawGPSPoint) -> bool {
+        // Bad fixes must not advance the preprocessing state.
+        !self.bad_data_detector.is_bad_data(curr_data)
+    }
+
     pub fn preprocess(&mut self, curr_data: &RawGPSPoint) -> ProcessResult {
+        if !self.accept_location(curr_data) {
+            return ProcessResult::Ignore;
+        }
+        self.preprocess_accepted_location(curr_data)
+    }
+
+    pub(crate) fn preprocess_accepted_location(
+        &mut self,
+        curr_data: &RawGPSPoint,
+    ) -> ProcessResult {
         // Something to note:
         // * Accuracy is not well defined. The unit is meters but: On android,
         //  it is the radius of this location at the 68th percentile confidence
@@ -270,11 +277,6 @@ impl GpsPreprocessor {
         const TIME_TO_WAIT_BEFORE_BEGINING_STATIONARY_IN_MS: i64 = 60 * 1000;
         const FALLBACK_NUM_OF_DATA_TO_WAIT_BEFORE_BEGINING_STATIONARY: i64 = 60;
         const DEFAULT_ACCURACY_OF_POINT: f32 = 30.0;
-
-        // We don't update our state if the data is bad.
-        if self.bad_data_detector.is_bad_data(curr_data) {
-            return ProcessResult::Ignore;
-        };
 
         let start_moving = |curr_data: &RawGPSPoint| Moving {
             last_point: curr_data.point.clone(),
