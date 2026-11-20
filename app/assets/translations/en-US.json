@@ -97,7 +97,6 @@
     "exit": "Exit"
   },
   "journey": {
-    "setting_applies_next_recording": "Takes effect the next time recording starts.",
     "picker_title": "Choose a journey",
     "picker_subtitle": "Choose a date, then select a journey to view or edit",
     "editor_overview_title": "Edit journeys",
@@ -270,6 +269,7 @@
     "setting_title": "Unexpected exit notification",
     "notification_permission_reason": "In order to remind you when the program exits, we will request notification permission.",
     "notification_permission_denied": "You have denied permission. You can modify it later in settings.",
+    "change_affect_next_time": "Your changes will take effect in the next recording.",
     "notification_title": "Recording was unexpectedly stopped",
     "notification_message": "Recording was unexpectedly stopped, please restart the app."
   },

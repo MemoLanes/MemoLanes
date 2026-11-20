@@ -181,7 +181,7 @@ void _providerTests(TargetPlatform target, _Preferences preferences) {
     },
   );
 
-  test('Smart power saving applies at the next recording start', () async {
+  test('Recordings start with the selected smart power saving mode', () async {
     RustLib.initMock(api: _TraceletRustApi());
     addTearDown(RustLib.dispose);
     final platform = _HeartbeatTracelet();
@@ -199,12 +199,8 @@ void _providerTests(TargetPlatform target, _Preferences preferences) {
     );
     expect(platform.config!.motion.disableStopDetection, isFalse);
 
-    expect(MMKVUtil.putBool(MMKVKey.smartPowerSavingEnabled, false), isTrue);
-    expect(
-      platform.config!.motion.motionDetectionMode,
-      TlMotionDetectionMode.smart,
-    );
     await service.stopLocationUpdates();
+    expect(MMKVUtil.putBool(MMKVKey.smartPowerSavingEnabled, false), isTrue);
     await service.startLocationUpdates(true);
     expect(
       platform.config!.motion.motionDetectionMode,
@@ -213,8 +209,8 @@ void _providerTests(TargetPlatform target, _Preferences preferences) {
     expect(platform.config!.motion.disableStopDetection, isTrue);
     expect(platform.config!.motion.isMoving, isTrue);
 
-    expect(MMKVUtil.putBool(MMKVKey.smartPowerSavingEnabled, true), isTrue);
     await service.stopLocationUpdates();
+    expect(MMKVUtil.putBool(MMKVKey.smartPowerSavingEnabled, true), isTrue);
     await service.startLocationUpdates(true);
     expect(
       platform.config!.motion.motionDetectionMode,
