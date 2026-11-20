@@ -31,6 +31,8 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
   @override
   Widget build(BuildContext context) {
     final gpsManager = context.watch<GpsManager>();
+    final canChangeSmartPowerSaving =
+        gpsManager.recordingStatus == GpsRecordingStatus.none;
     return Scaffold(
       appBar: CapsuleStyleAppBar(
         title: context.tr('settings.categories.advanced.title'),
@@ -62,13 +64,20 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
                     'general.advanced_settings.smart_power_saving',
                   ),
                   position: LabelTilePosition.middle,
+                  onTap: canChangeSmartPowerSaving
+                      ? null
+                      : () => showCommonDialog(
+                          context,
+                          context.tr('journey.stop_ongoing_journey'),
+                        ),
                   trailing: Switch(
                     value: MMKVUtil.getBool(
                       MMKVKey.smartPowerSavingEnabled,
                       defaultValue: true,
                     ),
-                    onChanged: (value) =>
-                        _setSmartPowerSaving(value, gpsManager),
+                    onChanged: canChangeSmartPowerSaving
+                        ? (value) => _setSmartPowerSaving(value, gpsManager)
+                        : null,
                   ),
                 ),
               SettingsTile(
@@ -100,7 +109,8 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
     );
   }
 
-  Future<void> _setSmartPowerSaving(bool enabled, GpsManager gpsManager) async {
+  void _setSmartPowerSaving(bool enabled, GpsManager gpsManager) {
+    if (gpsManager.recordingStatus != GpsRecordingStatus.none) return;
     if (!MMKVUtil.putBool(MMKVKey.smartPowerSavingEnabled, enabled)) {
       log.error(
         '[Settings] Failed to save smart power saving (enabled=$enabled)',
@@ -109,12 +119,6 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
       return;
     }
     setState(() {});
-    if (gpsManager.recordingStatus == GpsRecordingStatus.recording) {
-      await showCommonDialog(
-        context,
-        context.tr('journey.setting_applies_next_recording'),
-      );
-    }
   }
 
   Future<void> _resetPreferences(

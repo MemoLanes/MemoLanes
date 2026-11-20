@@ -166,7 +166,7 @@ class _JourneyRecordingSettingsPageState
         context.mounted) {
       await showCommonDialog(
         context,
-        context.tr('journey.setting_applies_next_recording'),
+        context.tr('unexpected_exit_notification.change_affect_next_time'),
       );
     }
   }
