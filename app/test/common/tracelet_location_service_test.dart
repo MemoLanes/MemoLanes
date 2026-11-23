@@ -34,6 +34,7 @@ import 'package:tracelet_platform_interface/tracelet_platform_interface.dart'
         TlLocation,
         TlCoords,
         TlBattery,
+        TlAuthorizationRequest,
         TlStationaryTrackingMode,
         TlMotionDetectionMode,
         TlDesiredAccuracy,
@@ -52,6 +53,7 @@ void main() {
   const permissionChannel = MethodChannel(
     'flutter.baseflow.com/permissions/methods',
   );
+  const geolocatorChannel = MethodChannel('flutter.baseflow.com/geolocator');
   final messenger =
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
   var permission = PermissionStatus.granted;
@@ -67,6 +69,10 @@ void main() {
     permission = PermissionStatus.granted;
     motionPermission = PermissionStatus.granted;
     debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    messenger.setMockMethodCallHandler(geolocatorChannel, (call) async {
+      expect(call.method, 'isLocationServiceEnabled');
+      return true;
+    });
     messenger.setMockMethodCallHandler(permissionChannel, (call) async {
       expect(call.method, 'checkPermissionStatus');
       if (call.arguments == Permission.notification.value) {
@@ -75,15 +81,13 @@ void main() {
       if (call.arguments == Permission.sensors.value) {
         return motionPermission.index;
       }
-      expect(
-        call.arguments,
-        anyOf(Permission.locationAlways.value, Permission.location.value),
-      );
+      expect(call.arguments, Permission.locationWhenInUse.value);
       return permission.index;
     });
   });
   tearDown(() {
     messenger.setMockMethodCallHandler(permissionChannel, null);
+    messenger.setMockMethodCallHandler(geolocatorChannel, null);
     debugDefaultTargetPlatformOverride = null;
   });
 
@@ -136,6 +140,10 @@ void main() {
       final service = TraceletLocationService(_recordLocation);
       await service.startLocationUpdates(true);
       expect(platform.config!.app.heartbeatInterval, 60);
+      expect(
+        platform.config!.ios.locationAuthorizationRequest,
+        TlAuthorizationRequest.whenInUse,
+      );
       expect(platform.config!.motion.disableMotionActivityUpdates, false);
       expect(platform.motionActivityDisabledOnReady, isFalse);
       expect(
@@ -233,7 +241,7 @@ void main() {
 
   for (final granted in [true, false]) {
     test(
-      'cold launch drains the queue before resuming (Always=$granted)',
+      'cold launch drains the queue before resuming (location=$granted)',
       () async {
         RustLib.initMock(api: _TraceletRustApi());
         addTearDown(RustLib.dispose);

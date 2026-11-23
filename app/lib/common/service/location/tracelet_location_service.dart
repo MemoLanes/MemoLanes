@@ -2,13 +2,13 @@ import 'dart:async';
 
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/mmkv_util.dart';
+import 'package:memolanes/common/service/permission_service.dart';
 import 'package:mutex/mutex.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:tracelet/tracelet.dart' as tl;
 import 'package:uuid/uuid.dart';
 
 import 'location_service.dart';
-import 'tracelet_recording_permission.dart';
 
 class TraceletLocationService extends ILocationService {
   static const _pendingQueueKey =
@@ -32,7 +32,8 @@ class TraceletLocationService extends ILocationService {
   @override
   bool get handlesRecording => true;
 
-  Future<bool> get canResumeRecording => Permission.locationAlways.isGranted;
+  Future<bool> get canResumeRecording =>
+      PermissionService().checkLocationPermission();
 
   bool get _hasPendingRecording => MMKVUtil.getBool(_pendingQueueKey);
 
@@ -48,9 +49,6 @@ class TraceletLocationService extends ILocationService {
     _saveQueuePending(false);
     if (resumeRecording) _saveRecordingIntent(true);
   });
-
-  @override
-  Future<bool> prepareRecording() => offerTraceletRecordingPermission();
 
   void _saveQueuePending(bool pending) {
     if (!MMKVUtil.putBool(_pendingQueueKey, pending)) {
@@ -82,9 +80,7 @@ class TraceletLocationService extends ILocationService {
     try {
       if (enableBackground) {
         if (!await canResumeRecording) {
-          throw StateError(
-            'Tracelet recording requires Always location access',
-          );
+          throw StateError('Tracelet recording requires location access');
         }
         _saveQueuePending(true);
         _saveRecordingIntent(true);
@@ -98,8 +94,6 @@ class TraceletLocationService extends ILocationService {
 
       await _configure(enableBackground);
       if (!enableBackground) {
-        // On iOS 18, start() opens an Always location service session even in
-        // map mode. The position watcher works with foreground permission.
         final watchId = await tl.Tracelet.watchPosition(_onLocation);
         _watchId = watchId;
         if (watchId < 0) throw StateError('Tracelet could not watch positions');
@@ -286,9 +280,7 @@ class TraceletLocationService extends ILocationService {
         heartbeatInterval: enableBackground ? 60 : -1,
       ),
       ios: base.ios.copyWith(
-        locationAuthorizationRequest: enableBackground
-            ? tl.LocationAuthorizationRequest.always
-            : tl.LocationAuthorizationRequest.whenInUse,
+        locationAuthorizationRequest: tl.LocationAuthorizationRequest.whenInUse,
         disableLocationAuthorizationAlert: true,
       ),
       motion: base.motion.mergedWith(

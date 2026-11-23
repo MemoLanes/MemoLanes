@@ -87,6 +87,38 @@ void main() {
     debugDefaultTargetPlatformOverride = null;
   });
 
+  for (final (platform, permission) in [
+    (TargetPlatform.iOS, Permission.locationWhenInUse),
+    (TargetPlatform.android, Permission.location),
+  ]) {
+    test(
+      'requests only the required location permission on ${platform.name}',
+      () async {
+        debugDefaultTargetPlatformOverride = platform;
+        messenger.setMockMethodCallHandler(permissionChannel, (call) async {
+          switch (call.method) {
+            case 'checkPermissionStatus':
+              expect(call.arguments, permission.value);
+              return PermissionStatus.denied.index;
+            case 'requestPermissions':
+              final permissions = (call.arguments as List).cast<int>();
+              expect(permissions, [permission.value]);
+              requested.addAll(permissions);
+              return {permission.value: PermissionStatus.granted.index};
+            default:
+              throw UnsupportedError(
+                'Unexpected permission call: ${call.method}',
+              );
+          }
+        });
+
+        expect(await service.checkLocationPermission(), isFalse);
+        expect(await service.runLocationRequest(), isEmpty);
+        expect(requested, [permission.value]);
+      },
+    );
+  }
+
   test(
     'motion denial stays optional and is not automatically offered again',
     () async {
