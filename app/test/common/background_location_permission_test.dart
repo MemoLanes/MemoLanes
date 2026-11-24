@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:logging/logging.dart';
@@ -11,7 +12,11 @@ void main() {
   final messenger =
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
 
-  tearDown(() => messenger.setMockMethodCallHandler(channel, null));
+  setUp(() => debugDefaultTargetPlatformOverride = TargetPlatform.android);
+  tearDown(() {
+    debugDefaultTargetPlatformOverride = null;
+    messenger.setMockMethodCallHandler(channel, null);
+  });
 
   test('resuming requires the current background location grant', () async {
     var status = PermissionStatus.denied;

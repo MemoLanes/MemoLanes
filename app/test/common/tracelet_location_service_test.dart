@@ -34,6 +34,7 @@ import 'package:tracelet_platform_interface/tracelet_platform_interface.dart'
         TlLocation,
         TlCoords,
         TlBattery,
+        TlAuthorizationRequest,
         TlStationaryTrackingMode,
         TlMotionDetectionMode,
         TlDesiredAccuracy,
@@ -58,6 +59,7 @@ void _providerTests(TargetPlatform target, _Preferences preferences) {
   const permissionChannel = MethodChannel(
     'flutter.baseflow.com/permissions/methods',
   );
+  const geolocatorChannel = MethodChannel('flutter.baseflow.com/geolocator');
   final messenger =
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
   var permission = PermissionStatus.granted;
@@ -75,6 +77,10 @@ void _providerTests(TargetPlatform target, _Preferences preferences) {
     motionPermission = PermissionStatus.granted;
     notificationPermission = PermissionStatus.denied;
     debugDefaultTargetPlatformOverride = target;
+    messenger.setMockMethodCallHandler(geolocatorChannel, (call) async {
+      expect(call.method, 'isLocationServiceEnabled');
+      return true;
+    });
     messenger.setMockMethodCallHandler(permissionChannel, (call) async {
       expect(call.method, 'checkPermissionStatus');
       if (call.arguments == Permission.notification.value) {
@@ -92,13 +98,16 @@ void _providerTests(TargetPlatform target, _Preferences preferences) {
       }
       expect(
         call.arguments,
-        anyOf(Permission.locationAlways.value, Permission.location.value),
+        target == TargetPlatform.android
+            ? anyOf(Permission.location.value, Permission.locationAlways.value)
+            : Permission.locationWhenInUse.value,
       );
       return permission.index;
     });
   });
   tearDown(() {
     messenger.setMockMethodCallHandler(permissionChannel, null);
+    messenger.setMockMethodCallHandler(geolocatorChannel, null);
     debugDefaultTargetPlatformOverride = null;
   });
 
@@ -151,6 +160,10 @@ void _providerTests(TargetPlatform target, _Preferences preferences) {
       expect(platform.config!.android.stationaryLocationUpdateInterval, 10000);
       expect(platform.config!.android.releaseWakelockWhenStationary, isTrue);
       expect(platform.config!.android.foregroundService?.enabled, isTrue);
+      expect(
+        platform.config!.ios.locationAuthorizationRequest,
+        TlAuthorizationRequest.whenInUse,
+      );
       expect(platform.config!.motion.disableMotionActivityUpdates, false);
       expect(platform.motionActivityDisabledOnReady, isFalse);
       expect(
@@ -252,7 +265,7 @@ void _providerTests(TargetPlatform target, _Preferences preferences) {
 
   for (final granted in [true, false]) {
     test(
-      'cold launch drains the queue before resuming (Always=$granted)',
+      'cold launch drains the queue before resuming (location=$granted)',
       () async {
         RustLib.initMock(api: _TraceletRustApi());
         addTearDown(RustLib.dispose);

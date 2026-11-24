@@ -101,6 +101,37 @@ void _permissionTests(TargetPlatform target, _Preferences preferences) {
   test('uses the platform motion permission', () {
     expect(service.motionPermission, motionPermission);
   });
+  for (final (platform, permission) in [
+    (TargetPlatform.iOS, Permission.locationWhenInUse),
+    (TargetPlatform.android, Permission.location),
+  ]) {
+    test(
+      'requests only the required location permission on ${platform.name}',
+      () async {
+        debugDefaultTargetPlatformOverride = platform;
+        messenger.setMockMethodCallHandler(permissionChannel, (call) async {
+          switch (call.method) {
+            case 'checkPermissionStatus':
+              expect(call.arguments, permission.value);
+              return PermissionStatus.denied.index;
+            case 'requestPermissions':
+              final permissions = (call.arguments as List).cast<int>();
+              expect(permissions, [permission.value]);
+              requested.addAll(permissions);
+              return {permission.value: PermissionStatus.granted.index};
+            default:
+              throw UnsupportedError(
+                'Unexpected permission call: ${call.method}',
+              );
+          }
+        });
+
+        expect(await service.checkLocationPermission(), isFalse);
+        expect(await service.runLocationRequest(), isEmpty);
+        expect(requested, [permission.value]);
+      },
+    );
+  }
 
   test(
     'motion denial stays optional and is not automatically offered again',
@@ -211,66 +242,53 @@ void _permissionTests(TargetPlatform target, _Preferences preferences) {
     },
   );
 
-  testWidgets('recording requires an explicit background location grant', (
-    tester,
-  ) async {
-    try {
-      final records = <LogRecord>[];
-      final subscription = Logger('App').onRecord.listen(records.add);
-      addTearDown(subscription.cancel);
-      var background = PermissionStatus.denied;
-      var openedSettings = 0;
-      messenger.setMockMethodCallHandler(permissionChannel, (call) async {
-        switch (call.method) {
-          case 'checkPermissionStatus':
-            expectSync(call.arguments, Permission.locationAlways.value);
-            return background.index;
-          case 'requestPermissions':
-            expectSync(call.arguments, [Permission.locationAlways.value]);
-            requested.add(Permission.locationAlways.value);
-            background = PermissionStatus.granted;
-            return {Permission.locationAlways.value: background.index};
-          case 'openAppSettings':
-            openedSettings++;
-            return true;
-          default:
-            throw UnsupportedError(
-              'Unexpected permission call: ${call.method}',
-            );
-        }
-      });
-      await _pumpPermissionHost(tester, navigatorKey: navigation.navigatorKey);
-      final result = navigation.checkAndRequestBackgroundLocationPermission();
-      await tester.pumpAndSettle();
-      expect(
-        find.text(tr('location_service.always_location_required')),
-        findsOneWidget,
-      );
-      await tester.tap(
-        find.text(
-          tr(
-            target == TargetPlatform.android
-                ? 'permission_sheet.open_system_settings'
-                : 'common.ok',
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
+  if (target == TargetPlatform.android) {
+    testWidgets('recording requires an explicit background location grant', (
+      tester,
+    ) async {
+      try {
+        final records = <LogRecord>[];
+        final subscription = Logger('App').onRecord.listen(records.add);
+        addTearDown(subscription.cancel);
+        var background = PermissionStatus.denied;
+        var openedSettings = 0;
+        messenger.setMockMethodCallHandler(permissionChannel, (call) async {
+          switch (call.method) {
+            case 'checkPermissionStatus':
+              expectSync(call.arguments, Permission.locationAlways.value);
+              return background.index;
+            case 'openAppSettings':
+              openedSettings++;
+              return true;
+            default:
+              throw UnsupportedError(
+                'Unexpected permission call: ${call.method}',
+              );
+          }
+        });
+        await _pumpPermissionHost(
+          tester,
+          navigatorKey: navigation.navigatorKey,
+        );
+        final result = navigation.checkAndRequestBackgroundLocationPermission();
+        await tester.pumpAndSettle();
+        expect(
+          find.text(tr('location_service.always_location_required')),
+          findsOneWidget,
+        );
+        await tester.tap(
+          find.text(tr('permission_sheet.open_system_settings')),
+        );
+        await tester.pumpAndSettle();
 
-      final allowed = await result;
-      expect(
-        allowed,
-        target == TargetPlatform.iOS,
-        reason: records
-            .map((record) => '${record.message}\n${record.stackTrace}')
-            .join('\n'),
-      );
-      expect(
-        preferences.values['Permission.requestedBackgroundLocation'],
-        target == TargetPlatform.iOS ? isTrue : isNull,
-      );
-      if (target == TargetPlatform.android) {
-        expect(allowed, isFalse);
+        final allowed = await result;
+        expect(
+          allowed,
+          isFalse,
+          reason: records
+              .map((record) => '${record.message}\n${record.stackTrace}')
+              .join('\n'),
+        );
         expect(openedSettings, 1);
         expect(requested, isEmpty);
         background = PermissionStatus.granted;
@@ -278,15 +296,11 @@ void _permissionTests(TargetPlatform target, _Preferences preferences) {
           await navigation.checkAndRequestBackgroundLocationPermission(),
           isTrue,
         );
-      } else {
-        expect(allowed, isTrue);
-        expect(openedSettings, 0);
-        expect(requested, [Permission.locationAlways.value]);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
       }
-    } finally {
-      debugDefaultTargetPlatformOverride = null;
-    }
-  });
+    });
+  }
 }
 
 Future<void> _pumpPermissionHost(

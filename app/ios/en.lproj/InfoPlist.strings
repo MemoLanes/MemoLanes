@@ -5,6 +5,5 @@
 "CFBundleDisplayName" = "MemoLanes";
 "NSMotionUsageDescription" = "MemoLanes uses motion and fitness activity to detect when you move or stop and adjust location tracking while recording a journey.";
 "NSPhotoLibraryAddUsageDescription" = "Allow MemoLanes to save screenshots of your tracks to your photo library.";
-"NSLocationAlwaysAndWhenInUseUsageDescription" = "MemoLanes uses your location to continue recording a journey when the screen is locked or you switch apps.";
 "NSLocationWhenInUseUsageDescription" = "MemoLanes uses your location to show your position on the map and record journeys.";
 "TraceletFullAccuracy" = "Precise location helps MemoLanes draw the route you actually travelled.";

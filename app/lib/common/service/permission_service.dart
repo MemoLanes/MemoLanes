@@ -61,6 +61,11 @@ class PermissionService {
     _ => Permission.sensors,
   };
 
+  Permission get _locationPermission =>
+      defaultTargetPlatform == TargetPlatform.iOS
+      ? Permission.locationWhenInUse
+      : Permission.location;
+
   bool _isPermanentlyDeniedFromStatus(PermissionStatus status) {
     // Android status cannot distinguish permanent denial from "Ask every time".
     // Only request() results can report permanent denial there.
@@ -71,10 +76,7 @@ class PermissionService {
     try {
       final locationServiceEnabled =
           await Geolocator.isLocationServiceEnabled();
-      final locationStatus = await Permission.location.status;
-      final locationAlwaysStatus = Platform.isIOS
-          ? '${await Permission.locationAlways.status}'
-          : 'n/a';
+      final locationStatus = await _locationPermission.status;
       final batteryOptimizationStatus = Platform.isAndroid
           ? '${await Permission.ignoreBatteryOptimizations.status}'
           : 'n/a';
@@ -105,7 +107,7 @@ class PermissionService {
       log.info(
         '[PermissionState] event=$event '
         'os={locationServiceEnabled=$locationServiceEnabled '
-        'location=$locationStatus locationAlways=$locationAlwaysStatus '
+        'location=$locationStatus '
         'batteryOptimization=$batteryOptimizationStatus '
         'notification=$notificationStatus motion=$motionStatus} '
         'mmkv={permissionSheetShown=$permissionSheetShown '
@@ -123,7 +125,7 @@ class PermissionService {
 
   Future<PermissionSnapshot> readPermissionSnapshot() async {
     final hasLocation = await checkLocationPermission();
-    final locStatus = await Permission.location.status;
+    final locStatus = await _locationPermission.status;
     final isAndroid = Platform.isAndroid;
     final batteryGranted =
         !isAndroid || await Permission.ignoreBatteryOptimizations.isGranted;
@@ -212,7 +214,7 @@ class PermissionService {
       if (!serviceEnabled) {
         return false;
       }
-      final granted = await Permission.location.isGranted;
+      final granted = await _locationPermission.isGranted;
       if (!granted) {
         return false;
       }
@@ -226,13 +228,6 @@ class PermissionService {
   Future<bool> checkBackgroundLocationPermission() =>
       Permission.locationAlways.isGranted;
 
-  Future<void> requestBackgroundLocationPermission() async {
-    final result = await Permission.locationAlways.request();
-    log.info(
-      '[PermissionService] Requested background location result=$result',
-    );
-  }
-
   /// GPS off → open system location page. No pre-request dialogs.
   Future<List<PermissionEffect>> runLocationRequest() async {
     if (!await Geolocator.isLocationServiceEnabled()) {
@@ -243,7 +238,8 @@ class PermissionService {
       return const [PermissionEffect(openLocationSettings: true)];
     }
 
-    var status = await Permission.location.status;
+    final permission = _locationPermission;
+    var status = await permission.status;
 
     if (_isPermanentlyDeniedFromStatus(status)) {
       MMKVUtil.putBool(MMKVKey.requestedLocation, true);
@@ -262,7 +258,7 @@ class PermissionService {
 
     if (!status.isGranted) {
       MMKVUtil.putBool(MMKVKey.requestedLocation, true);
-      status = await Permission.location.request();
+      status = await permission.request();
       log.info(
         '[PermissionService] runLocationRequest requested result=$status',
       );
@@ -282,10 +278,6 @@ class PermissionService {
           ),
         ];
       }
-    }
-
-    if (status.isGranted && Platform.isIOS) {
-      await requestBackgroundLocationPermission();
     }
 
     return const [];

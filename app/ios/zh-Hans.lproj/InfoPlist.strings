@@ -5,6 +5,5 @@
 "CFBundleDisplayName" = "迹忆";
 "NSMotionUsageDescription" = "迹忆使用运动与健身数据判断你是否移动或停留，在录制旅途时调整定位策略。";
 "NSPhotoLibraryAddUsageDescription" = "用于将轨迹截图保存到你的相册。";
-"NSLocationAlwaysAndWhenInUseUsageDescription" = "锁屏或切换到其他应用时，迹忆使用你的位置继续录制旅途。";
 "NSLocationWhenInUseUsageDescription" = "迹忆使用你的位置在地图上显示当前位置并录制旅途。";
 "TraceletFullAccuracy" = "迹忆使用精确位置绘制你实际走过的路线。";

@@ -37,7 +37,9 @@ class TraceletLocationService extends ILocationService {
   bool get handlesRecording => true;
 
   Future<bool> get canResumeRecording =>
-      PermissionService().checkBackgroundLocationPermission();
+      defaultTargetPlatform == TargetPlatform.android
+      ? PermissionService().checkBackgroundLocationPermission()
+      : PermissionService().checkLocationPermission();
 
   bool get _hasPendingRecording => MMKVUtil.getBool(_pendingQueueKey);
 
@@ -56,7 +58,9 @@ class TraceletLocationService extends ILocationService {
 
   @override
   Future<bool> prepareRecording() =>
-      checkAndRequestBackgroundLocationPermission();
+      defaultTargetPlatform == TargetPlatform.android
+      ? checkAndRequestBackgroundLocationPermission()
+      : super.prepareRecording();
 
   void _saveQueuePending(bool pending) {
     if (!MMKVUtil.putBool(_pendingQueueKey, pending)) {
@@ -88,9 +92,7 @@ class TraceletLocationService extends ILocationService {
     try {
       if (enableBackground) {
         if (!await canResumeRecording) {
-          throw StateError(
-            'Tracelet recording requires Always location access',
-          );
+          throw StateError('Tracelet recording requires location access');
         }
         _saveQueuePending(true);
         _saveRecordingIntent(true);
@@ -104,8 +106,6 @@ class TraceletLocationService extends ILocationService {
 
       await _configure(enableBackground);
       if (!enableBackground) {
-        // On iOS 18, start() opens an Always location service session even in
-        // map mode. The position watcher works with foreground permission.
         final watchId = await tl.Tracelet.watchPosition(_onLocation);
         _watchId = watchId;
         if (watchId < 0) throw StateError('Tracelet could not watch positions');
@@ -314,9 +314,7 @@ class TraceletLocationService extends ILocationService {
             : const tl.ForegroundServiceConfig(enabled: false),
       ),
       ios: base.ios.copyWith(
-        locationAuthorizationRequest: enableBackground
-            ? tl.LocationAuthorizationRequest.always
-            : tl.LocationAuthorizationRequest.whenInUse,
+        locationAuthorizationRequest: tl.LocationAuthorizationRequest.whenInUse,
         disableLocationAuthorizationAlert: true,
       ),
       motion: base.motion.mergedWith(
