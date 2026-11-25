@@ -6,8 +6,12 @@ assets/map_webview/
 # under tools/geo_rasterizer/natural_earth/ and is ignored there.)
 assets/geo/geo_data*.bin
 assets/geo/geo_data*.bin.tmp
+assets/geo/region_display.bin
+assets/geo/region_display.bin.tmp
+assets/geo/.build-metadata/
 assets/geo/region_names.*.json
 assets/geo/region_names.*.json.tmp
+/assets/geo/**/.geo-publish-*.tmp
 
 # flutter rust bridge generated files
 lib/src/rust/**/*.dart

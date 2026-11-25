@@ -3,6 +3,7 @@ tests/fixtures/*.bin.tmp
 
 # stray default-output tmp from running geo_rasterizer in this dir
 *.bin.tmp
+.geo-publish-*.tmp
 
 # Natural Earth source GeoJSON downloaded on demand by `just rasterize-geo`,
 # reproducible from the pins in geo_data_format::worldview. README.md is kept.

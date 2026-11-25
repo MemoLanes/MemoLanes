@@ -1,3 +1,4 @@
+use sha2::{Digest, Sha256};
 use std::env;
 use std::path::Path;
 use std::process::Command;
@@ -141,6 +142,13 @@ pub const MAPBOX_ACCESS_TOKEN: Option<&str> = {mapbox_access_token};
     }
 
     generate_geo_provenance();
+    let display = Path::new("../assets/geo/region_display.bin");
+    println!("cargo:rerun-if-changed={}", display.display());
+    if let Ok(bytes) = fs::read(display) {
+        let digest = Sha256::digest(bytes);
+        let digest_hex: String = digest.iter().map(|byte| format!("{byte:02x}")).collect();
+        println!("cargo:rustc-env=REGION_DISPLAY_SHA256={digest_hex}");
+    }
 
     // Generate protobuf files
     println!("cargo:rerun-if-changed=src/protos/journey.proto");

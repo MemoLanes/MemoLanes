@@ -1,6 +1,8 @@
 extern crate simplelog;
 use crate::achievement::AchievementReader;
+use crate::api::achievement::RegionGeometry;
 use crate::cache_db::{self, CacheDb, LayerKind};
+use crate::display_geometry;
 use crate::geo::{GeoAssetError, GeoIndex, GeoLookup};
 use crate::gps::ExtendedRawGPSPoint;
 use crate::gps_processor::ProcessResult;
@@ -12,17 +14,23 @@ use crate::main_db::{self, Action, MainDb};
 use anyhow::{Context, Ok, Result};
 use auto_context::auto_context;
 use chrono::NaiveDate;
+use geo_data_format::{DisplayAsset, GeoEntityId};
+use sha2::{Digest, Sha256};
 use std::fs::{remove_file, File};
+use std::future::Future;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::{
     atomic::{AtomicBool, Ordering},
-    Mutex,
+    Arc, Mutex,
 };
 
 // TODO: error handling in this file is horrifying, we should think about what
 // is the right thing to do here.
 
 type FinalizedJourneyChangedCallback = Box<dyn Fn(&Storage) + Send + Sync + 'static>;
+
+type GeoIdentity = (geo_data_format::Worldview, [u8; 32]);
 
 struct Inner {
     main_db: MainDb,
@@ -31,8 +39,74 @@ struct Inner {
     worldview: Option<geo_data_format::Worldview>,
 }
 
+impl Inner {
+    fn active_geo_identity(&self) -> Result<GeoIdentity> {
+        Ok((
+            self.worldview.context("no active geo worldview")?,
+            self.geo
+                .as_ref()
+                .context("no active geo raster")?
+                .provenance_hash(),
+        ))
+    }
+
+    fn check_geo_identity(&self, expected: GeoIdentity) -> Result<()> {
+        anyhow::ensure!(
+            self.active_geo_identity()? == expected,
+            "active raster changed during display lookup"
+        );
+        Ok(())
+    }
+}
+
 fn geo_ref(geo: &Option<Box<dyn GeoLookup + Send>>) -> Option<&dyn GeoLookup> {
     geo.as_deref().map(|geo| geo as &dyn GeoLookup)
+}
+
+fn with_staged_geo_asset<T>(
+    path: &Path,
+    bytes: &[u8],
+    install: impl FnOnce(&Path) -> Result<T>,
+) -> Result<T> {
+    std::fs::create_dir_all(path.parent().expect("installed geo path has a parent"))?;
+    let staged = path.with_extension("bin.tmp");
+    let result = (|| {
+        {
+            let mut file = File::create(&staged)?;
+            file.write_all(bytes)?;
+            file.sync_all()?;
+        }
+        install(&staged)
+    })();
+    if result.is_err() {
+        let _ = remove_file(staged);
+    }
+    result
+}
+
+fn publish_geo_asset(staged: &Path, path: &Path) -> Result<()> {
+    #[cfg(windows)]
+    if path.exists() {
+        remove_file(path)?;
+    }
+    std::fs::rename(staged, path)?;
+    Ok(())
+}
+
+struct ActivatedDisplay {
+    digest: [u8; 32],
+    asset: DisplayAsset,
+    needs_repair: AtomicBool,
+}
+
+impl ActivatedDisplay {
+    fn new(digest: [u8; 32], asset: DisplayAsset) -> Arc<Self> {
+        Arc::new(Self {
+            digest,
+            asset,
+            needs_repair: AtomicBool::new(false),
+        })
+    }
 }
 
 pub struct Storage {
@@ -41,6 +115,8 @@ pub struct Storage {
     pub cache_dir: String,
     // Hidden so every operation goes through `Storage` and stays in sync; reads
     dbs: Mutex<Inner>,
+    display: Mutex<Option<Arc<ActivatedDisplay>>>,
+    display_install: tokio::sync::Mutex<()>,
     finalized_journey_changed_callback: FinalizedJourneyChangedCallback,
 }
 
@@ -65,8 +141,154 @@ impl Storage {
                 geo: None,
                 worldview: None,
             }),
+            display: Mutex::new(None),
+            display_install: tokio::sync::Mutex::new(()),
             finalized_journey_changed_callback: Box::new(|_| {}),
         })
+    }
+
+    fn display_path(&self, digest: [u8; 32]) -> PathBuf {
+        Path::new(&self.support_dir)
+            .join("geo")
+            .join(format!("region_display_{}.bin", hex::encode(digest)))
+    }
+
+    fn check_display_provenance(
+        asset: &DisplayAsset,
+        (worldview, hash): GeoIdentity,
+    ) -> Result<()> {
+        anyhow::ensure!(
+            asset.raster_provenance(worldview) == Some(hash),
+            "display raster provenance mismatch"
+        );
+        Ok(())
+    }
+
+    /// A failed display never enters the geo discard path or changes stats.
+    fn install_region_display(
+        &self,
+        digest: [u8; 32],
+        identity: GeoIdentity,
+        bytes: &[u8],
+    ) -> Result<Arc<ActivatedDisplay>> {
+        anyhow::ensure!(
+            Sha256::digest(bytes).as_slice() == digest,
+            "display bundle digest mismatch"
+        );
+        let path = self.display_path(digest);
+        with_staged_geo_asset(&path, bytes, |staged| {
+            let asset = DisplayAsset::open(staged)?;
+            Self::check_display_provenance(&asset, identity)?;
+            // Keep raster activation from interleaving with the verified commit.
+            let dbs = self.dbs.lock().unwrap();
+            dbs.check_geo_identity(identity)?;
+            publish_geo_asset(staged, &path)?;
+            let asset = ActivatedDisplay::new(digest, asset);
+            *self.display.lock().unwrap() = Some(asset.clone());
+            Ok(asset)
+        })
+    }
+
+    fn open_installed_region_display(
+        &self,
+        digest: [u8; 32],
+        identity: GeoIdentity,
+    ) -> Result<Option<Arc<ActivatedDisplay>>> {
+        let path = self.display_path(digest);
+        if !path.exists() {
+            return Ok(None);
+        }
+        let bytes = std::fs::read(&path)?;
+        if Sha256::digest(&bytes).as_slice() != digest {
+            return Ok(None);
+        }
+        let asset = match DisplayAsset::open(&path) {
+            std::result::Result::Ok(asset) => asset,
+            Err(_) => return Ok(None), // Corrupt installed copy: ask Flutter for bundled bytes again.
+        };
+        Self::check_display_provenance(&asset, identity)?;
+        let dbs = self.dbs.lock().unwrap();
+        dbs.check_geo_identity(identity)?;
+        let asset = ActivatedDisplay::new(digest, asset);
+        *self.display.lock().unwrap() = Some(asset.clone());
+        Ok(Some(asset))
+    }
+
+    fn cached_display(&self, digest: [u8; 32]) -> Option<Arc<ActivatedDisplay>> {
+        self.display
+            .lock()
+            .unwrap()
+            .as_ref()
+            .filter(|cached| cached.digest == digest)
+            .cloned()
+    }
+
+    async fn prepare_region_display<F, Fut>(
+        &self,
+        digest: [u8; 32],
+        identity: GeoIdentity,
+        load_asset: F,
+    ) -> Result<Arc<ActivatedDisplay>>
+    where
+        F: FnOnce() -> Fut,
+        Fut: Future<Output = Result<Vec<u8>>>,
+    {
+        let _install = self.display_install.lock().await;
+        self.dbs.lock().unwrap().check_geo_identity(identity)?;
+        if let Some(asset) = self.cached_display(digest) {
+            if !asset.needs_repair.load(Ordering::Relaxed) {
+                return Ok(asset);
+            }
+            // A frame failed on this installed copy; go straight to the bundle.
+        } else if let Some(asset) = self.open_installed_region_display(digest, identity)? {
+            return Ok(asset);
+        }
+        let bytes = load_asset().await;
+        self.dbs.lock().unwrap().check_geo_identity(identity)?;
+        self.install_region_display(digest, identity, &bytes?)
+    }
+
+    pub async fn region_geometry<F, Fut>(
+        &self,
+        id: GeoEntityId,
+        digest: [u8; 32],
+        load_asset: F,
+    ) -> Result<Option<RegionGeometry>>
+    where
+        F: FnOnce() -> Fut,
+        Fut: Future<Output = Result<Vec<u8>>>,
+    {
+        let identity = self.dbs.lock().unwrap().active_geo_identity()?;
+        let asset = match self
+            .cached_display(digest)
+            .filter(|asset| !asset.needs_repair.load(Ordering::Relaxed))
+        {
+            Some(asset) => asset,
+            None => {
+                self.prepare_region_display(digest, identity, load_asset)
+                    .await?
+            }
+        };
+        // Preparation has released the installer lock before decoding a block.
+        Self::check_display_provenance(&asset.asset, identity)?;
+        self.dbs.lock().unwrap().check_geo_identity(identity)?;
+        let worldview = identity.0;
+        let geometry = asset
+            .asset
+            .get(worldview, id)
+            .inspect_err(|_| {
+                // Mark only the handle that failed, even if it has been replaced.
+                asset.needs_repair.store(true, Ordering::Relaxed);
+            })
+            .and_then(|geometry| {
+                geometry
+                    .map(|geometry| {
+                        display_geometry::feature(id, worldview.into(), digest, geometry)
+                    })
+                    .transpose()
+            });
+        self.dbs.lock().unwrap().check_geo_identity(identity)?;
+        geometry
     }
 
     pub fn installed_geo_data_file(&self, worldview: geo_data_format::Worldview) -> PathBuf {
@@ -266,37 +488,26 @@ impl Storage {
         bytes: &[u8],
     ) -> Result<()> {
         let path = self.installed_geo_data_file(worldview);
-        let dir = path.parent().expect("installed geo path has a parent");
-        std::fs::create_dir_all(dir)?;
-        let tmp = path.with_extension("bin.tmp");
-        {
-            let mut file = File::create(&tmp)?;
-            std::io::Write::write_all(&mut file, bytes)?;
-            file.sync_all()?;
-        }
-        let staged = GeoIndex::open(&tmp).and_then(|geo| {
+        let install = with_staged_geo_asset(&path, bytes, |staged| {
+            let geo = GeoIndex::open(staged)?;
             anyhow::ensure!(
                 geo.provenance_hash() == expected_provenance_hash,
                 "geo asset provenance {:?} does not match the expected {:?}",
                 geo.provenance_hash(),
                 expected_provenance_hash
             );
-            Self::check_worldview(&geo, worldview)
+            Self::check_worldview(&geo, worldview).and_then(|()| {
+                drop(geo);
+                publish_geo_asset(staged, &path)
+            })
         });
-        if let Err(e) = staged {
-            let _ = remove_file(&tmp);
-            return Err(e);
-        }
-        #[cfg(windows)]
-        if path.exists() {
-            remove_file(&path)?;
-        }
-        std::fs::rename(&tmp, &path)?;
-        let geo = GeoIndex::open(&path)?;
-        let mut dbs = self.dbs.lock().unwrap();
-        dbs.geo = Some(Box::new(geo));
-        dbs.worldview = Some(worldview);
-        Ok(())
+        install.and_then(|()| {
+            let geo = GeoIndex::open(&path)?;
+            let mut dbs = self.dbs.lock().unwrap();
+            dbs.geo = Some(Box::new(geo));
+            dbs.worldview = Some(worldview);
+            Ok(())
+        })
     }
 
     #[auto_context]

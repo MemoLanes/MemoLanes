@@ -12,6 +12,35 @@ pub use crate::achievement::region::{
 };
 pub use geo_data_format::GeoEntityId;
 
+#[derive(Debug, Clone)]
+pub struct RegionGeometry {
+    pub entity_id: GeoEntityId,
+    pub worldview: Worldview,
+    pub display_dataset_version: String,
+    pub bounds: crate::utils::MapBounds,
+    pub feature_geojson: String,
+}
+
+fn bundled_display_digest() -> Result<[u8; 32]> {
+    let hex = option_env!("REGION_DISPLAY_SHA256")
+        .ok_or_else(|| anyhow::anyhow!("this build has no bundled region display"))?;
+    hex::decode(hex)?
+        .try_into()
+        .map_err(|_| anyhow::anyhow!("invalid bundled display digest"))
+}
+
+pub async fn region_geometry(
+    entity_id: GeoEntityId,
+    load_asset: impl Fn() -> DartFnFuture<Vec<u8>>,
+) -> Result<Option<RegionGeometry>> {
+    crate::api::api::get()
+        .storage
+        .region_geometry(entity_id, bundled_display_digest()?, || async {
+            Ok(load_asset().await)
+        })
+        .await
+}
+
 // `GeoEntityId` (external `geo_data_format`) keys `RegionLevelView.entries` /
 // `RegionDetail.children`. Mirror its field so Dart gets a value class with
 // `==`/`hashCode` (usable as a `Map` key, buildable from an int), not an opaque box.

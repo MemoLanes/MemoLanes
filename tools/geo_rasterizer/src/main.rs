@@ -2,31 +2,18 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
-use anyhow::{Context, Result};
-use bitmap_geometry::BitmapPlane;
+use anyhow::Result;
 use clap::Parser;
-use geo_data_format::{
-    read_provenance_hash, write_geo_data_planes, GeoEntityId, GeoEntityKind, Locale, PlaneRaster,
-    Worldview,
-};
+use geo_data_format::{Locale, Worldview};
 use geo_rasterizer::{
-    admin0::{parse_admin0, parse_admin0_with_attributions, validate_no_antimeridian_span},
+    admin0::parse_admin0,
     admin1::parse_admin1,
-    area::populate_total_areas_planes,
-    atomic_write::write_atomically,
-    cache::compute_provenance_hash,
+    batch::{rasterize_batch, RasterizeMode, RasterizePaths},
     cldr::{load_subdivisions, load_territories},
-    download::{ensure_admin1, ensure_cldr, ensure_cldr_subdivisions, ensure_geojson},
-    entities::{
-        apply_admin1_policy, apply_synthesized, assemble_entities, attach_admin2_entities,
-        attach_province_entities, collect_provinces, resolve_province_parents, validate_tier_order,
-    },
+    download::{ensure_cldr, ensure_cldr_subdivisions},
+    entities::apply_admin1_policy,
     names::{build_region_names, write_region_names},
     overrides::Overrides,
-    polar::validate_no_polar_provinces,
-    rasterize::{rasterize, rasterize_in_plane},
-    refine::{block_counts, measure_coverage, refine_raster},
-    registry::Registry,
 };
 
 /// Offline rasterizer. With no `--worldview` it rasterizes every shipped worldview using
@@ -70,6 +57,10 @@ struct Args {
     /// registry bootstrap reads, without needing a registry yet.
     #[arg(long, requires = "ensure_source")]
     download_only: bool,
+
+    /// Write a separate display asset including all worldviews.
+    #[arg(long, conflicts_with_all = ["worldview", "download_only"])]
+    display_output: Option<PathBuf>,
 }
 
 /// Crate dir, baked at compile time — defaults resolve relative to it so the
@@ -124,9 +115,6 @@ fn generate_region_names(ensure_source: bool, admin2_dir: &Path) -> Result<()> {
     let mut by_worldview = Vec::new();
     for &worldview in Worldview::ALL {
         let path = default_countries(worldview);
-        if ensure_source {
-            ensure_geojson(&path, worldview)?;
-        }
         by_worldview.push((worldview, parse_admin0(&path, worldview.spec().id)?));
     }
     let mut admin1_by_worldview = Vec::new();
@@ -184,327 +172,61 @@ fn main() -> Result<()> {
     let args = Args::parse();
     let started = Instant::now();
     eprintln!("[geo_rasterizer] started");
-
     let admin2_dir = args
         .admin2_dir
-        .clone()
         .unwrap_or_else(geo_rasterizer::admin2::default_dir);
-
+    let mode = if args.download_only {
+        RasterizeMode::DownloadSources
+    } else if let Some(path) = &args.display_output {
+        RasterizeMode::WithDisplay {
+            ensure_source: args.ensure_source,
+            display_output: path,
+        }
+    } else {
+        RasterizeMode::RasterOnly {
+            ensure_source: args.ensure_source,
+        }
+    };
     match &args.worldview {
-        // Single mode: resolve the one worldview, honoring any path overrides.
         Some(id) => {
             let worldview = Worldview::from_id(id)?;
-            rasterize_one(
-                worldview,
-                RasterizePaths {
-                    countries: args
-                        .countries
-                        .unwrap_or_else(|| default_countries(worldview)),
-                    admin1: args.admin1.clone().unwrap_or_else(default_admin1),
-                    registry: args.registry.unwrap_or_else(default_registry),
-                    admin2_dir: admin2_dir.clone(),
-                    output: args.output.unwrap_or_else(|| default_output(worldview)),
-                },
-                args.ensure_source,
-                args.download_only,
-            )?;
-        }
-        // Batch mode: every shipped worldview with derived paths. A new worldview in
-        // `Worldview::ALL` is rasterized automatically.
-        None => {
-            for &worldview in Worldview::ALL {
-                rasterize_one(
+            rasterize_batch(
+                [(
                     worldview,
                     RasterizePaths {
-                        countries: default_countries(worldview),
-                        admin1: args.admin1.clone().unwrap_or_else(default_admin1),
-                        registry: default_registry(),
-                        admin2_dir: admin2_dir.clone(),
-                        output: default_output(worldview),
+                        countries: args
+                            .countries
+                            .unwrap_or_else(|| default_countries(worldview)),
+                        admin1: args.admin1.unwrap_or_else(default_admin1),
+                        registry: args.registry.unwrap_or_else(default_registry),
+                        admin2_dir,
+                        output: args.output.unwrap_or_else(|| default_output(worldview)),
                     },
-                    args.ensure_source,
-                    args.download_only,
-                )?;
-            }
+                )],
+                mode,
+            )?;
+        }
+        None => {
+            rasterize_batch(
+                Worldview::ALL.iter().map(|&worldview| {
+                    (
+                        worldview,
+                        RasterizePaths {
+                            countries: default_countries(worldview),
+                            admin1: default_admin1(),
+                            registry: default_registry(),
+                            admin2_dir: admin2_dir.clone(),
+                            output: default_output(worldview),
+                        },
+                    )
+                }),
+                mode,
+            )?;
             if !args.download_only {
                 generate_region_names(args.ensure_source, &admin2_dir)?;
             }
         }
     }
-
     eprintln!("[geo_rasterizer] done in {:.1?}", started.elapsed());
-    Ok(())
-}
-
-/// Input/output path overrides for one worldview run, bundled to keep
-/// `rasterize_one`'s argument count sane.
-struct RasterizePaths {
-    countries: PathBuf,
-    admin1: PathBuf,
-    registry: PathBuf,
-    admin2_dir: PathBuf,
-    output: PathBuf,
-}
-
-/// Rasterize one worldview. Returns early (this fn only — never aborting a batch
-/// loop) after `ensure_source` when `download_only` is set.
-fn rasterize_one(
-    worldview: Worldview,
-    paths: RasterizePaths,
-    ensure_source: bool,
-    download_only: bool,
-) -> Result<()> {
-    let RasterizePaths {
-        countries,
-        admin1: admin1_path,
-        registry: registry_dir,
-        admin2_dir,
-        output,
-    } = paths;
-    let started = Instant::now();
-    eprintln!("[geo_rasterizer] worldview={}", worldview.spec().id);
-
-    if ensure_source {
-        ensure_geojson(&countries, worldview)?;
-        ensure_admin1(&admin1_path)?;
-    }
-    if download_only {
-        eprintln!("[geo_rasterizer] --download-only: source ensured, skipping rasterize");
-        return Ok(());
-    }
-
-    // The asset embeds its own worldview id (self-describing); it also feeds the
-    // provenance hash so a worldview retag alone still triggers a rebuild.
-    let worldview_id = worldview.spec().id;
-
-    // 1. Smart skip — provenance hash (inputs + version/policy-rev salts) vs.
-    //    existing bin's embedded hash. geo_policy.toml is hashed as a file
-    //    input: it sits at crate root, outside CI's `src/**` bin-cache key,
-    //    and it feeds the bins.
-    let admin2_inputs = geo_rasterizer::admin2::provenance_inputs(&admin2_dir);
-    let provenance_hash = compute_provenance_hash(
-        &countries,
-        &admin1_path,
-        &registry_dir,
-        &geo_rasterizer::policy::default_path(),
-        &admin2_inputs,
-        worldview_id,
-    )?;
-    if let Some(existing) = read_provenance_hash(&output)? {
-        if existing == provenance_hash {
-            eprintln!(
-                "[geo_rasterizer] inputs unchanged (hash match) — output up to date in {:.0?}",
-                started.elapsed()
-            );
-            return Ok(());
-        }
-    }
-
-    // 2. Parse + validate.
-    eprintln!("[geo_rasterizer] parsing inputs...");
-    let parse = parse_admin0_with_attributions(&countries, worldview_id)?;
-    let features = parse.features;
-    eprintln!("[geo_rasterizer] parsed {} features", features.len());
-    validate_no_antimeridian_span(&features)?;
-    let registry = Registry::load(&registry_dir)?;
-
-    // 3. Entity assembly.
-    eprintln!("[geo_rasterizer] assembling entity model...");
-    let mut model = assemble_entities(&features, &registry)?;
-    let policy = apply_admin1_policy(parse_admin1(&admin1_path, worldview)?, worldview, &features)?;
-    let mut merged = policy.merged_sources;
-    collect_provinces(&mut model, &policy.features, &registry)?;
-    apply_synthesized(&mut model, worldview, &admin1_path, &registry)?;
-    for (target, geometry) in parse.province_attributions {
-        model
-            .geometry_for_province
-            .get_mut(&target)
-            .with_context(|| {
-                format!("absorption attributes land to `{target}`, which does not ship here")
-            })?
-            .0
-            .extend(geometry.0.iter().cloned());
-        merged.push(geo_rasterizer::entities::MergedSource {
-            code: format!("absorbed→{target}"),
-            target,
-            geometry,
-        });
-    }
-    eprintln!(
-        "[geo_rasterizer] {} countries + {} provinces",
-        model.geometry_for_country.len(),
-        model.geometry_for_province.len(),
-    );
-
-    validate_no_polar_provinces(&model.geometry_for_province)?;
-
-    // 4. Rasterize countries in every plane; refine provinces only in Mercator.
-    eprintln!("[geo_rasterizer] rasterizing countries...");
-    let country_ids: BTreeMap<String, GeoEntityId> = model
-        .entities
-        .iter()
-        .filter(|e| matches!(e.kind, GeoEntityKind::Admin0))
-        .map(|e| (e.canonical_code.clone(), e.id))
-        .collect();
-    let mut mercator_raster = rasterize(&model.geometry_for_country, &country_ids);
-    let north_polar_raster = rasterize_in_plane(
-        &model.geometry_for_country,
-        &country_ids,
-        BitmapPlane::NorthPolar,
-    );
-    let south_polar_raster = rasterize_in_plane(
-        &model.geometry_for_country,
-        &country_ids,
-        BitmapPlane::SouthPolar,
-    );
-
-    // Zero-block gate: a merge whose land the country mask does not cover is silently clipped by `refine`
-    if !merged.is_empty() {
-        let base = model.entities.iter().map(|e| e.id.0).max().unwrap_or(0) + 1;
-        let mut probe_geoms = BTreeMap::new();
-        let mut probe_ids = BTreeMap::new();
-        for (i, m) in merged.iter().enumerate() {
-            probe_geoms.insert(m.code.clone(), m.geometry.clone());
-            probe_ids.insert(m.code.clone(), GeoEntityId(base + i as u32));
-        }
-        let probe = rasterize(&probe_geoms, &probe_ids);
-        let cov = measure_coverage(
-            (&mercator_raster.0, &mercator_raster.1),
-            (&probe.0, &probe.1),
-        );
-        for (i, m) in merged.iter().enumerate() {
-            let declared = model
-                .province_declared_adm0
-                .get(&m.target)
-                .with_context(|| format!("merge target `{}` has no declared country", m.target))?;
-            let country = country_ids.get(declared).with_context(|| {
-                format!("merge target `{}`: `{declared}` is no country", m.target)
-            })?;
-            let blocks = cov
-                .get((base + i as u32) as usize)
-                .and_then(|by| by.get(country).copied())
-                .unwrap_or(0);
-            if blocks == 0 {
-                anyhow::bail!(
-                    "merged `{}` contributes no block to `{}` under its country mask — the merge \
-                     is dead; drop the entry or fix the mask",
-                    m.code,
-                    m.target
-                );
-            }
-        }
-    }
-
-    eprintln!("[geo_rasterizer] rasterizing provinces...");
-    let province_raster = rasterize(&model.geometry_for_province, &model.province_ids);
-
-    eprintln!("[geo_rasterizer] resolving province parents...");
-    let tally = measure_coverage(
-        (&mercator_raster.0, &mercator_raster.1),
-        (&province_raster.0, &province_raster.1),
-    );
-    let province_blocks = block_counts((&province_raster.0, &province_raster.1));
-    let parents = resolve_province_parents(&model, &tally, &province_blocks, worldview)?;
-    attach_province_entities(&mut model, &parents);
-    validate_tier_order(&model.entities)?;
-    mercator_raster = refine_raster(
-        (&mercator_raster.0, &mercator_raster.1),
-        (&province_raster.0, &province_raster.1),
-        &parents,
-    );
-
-    let admin2_features = geo_rasterizer::admin2::load(&admin2_dir)?;
-    if !admin2_features.is_empty() {
-        eprintln!(
-            "[geo_rasterizer] rasterizing {} admin-2 units...",
-            admin2_features.len()
-        );
-        let mut admin2_geoms = BTreeMap::new();
-        let mut admin2_ids = BTreeMap::new();
-        let mut admin2_parents: BTreeMap<GeoEntityId, GeoEntityId> = BTreeMap::new();
-        for f in &admin2_features {
-            let id = registry.id_for_admin2(&f.canonical_code)?;
-            // `parents` holds only the provinces that actually shipped, so a
-            // code present in `province_ids` but dropped as landless or
-            // unparented is rejected here rather than orphaning the child.
-            let parent = model
-                .province_ids
-                .get(&f.parent_adm1)
-                .copied()
-                .filter(|p| parents.contains_key(p))
-                .with_context(|| {
-                    format!(
-                        "admin-2 `{}` parents to `{}`, which does not ship in worldview \
-                         `{worldview_id}`",
-                        f.canonical_code, f.parent_adm1
-                    )
-                })?;
-            admin2_ids.insert(f.canonical_code.clone(), id);
-            admin2_geoms.insert(f.canonical_code.clone(), f.geometry.clone());
-            admin2_parents.insert(id, parent);
-        }
-        let admin2_raster = rasterize(&admin2_geoms, &admin2_ids);
-
-        let cov = measure_coverage(
-            (&mercator_raster.0, &mercator_raster.1),
-            (&admin2_raster.0, &admin2_raster.1),
-        );
-        for (code, &id) in &admin2_ids {
-            let parent = admin2_parents[&id];
-            let blocks = cov
-                .get(id.0 as usize)
-                .and_then(|by| by.get(&parent))
-                .copied()
-                .unwrap_or(0);
-            if blocks == 0 {
-                anyhow::bail!(
-                    "admin-2 `{code}` has no block inside its parent's mask — landless entity"
-                );
-            }
-        }
-
-        attach_admin2_entities(&mut model, &admin2_ids, &admin2_parents);
-        validate_tier_order(&model.entities)?;
-        mercator_raster = refine_raster(
-            (&mercator_raster.0, &mercator_raster.1),
-            (&admin2_raster.0, &admin2_raster.1),
-            &admin2_parents,
-        );
-    }
-
-    let rasters = [
-        (BitmapPlane::Mercator, &mercator_raster),
-        (BitmapPlane::NorthPolar, &north_polar_raster),
-        (BitmapPlane::SouthPolar, &south_polar_raster),
-    ]
-    .map(|(plane, raster)| PlaneRaster {
-        plane,
-        tiles: &raster.0,
-        blocks: &raster.1,
-    });
-    eprintln!(
-        "[geo_rasterizer] merged: {} entities, {} border tiles",
-        model.entities.len(),
-        rasters.iter().map(|r| r.blocks.len()).sum::<usize>()
-    );
-
-    // 5. Areas.
-    populate_total_areas_planes(&mut model, &rasters);
-
-    // TODO: Phase 2 — instead of one bin per run, iterate the
-    // shipped worldview files and emit a shared base + per-worldview delta sections.
-    // The registry already gives cross-worldview-stable ids.
-
-    // 6. Serialize (sectioned format) + atomic write.
-    let bytes = write_geo_data_planes(&model.entities, worldview_id, &rasters, provenance_hash)
-        .context("serializing geo_data.bin")?;
-    write_atomically(&output, &bytes)?;
-
-    eprintln!(
-        "[geo_rasterizer] wrote {} ({} bytes) in {:.1?}",
-        output.display(),
-        bytes.len(),
-        started.elapsed()
-    );
     Ok(())
 }

@@ -15,8 +15,8 @@ use bitmap_geometry::BitmapPlane;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    GeoEntity, GeoEntityId, PackedTile, TileMembership, ALL_PLANE_TILE_COUNT, MAGIC,
-    PROVENANCE_HASH_END,
+    file_io::read_exact_at, GeoEntity, GeoEntityId, PackedTile, TileMembership,
+    ALL_PLANE_TILE_COUNT, MAGIC, PROVENANCE_HASH_END,
 };
 
 /// magic(4) + provenance_hash(32) + 4 sections × (u32 offset, u32 len).
@@ -160,25 +160,6 @@ impl BorderBlobs {
         .map_err(|e| anyhow::anyhow!("geo_data: reading border blob {i}: {e}"))?;
         Ok(buf)
     }
-}
-
-#[cfg(unix)]
-fn read_exact_at(file: &File, buf: &mut [u8], offset: u64) -> std::io::Result<()> {
-    std::os::unix::fs::FileExt::read_exact_at(file, buf, offset)
-}
-
-#[cfg(windows)]
-fn read_exact_at(file: &File, mut buf: &mut [u8], mut offset: u64) -> std::io::Result<()> {
-    while !buf.is_empty() {
-        match std::os::windows::fs::FileExt::seek_read(file, buf, offset)? {
-            0 => return Err(std::io::ErrorKind::UnexpectedEof.into()),
-            n => {
-                buf = &mut buf[n..];
-                offset += n as u64;
-            }
-        }
-    }
-    Ok(())
 }
 
 #[derive(Debug)]

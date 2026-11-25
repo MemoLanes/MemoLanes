@@ -66,6 +66,8 @@ pub fn cell_index(x: u8, y: u8) -> usize {
 }
 
 mod cldr;
+mod display;
+mod file_io;
 mod format;
 mod locale;
 mod packed_tile;
@@ -73,6 +75,10 @@ mod types;
 mod worldview;
 
 pub use cldr::*;
+pub use display::{
+    write_display_asset, DisplayAsset, DisplayBounds, DisplayGeometry, DisplayRecord,
+    DISPLAY_DATASET_VERSION,
+};
 pub use format::{
     expected_total_len, read_header, read_provenance_hash, write_geo_data, write_geo_data_planes,
     BorderBlobs, GeoData, Header, PlaneRaster, Section, TileEntry, TileIndex, HEADER_LEN,

@@ -95,16 +95,26 @@ jobs:
           path: tools/geo_rasterizer/natural_earth/*.geojson
           key: geo-natural-earth-${{ hashFiles('tools/geo_rasterizer/src/download.rs', 'app/rust/geo_data_format/src/**', 'app/rust/geo_data_format/Cargo.toml', 'app/rust/geo_data_format/Cargo.lock') }}
 
-      # Cache the generated geo_data_*.bin. The key hashes the rasterizer and
-      # geo_data_format / bitmap_geometry *sources* (not just inputs): the in-bin
-      # provenance hash keys on inputs + GEO_DATA_VERSION, NOT on algorithm
-      # code, so an algorithm change must bust this cache or stale output would
-      # be served. On a hit, rasterize-geo finds matching provenance and skips.
-      - name: Cache geo_data bins
+      # Hash generator code as well as data inputs: raster provenance tracks
+      # inputs and the format version, not algorithm changes.
+      - name: Cache generated geo assets
         uses: actions/cache@v5
         with:
-          path: app/assets/geo/geo_data_*.bin
-          key: geo-bins-${{ hashFiles('tools/geo_rasterizer/src/**', 'tools/geo_rasterizer/Cargo.lock', 'tools/geo_rasterizer/geo_entity_registry/*.toml', 'app/rust/geo_data_format/src/**', 'app/rust/geo_data_format/Cargo.lock', 'app/rust/bitmap_geometry/src/**', 'app/rust/bitmap_geometry/Cargo.toml', 'app/rust/bitmap_geometry/Cargo.lock') }}
+          path: |
+            app/assets/geo/geo_data_*.bin
+            app/assets/geo/region_display.bin
+            app/assets/geo/.build-metadata/region_display.bin
+          key: >-
+            geo-assets-${{ hashFiles(
+            'tools/geo_rasterizer/src/**',
+            'tools/geo_rasterizer/Cargo.*',
+            'tools/geo_rasterizer/geo_policy.toml',
+            'tools/geo_rasterizer/geo_entity_registry/*.toml',
+            'tools/geo_rasterizer/admin2/**',
+            'app/rust/geo_data_format/src/**',
+            'app/rust/geo_data_format/Cargo.*',
+            'app/rust/bitmap_geometry/src/**',
+            'app/rust/bitmap_geometry/Cargo.*') }}
 
       - name: Bitmap Geometry Check
         if: steps.changes.outputs.geo == 'true'
@@ -120,7 +130,8 @@ jobs:
         if: steps.changes.outputs.geo == 'true'
         working-directory: app
         run: just geo-rasterizer-check
-      - name: Geo Rasterize All Worldviews
+      # Cached binaries are reused; this step still generates the registry and region names.
+      - name: Prepare geo assets
         working-directory: app
         run: just rasterize-geo
 
@@ -130,7 +141,7 @@ jobs:
       - name: Geo Tests
         if: steps.changes.outputs.geo == 'true'
         working-directory: app
-        run: just test-geo
+        run: just --no-deps test-geo
 
       # Guardrail: rasterize-geo regenerates the committed id registry (union
       # over Worldview::ALL). CI can't commit, so a non-empty diff means someone bumped
@@ -179,4 +190,4 @@ jobs:
         
       - name: Flutter, Journey Kernel, and Rust Tests
         working-directory: app
-        run: just test-app
+        run: just --no-deps test-app

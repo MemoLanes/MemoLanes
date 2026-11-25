@@ -7,6 +7,8 @@ shipped in `app/assets/geo/`:
   Its header carries a provenance hash of the inputs; `app/rust/build.rs` reads
   that hash and compiles it in, so the app can recognize a stale installed copy
   without loading the asset.
+- `region_display.bin` — standalone, offline outlines for the region explorer
+  for all shipped worldviews (see [Display outlines](#display-outlines)).
 - `region_names.<locale>.json` — the localized region-name maps (one per
   locale), resolved from Unicode CLDR (see "Region names" below).
 
@@ -17,6 +19,55 @@ Three things in this crate are **hand-curated state**, committed as source of
 truth: `geo_entity_registry/` (frozen ids), `geo_policy.toml` (editorial
 policy), and `geo_names_overrides.toml` (name overrides). This README covers
 the registry first, then policy, then names.
+
+## Display outlines
+
+`just rasterize-geo` opts into `geo_rasterizer --ensure-source --display-output
+assets/geo/region_display.bin`. Without `--display-output` the CLI does not build
+display geometry. An opt-in batch reuses the display file only when all rasters
+are current, its embedded worldview manifest matches their provenance, and its
+build stamp matches the exporter recipe version, the file's SHA-256, and a
+digest of actual raster entity IDs, source kinds, and canonical codes by
+worldview.
+Continents, raster areas, and tile data do not feed the digest. This catches
+entity changes after a raster-only rebuild even when provenance is unchanged.
+On a miss it exports all worldviews without rewriting current rasters. It
+publishes the asset atomically before publishing the stamp; the stamp is not
+bundled. Bump `DISPLAY_RECIPE_VERSION` in `src/display_cache.rs` when exporter
+changes affect the generated display bytes without changing the data inputs.
+It is independent of the display file-format version and raster provenance.
+
+CI caches the display file and its stamp together with the rasters. To force
+regeneration locally, remove `assets/geo/.build-metadata/region_display.bin`
+(from `app/`) and run `just rasterize-geo` again.
+
+The asset contains display copies of the resolved admin-0/admin-1 shapes and
+pinned Overture admin-2 shapes, indexed by the IDs actually present in the raster.
+It does not contain continents and is not an input to ownership, area or stats.
+
+The exporter cuts crossing polygons at the dateline, preserves explicit polar
+closures, and computes camera bounds from the normalized, validated source. It
+nodes coincident boundaries using existing source vertices, splits at junctions,
+and simplifies each arc using its strictest user's fit budget (approximately
+one pixel at a 640 × 480 Mercator fit). The global `0.0001°` grid is the default;
+failed validation retries with unsimplified arcs on the aligned `0.00001°`
+grid, propagating precision to shared endpoints and revalidating the users.
+It checks ring winding, polygon validity, symmetric difference from source
+coverage, newly introduced shared segments or crossings, and positive-area
+interior overlap between components that had disjoint source interiors.
+The overlap check includes holes and does not reject pre-existing area overlap
+or boundary-only contact. If a new area overlap survives the fine-grid retry,
+the exporter keeps the greater entity extent (lower ID on ties) and logs both
+IDs. Source repair is limited to validated polygonization or union of affected
+source components; these changes apply only to display geometry.
+
+Generation logs are prefixed `[display:<worldview>]`. Summary lines report
+record/source counts, fallback requests, fine arcs, repairs and unavailable
+outlines. Per-ID messages record the reason for a retry, repair or omission.
+An unavailable outline is not a missing raster entity or a loss of its stats.
+`just test-geo` ensures the assets are current and checks fixture behavior and
+the shipped China, Guangdong, Guangzhou, Macao, Antarctica and Fiji records
+across all three worldviews.
 
 ## What `geo_entity_registry/` is
 
