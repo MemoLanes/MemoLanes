@@ -9,10 +9,14 @@
  */
 
 import * as maplibregl from "maplibre-gl";
-import { MapController } from "./map-controller";
+import { MapController, type MapAppearance } from "./map-controller";
 import { LocationFollowController } from "./location-follow-controller";
 import { MAX_MAP_ZOOM } from "./layer-config";
 import { observeSingleMapTap } from "./single-map-tap";
+import {
+  createAchievementRegionOverlay,
+  type AchievementRegionFeature,
+} from "./achievement-region-overlay";
 
 interface MapBounds {
   west: number;
@@ -34,6 +38,18 @@ interface MapView {
   zoom: number;
 }
 
+interface AchievementRegionCommand {
+  document: number;
+  restore?: boolean;
+  owner?: number;
+  generation: number;
+  revision: number;
+  featureGeoJson: string | null;
+  bounds: MapBounds | null;
+  padding: MapPadding;
+  view: MapView | null;
+}
+
 // Type definitions for Flutter message channels
 interface FlutterMessageChannel {
   postMessage: (message: string) => void;
@@ -43,9 +59,15 @@ interface FlutterMessageChannel {
 declare global {
   interface Window {
     readyForDisplay?: FlutterMessageChannel;
+    readyForCommands?: FlutterMessageChannel;
     onMapMoved?: FlutterMessageChannel;
     onMapTap?: FlutterMessageChannel;
-    setMapTapEnabled?: (enabled: boolean) => void;
+    setMapTapEnabled?: (
+      document: number,
+      lease: number,
+      enabled: boolean,
+    ) => void;
+    applyMapAppearance?: (document: number, appearance: MapAppearance) => void;
     onMapViewChanged?: FlutterMessageChannel;
     onMapZoomChanged?: FlutterMessageChannel;
     onMapAttributionChanged?: FlutterMessageChannel;
@@ -60,8 +82,12 @@ declare global {
     captureMapScreenshot?: () => Promise<string>;
     getMapAttribution?: () => string | null;
     refreshMapData?: () => Promise<boolean | null>;
-    flyToBounds?: (bounds: MapBounds, padding: MapPadding) => void;
+    flyToBounds?: (bounds: MapBounds, padding: MapPadding) => boolean;
     flyToView?: (view: MapView) => void;
+    setAchievementRegion?: (feature: AchievementRegionFeature | null) => void;
+    applyAchievementRegionCommand?: (
+      command: AchievementRegionCommand,
+    ) => false | { document: number; owner: number; generation: number };
   }
 }
 
@@ -69,10 +95,14 @@ export class FlutterBridge {
   private mapController: MapController;
   private map: maplibregl.Map;
   private locationMarker: maplibregl.Marker;
+  private cameraOwner = 0;
+  private suppressViewPush = false;
   private locationFollowController: LocationFollowController;
 
   constructor(mapController: MapController) {
     this.mapController = mapController;
+    const owner = window.EXTERNAL_PARAMS?.achievement_map_owner;
+    this.cameraOwner = typeof owner === "number" ? owner : 0;
     this.map = mapController.getMap();
 
     // Create location marker element
@@ -102,7 +132,12 @@ export class FlutterBridge {
    */
   notifyMapMoved(): void {
     if (window.onMapMoved) {
-      window.onMapMoved.postMessage("");
+      window.onMapMoved.postMessage(
+        JSON.stringify({
+          document: window.EXTERNAL_PARAMS?.achievement_map_document,
+          owner: this.cameraOwner,
+        }),
+      );
     }
   }
 
@@ -180,7 +215,7 @@ export class FlutterBridge {
     const THROTTLE_MS = 1_000;
 
     return () => {
-      if (!window.onMapViewChanged) return;
+      if (!window.onMapViewChanged || this.suppressViewPush) return;
 
       const now = Date.now();
       if (now - lastPushTime < THROTTLE_MS) {
@@ -189,6 +224,8 @@ export class FlutterBridge {
 
       const center = this.map.getCenter();
       const payload = {
+        document: window.EXTERNAL_PARAMS?.achievement_map_document,
+        owner: this.cameraOwner,
         lng: Number(center.lng.toFixed(6)),
         lat: Number(center.lat.toFixed(6)),
         zoom: Number(this.map.getZoom().toFixed(2)),
@@ -236,18 +273,127 @@ export class FlutterBridge {
    * Setup all window methods that Flutter can call
    */
   setupFlutterCallableMethods(): void {
+    const documentId = window.EXTERNAL_PARAMS?.achievement_map_document;
     let stopObservingTaps: (() => void) | undefined;
-    window.setMapTapEnabled = (enabled) => {
-      if (enabled) {
-        stopObservingTaps ??= observeSingleMapTap(this.map, () => {
-          window.onMapTap?.postMessage("");
-        });
-      } else {
-        stopObservingTaps?.();
-        stopObservingTaps = undefined;
-      }
+    let tapLease = -1;
+    window.setMapTapEnabled = (document, lease, enabled) => {
+      if (document !== documentId || lease <= tapLease) return;
+      tapLease = lease;
+      stopObservingTaps?.();
+      stopObservingTaps = enabled
+        ? observeSingleMapTap(this.map, () => {
+            window.onMapTap?.postMessage(JSON.stringify({ document, lease }));
+          })
+        : undefined;
     };
     this.map.once("remove", () => stopObservingTaps?.());
+    window.applyMapAppearance = (document, appearance) => {
+      if (document === documentId)
+        this.mapController.applyMapAppearance(appearance);
+    };
+
+    let setRegion:
+      ReturnType<typeof createAchievementRegionOverlay> | undefined;
+    window.setAchievementRegion = (feature) => {
+      if (feature !== null)
+        setRegion ??= createAchievementRegionOverlay(this.map);
+      setRegion?.(feature);
+    };
+
+    if (typeof documentId === "number") {
+      let latestGeneration = 0;
+      let drawnFeature: string | null | undefined = null;
+      let fittedRevision: number | undefined;
+      let fittedOwner: number | undefined;
+      let pendingFit:
+        | {
+            owner: number;
+            revision: number;
+            bounds: MapBounds;
+            padding: MapPadding;
+          }
+        | undefined;
+      const finishPendingFit = () => {
+        const fit = pendingFit;
+        if (!fit || !window.flyToBounds!(fit.bounds, fit.padding)) return;
+        fittedRevision = fit.revision;
+        fittedOwner = fit.owner;
+        pendingFit = undefined;
+      };
+      const retryAfterResize = () => {
+        const fit = pendingFit;
+        if (!fit) return;
+        // MapLibre emits the resize's moveend after resize; it would end the polar lock.
+        queueMicrotask(() => {
+          if (pendingFit === fit) finishPendingFit();
+        });
+      };
+      this.map.on("resize", retryAfterResize);
+      this.map.once("remove", () => {
+        pendingFit = undefined;
+        this.map.off("resize", retryAfterResize);
+      });
+      window.applyAchievementRegionCommand = (command) => {
+        if (
+          command.document !== documentId ||
+          (command.owner ?? 0) < this.cameraOwner ||
+          command.generation <= latestGeneration
+        ) {
+          return false;
+        }
+        // Reject older commands even if applying this one fails partway through.
+        latestGeneration = command.generation;
+        pendingFit = undefined;
+        const owner = command.owner ?? 0;
+        if (owner !== this.cameraOwner || command.featureGeoJson === null) {
+          this.suppressViewPush = true;
+          this.locationFollowController.cancel();
+          this.mapController.cancelCamera();
+          this.cameraOwner = owner;
+          if (!command.restore) this.suppressViewPush = false;
+        }
+        const { featureGeoJson, revision, bounds, padding, view } = command;
+        if (featureGeoJson !== drawnFeature) {
+          // A partial drawing failure must not make the next request skip drawing.
+          drawnFeature = undefined;
+          window.setAchievementRegion!(
+            featureGeoJson === null ? null : JSON.parse(featureGeoJson),
+          );
+          drawnFeature = featureGeoJson;
+        }
+        if (command.restore) {
+          // Publish the new lease only after the home camera is installed.
+          // jumpTo avoids an intermediate Explorer-to-home persistence window.
+          if (view)
+            this.mapController.jumpTo({
+              center: [view.lng, view.lat],
+              zoom: view.zoom,
+            });
+          this.suppressViewPush = false;
+          return {
+            document: documentId,
+            owner,
+            generation: command.generation,
+          };
+        }
+        // Flutter may retry a request whose fit ran but whose reply was lost.
+        if (
+          (owner !== fittedOwner || revision !== fittedRevision) &&
+          (bounds || view)
+        ) {
+          if (bounds) {
+            // Flutter can publish the new padding before MapLibre sees the resize.
+            pendingFit = { owner, revision, bounds, padding };
+            finishPendingFit();
+          } else if (view) {
+            window.flyToView!(view);
+            fittedRevision = revision;
+            fittedOwner = owner;
+          }
+        }
+        return { document: documentId, owner, generation: command.generation };
+      };
+    }
 
     // Update location marker
     window.updateLocationMarker = (
@@ -269,6 +415,8 @@ export class FlutterBridge {
     window.getCurrentMapView = () => {
       const center = this.map.getCenter();
       return JSON.stringify({
+        document: window.EXTERNAL_PARAMS?.achievement_map_document,
+        owner: this.cameraOwner,
         lng: center.lng,
         lat: center.lat,
         zoom: this.map.getZoom(),
@@ -285,7 +433,7 @@ export class FlutterBridge {
     window.flyToBounds = (bounds, padding) => {
       // MapLibre's initial-bounds path calls fitBounds with the same padding
       // and zoom cap. fitBounds calculates the camera, then calls flyTo.
-      this.mapController.fitBounds(
+      return this.mapController.fitBounds(
         [
           [bounds.west, bounds.south],
           [bounds.east, bounds.north],
@@ -312,6 +460,7 @@ export class FlutterBridge {
   initialize(): void {
     this.setupMapEventListeners();
     this.setupFlutterCallableMethods();
+    this.observeMapAttribution();
   }
 }
 

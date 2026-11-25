@@ -1,3 +1,4 @@
+import { prepareAchievementRegionStyle } from "./achievement-region-overlay";
 /**
  * MapController - Centralized map management
  *
@@ -13,7 +14,9 @@ import * as maplibregl from "maplibre-gl";
 import type {
   Map as MaplibreMap,
   MapContextEvent,
+  MapEventType,
   RequestTransformFunction,
+  StyleSpecification,
   ResourceType,
   LngLatLike,
   LngLatBoundsLike,
@@ -30,7 +33,7 @@ import {
 } from "maplibregl-mapbox-request-transformer";
 import { AVAILABLE_LAYERS, type ReactiveParams } from "./params";
 import { JourneyTileProvider } from "./journey-tile-provider";
-import { getFogStyle } from "./fog-style";
+import { getFogStyle, type FogStyleId } from "./fog-style";
 import { detectMapLocale, type MapLocale } from "./map-locale";
 import { transformStyleWithProjection } from "./utils";
 import { JOURNEY_LAYER_ID } from "./layers/journey-layer-interface";
@@ -49,6 +52,9 @@ import {
 } from "./polar-camera-policy";
 import { getPolarBoundsCamera } from "./polar-camera-bounds";
 const DATA_POLL_INTERVAL_MS = 1_000;
+const OFFLINE_BASEMAP_STYLE_METADATA_KEY = "memolanes:offline-basemap";
+// Let a slow request survive the first scheduled retry, but not indefinitely.
+const BASEMAP_REQUEST_STALL_MS = 12_000;
 
 interface WebGLContextMessageChannel {
   postMessage: (message: string) => void;
@@ -80,6 +86,14 @@ export interface MapControllerConfig {
   DisableAutoRefresh?: boolean;
 }
 
+export interface MapAppearance {
+  map_style: string | StyleSpecification;
+  custom_basemap: boolean;
+  fog_style: FogStyleId;
+  fog_density: number;
+  access_key: string | null;
+}
+
 /**
  * MapController manages the MapLibre map instance and related components
  */
@@ -87,10 +101,15 @@ export class MapController {
   private map: MaplibreMap;
   private params: ReactiveParams;
   private readonly mapLocale: MapLocale;
+  private readonly hasSharedDocument =
+    typeof window.EXTERNAL_PARAMS?.achievement_map_document === "number";
   private DisableAutoRefresh: boolean;
   private currentJourneyLayer: JourneyLayer | null = null;
   private journeyTileProvider: JourneyTileProvider | null = null;
   private styleLoadRetry: StyleLoadRetry | null = null;
+  private localBasemapRequestStarted: number | null = null;
+  private builtinBasemapFetch: AbortController | null = null;
+  private liveBasemapRevision = 0;
   private pollIntervalId: ReturnType<typeof setInterval> | null = null;
   private polarGlobeLocked = false;
   private polarCameraTargetLatitude: number | null = null;
@@ -114,6 +133,11 @@ export class MapController {
 
     // Build transform request function for Mapbox styles
     const transformRequest = this.buildTransformRequest();
+
+    // A URL style can be unavailable or stay pending indefinitely. Give the
+    // explorer a local, editable background without waiting for the document.
+    const useLocalBasemap = this.usesLocalBasemap();
+    const initialStyle = this.placeholderStyle(useLocalBasemap);
 
     // Create the map instance
     this.map = new maplibregl.Map({
@@ -139,25 +163,14 @@ export class MapController {
       transformConstrain: this.polarGlobeLocked
         ? createPolarCameraConstrain(0, MAX_MAP_ZOOM)
         : null,
-      style: {
-        version: 8,
-        metadata: { [PLACEHOLDER_STYLE_METADATA_KEY]: true },
-        sources: {},
-        layers: [
-          {
-            id: "background",
-            type: "background",
-            paint: {
-              "background-color": "#e8e4df", // Light beige background contrasting black universe
-            },
-          },
-        ],
-        projection: {
-          type: this.polarGlobeLocked
-            ? "vertical-perspective"
-            : this.params.projection,
-        },
-      },
+      style: useLocalBasemap
+        ? transformStyleWithProjection(
+            initialStyle,
+            this.params.projection,
+            this.mapLocale,
+            this.polarGlobeLocked,
+          )
+        : initialStyle,
       // TODO: maplibre brings more canvas settings, we may fine tune them later
       canvasContextAttributes: {
         antialias: true,
@@ -200,6 +213,32 @@ export class MapController {
       );
     }
     this.setupWebGLContextMonitoring();
+    this.map.on("error", this.handleLocalBasemapRequestError);
+  }
+
+  private placeholderStyle(useLocalBasemap: boolean): StyleSpecification {
+    return {
+      version: 8,
+      metadata: {
+        [PLACEHOLDER_STYLE_METADATA_KEY]: true,
+        ...(useLocalBasemap && { [OFFLINE_BASEMAP_STYLE_METADATA_KEY]: true }),
+      },
+      sources: {},
+      layers: [
+        {
+          id: useLocalBasemap ? "offline-basemap" : "background",
+          type: "background",
+          paint: {
+            "background-color": "#e8e4df", // Light beige background contrasting black universe
+          },
+        },
+      ],
+      projection: {
+        type: this.polarGlobeLocked
+          ? "vertical-perspective"
+          : this.params.projection,
+      },
+    };
   }
 
   private readonly handleWebGLContextLost = (event: MapContextEvent): void => {
@@ -210,6 +249,7 @@ export class MapController {
     this.webGLContextLossCount++;
     this.webGLContextLostAt = Date.now();
     this.webGLContextLost = true;
+    this.cancelBuiltinBasemapFetch();
     // MapLibre destroys the old style (and invokes custom-layer onRemove)
     // before emitting this event. Do not call remove() on that dead context.
     this.currentJourneyLayer = null;
@@ -226,6 +266,11 @@ export class MapController {
 
     this.webGLContextLostAt = null;
     this.webGLContextLost = false;
+
+    // MapLibre's snapshot rebuild has aborted the old URL request. Retire
+    // only the explorer's pending guard so the existing placeholder retry
+    // can run; an already loaded remote style keeps its normal retry policy.
+    this.localBasemapRequestStarted = null;
 
     // MapLibre fires this after creating the replacement painter, but before
     // its asynchronously restored style is guaranteed to accept custom
@@ -269,6 +314,7 @@ export class MapController {
       statusMessage: statusMessage || undefined,
       renderMode: this.params.renderMode,
       view: {
+        ...JSON.parse(window.getCurrentMapView?.() ?? "{}"),
         lng: Number(center.lng.toFixed(6)),
         lat: Number(center.lat.toFixed(6)),
         zoom: Number(this.map.getZoom().toFixed(2)),
@@ -316,45 +362,28 @@ export class MapController {
    *
    * @returns Promise that resolves when initialization is complete
    */
-  async initialize(): Promise<void> {
+  async initialize(onLocalReady?: () => void): Promise<void> {
     return new Promise((resolve) => {
       this.map.on("load", async () => {
-        // Create JourneyTileProvider (it registers its own hooks for renderMode)
-        this.journeyTileProvider = new JourneyTileProvider(
-          this.map,
-          this.params,
-        );
-
-        // Register hooks for reactive property changes
+        const provider = new JourneyTileProvider(this.map, this.params);
+        this.journeyTileProvider = provider;
         this.registerParamsHooks();
-
-        // Create and initialize journey layer with selected rendering mode
         this.currentJourneyLayer = this.switchRenderingLayer();
-
-        // Handle style changes to maintain journey layer position
         this.setupStyleDataHandler();
-
-        // Set up polling for tile updates
         if (!this.DisableAutoRefresh) {
           this.pollIntervalId = setInterval(
-            () => this.journeyTileProvider?.pollForJourneyUpdates(false),
+            () => provider.pollForJourneyUpdates(false),
             DATA_POLL_INTERVAL_MS,
           );
         }
 
-        // Apply the actual map style (deferred until journey layer is added)
-        if (!this.params.customBasemap) {
-          this.styleLoadRetry = new StyleLoadRetry(
-            this.map,
-            () => this.applyMapStyle(),
-            () => !this.webGLContextLost,
-          );
-        }
+        this.resetStyleLoadRetry();
         this.applyMapStyle();
+        onLocalReady?.();
 
         // The provider has already started loading. Let the basemap load
         // overlap tile-buffer preparation before waiting for the initial data.
-        await this.journeyTileProvider.waitForTileBufferUpdate();
+        await provider.waitForTileBufferUpdate();
         console.log("initial tile buffer loaded");
 
         // Workaround: WebView may report stale GL surface dimensions
@@ -373,6 +402,22 @@ export class MapController {
    */
   getMap(): MaplibreMap {
     return this.map;
+  }
+
+  cancelCamera(): void {
+    this.map.stop();
+    this.polarCameraTargetLatitude = null;
+    this.restoreBoundsPadding();
+  }
+
+  waitForLocalDisplay(): Promise<void> {
+    return waitForRenderedFrame(
+      this.map,
+      () =>
+        !this.webGLContextLost &&
+        !!this.map.getStyle() &&
+        this.map.getCanvas().width > 0,
+    );
   }
 
   captureScreenshot(): Promise<string> {
@@ -400,7 +445,7 @@ export class MapController {
     return this.map.flyTo(options);
   }
 
-  fitBounds(bounds: LngLatBoundsLike, options?: FitBoundsOptions): MaplibreMap {
+  fitBounds(bounds: LngLatBoundsLike, options: FitBoundsOptions = {}): boolean {
     this.restoreBoundsPadding();
     this.preparePolarCamera(
       maplibregl.LngLatBounds.convert(bounds).getCenter(),
@@ -410,12 +455,21 @@ export class MapController {
       if (camera) {
         this.polarBoundsPadding = this.map.getPadding();
         const movement = { ...options, ...camera };
-        return options?.linear
-          ? this.map.easeTo(movement)
-          : this.map.flyTo(movement);
+        if (options.linear) this.map.easeTo(movement);
+        else this.map.flyTo(movement);
+        return true;
       }
     }
-    return this.map.fitBounds(bounds, options);
+    const camera = this.map.cameraForBounds(bounds, options);
+    if (!camera) return false;
+    const movement = { ...camera, ...options };
+    delete movement.absolutePadding;
+    // cameraForBounds already accounted for relative padding in center and zoom.
+    if (options.absolutePadding) movement.padding = camera.padding;
+    else delete movement.padding;
+    if (options.linear) this.map.easeTo(movement);
+    else this.map.flyTo(movement);
+    return true;
   }
 
   private restoreBoundsPadding(): void {
@@ -444,17 +498,27 @@ export class MapController {
     );
   }
 
-  /** Wait for a displayable frame from whichever renderer is currently active. */
+  private usesLocalBasemap(): boolean {
+    return this.hasSharedDocument && typeof this.params.mapStyle === "string";
+  }
+
+  private readonly handleLocalBasemapRequestError = (
+    event: MapEventType["error"],
+  ): void => {
+    // URL-diff request errors are emitted by the map itself. Errors forwarded
+    // from the current style (e.g. source errors) do not settle that request.
+    if (!this.builtinBasemapFetch && !("style" in event))
+      this.localBasemapRequestStarted = null;
+  };
+
   waitForDisplay(): Promise<void> {
-    return waitForRenderedFrame(this.map, () => {
-      const layer = this.currentJourneyLayer;
-      return (
+    return waitForRenderedFrame(
+      this.map,
+      () =>
         !this.webGLContextLost &&
         !!this.map.getLayer(JOURNEY_LAYER_ID) &&
-        layer !== null &&
-        layer.isReadyForDisplay()
-      );
-    });
+        this.currentJourneyLayer?.isReadyForDisplay() === true,
+    );
   }
 
   /**
@@ -512,7 +576,9 @@ export class MapController {
       this.currentJourneyLayer = null;
       return null;
     }
-    if (!this.journeyTileProvider || !this.hasUsableStyle()) {
+    // getStyle() is absent until style initialization, but a loaded style
+    // with no basemap layers can still host the journey layer and fog.
+    if (!this.journeyTileProvider || !this.map.getStyle()) {
       return null;
     }
 
@@ -590,7 +656,13 @@ export class MapController {
         false,
       );
       this.applyPolarCameraConstraint();
-      this.applyMapStyle();
+      if (this.localBasemapRequestStarted !== null) {
+        this.map.setProjection({
+          type: this.polarGlobeLocked ? "vertical-perspective" : newProjection,
+        });
+      } else {
+        this.applyMapStyle();
+      }
     });
   }
 
@@ -652,28 +724,150 @@ export class MapController {
       // 2. CustomLayerInterface layers stay but move to bottom - need to reorder
 
       const customIndex = orderedLayerIds.indexOf(JOURNEY_LAYER_ID);
+      const targetIndex = orderedLayerIds.length - 1;
       if (customIndex === -1) {
         console.log(`${JOURNEY_LAYER_ID} not found, adding to map`);
         this.switchRenderingLayer();
-      } else if (customIndex !== orderedLayerIds.length - 1) {
+      } else if (customIndex !== targetIndex) {
         console.log(`${JOURNEY_LAYER_ID} is not frontmost, moving to front`);
         this.map.moveLayer(JOURNEY_LAYER_ID);
       }
     });
   }
 
+  applyMapAppearance(appearance: MapAppearance): void {
+    const basemapChanged =
+      JSON.stringify(this.params.mapStyle) !==
+        JSON.stringify(appearance.map_style) ||
+      this.params.customBasemap !== appearance.custom_basemap ||
+      this.params.accessKey !== appearance.access_key;
+    if (basemapChanged) {
+      this.liveBasemapRevision++;
+      this.cancelBuiltinBasemapFetch();
+      this.params.mapStyle = appearance.map_style;
+      this.params.customBasemap = appearance.custom_basemap;
+      this.params.accessKey = appearance.access_key;
+      this.localBasemapRequestStarted = null;
+      // Retire the previous provider while the new URL is pending or offline.
+      // The existing styledata handlers keep local content on this globe.
+      const metadata = this.map.getStyle()?.metadata as
+        Record<string, unknown> | undefined;
+      if (
+        this.usesLocalBasemap() &&
+        metadata?.[OFFLINE_BASEMAP_STYLE_METADATA_KEY] !== true
+      ) {
+        this.map.setStyle(this.placeholderStyle(true), {
+          transformStyle: (_previous, next) => this.transformMapStyle(next),
+        });
+      }
+      this.resetStyleLoadRetry();
+      this.applyMapStyle();
+    }
+    this.params.fogStyle = appearance.fog_style;
+    this.params.fogDensity = appearance.fog_density;
+  }
+
+  private resetStyleLoadRetry(): void {
+    this.styleLoadRetry?.dispose();
+    this.styleLoadRetry = this.params.customBasemap
+      ? null
+      : new StyleLoadRetry(
+          this.map,
+          () => this.applyMapStyle(true),
+          () => !this.webGLContextLost,
+        );
+  }
+
+  private transformMapStyle(nextStyle: StyleSpecification): StyleSpecification {
+    const transformed: StyleSpecification = transformStyleWithProjection(
+      nextStyle,
+      this.params.projection,
+      this.mapLocale,
+      this.polarGlobeLocked,
+    );
+    if (this.liveBasemapRevision !== 0) {
+      // MapLibre can use style-supplied camera defaults after a style rebuild.
+      delete transformed.center;
+      delete transformed.zoom;
+      delete transformed.bearing;
+      delete transformed.pitch;
+      delete transformed.roll;
+    }
+    prepareAchievementRegionStyle(this.map, transformed);
+    return transformed;
+  }
+
+  private cancelBuiltinBasemapFetch(): void {
+    this.builtinBasemapFetch?.abort();
+    this.builtinBasemapFetch = null;
+  }
+
+  private async loadBuiltinBasemap(url: string): Promise<void> {
+    // MapLibre 6.18 can forget the replacement controller when the old
+    // URL diff aborts. Own the request while retaining the offline style.
+    this.cancelBuiltinBasemapFetch();
+    const request = new AbortController();
+    this.builtinBasemapFetch = request;
+    try {
+      const transformed = await this.buildTransformRequest()(
+        url,
+        "Style" as ResourceType,
+      );
+      const response = await fetch(transformed?.url ?? url, {
+        headers: transformed?.headers,
+        credentials: transformed?.credentials,
+        cache: transformed?.cache,
+        referrerPolicy: transformed?.referrerPolicy,
+        signal: request.signal,
+      });
+      if (!response.ok)
+        throw new Error(`Basemap style returned HTTP ${response.status}`);
+      const style: StyleSpecification = await response.json();
+      if (this.builtinBasemapFetch !== request) return;
+      this.map.setStyle(style, {
+        transformStyle: (_previous, next) => this.transformMapStyle(next),
+      });
+    } catch (error) {
+      if (!request.signal.aborted)
+        console.warn("Built-in basemap could not load", error);
+    } finally {
+      if (this.builtinBasemapFetch === request) {
+        this.builtinBasemapFetch = null;
+        this.localBasemapRequestStarted = null;
+      }
+    }
+  }
+
   /**
    * Apply the map style with projection transform
    */
-  private applyMapStyle(): void {
+  private applyMapStyle(retryStalled = false): void {
+    const now = performance.now();
+    const started = this.localBasemapRequestStarted;
+    // Reapplying a URL aborts MapLibre's outstanding style document request.
+    if (
+      started !== null &&
+      (!retryStalled || now - started < BASEMAP_REQUEST_STALL_MS)
+    )
+      return;
+    this.localBasemapRequestStarted = this.usesLocalBasemap() ? now : null;
+    if (
+      this.localBasemapRequestStarted !== null &&
+      !this.params.customBasemap &&
+      typeof this.params.mapStyle === "string"
+    ) {
+      void this.loadBuiltinBasemap(this.params.mapStyle);
+      return;
+    }
+    const revision = this.liveBasemapRevision;
     this.map.setStyle(this.params.mapStyle, {
-      transformStyle: (_previousStyle: any, nextStyle: any) =>
-        transformStyleWithProjection(
-          nextStyle,
-          this.params.projection,
-          this.mapLocale,
-          this.polarGlobeLocked,
-        ),
+      transformStyle: (previousStyle, nextStyle) => {
+        if (revision !== this.liveBasemapRevision && previousStyle) {
+          return previousStyle;
+        }
+        this.localBasemapRequestStarted = null;
+        return this.transformMapStyle(nextStyle);
+      },
     });
   }
 
@@ -736,6 +930,8 @@ export class MapController {
   destroy(): void {
     this.map.off("webglcontextlost", this.handleWebGLContextLost);
     this.map.off("webglcontextrestored", this.handleWebGLContextRestored);
+    this.map.off("error", this.handleLocalBasemapRequestError);
+    this.cancelBuiltinBasemapFetch();
     this.styleLoadRetry?.dispose();
     this.styleLoadRetry = null;
     this.clearAutoRefreshInterval();
@@ -746,12 +942,6 @@ export class MapController {
     this.journeyTileProvider?.dispose();
     this.journeyTileProvider = null;
     this.map.remove();
-  }
-
-  private hasUsableStyle(): boolean {
-    const style = this.map.getStyle() as
-      { layers?: Array<{ id: string }> } | undefined;
-    return Array.isArray(style?.layers) && style.layers.length > 0;
   }
 
   private clearAutoRefreshInterval(): void {

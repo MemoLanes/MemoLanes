@@ -1,5 +1,10 @@
 import 'dart:async';
 
+import 'package:memolanes/body/achievement/achievement_explorer_map_controls.dart';
+
+import 'package:memolanes/body/achievement/achievement_region_explorer.dart';
+import 'package:memolanes/common/component/shared_map_host.dart';
+
 import 'package:memolanes/theme/app_theme.dart';
 
 import 'package:easy_localization/easy_localization.dart';
@@ -176,6 +181,10 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   int _selectedIndex = 0;
+  bool _explorerOpen = false;
+  final _sharedMap = SharedMapController();
+  final _explorerKey = GlobalKey<AchievementRegionExplorerState>();
+  final _explorerViewportKey = GlobalKey();
   bool _recordMapOnly = false;
   bool _hasMapAttribution = false;
   final _journeys = JourneyFlowController();
@@ -185,9 +194,8 @@ class _MyHomePageState extends State<MyHomePage> {
   Future<void>? _achievementLib;
   Future<void>? _settingsLib;
 
-  /// Keeps MapBody's State stable so that switching among tabs 0, 1 and 2 does
-  /// not trigger parent rebuild and thus avoids MapBody/WebView being
-  /// recreated and the web page reloading.
+  /// Retains Record/Timeline/Journeys controls and their camera state; the
+  /// platform view itself belongs to the shell host.
   final GlobalKey<MapBodyState> _mapBodyKey = GlobalKey<MapBodyState>();
 
   @override
@@ -207,7 +215,7 @@ class _MyHomePageState extends State<MyHomePage> {
   void _onJourneysChanged() => setState(() {});
 
   void _onMapAttributionChanged(bool available) {
-    if (!mounted || _selectedIndex > 2 || _hasMapAttribution == available) {
+    if (!mounted || _hasMapAttribution == available) {
       return;
     }
     setState(() => _hasMapAttribution = available);
@@ -222,7 +230,6 @@ class _MyHomePageState extends State<MyHomePage> {
     setState(() {
       _selectedIndex = index;
       _recordMapOnly = false;
-      if (index > 2) _hasMapAttribution = false;
     });
   }
 
@@ -239,6 +246,7 @@ class _MyHomePageState extends State<MyHomePage> {
     unawaited(_screenshotSubscription.cancel());
     _journeys.removeListener(_onJourneysChanged);
     _journeys.dispose();
+    _sharedMap.dispose();
     super.dispose();
   }
 
@@ -266,6 +274,10 @@ class _MyHomePageState extends State<MyHomePage> {
   Future<void> _handleOnPop() async {
     final loading = GlobalLoadingManager.instance;
     if (loading.isLoading || loading.isNavigationBlocked) return;
+    if (_explorerOpen) {
+      _explorerKey.currentState?.requestBack();
+      return;
+    }
     if (_recordMapOnly) {
       _toggleRecordMapOnly();
       return;
@@ -295,38 +307,93 @@ class _MyHomePageState extends State<MyHomePage> {
     required double topSafeArea,
     required double bottomSafeArea,
   }) {
-    Widget child;
-    if (_selectedIndex <= 2) {
-      child = AnnotatedRegion<SystemUiOverlayStyle>(
-        value: AppTheme.mapSystemOverlayStyle(Theme.of(context)),
-        child: MapBody(
+    _sharedMap.recordActive = _selectedIndex <= 2 && !_explorerOpen;
+    _sharedMap.explorerActive = _explorerOpen;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        MapBody(
           key: _mapBodyKey,
+          sharedMap: _sharedMap,
+          active: _selectedIndex <= 2 && !_explorerOpen,
           journeys: _journeys,
           onMapAttributionChanged: _onMapAttributionChanged,
           recordMapOnly: _recordMapOnly,
           onRecordMapTap: _toggleRecordMapOnly,
           mode: switch (_selectedIndex) {
-            0 => MapMode.normal,
             1 => MapMode.timeMachine,
-            _ => MapMode.journeys,
+            2 => MapMode.journeys,
+            _ => MapMode.normal,
           },
         ),
-      );
-    } else {
-      child = KeyedSubtree(
-        key: ValueKey(_selectedIndex),
-        child: _buildDeferredTabBody(
-          _selectedIndex,
-          topSafeArea: topSafeArea,
-          bottomSafeArea: bottomSafeArea,
-        ),
-      );
-    }
+        if (_selectedIndex > 2)
+          _buildDeferredTabBody(
+            _selectedIndex,
+            topSafeArea: topSafeArea,
+            bottomSafeArea: bottomSafeArea,
+          ),
+      ],
+    );
+  }
 
-    // Do not retain an outgoing MapBody for a page-transition animation.
-    // Re-entering a map tab before that animation ends would temporarily put
-    // the same GlobalKey in two subtrees and can crash in debug builds.
-    return child;
+  Widget _buildExplorer() => AchievementRegionExplorer(
+    key: _explorerKey,
+    onClose: _closeExplorer,
+    controlsBuilder: (context, region) => AchievementExplorerMapControls(
+      region: region,
+      readAttribution: _hasMapAttribution
+          ? () async =>
+                await _sharedMap.mapKey.currentState?.getMapAttribution()
+          : null,
+    ),
+    mapBuilder: (context, target) => SizedBox.expand(
+      key: _explorerViewportKey,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted || !_explorerOpen) return;
+            final viewport = _explorerViewportKey.currentContext
+                ?.findRenderObject();
+            final host = _sharedMap.viewportKey.currentContext
+                ?.findRenderObject();
+            if (viewport is! RenderBox ||
+                host is! RenderBox ||
+                !viewport.hasSize) {
+              return;
+            }
+            final origin =
+                viewport.localToGlobal(Offset.zero) -
+                host.localToGlobal(Offset.zero);
+            final rect = origin & viewport.size;
+            _sharedMap.publishExplorer((
+              featureGeojson: target.featureGeojson,
+              flyToBounds: target.flyToBounds,
+              flyToView: target.flyToView,
+              boundsPadding: EdgeInsets.fromLTRB(
+                rect.left + target.boundsPadding.left,
+                rect.top + target.boundsPadding.top,
+                host.size.width - rect.right + target.boundsPadding.right,
+                host.size.height - rect.bottom + target.boundsPadding.bottom,
+              ),
+              cameraRevision: target.cameraRevision,
+            ));
+          });
+          return const SizedBox.expand();
+        },
+      ),
+    ),
+  );
+
+  Future<void> _openExplorer() async {
+    final returnView = await _sharedMap.readHomeView();
+    if (!mounted || _selectedIndex != 3 || _explorerOpen) return;
+    _sharedMap.returnView = returnView;
+    setState(() => _explorerOpen = true);
+  }
+
+  void _closeExplorer() {
+    _sharedMap.clearExplorer();
+    setState(() => _explorerOpen = false);
   }
 
   Widget _buildDeferredTabBody(
@@ -338,6 +405,7 @@ class _MyHomePageState extends State<MyHomePage> {
       3 => _buildDeferredBody(
         _achievementLib ??= achievement.loadLibrary(),
         () => achievement.AchievementBody(
+          onOpenExplorer: _openExplorer,
           topSafeArea: topSafeArea,
           bottomSafeArea: bottomSafeArea,
         ),
@@ -361,27 +429,36 @@ class _MyHomePageState extends State<MyHomePage> {
         if (didPop) return;
         await _handleOnPop();
       },
-      child: AppNavigationShell(
-        bodyBuilder: _buildPageContent,
-        navigationVisible: _journeys.appChromeVisible && !_recordMapOnly,
-        animateNavigationVisibility: _selectedIndex == 0,
-        contentMode: _selectedIndex > 2
-            ? AppNavigationContentMode.inset
-            : AppNavigationContentMode.fullBleed,
-        navigationBuilder: (context, {required axis}) => BottomNavBar(
-          axis: axis,
-          selectedIndex: _selectedIndex,
-          onIndexChanged: _selectTab,
-          hasUpdateNotification: context
-              .watch<UpdateNotifier>()
-              .hasUpdateNotification,
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: _selectedIndex <= 2
+            ? AppTheme.mapSystemOverlayStyle(Theme.of(context))
+            : Theme.of(context).appBarTheme.systemOverlayStyle!,
+        child: AppNavigationShell(
+          bodyBuilder: _buildPageContent,
+          retainedMap: SharedMapHost(controller: _sharedMap),
+          fullBleedOverlay: _explorerOpen ? _buildExplorer() : null,
+          mapVisible: _selectedIndex <= 2 || _explorerOpen,
+          navigationVisible: _journeys.appChromeVisible && !_recordMapOnly,
+          animateNavigationVisibility: _selectedIndex == 0,
+          contentMode: _selectedIndex > 2
+              ? AppNavigationContentMode.inset
+              : AppNavigationContentMode.fullBleed,
+          navigationBuilder: (context, {required axis}) => BottomNavBar(
+            axis: axis,
+            selectedIndex: _selectedIndex,
+            onIndexChanged: _selectTab,
+            hasUpdateNotification: context
+                .watch<UpdateNotifier>()
+                .hasUpdateNotification,
+          ),
+          bottomTrailingOverlay:
+              (_selectedIndex <= 2 || _explorerOpen) && _hasMapAttribution
+              ? MapCopyrightButton(
+                  readAttribution: () async =>
+                      await _mapBodyKey.currentState?.getMapAttribution(),
+                )
+              : null,
         ),
-        bottomTrailingOverlay: _selectedIndex <= 2 && _hasMapAttribution
-            ? MapCopyrightButton(
-                readAttribution: () async =>
-                    await _mapBodyKey.currentState?.getMapAttribution(),
-              )
-            : null,
       ),
     );
   }

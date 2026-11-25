@@ -26,7 +26,9 @@ const _countryNameSlotHeight = 30.0;
 const _countryNameWidthFactor = 0.9;
 
 class AchievementCountriesCard extends StatelessWidget {
-  const AchievementCountriesCard({super.key});
+  const AchievementCountriesCard({super.key, required this.onOpenExplorer});
+
+  final VoidCallback onOpenExplorer;
 
   @override
   Widget build(BuildContext context) {
@@ -50,9 +52,10 @@ class AchievementCountriesCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _CountriesHeader(
+                AchievementCountriesHeader(
                   count: countries.length,
                   hasCountries: countries.isNotEmpty,
+                  onOpenExplorer: onOpenExplorer,
                 ),
                 const SizedBox(height: 18),
                 if (countries.isEmpty)
@@ -103,9 +106,15 @@ class _CountriesErrorCard extends StatelessWidget {
   }
 }
 
-class _CountriesHeader extends StatelessWidget {
-  const _CountriesHeader({required this.count, required this.hasCountries});
+class AchievementCountriesHeader extends StatelessWidget {
+  const AchievementCountriesHeader({
+    super.key,
+    required this.count,
+    required this.hasCountries,
+    required this.onOpenExplorer,
+  });
 
+  final VoidCallback onOpenExplorer;
   final int count;
   final bool hasCountries;
 
@@ -126,17 +135,7 @@ class _CountriesHeader extends StatelessWidget {
             if (hasCountries) ...[
               const SizedBox(width: 8),
               TextButton.icon(
-                onPressed: () {
-                  navigatorPush(
-                    context,
-                    page: AchievementRegionListPage.countries(
-                      title: context.tr(
-                        'achievement.region_list.country_title',
-                      ),
-                      emptyText: context.tr('achievement.countries.empty'),
-                    ),
-                  );
-                },
+                onPressed: onOpenExplorer,
                 icon: const Icon(Icons.arrow_forward_rounded, size: 16),
                 label: Text(context.tr('achievement.region_list.view_all')),
                 style: TextButton.styleFrom(
@@ -236,7 +235,6 @@ class _CountryFlagItem extends StatelessWidget {
                 page: AchievementRegionListPage.childrenOf(
                   title: countryName,
                   parent: country.entityId,
-                  emptyText: context.tr('achievement.region_list.region_empty'),
                 ),
               )
             : null,

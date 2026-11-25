@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:memolanes/common/component/shared_map_host.dart';
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:json_annotation/json_annotation.dart';
@@ -63,9 +65,13 @@ class MapBody extends StatefulWidget {
     required this.onMapAttributionChanged,
     this.recordMapOnly = false,
     this.onRecordMapTap,
+    required this.sharedMap,
+    this.active = true,
   });
 
   final MapMode mode;
+  final SharedMapController sharedMap;
+  final bool active;
 
   final JourneyFlowController journeys;
   final ValueChanged<bool> onMapAttributionChanged;
@@ -88,12 +94,12 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
   /// Map tracking controls only belong to Record mode. Timeline and Journeys
   /// keep the current viewport but do not follow the user's live location.
   TrackingMode get _effectiveTrackingMode =>
-      widget.mode == MapMode.normal ? _currentTrackingMode : TrackingMode.off;
+      widget.active && widget.mode == MapMode.normal
+      ? _currentTrackingMode
+      : TrackingMode.off;
 
-  /// GlobalKey pins the main map WebView's State so tab 0↔1↔2 switches do not
-  /// cause a mistaken rebuild and reload.
-  final GlobalKey<BaseMapWebviewState> _mainMapKey =
-      GlobalKey<BaseMapWebviewState>();
+  /// Access the shell-owned view without reparenting it into this overlay.
+  GlobalKey<BaseMapWebviewState> get _mainMapKey => widget.sharedMap.mapKey;
   bool _screenshotInProgress = false;
 
   bool get _canTakeScreenshot =>
@@ -101,7 +107,8 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
       (widget.journeys.session != null &&
           widget.journeys.phase == JourneyPhase.viewing);
 
-  bool get _isCurrentRoute => ModalRoute.of(context)?.isCurrent == true;
+  bool get _isCurrentRoute =>
+      widget.active && ModalRoute.of(context)?.isCurrent == true;
 
   Future<void> takeScreenshot() async {
     if (_screenshotInProgress || !_canTakeScreenshot || !_isCurrentRoute) {
@@ -197,9 +204,11 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
   @override
   void didUpdateWidget(covariant MapBody oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.mode == widget.mode) return;
+    if (oldWidget.mode == widget.mode && oldWidget.active == widget.active) {
+      return;
+    }
     final gpsManager = Provider.of<GpsManager>(context, listen: false);
-    if (widget.mode != MapMode.normal) {
+    if (!widget.active || widget.mode != MapMode.normal) {
       gpsManager.toggleMapTracking(false);
     } else {
       _syncTrackingModeWithGpsManager();
@@ -218,7 +227,7 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
     switch (state) {
       case AppLifecycleState.resumed:
         _syncTrackingModeWithGpsManager();
-        _mainMapKey.currentState?.manualRefresh();
+        if (widget.active) _mainMapKey.currentState?.manualRefresh();
         break;
 
       case AppLifecycleState.paused:
@@ -277,7 +286,8 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
     widget.onRecordMapTap?.call();
   }
 
-  Widget _buildMapLayer() {
+  BaseMapWebview _buildMapLayer() {
+    widget.sharedMap.mainRenderer = _mapRendererProxy;
     // After Time Machine date selection: reuse same WebView, only swap proxy;
     // didUpdateWidget triggers refreshMapData(), no full page reload.
     final session = widget.journeys.session;
@@ -362,8 +372,9 @@ class MapBodyState extends State<MapBody> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final mode = widget.mode;
 
+    widget.sharedMap.publishRecord(_buildMapLayer());
+    if (!widget.active) return const SizedBox.expand();
     final children = <Widget>[
-      _buildMapLayer(),
       if (mode == MapMode.normal) ...[
         FadingOverlay(child: widget.recordMapOnly ? null : _buildOverlay(mode)),
         FadingOverlay(

@@ -43,6 +43,25 @@ class WorldviewManager {
   final Future<void> Function(achievement.Worldview) _activate;
   final void Function(achievement.Worldview) _persist;
   achievement.Worldview? _currentWorldview;
+  final Set<void Function(bool activating)> _activationListeners = {};
+
+  bool _activating = false;
+
+  /// Subscribe to switch boundaries and return the state at subscription.
+  bool addActivationListener(void Function(bool activating) listener) {
+    _activationListeners.add(listener);
+    return _activating;
+  }
+
+  void removeActivationListener(void Function(bool activating) listener) =>
+      _activationListeners.remove(listener);
+
+  void _notifyActivation(bool activating) {
+    _activating = activating;
+    for (final listener in _activationListeners.toList()) {
+      listener(activating);
+    }
+  }
 
   achievement.Worldview get currentWorldview =>
       _currentWorldview ??
@@ -68,8 +87,13 @@ class WorldviewManager {
         throw StateError('WorldviewManager has not been initialized');
       }
       if (_currentWorldview != worldview) {
-        await _activate(worldview);
-        _currentWorldview = worldview;
+        _notifyActivation(true);
+        try {
+          await _activate(worldview);
+          _currentWorldview = worldview;
+        } finally {
+          _notifyActivation(false);
+        }
       }
       // Accepting the recommendation is still an explicit confirmation, even
       // though the already-active geo data does not need to be loaded again.
@@ -82,6 +106,13 @@ class WorldviewManager {
       }
     });
   }
+
+  Future<void> repairGeoData(achievement.Worldview worldview) =>
+      _mutex.protect(() async {
+        if (_currentWorldview == worldview) {
+          await _activate(worldview);
+        }
+      });
 
   static void _persistWorldview(achievement.Worldview worldview) {
     if (!MMKVUtil.putString(MMKVKey.worldviewPreference, worldview.id)) {

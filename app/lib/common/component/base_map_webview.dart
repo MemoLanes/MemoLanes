@@ -8,12 +8,10 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:memolanes/common/gps_manager.dart';
 import 'package:memolanes/common/log.dart';
-import 'package:memolanes/common/map_fog_style.dart';
 import 'package:memolanes/common/map_style_store.dart';
 import 'package:memolanes/common/map_webview_resources.dart';
 import 'package:memolanes/common/component/map_overlay_panel.dart';
 import 'package:memolanes/common/app_layout.dart';
-import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/src/rust/api/api.dart' as api;
 import 'package:memolanes/src/rust/utils.dart' as rust_utils show MapBounds;
 import 'package:pointer_interceptor/pointer_interceptor.dart';
@@ -39,6 +37,7 @@ enum TrackingMode { displayAndTracking, displayOnly, off }
 
 class BaseMapWebview extends StatefulWidget {
   final api.MapRendererProxy mapRendererProxy;
+  final MapStyleStore? styleStore;
   final MapView? initialMapView;
   final MapBounds? initialMapBounds;
   final EdgeInsets? boundsPadding;
@@ -48,6 +47,20 @@ class BaseMapWebview extends StatefulWidget {
   final GlobalKey<MapOverlayPanelState>? overlayPanel;
   final MapBounds? flyToBounds;
   final MapView? flyToView;
+
+  /// Captured home camera for an atomic shared-map return, not an ordinary fit.
+  final MapView? returnMapView;
+  final VoidCallback? onMapReturnCompleted;
+
+  /// Use explicit camera requests for the single-region overlay. A changed
+  /// revision can refit equal bounds; size and drawing updates never refit.
+  final int? cameraRevision;
+
+  /// Monotonically increasing lease across shared-map camera handoffs.
+  final int cameraOwner;
+
+  /// The selected Achievement feature, or null to clear it.
+  final String? achievementRegionGeoJson;
   final TrackingMode trackingMode;
   final bool isEditor;
   final void Function()? onMapMoved;
@@ -59,6 +72,7 @@ class BaseMapWebview extends StatefulWidget {
   const BaseMapWebview({
     super.key,
     required this.mapRendererProxy,
+    this.styleStore,
     this.initialMapView,
     this.initialMapBounds,
     this.boundsPadding,
@@ -66,6 +80,11 @@ class BaseMapWebview extends StatefulWidget {
     this.overlayPanel,
     this.flyToBounds,
     this.flyToView,
+    this.returnMapView,
+    this.onMapReturnCompleted,
+    this.cameraRevision,
+    this.cameraOwner = 0,
+    this.achievementRegionGeoJson,
     this.trackingMode = TrackingMode.off,
     this.isEditor = false,
     this.onMapMoved,
@@ -80,16 +99,33 @@ class BaseMapWebview extends StatefulWidget {
 }
 
 class BaseMapWebviewState extends State<BaseMapWebview> {
+  static const _returnAckTimeout = Duration(seconds: 2);
+  static const _maxReturnAttempts = 2;
   static const _webGlRecoveryWindow = Duration(minutes: 1);
   static const _maxWebGlRecoveryReloads = 2;
 
   InAppWebViewController? _webViewController;
   late GpsManager _gpsManager;
   bool _readyForDisplay = false;
+  bool _readyForCommands = false;
   bool _webGlRecoveryReloadInProgress = false;
   bool _pendingMapDataSync = false;
   bool _mapSyncScheduled = false;
   AppLayout? _mapLayout;
+  // A document reload restores the drawing without refitting an acknowledged camera.
+  int? _confirmedCameraRevision;
+  ({int owner, int revision, String? feature})? _requestedAchievementTarget;
+  int _mapDocument = 0;
+  int _achievementCommandGeneration = 0;
+  int _requestedCameraOwner = 0;
+  bool _awaitingReturn = false;
+  MapView? _pendingReturnView;
+  ({int document, int owner})? _returnCommandInFlight;
+  bool _normalCameraQueuedDuringReturn = false;
+  int _returnAttempts = 0;
+  int _mapTapLease = 0;
+
+  bool get _usesExplicitCamera => widget.cameraRevision != null;
 
   EdgeInsets get _boundsPadding =>
       widget.overlayPanel?.currentState?.mapFitPadding ??
@@ -114,7 +150,9 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
 
   final List<DateTime> _webGlRecoveryReloads = [];
 
-  late MapFogStyle _selectedMapFogStyle;
+  MapStyleStore get _styleStore => widget.styleStore ?? MapStyleStore.instance;
+  String? _requestedMapAppearance;
+  bool _mapAppearanceSyncScheduled = false;
 
   // Dev server URL for loading map webview from a local dev server.
   // Usage: flutter run --dart-define=DEV_SERVER=http://ip:port
@@ -162,7 +200,10 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
 
   Future<String?> getMapAttribution() async {
     final controller = _webViewController;
-    if (controller == null || !_readyForDisplay) return null;
+    if (controller == null ||
+        !(_readyForDisplay || (_usesExplicitCamera && _readyForCommands))) {
+      return null;
+    }
     try {
       final result = await controller.evaluateJavascript(
         source: 'window.getMapAttribution?.() ?? null',
@@ -180,6 +221,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   /// Read the live camera before opening a journey, including recent gestures
   /// that have not reached the throttled map-view callback yet.
   Future<MapView?> getCurrentMapView() async {
+    if (_awaitingReturn) return _pendingReturnView;
     final controller = _webViewController;
     if (controller == null || !_readyForDisplay) return _currentRoughMapView;
     try {
@@ -209,7 +251,46 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   @override
   void didUpdateWidget(BaseMapWebview oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if ((oldWidget.onMapTap != null) != (widget.onMapTap != null)) {
+    if (oldWidget.styleStore != widget.styleStore) {
+      (oldWidget.styleStore ?? MapStyleStore.instance).removeListener(
+        _scheduleMapAppearanceSync,
+      );
+      _styleStore.addListener(_scheduleMapAppearanceSync);
+      _scheduleMapAppearanceSync();
+    }
+    if (oldWidget.cameraOwner != widget.cameraOwner) {
+      _confirmedCameraRevision = null;
+      ++_achievementCommandGeneration;
+      _returnAttempts = 0;
+      _returnCommandInFlight = null;
+    }
+    if (!_usesExplicitCamera &&
+        (oldWidget.cameraRevision != null ||
+            widget.returnMapView != oldWidget.returnMapView &&
+                widget.returnMapView != null)) {
+      _awaitingReturn = true;
+      _pendingReturnView = widget.returnMapView ?? widget.flyToView;
+      _returnAttempts = 0;
+      _returnCommandInFlight = null;
+      ++_achievementCommandGeneration;
+    } else if (_usesExplicitCamera) {
+      _awaitingReturn = false;
+      _pendingReturnView = null;
+      _returnCommandInFlight = null;
+      _normalCameraQueuedDuringReturn = false;
+    }
+    if (_awaitingReturn &&
+        oldWidget.cameraRevision == null &&
+        (oldWidget.flyToBounds != widget.flyToBounds ||
+            oldWidget.flyToView != widget.flyToView ||
+            oldWidget.boundsPadding != widget.boundsPadding ||
+            oldWidget.overlayPanel != widget.overlayPanel ||
+            oldWidget.initialMapBounds != widget.initialMapBounds)) {
+      _normalCameraQueuedDuringReturn = true;
+    }
+    if (oldWidget.cameraOwner != widget.cameraOwner ||
+        (oldWidget.onMapTap != null) != (widget.onMapTap != null)) {
+      _mapTapLease++;
       unawaited(_syncMapTapListener());
     }
     if (oldWidget.trackingMode != widget.trackingMode) {
@@ -220,7 +301,22 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
       }
     }
 
-    if (oldWidget.mapRendererProxy != widget.mapRendererProxy ||
+    if (oldWidget.mapRendererProxy != widget.mapRendererProxy) {
+      _pendingMapDataSync = true;
+      _scheduleMapSync();
+    }
+    if (_usesExplicitCamera) {
+      if (oldWidget.cameraOwner != widget.cameraOwner ||
+          oldWidget.cameraRevision != widget.cameraRevision ||
+          oldWidget.achievementRegionGeoJson !=
+              widget.achievementRegionGeoJson) {
+        _scheduleMapSync();
+      }
+    } else if (oldWidget.cameraRevision != widget.cameraRevision ||
+        oldWidget.cameraOwner != widget.cameraOwner ||
+        (widget.returnMapView != null &&
+            oldWidget.returnMapView != widget.returnMapView) ||
+        oldWidget.mapRendererProxy != widget.mapRendererProxy ||
         oldWidget.flyToBounds != widget.flyToBounds ||
         (widget.overlayPanel != null &&
             oldWidget.initialMapBounds != widget.initialMapBounds) ||
@@ -235,7 +331,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     if (!mounted || !_readyForDisplay) return;
     try {
       await runJavaScript(
-        'window.setMapTapEnabled?.(${widget.onMapTap != null});',
+        'window.setMapTapEnabled?.($_mapDocument, $_mapTapLease, ${widget.onMapTap != null});',
       );
     } catch (error, stackTrace) {
       log.error(
@@ -249,36 +345,188 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   /// The WebView and its WebGL context stay mounted throughout the transition.
   Future<void> _syncMapDataAndCamera() async {
     final controller = _webViewController;
-    if (!mounted || controller == null || !_readyForDisplay) {
-      _pendingMapDataSync = true;
+    if (!mounted ||
+        controller == null ||
+        !(_readyForDisplay || _readyForCommands)) {
+      if (!_usesExplicitCamera) _pendingMapDataSync = true;
       return;
     }
+    final owner = widget.cameraOwner;
+    final syncDocument = _mapDocument;
+    final refreshData = _pendingMapDataSync;
     _pendingMapDataSync = false;
-    final bounds = _cameraBounds;
-    final view = widget.flyToView;
+    // A queued normal fit reuses the renderer refresh issued during return.
+    final queuedNormalCamera =
+        !_awaitingReturn && _normalCameraQueuedDuringReturn;
+    if (queuedNormalCamera) _normalCameraQueuedDuringReturn = false;
+    if (refreshData ||
+        !queuedNormalCamera && !_usesExplicitCamera && !_awaitingReturn) {
+      unawaited(_refreshMapData());
+    }
+    final revision = widget.cameraRevision;
+    final moveCamera = revision == null || _confirmedCameraRevision != revision;
+    final bounds = moveCamera ? _cameraBounds : null;
+    final view = _awaitingReturn
+        ? _pendingReturnView
+        : moveCamera
+        ? widget.flyToView
+        : null;
     final padding = _boundsPadding;
-    final boundsJson = bounds == null
-        ? 'null'
-        : jsonEncode({
+    final boundsParams = bounds == null
+        ? null
+        : {
             'west': bounds.west,
             'south': bounds.south,
             'east': bounds.east,
             'north': bounds.north,
-          });
-    final paddingJson = jsonEncode({
+          };
+    final paddingParams = {
       'top': padding.top,
       'right': padding.right,
       'bottom': padding.bottom,
       'left': padding.left,
-    });
-    final viewJson = view == null
-        ? 'null'
-        : jsonEncode({'lng': view.lng, 'lat': view.lat, 'zoom': view.zoom});
+    };
+    final viewParams = view == null
+        ? null
+        : {'lng': view.lng, 'lat': view.lat, 'zoom': view.zoom};
+    if (revision == null &&
+        (_awaitingReturn ||
+            _requestedAchievementTarget != null ||
+            _requestedCameraOwner != owner)) {
+      final returnScope = (document: syncDocument, owner: owner);
+      if (_returnCommandInFlight == returnScope ||
+          _returnAttempts >= _maxReturnAttempts) {
+        return;
+      }
+      _returnCommandInFlight = returnScope;
+      _returnAttempts++;
+      final generation = ++_achievementCommandGeneration;
+      bool isLatestReturn() =>
+          mounted &&
+          generation == _achievementCommandGeneration &&
+          syncDocument == _mapDocument &&
+          owner == widget.cameraOwner &&
+          !_usesExplicitCamera;
+      final clear = jsonEncode({
+        'document': _mapDocument,
+        'owner': widget.cameraOwner,
+        'generation': generation,
+        'revision': _requestedAchievementTarget?.revision ?? 0,
+        'featureGeoJson': null,
+        'bounds': null,
+        'view': viewParams,
+        'restore': true,
+      });
+      try {
+        final result = await controller
+            .evaluateJavascript(
+              source: 'window.applyAchievementRegionCommand($clear)',
+            )
+            .timeout(_returnAckTimeout);
+        if (!isLatestReturn()) return;
+        if (result is! Map ||
+            result['document'] != syncDocument ||
+            result['owner'] != owner ||
+            result['generation'] != generation) {
+          throw StateError('Outline clear not acknowledged');
+        }
+      } catch (error, stackTrace) {
+        if (!isLatestReturn()) return;
+        _returnCommandInFlight = null;
+        log.error(
+          '[base_map_webview] Outline clear failed: $error',
+          stackTrace,
+        );
+        // After the bounded retry, keep the captured home and block GPS follow
+        // until a fresh document or owner can acknowledge a safe return.
+        if (_returnAttempts < _maxReturnAttempts) {
+          unawaited(_syncMapDataAndCamera());
+        }
+        return;
+      }
+      _returnCommandInFlight = null;
+      _requestedAchievementTarget = null;
+      _requestedCameraOwner = owner;
+      _confirmedCameraRevision = null;
+      final home = _pendingReturnView;
+      _awaitingReturn = false;
+      _pendingReturnView = null;
+      if (home != null) {
+        _currentRoughMapView = home;
+        widget.onRoughMapViewUpdate?.call(home);
+      }
+      widget.onMapReturnCompleted?.call();
+      _updateLocationMarker();
+      if (_normalCameraQueuedDuringReturn) {
+        _scheduleMapSync();
+        WidgetsBinding.instance.ensureVisualUpdate();
+      }
+      return;
+    }
+    if (revision != null) {
+      final target = (
+        owner: widget.cameraOwner,
+        revision: revision,
+        feature: widget.achievementRegionGeoJson,
+      );
+      if (target == _requestedAchievementTarget) return;
+      _requestedAchievementTarget = target;
+      _requestedCameraOwner = owner;
+      final document = _mapDocument;
+      final generation = ++_achievementCommandGeneration;
+      bool isLatestCommand() =>
+          mounted &&
+          document == _mapDocument &&
+          generation == _achievementCommandGeneration &&
+          target.owner == widget.cameraOwner;
+
+      // Do not wait for another evaluation. A clear or replacement must
+      // retire the previous outline even if its camera reply is still pending.
+      final command = jsonEncode({
+        'document': document,
+        'owner': target.owner,
+        'generation': generation,
+        'revision': revision,
+        'featureGeoJson': target.feature,
+        'bounds': boundsParams,
+        'padding': paddingParams,
+        'view': viewParams,
+      });
+      try {
+        final result = await controller.evaluateJavascript(
+          source: 'window.applyAchievementRegionCommand($command)',
+        );
+        if (!isLatestCommand()) return;
+        if (result is! Map ||
+            result['document'] != document ||
+            result['owner'] != target.owner ||
+            result['generation'] != generation) {
+          throw StateError('Map command not acknowledged');
+        }
+        if (revision == widget.cameraRevision &&
+            target.feature == widget.achievementRegionGeoJson &&
+            (bounds != null || view != null)) {
+          _confirmedCameraRevision = revision;
+        }
+      } catch (error, stackTrace) {
+        if (!isLatestCommand()) return;
+        // Allow the next request to resend the full target without looping.
+        _requestedAchievementTarget = null;
+        log.error(
+          '[base_map_webview] Achievement region sync failed: $error',
+          stackTrace,
+        );
+      }
+      return;
+    }
+
+    final boundsJson = jsonEncode(boundsParams);
+    final paddingJson = jsonEncode(paddingParams);
+    final viewJson = jsonEncode(viewParams);
     try {
       await controller.evaluateJavascript(
         source:
             '''
-        if (typeof refreshMapData === 'function') refreshMapData();
         if ($boundsJson !== null && typeof flyToBounds === 'function') {
           flyToBounds($boundsJson, $paddingJson);
         } else if ($viewJson !== null && typeof flyToView === 'function') {
@@ -295,8 +543,9 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
   Future<void> _refreshMapData() async {
     if (!mounted) return;
     log.info('[base_map_webview] Refreshing map data');
-    await _webViewController?.evaluateJavascript(
-      source: '''
+    try {
+      await _webViewController?.evaluateJavascript(
+        source: '''
       if (typeof refreshMapData === 'function') {
         console.log('Refreshing map data');
         refreshMapData();
@@ -304,7 +553,13 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
         console.warn('refreshMapData function not available yet');
       }
     ''',
-    );
+      );
+    } catch (error, stackTrace) {
+      log.error(
+        '[base_map_webview] Map data refresh failed: $error',
+        stackTrace,
+      );
+    }
   }
 
   Future<void> manualRefresh() async {
@@ -317,18 +572,23 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     _gpsManager = Provider.of<GpsManager>(context, listen: false);
     _gpsManager.addListener(_updateLocationMarker);
     _currentRoughMapView = widget.initialMapView;
-    _selectedMapFogStyle = _loadMapFogStyleFromStorage();
+    _styleStore.addListener(_scheduleMapAppearanceSync);
   }
 
   @override
   void dispose() {
+    _styleStore.removeListener(_scheduleMapAppearanceSync);
     _gpsManager.removeListener(_updateLocationMarker);
     _webViewController = null;
     super.dispose();
   }
 
   void _updateLocationMarker() {
-    if (!mounted || widget.trackingMode == TrackingMode.off) return;
+    if (!mounted ||
+        _awaitingReturn ||
+        widget.trackingMode == TrackingMode.off) {
+      return;
+    }
 
     // Prefer the live position; fall back to the OS-cached last known
     // location so the marker shows up immediately on cold start while the
@@ -396,7 +656,19 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
           allowedOriginRules: {'*'},
           onPostMessage: (message, sourceOrigin, isMainFrame, replyProxy) {
             if (!mounted || !_readyForDisplay || !isMainFrame) return;
-            widget.onMapTap?.call();
+            final onTap = widget.onMapTap;
+            final data = message?.data;
+            if (onTap == null || data is! String) return;
+            try {
+              final payload = jsonDecode(data);
+              if (payload is Map &&
+                  payload['document'] == _mapDocument &&
+                  payload['lease'] == _mapTapLease) {
+                onTap();
+              }
+            } on FormatException {
+              // Unscoped messages cannot belong to the active observer.
+            }
           },
         ),
       ),
@@ -405,8 +677,29 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
           jsObjectName: 'onMapMoved',
           allowedOriginRules: {'*'},
           onPostMessage: (message, sourceOrigin, isMainFrame, replyProxy) {
-            if (!mounted) return;
+            if (!mounted || !isMainFrame || _awaitingReturn) return;
+            final payload = jsonDecode(message?.data as String);
+            if (payload['document'] != _mapDocument ||
+                payload['owner'] != widget.cameraOwner) {
+              return;
+            }
             widget.onMapMoved?.call();
+          },
+        ),
+      ),
+      controller.addWebMessageListener(
+        WebMessageListener(
+          jsObjectName: 'readyForCommands',
+          allowedOriginRules: {'*'},
+          onPostMessage: (message, sourceOrigin, isMainFrame, replyProxy) {
+            if (!mounted || !isMainFrame || message?.data != '$_mapDocument') {
+              return;
+            }
+            _setStateIfMounted(() => _readyForCommands = true);
+            _scheduleMapAppearanceSync();
+            if (_usesExplicitCamera || _awaitingReturn) {
+              unawaited(_syncMapDataAndCamera());
+            }
           },
         ),
       ),
@@ -415,6 +708,7 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
           jsObjectName: 'readyForDisplay',
           allowedOriginRules: {'*'},
           onPostMessage: (message, sourceOrigin, isMainFrame, replyProxy) {
+            if (!mounted || (_usesExplicitCamera && !isMainFrame)) return;
             final recoveredAfterReload = _webGlRecoveryReloadInProgress;
             _webGlRecoveryReloadInProgress = false;
             _updateLocationMarker();
@@ -422,7 +716,9 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
               _readyForDisplay = true;
             });
             unawaited(_syncMapTapListener());
-            if (_pendingMapDataSync) unawaited(_syncMapDataAndCamera());
+            if (_usesExplicitCamera || _pendingMapDataSync) {
+              unawaited(_syncMapDataAndCamera());
+            }
             if (recoveredAfterReload) {
               log.info(
                 '[base_map_webview] WebGL context recovered after WebView reload',
@@ -505,36 +801,32 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     final controller = _webViewController;
     if (controller == null) return;
 
-    final mapView = _currentRoughMapView;
+    final mapView = _awaitingReturn ? _pendingReturnView : _currentRoughMapView;
     final lngParam = mapView?.lng.toString() ?? 'null';
     final latParam = mapView?.lat.toString() ?? 'null';
     final zoomParam = mapView?.zoom.toString() ?? 'null';
-    final bounds = widget.flyToBounds ?? widget.initialMapBounds;
+    // Explicit targets are applied once after readiness, never as both an
+    // initial fit and a subsequent fly-to (including on WebView recovery).
+    final bounds = _usesExplicitCamera
+        ? widget.initialMapBounds
+        : widget.flyToBounds ?? widget.initialMapBounds;
     final boundsPadding = _boundsPadding;
 
     debugPrint('Injecting lng: $lngParam');
     debugPrint('Injecting lat: $latParam');
     debugPrint('Injecting zoom: $zoomParam');
 
-    final style = MapStyleStore.instance.selected;
-    final mapStyle = style.mapLibreStyle;
-    final useAppMapboxToken =
-        !style.isCustom &&
-        mapStyle is String &&
-        mapStyle.startsWith('mapbox://');
-    final accessKey = useAppMapboxToken ? api.getMapboxAccessToken() : null;
-    final fogStyle = _selectedMapFogStyle;
+    final appearance = _mapAppearance();
+    _requestedMapAppearance = jsonEncode(appearance);
     final params = <String, Object?>{
       'cgi_endpoint': MapWebViewResources.apiEndpoint,
       'render': 'canvas',
-      'map_style': mapStyle,
-      'custom_basemap': style.isCustom,
+      ...appearance,
+      'achievement_map_document': _mapDocument,
+      'achievement_map_owner': widget.cameraOwner,
       'attribution_label': context.tr(
         'general.map_settings.basemaps.attribution',
       ),
-      'fog_style': fogStyle.id,
-      'fog_density': style.fogOpacityByStyle[fogStyle] ?? 0.50,
-      'access_key': accessKey,
       'lng': mapView?.lng,
       'lat': mapView?.lat,
       'zoom': mapView?.zoom,
@@ -569,14 +861,58 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     debugPrint('Initialization completed');
   }
 
-  MapFogStyle _loadMapFogStyleFromStorage() {
-    final id = MMKVUtil.getStringOpt(MMKVKey.mapFogMode);
-    return MapFogStyle.findById(id);
+  Map<String, Object?> _mapAppearance() {
+    final style = _styleStore.selected;
+    final mapStyle = style.mapLibreStyle;
+    final useAppMapboxToken =
+        !style.isCustom &&
+        mapStyle is String &&
+        mapStyle.startsWith('mapbox://');
+    final fogStyle = _styleStore.fogStyle;
+    return {
+      'map_style': mapStyle,
+      'custom_basemap': style.isCustom,
+      'fog_style': fogStyle.id,
+      'fog_density': style.fogOpacityByStyle[fogStyle] ?? 0.50,
+      'access_key': useAppMapboxToken ? api.getMapboxAccessToken() : null,
+    };
+  }
+
+  void _scheduleMapAppearanceSync() {
+    if (_mapAppearanceSyncScheduled) return;
+    _mapAppearanceSyncScheduled = true;
+    // Saving and selecting a custom style can write two settings at once.
+    scheduleMicrotask(() {
+      _mapAppearanceSyncScheduled = false;
+      if (!mounted || !_readyForCommands) return;
+      unawaited(_syncMapAppearance());
+    });
+  }
+
+  Future<void> _syncMapAppearance() async {
+    final appearance = jsonEncode(_mapAppearance());
+    if (appearance == _requestedMapAppearance) return;
+    _requestedMapAppearance = appearance;
+    try {
+      await runJavaScript(
+        'window.applyMapAppearance?.($_mapDocument, $appearance);',
+      );
+    } catch (error, stackTrace) {
+      log.error(
+        '[base_map_webview] Updating map appearance failed: $error',
+        stackTrace,
+      );
+    }
   }
 
   void _handleMapViewPush(String message) {
     try {
       final map = jsonDecode(message);
+      if (_awaitingReturn ||
+          map['document'] != _mapDocument ||
+          map['owner'] != widget.cameraOwner) {
+        return;
+      }
 
       double readNum(dynamic v, String key) {
         if (v is num) return v.toDouble();
@@ -696,7 +1032,9 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
     if (widget.overlayPanel != null) {
       final layout = AppLayoutScope.of(context);
       if (_mapLayout case final previous?) {
-        if (_cameraBounds != null && !layout.hasSameMapViewport(previous)) {
+        if (!_usesExplicitCamera &&
+            _cameraBounds != null &&
+            !layout.hasSameMapViewport(previous)) {
           _scheduleMapSync();
         }
       }
@@ -725,7 +1063,8 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
           onContentSizeChanged: (controller, oldSize, newSize) {
             // Native WebView resizing can finish after Flutter's layout frame.
             // Fit again once the map can use the new content dimensions.
-            if (oldSize != newSize &&
+            if (!_usesExplicitCamera &&
+                oldSize != newSize &&
                 _readyForDisplay &&
                 _cameraBounds != null) {
               _scheduleMapSync();
@@ -774,7 +1113,18 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
             return NavigationActionPolicy.CANCEL;
           },
           onLoadStart: (controller, url) {
-            if (mounted) widget.onMapAttributionChanged?.call(false);
+            if (!mounted) return;
+            widget.onMapAttributionChanged?.call(false);
+            _readyForCommands = false;
+            _mapDocument++;
+            _achievementCommandGeneration = 0;
+            _requestedCameraOwner = widget.cameraOwner;
+            _requestedAchievementTarget = null;
+            _returnCommandInFlight = null;
+            _returnAttempts = 0;
+            _requestedMapAppearance = null;
+            if (_awaitingReturn) _pendingMapDataSync = true;
+            if (_readyForDisplay) setState(() => _readyForDisplay = false);
           },
           onLoadStop: (controller, url) {
             if (!mounted) return;
@@ -805,7 +1155,11 @@ class BaseMapWebviewState extends State<BaseMapWebview> {
         IgnorePointer(
           ignoring: true,
           child: AnimatedOpacity(
-            opacity: !_readyForDisplay ? 1 : 0.0,
+            opacity:
+                !(_readyForDisplay ||
+                    (_usesExplicitCamera && _readyForCommands))
+                ? 1
+                : 0.0,
             duration: const Duration(milliseconds: 200),
             child: Container(
               color: Color.fromARGB(255, 118, 116, 114),

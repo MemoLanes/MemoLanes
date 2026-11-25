@@ -292,6 +292,15 @@
       "empty": "No countries unlocked yet.",
       "error": "Could not load explored countries."
     },
+    "region_explorer": {
+      "panel": "Region list",
+      "expand": "Expand region list",
+      "collapse": "Collapse region list",
+      "select": "Show {} on map",
+      "drill": "Show subdivisions of {}",
+      "unavailable": "Region outline unavailable.",
+      "error": "Could not load the region outline."
+    },
     "region_list": {
       "country_title": "Countries & Regions",
       "region_empty": "No subdivisions unlocked yet.",

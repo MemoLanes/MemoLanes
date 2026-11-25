@@ -18,6 +18,7 @@ import { FlutterBridgeEditor } from "./flutter-bridge-editor";
 import { ensurePlatformCompatibility } from "./platform";
 import { displayPageMessage } from "./utils";
 import { MapController } from "./map-controller";
+import { notifyWhenDisplayReady } from "./display-ready";
 import { GPUInitializationError } from "maplibre-gl";
 
 import "./debug-panel.css";
@@ -111,7 +112,15 @@ async function trySetup(): Promise<void> {
     return;
   }
 
-  await mapController.initialize();
+  const flutterBridge = new FlutterBridge(mapController);
+  await mapController.initialize(() => {
+    flutterBridge.initialize();
+    void mapController.waitForLocalDisplay().then(() => {
+      window.readyForCommands?.postMessage(
+        String(window.EXTERNAL_PARAMS?.achievement_map_document),
+      );
+    });
+  });
   console.log("MapController initialized");
 
   // Initialize debug tooling (only when debug mode is enabled)
@@ -128,11 +137,6 @@ async function trySetup(): Promise<void> {
     debugPanel.initialize();
   }
 
-  // Initialize FlutterBridge for Flutter-WebView communication
-  // FlutterBridge manages location marker, refreshMapData, and other window methods for Flutter
-  const flutterBridge = new FlutterBridge(mapController);
-  flutterBridge.initialize();
-
   if (isEditor) {
     const flutterBridgeEditor = new FlutterBridgeEditor({
       flutterBridge,
@@ -144,9 +148,7 @@ async function trySetup(): Promise<void> {
 
   // Initialization can finish before the renderer has displayable content.
   // Keep Flutter's cover until that content reaches a completed map frame.
-  await mapController.waitForDisplay();
-  notifyFlutterReady();
-  flutterBridge.observeMapAttribution();
+  await notifyWhenDisplayReady(mapController, notifyFlutterReady);
 }
 
 // Export trySetup to window for Flutter to call
