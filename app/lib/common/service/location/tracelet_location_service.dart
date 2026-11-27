@@ -14,9 +14,10 @@ class TraceletLocationService extends ILocationService {
   static const _pendingQueueKey =
       'TraceletLocationService.recordingQueuePending';
 
-  TraceletLocationService(this._recordLocation);
+  TraceletLocationService(this._recordLocation, {this.checkBatchStart});
 
   final Future<void> Function(LocationData data) _recordLocation;
+  final Future<bool> Function(LocationData data)? checkBatchStart;
 
   final _locations = StreamController<LocationData>.broadcast();
   final _recordingQueue = Mutex();
@@ -203,6 +204,8 @@ class TraceletLocationService extends ILocationService {
   Future<void> _writeRecordingQueue() async {
     // The SDK returns an empty queue before ready(), even when rows exist.
     if (!_ready) await _configure(false);
+    final checkBatchStart = this.checkBatchStart;
+    var batchStartChecked = false;
     while (true) {
       final locations = await tl.Tracelet.getLocations(
         const tl.SQLQuery(limit: 100),
@@ -224,7 +227,12 @@ class TraceletLocationService extends ILocationService {
             stackTrace,
           );
         }
-        if (data != null) await _recordLocation(data);
+        if (data != null) {
+          if (!batchStartChecked && checkBatchStart != null) {
+            batchStartChecked = await checkBatchStart(data);
+          }
+          await _recordLocation(data);
+        }
         if (!await tl.Tracelet.destroyLocation(uuid)) {
           throw StateError(
             'Tracelet could not remove a processed location from its queue',

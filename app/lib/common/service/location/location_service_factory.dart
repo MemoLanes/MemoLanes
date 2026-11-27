@@ -21,16 +21,29 @@ LocationBackend get selectedLocationBackend {
       : supported.first;
 }
 
-ILocationService createLocationService([LocationBackend? backend]) {
+ILocationService createLocationService([
+  LocationBackend? backend,
+  VoidCallback? onJourneyFinalized,
+]) {
   backend ??= selectedLocationBackend;
   if (!supportedLocationBackends.contains(backend)) {
     throw UnsupportedError('Location service $backend is unavailable');
   }
   return switch (backend) {
     LocationBackend.native => GeoLocatorService(),
-    LocationBackend.tracelet => TraceletLocationService((data) async {
-      await recordLocation(data, receivedAt: DateTime.now());
-    }),
+    LocationBackend.tracelet => TraceletLocationService(
+      (data) async {
+        await recordLocation(data, receivedAt: DateTime.now());
+      },
+      checkBatchStart: (data) async {
+        final finalized = await tryAutoFinalizeBeforeLocation(
+          data,
+          receivedAt: DateTime.now(),
+        );
+        if (finalized == true) onJourneyFinalized?.call();
+        return finalized != null;
+      },
+    ),
   };
 }
 

@@ -810,12 +810,17 @@ impl Txn<'_> {
     // TODO: consider moving this to `storage.rs`
     #[auto_context]
     pub fn try_auto_finalize_journey(&mut self, retain_raw_data: bool) -> Result<bool> {
+        self.try_auto_finalize_journey_at(retain_raw_data, Local::now())
+    }
+
+    pub(crate) fn try_auto_finalize_journey_at(
+        &mut self,
+        retain_raw_data: bool,
+        now: DateTime<Local>,
+    ) -> Result<bool> {
         match self.get_ongoing_journey_timestamp_range()? {
             None => Ok(false),
             Some((start, end)) => {
-                // NOTE: this logic is not called very frequently
-
-                let now = Local::now();
                 let recording_length_hours = (now.timestamp() - start.timestamp()) / 60 / 60;
                 let required_gap_mins =
                     crate::journey_date_picker::min_gap(start, now, recording_length_hours);

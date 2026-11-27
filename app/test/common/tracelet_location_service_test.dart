@@ -735,6 +735,38 @@ void main() {
     },
   );
 
+  test('Checks a cache drain once before its first eligible fix', () async {
+    RustLib.initMock(api: _TraceletRustApi());
+    addTearDown(RustLib.dispose);
+    final previousPlatform = TraceletPlatform.instance;
+    final platform = _TraceletQueue();
+    TraceletPlatform.instance = platform;
+    addTearDown(() {
+      Tracelet.removeListeners();
+      TraceletPlatform.instance = previousPlatform;
+    });
+    preferences.values[_pendingQueueKey] = true;
+
+    final operations = <String>[];
+    final service = TraceletLocationService(
+      (data) async => operations.add('record ${data.longitude}'),
+      checkBatchStart: (data) async {
+        operations.add('check ${data.longitude}');
+        return data.longitude != 2;
+      },
+    );
+    await service.flushRecording();
+
+    expect(operations, [
+      'check 2.0',
+      'record 2.0',
+      'check 3.0',
+      'record 3.0',
+      'record 4.0',
+    ]);
+    expect(platform.rows, isEmpty);
+  });
+
   test(
     'Queued fixes retain capture time and record app receipt time',
     () async {
@@ -842,6 +874,11 @@ class _AppRecordingApi extends Fake implements app_rust.RustLibApi {
 
   @override
   Future<bool> crateApiApiTryAutoFinalizeJourney() async => false;
+
+  @override
+  Future<bool?> crateApiApiTryAutoFinalizeBeforeLocation({
+    required ExtendedRawGPSPoint data,
+  }) async => false;
 
   @override
   Future<bool> crateApiApiFinalizeOngoingJourney() async {

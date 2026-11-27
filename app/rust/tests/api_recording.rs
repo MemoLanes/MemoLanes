@@ -102,4 +102,31 @@ fn recording_time_gate_and_atomic_retries_share_one_ingest_path() {
     assert_eq!(api::list_all_journeys().unwrap().len(), 1);
     assert!(api::on_location_update(point(50, 0.00005)).unwrap());
     assert_eq!(cursor(), BASE + 50_000);
+
+    // Short gaps use capture time, even though the cache is drained much later.
+    assert_eq!(
+        api::try_auto_finalize_before_location(point(60, 0.00006)).unwrap(),
+        Some(false)
+    );
+    assert_eq!(
+        api::try_auto_finalize_before_location(point(50, 0.00006)).unwrap(),
+        None
+    );
+    assert!(api::on_location_update(point(60, 0.00006)).unwrap());
+
+    let next_day = point(86_400, 0.0001);
+    let mut inaccurate = next_day.clone();
+    inaccurate.raw_gps_point.accuracy = Some(100.0);
+    assert_eq!(
+        api::try_auto_finalize_before_location(inaccurate).unwrap(),
+        None
+    );
+    assert_eq!(
+        api::try_auto_finalize_before_location(next_day.clone()).unwrap(),
+        Some(true)
+    );
+    assert_eq!(api::list_all_journeys().unwrap().len(), 2);
+    assert_eq!(counts(), (0, 0));
+    assert!(api::on_location_update(next_day).unwrap());
+    assert_eq!(counts(), (1, 1));
 }

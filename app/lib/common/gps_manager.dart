@@ -84,7 +84,7 @@ class GpsManager extends ChangeNotifier {
   bool _fullyReady = false;
 
   GpsManager() {
-    _locationService = createLocationService();
+    _locationService = createLocationService(null, _notifyJourneyFinalized);
     unawaited(_processRecordingLocationUpdatePipe());
     _initState();
   }
@@ -97,7 +97,7 @@ class GpsManager extends ChangeNotifier {
     if (backend == locationBackend) return true;
     if (recordingStatus == GpsRecordingStatus.recording) return false;
     final previous = _locationService;
-    final next = createLocationService(backend);
+    final next = createLocationService(backend, _notifyJourneyFinalized);
     try {
       await _stopLocationUpdatesWithoutLock();
       await previous.flushRecording();
