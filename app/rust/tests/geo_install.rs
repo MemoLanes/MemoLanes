@@ -42,6 +42,64 @@ fn installed_copy_is_reopened_by_a_later_storage_without_the_bytes() {
 }
 
 #[test]
+fn startup_removes_abandoned_geo_staging_files_without_touching_installed_data() {
+    let dir = TempDir::new("geo_install").unwrap();
+    let first = storage(&dir);
+    let installed = first.installed_geo_data_file(Worldview::Iso);
+    let iso_staging = installed.with_extension("bin.tmp");
+    let usa_staging = first
+        .installed_geo_data_file(Worldview::Usa)
+        .with_extension("bin.tmp");
+    let unrelated = installed.with_file_name("unrelated.tmp");
+    let original = asset(HASH_A);
+    first
+        .init_or_change_geo_data(Worldview::Iso, HASH_A, &original)
+        .unwrap();
+    drop(first);
+    for path in [&iso_staging, &usa_staging, &unrelated] {
+        fs::write(path, b"partial").unwrap();
+    }
+
+    let later = storage(&dir);
+    assert!(!iso_staging.exists());
+    assert!(!usa_staging.exists());
+    assert!(unrelated.exists());
+    assert!(later
+        .open_installed_geo_data(Worldview::Iso, HASH_A)
+        .unwrap());
+    assert_eq!(fs::read(installed).unwrap(), original);
+}
+
+#[test]
+fn concurrent_installs_leave_a_complete_file_and_matching_active_index() {
+    let dir = TempDir::new("geo_install").unwrap();
+    let storage = storage(&dir);
+    let rendezvous = std::sync::Barrier::new(2);
+    let a = asset(HASH_A);
+    let b = asset(HASH_B);
+    std::thread::scope(|scope| {
+        for (hash, bytes) in [(HASH_A, &a), (HASH_B, &b)] {
+            let storage = &storage;
+            let rendezvous = &rendezvous;
+            scope.spawn(move || {
+                rendezvous.wait();
+                storage
+                    .init_or_change_geo_data(Worldview::Iso, hash, bytes)
+                    .unwrap();
+            });
+        }
+    });
+    let installed = storage.installed_geo_data_file(Worldview::Iso);
+    let expected = match active_hash(&storage) {
+        Some(HASH_A) => a,
+        Some(HASH_B) => b,
+        hash => panic!("unexpected active provenance: {hash:?}"),
+    };
+    assert_eq!(fs::read(&installed).unwrap(), expected);
+    assert!(!installed.with_extension("bin.tmp").exists());
+}
+
+#[test]
 fn installed_copy_with_a_different_provenance_is_not_opened() {
     let dir = TempDir::new("geo_install").unwrap();
     storage(&dir)
@@ -101,7 +159,9 @@ fn rejected_bytes_leave_no_installed_copy_behind() {
     assert!(storage
         .init_or_change_geo_data(Worldview::Iso, HASH_A, b"not a geo asset")
         .is_err());
-    assert!(!storage.installed_geo_data_file(Worldview::Iso).exists());
+    let installed = storage.installed_geo_data_file(Worldview::Iso);
+    assert!(!installed.exists());
+    assert!(!installed.with_extension("bin.tmp").exists());
     assert!(!storage
         .open_installed_geo_data(Worldview::Iso, HASH_A)
         .unwrap());

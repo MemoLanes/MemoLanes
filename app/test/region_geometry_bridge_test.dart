@@ -50,39 +50,25 @@ void main() {
     );
   });
 
-  test(
-    'a failed raster asset read is reported without a bridge panic',
-    () async {
-      const missingAsset = 'assets/geo/missing_geo_data_chn.bin';
-      await expectLater(
-        achievement.activateGeoData(
-          worldview: achievement.Worldview.chn,
-          loadAsset: () => _load(missingAsset),
-        ),
-        _throwsAssetError(missingAsset),
-      );
-    },
-  );
+  test('a failed geo asset read is reported without a bridge panic', () async {
+    const missingAsset = 'assets/geo/missing_geo_data_chn.bin';
+    await expectLater(
+      achievement.activateGeoData(
+        worldview: achievement.Worldview.chn,
+        loadAsset: () => _load(missingAsset),
+      ),
+      _throwsAssetError(missingAsset),
+    );
+  });
 
-  test('a failed display asset read is reported and can be retried', () async {
+  test('the active geo asset also serves region geometry', () async {
     await achievement.activateGeoData(
       worldview: achievement.Worldview.iso,
       loadAsset: () => _load('assets/geo/geo_data_iso.bin'),
     );
     final indonesia = achievement.GeoEntityId(field0: 1);
-    const missingAsset = 'assets/geo/missing_region_display.bin';
-    await expectLater(
-      achievement.regionGeometry(
-        entityId: indonesia,
-        loadAsset: () => _load(missingAsset),
-      ),
-      _throwsAssetError(missingAsset),
-    );
-
-    final geometry = await achievement.regionGeometry(
-      entityId: indonesia,
-      loadAsset: () => _load('assets/geo/region_display.bin'),
-    );
+    final geometry = await achievement.regionGeometry(entityId: indonesia);
     expect(geometry?.entityId, indonesia);
+    expect(geometry?.worldview, achievement.Worldview.iso);
   });
 }

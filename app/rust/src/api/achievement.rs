@@ -21,22 +21,8 @@ pub struct RegionGeometry {
     pub feature_geojson: String,
 }
 
-fn bundled_display_digest() -> Result<[u8; 32]> {
-    let hex = option_env!("REGION_DISPLAY_SHA256")
-        .ok_or_else(|| anyhow::anyhow!("this build has no bundled region display"))?;
-    hex::decode(hex)?
-        .try_into()
-        .map_err(|_| anyhow::anyhow!("invalid bundled display digest"))
-}
-
-pub async fn region_geometry(
-    entity_id: GeoEntityId,
-    load_asset: impl Fn() -> DartFnFuture<Result<Vec<u8>>>,
-) -> Result<Option<RegionGeometry>> {
-    crate::api::api::get()
-        .storage
-        .region_geometry(entity_id, bundled_display_digest()?, load_asset)
-        .await
+pub fn region_geometry(entity_id: GeoEntityId) -> Result<Option<RegionGeometry>> {
+    crate::api::api::get().storage.region_geometry(entity_id)
 }
 
 // `GeoEntityId` (external `geo_data_format`) keys `RegionLevelView.entries` /

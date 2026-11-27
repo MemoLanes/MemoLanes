@@ -182,8 +182,8 @@ registry-gen:
 [group: 'dev']
 rasterize-geo: registry-gen
     cargo run --manifest-path ../tools/geo_rasterizer/Cargo.toml --release --bin geo_rasterizer -- \
-      --ensure-source --display-output assets/geo/region_display.bin
-    @echo "✅ geo_data_{iso,chn,usa}.bin and region_display.bin generated"
+      --ensure-source
+    @echo "✅ geo_data_{iso,chn,usa}.bin generated"
 
 [group: 'dev']
 fetch-natural-earth:

@@ -1,12 +1,19 @@
+use std::collections::BTreeMap;
+
+use bitmap_geometry::BitmapPlane;
 use geo_data_format::{
-    write_display_asset, DisplayAsset, DisplayBounds, DisplayRecord, GeoEntityId, Worldview,
+    read_header, write_geo_data_planes, write_geo_data_planes_with_display, DisplayBounds,
+    DisplayRecord, GeoData, GeoEntity, GeoEntityId, GeoEntityKind, PackedTile, PlaneRaster,
+    TileEntry, TileMembership, Worldview, CELLS_PER_TILE, NO_ENTITY, PROVENANCE_HASH_END,
+    TILE_COUNT,
 };
 
-// Layout offsets are part of the on-disk format contract, not computed by the codec.
-const INDEX_SECTION: usize = 24;
-const BLOCK_SECTION: usize = 40;
-const FRAME_SECTION: usize = 56;
-const INDEX_ENTRY_LEN: usize = 41;
+// The display span is the final outer header entry; inner spans are relative to it.
+const DISPLAY_SECTION: usize = PROVENANCE_HASH_END + 4 * 8;
+const INDEX_SECTION: usize = 0;
+const BLOCK_SECTION: usize = 16;
+const FRAME_SECTION: usize = 32;
+const INDEX_ENTRY_LEN: usize = 40;
 
 fn u64_at(bytes: &[u8], at: usize) -> usize {
     u64::from_le_bytes(bytes[at..at + 8].try_into().unwrap()) as usize
@@ -54,172 +61,270 @@ fn record(
         polygons,
     }
 }
-fn open(bytes: &[u8]) -> (tempfile::TempDir, anyhow::Result<DisplayAsset>) {
-    let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("display.bin");
-    std::fs::write(&path, bytes).unwrap();
-    (dir, DisplayAsset::open(&path))
-}
-
-#[test]
-fn round_trips_islands_holes_and_signed_deltas() {
-    let polygons = shape();
-    let original_bounds = bounds(179.0); // east is unwrapped across the dateline
-    let bytes = write_display_asset(
-        &[(Worldview::Iso, [5; 32])],
-        &[record(Worldview::Iso, 17, 179.0, polygons.clone())],
+fn combined(records: &[DisplayRecord]) -> anyhow::Result<Vec<u8>> {
+    let entities: Vec<_> = [1, 2, 3]
+        .into_iter()
+        .map(|id| GeoEntity {
+            id: GeoEntityId(id),
+            kind: GeoEntityKind::Admin0,
+            canonical_code: id.to_string(),
+            iso_a3_eh: None,
+            name_key: format!("c.{id}"),
+            parent_id: None,
+            total_area_m2: 1,
+        })
+        .collect();
+    let mut tiles = vec![TileMembership::None; TILE_COUNT];
+    tiles[0] = TileMembership::Single(GeoEntityId(1));
+    tiles[1] = TileMembership::Border;
+    let mut cells = vec![NO_ENTITY; CELLS_PER_TILE];
+    cells[5] = 2;
+    let blocks = BTreeMap::from([((0, 1), cells)]);
+    write_geo_data_planes_with_display(
+        &entities,
+        "iso",
+        &[PlaneRaster {
+            plane: BitmapPlane::Mercator,
+            tiles: &tiles,
+            blocks: &blocks,
+        }],
+        [5; 32],
+        records,
     )
-    .unwrap();
-    let (_dir, asset) = open(&bytes);
-    let asset = asset.unwrap();
-    assert_eq!(asset.raster_provenance(Worldview::Iso), Some([5; 32]));
-    assert_eq!(asset.raster_provenance(Worldview::Chn), None);
-    let geometry = asset.get(Worldview::Iso, GeoEntityId(17)).unwrap().unwrap();
-    assert_eq!(geometry.bounds, original_bounds);
-    assert_eq!(geometry.polygons.len(), 2);
-    assert_eq!(geometry.polygons[0].len(), 2); // exterior and hole
-    assert_eq!(geometry.polygons[1].len(), 1); // island exterior
-    assert_eq!(geometry.polygons, polygons); // exact integer units, deltas and closure
+}
+fn open(bytes: &[u8]) -> (tempfile::TempDir, GeoData) {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("geo_data_iso.bin");
+    std::fs::write(&path, bytes).unwrap();
+    let geo = GeoData::open(&path).unwrap();
+    (dir, geo)
+}
+fn assert_coverage(geo: &GeoData) {
+    assert_eq!(geo.tile_index.get(0), TileEntry::Single(GeoEntityId(1)));
+    assert_eq!(geo.tile_index.get(1), TileEntry::Border(0));
+    let tile = PackedTile::from_compressed_bytes(&geo.border_blobs.get(0).unwrap()).unwrap();
+    assert_eq!(tile.lookup(5), Some(GeoEntityId(2)));
 }
 
 #[test]
-fn deduplicates_equal_frames_across_worldviews() {
+fn combined_round_trip_includes_coverage_and_display_geometry() {
+    let polygons = shape();
+    let bytes = combined(&[record(Worldview::Iso, 1, 179.0, polygons.clone())]).unwrap();
+    let (dir, geo) = open(&bytes);
+    assert_eq!(geo.provenance_hash, [5; 32]);
+    assert_eq!(geo.worldview_id, "iso");
+    assert_eq!(geo.entities().unwrap()[0].id, GeoEntityId(1));
+    assert_coverage(&geo);
+
+    let header = read_header(&dir.path().join("geo_data_iso.bin"))
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        header.display.off,
+        header.border_blobs.off + header.border_blobs.len
+    );
+    assert_ne!(header.display.len, 0);
+    assert_eq!(header.display.off + header.display.len, bytes.len());
+    let geometry = geo.display_geometry(GeoEntityId(1)).unwrap().unwrap();
+    assert_eq!(geometry.bounds, bounds(179.0)); // unwrapped across the dateline
+    assert_eq!(geometry.polygons, polygons); // islands, holes, signed deltas and closure
+    assert!(geo.display_geometry(GeoEntityId(2)).unwrap().is_none());
+    assert!(geo.display_geometry(GeoEntityId(999)).unwrap().is_none());
+}
+
+#[test]
+fn empty_display_section_differs_from_raster_only() {
+    let (combined_dir, geo) = open(&combined(&[]).unwrap());
+    assert!(geo.display_geometry(GeoEntityId(1)).unwrap().is_none());
+    let header = read_header(&combined_dir.path().join("geo_data_iso.bin"))
+        .unwrap()
+        .unwrap();
+    assert_ne!(header.display.len, 0);
+
+    let bytes = write_geo_data_planes(&[], "iso", &[], [5; 32]).unwrap();
+    let (raster_dir, geo) = open(&bytes);
+    assert!(geo.display_geometry(GeoEntityId(1)).unwrap().is_none());
+    let header = read_header(&raster_dir.path().join("geo_data_iso.bin"))
+        .unwrap()
+        .unwrap();
+    assert_eq!(header.display.len, 0);
+    assert_eq!(header.display.off, bytes.len());
+}
+
+#[test]
+fn deduplicates_equal_frames_and_sorts_entity_ids() {
     let altered = vec![vec![vec![[0, 0], [10, 0], [10, 10], [0, 0]]]];
     let records = vec![
-        record(Worldview::Usa, 17, 30.0, altered.clone()),
-        record(Worldview::Chn, 17, 20.0, shape()),
-        record(Worldview::Iso, 17, 179.0, shape()),
+        record(Worldview::Iso, 3, 30.0, altered.clone()),
+        record(Worldview::Iso, 2, 20.0, shape()),
+        record(Worldview::Iso, 1, 179.0, shape()),
     ];
-    let hashes = [
-        (Worldview::Usa, [3; 32]),
-        (Worldview::Iso, [1; 32]),
-        (Worldview::Chn, [2; 32]),
-    ];
-    let bytes = write_display_asset(&hashes, &records).unwrap();
-    let index = u64_at(&bytes, INDEX_SECTION);
+    let bytes = combined(&records).unwrap();
+    let display = u32_at(&bytes, DISPLAY_SECTION) as usize;
+    let index = display + u64_at(&bytes, display + INDEX_SECTION);
+    assert_eq!(u32_at(&bytes, index), 1);
+    assert_eq!(u32_at(&bytes, index + INDEX_ENTRY_LEN), 2);
+    assert_eq!(u32_at(&bytes, index + INDEX_ENTRY_LEN * 2), 3);
     assert_eq!(
-        u32_at(&bytes, index + 37),
-        u32_at(&bytes, index + INDEX_ENTRY_LEN + 37)
+        u32_at(&bytes, index + 36),
+        u32_at(&bytes, index + INDEX_ENTRY_LEN + 36)
     );
     assert_ne!(
-        u32_at(&bytes, index + 37),
-        u32_at(&bytes, index + 2 * INDEX_ENTRY_LEN + 37)
+        u32_at(&bytes, index + 36),
+        u32_at(&bytes, index + INDEX_ENTRY_LEN * 2 + 36)
     );
-    let (_dir, asset) = open(&bytes);
-    let asset = asset.unwrap();
+    let (_dir, geo) = open(&bytes);
     assert_eq!(
-        asset
-            .get(Worldview::Iso, GeoEntityId(17))
+        geo.display_geometry(GeoEntityId(1))
             .unwrap()
             .unwrap()
             .bounds,
         bounds(179.0)
     );
     assert_eq!(
-        asset
-            .get(Worldview::Chn, GeoEntityId(17))
+        geo.display_geometry(GeoEntityId(2))
             .unwrap()
             .unwrap()
             .bounds,
         bounds(20.0)
     );
     assert_eq!(
-        asset
-            .get(Worldview::Usa, GeoEntityId(17))
+        geo.display_geometry(GeoEntityId(3))
             .unwrap()
             .unwrap()
             .polygons,
         altered
     );
-    assert!(asset
-        .get(Worldview::Iso, GeoEntityId(999))
-        .unwrap()
-        .is_none());
-}
-
-#[test]
-fn corrupt_frame_does_not_break_other_entity() {
-    let mut bytes = write_display_asset(
-        &[(Worldview::Iso, [1; 32])],
-        &[
-            record(Worldview::Iso, 1, 0.0, shape()),
-            record(
-                Worldview::Iso,
-                2,
-                0.0,
-                vec![vec![vec![[0, 0], [1, 0], [1, 1], [0, 0]]]],
-            ),
-        ],
-    )
-    .unwrap();
-    let blocks = u64_at(&bytes, BLOCK_SECTION);
-    let frames = u64_at(&bytes, FRAME_SECTION);
-    let first_frame = frames + u64_at(&bytes, blocks);
-    let first_len = u32_at(&bytes, blocks + 8) as usize;
-    bytes[first_frame..first_frame + first_len].fill(0xff); // same-size corruption
-    let (_dir, asset) = open(&bytes);
-    let asset = asset.unwrap();
-    assert!(asset.get(Worldview::Iso, GeoEntityId(1)).is_err());
-    assert!(asset.get(Worldview::Iso, GeoEntityId(2)).unwrap().is_some());
-}
-
-#[test]
-fn rejects_out_of_bounds_index() {
-    let bytes = write_display_asset(
-        &[(Worldview::Iso, [1; 32])],
-        &[record(Worldview::Iso, 1, 0.0, shape())],
-    )
-    .unwrap();
-    let index = u64_at(&bytes, INDEX_SECTION);
-    let mut bad_ref = bytes.clone();
-    bad_ref[index + 37..index + 41].copy_from_slice(&42u32.to_le_bytes());
-    assert!(open(&bad_ref).1.is_err());
-    let mut overflow = bytes.clone();
-    overflow[INDEX_SECTION..INDEX_SECTION + 8].copy_from_slice(&u64::MAX.to_le_bytes());
-    assert!(open(&overflow).1.is_err());
-    let blocks = u64_at(&bytes, BLOCK_SECTION);
-    let mut oversized = bytes.clone();
-    oversized[blocks + 12..blocks + 16].copy_from_slice(&(16 * 1024 * 1024 + 1u32).to_le_bytes());
-    assert!(open(&oversized).1.is_err());
-    let mut bad_frame = bytes.clone();
-    bad_frame[blocks..blocks + 8].copy_from_slice(&u64::MAX.to_le_bytes());
-    assert!(open(&bad_frame).1.is_err());
-    let mut overlap = bytes;
-    overlap[BLOCK_SECTION..BLOCK_SECTION + 8].copy_from_slice(&(index as u64).to_le_bytes());
-    assert!(open(&overlap).1.is_err());
-}
-
-#[test]
-fn reordered_inputs_are_byte_identical() {
-    let records = vec![
-        record(Worldview::Chn, 5, 5.0, shape()),
-        record(Worldview::Iso, 2, 2.0, shape()),
-    ];
-    let hashes = vec![(Worldview::Chn, [2; 32]), (Worldview::Iso, [1; 32])];
-    let mut reversed_records = records.clone();
-    reversed_records.reverse();
-    let mut reversed_hashes = hashes.clone();
-    reversed_hashes.reverse();
     assert_eq!(
-        write_display_asset(&hashes, &records).unwrap(),
-        write_display_asset(&reversed_hashes, &reversed_records).unwrap()
+        bytes,
+        combined(&records.into_iter().rev().collect::<Vec<_>>()).unwrap()
     );
 }
 
 #[test]
+fn corrupt_frame_checksum_does_not_break_coverage_or_other_frame() {
+    let mut bytes = combined(&[
+        record(Worldview::Iso, 1, 0.0, shape()),
+        record(
+            Worldview::Iso,
+            2,
+            0.0,
+            vec![vec![vec![[0, 0], [1, 0], [1, 1], [0, 0]]]],
+        ),
+    ])
+    .unwrap();
+    let display = u32_at(&bytes, DISPLAY_SECTION) as usize;
+    let blocks = display + u64_at(&bytes, display + BLOCK_SECTION);
+    let frames = display + u64_at(&bytes, display + FRAME_SECTION);
+    let first_frame = frames + u64_at(&bytes, blocks);
+    let first_len = u32_at(&bytes, blocks + 8) as usize;
+    assert_ne!(bytes[first_frame + 4] & 0b100, 0); // zstd content checksum flag
+    bytes[first_frame + first_len - 1] ^= 1; // change only the checksum
+    let (_dir, geo) = open(&bytes);
+    assert!(
+        format!("{:#}", geo.display_geometry(GeoEntityId(1)).unwrap_err()).contains("checksum")
+    );
+    assert_coverage(&geo);
+    assert!(geo.display_geometry(GeoEntityId(2)).unwrap().is_some());
+}
+
+#[test]
+fn display_index_and_frames_are_bounded_without_affecting_coverage() {
+    let bytes = combined(&[record(Worldview::Iso, 1, 0.0, shape())]).unwrap();
+    let display = u32_at(&bytes, DISPLAY_SECTION) as usize;
+    let index = u64_at(&bytes, display + INDEX_SECTION);
+    let blocks = display + u64_at(&bytes, display + BLOCK_SECTION);
+    let frames = display + u64_at(&bytes, display + FRAME_SECTION);
+    // Exercise malformed refs, overflowing spans, oversized frames, frames
+    // past the display boundary, and offsets that only work at the file origin.
+    for (at, bad) in [
+        (display + index + 36, 42u32.to_le_bytes().to_vec()),
+        (display + INDEX_SECTION, u64::MAX.to_le_bytes().to_vec()),
+        (
+            blocks + 12,
+            (16 * 1024 * 1024 + 1u32).to_le_bytes().to_vec(),
+        ),
+        (blocks, u64::MAX.to_le_bytes().to_vec()),
+        (
+            blocks + 8,
+            ((bytes.len() - frames + 1) as u32).to_le_bytes().to_vec(),
+        ),
+        (
+            display + BLOCK_SECTION,
+            (index as u64).to_le_bytes().to_vec(),
+        ),
+        (
+            display + INDEX_SECTION,
+            ((display - 1) as u64).to_le_bytes().to_vec(),
+        ),
+    ] {
+        let mut corrupt = bytes.clone();
+        corrupt[at..at + bad.len()].copy_from_slice(&bad);
+        let (_dir, geo) = open(&corrupt);
+        assert!(geo.display_geometry(GeoEntityId(1)).is_err());
+        assert_coverage(&geo);
+    }
+}
+
+#[test]
+fn display_index_is_not_read_until_the_first_lookup() {
+    use std::io::{Seek, SeekFrom, Write};
+
+    let bytes = combined(&[record(Worldview::Iso, 1, 0.0, shape())]).unwrap();
+    let (dir, geo) = open(&bytes);
+    let display = u32_at(&bytes, DISPLAY_SECTION) as usize;
+    let index = display + u64_at(&bytes, display + INDEX_SECTION);
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .open(dir.path().join("geo_data_iso.bin"))
+        .unwrap();
+    file.seek(SeekFrom::Start((index + 36) as u64)).unwrap();
+    file.write_all(&42u32.to_le_bytes()).unwrap();
+    assert!(geo.display_geometry(GeoEntityId(1)).is_err());
+    assert_coverage(&geo);
+}
+
+#[test]
+fn display_lookup_uses_the_original_file_after_path_replacement() {
+    let polygons = shape();
+    let bytes = combined(&[record(Worldview::Iso, 1, 0.0, polygons.clone())]).unwrap();
+    let (dir, geo) = open(&bytes);
+    let path = dir.path().join("geo_data_iso.bin");
+    let replacement = dir.path().join("replacement.bin");
+    std::fs::write(&replacement, combined(&[]).unwrap()).unwrap();
+    std::fs::rename(&replacement, &path).unwrap();
+    assert!(GeoData::open(&path)
+        .unwrap()
+        .display_geometry(GeoEntityId(1))
+        .unwrap()
+        .is_none());
+    assert_eq!(
+        geo.display_geometry(GeoEntityId(1))
+            .unwrap()
+            .unwrap()
+            .polygons,
+        polygons
+    );
+    assert_coverage(&geo);
+}
+
+#[test]
+fn rejects_record_from_another_worldview() {
+    let err = combined(&[record(Worldview::Chn, 1, 0.0, shape())]).unwrap_err();
+    assert!(err.to_string().contains("worldview"), "{err}");
+}
+
+#[test]
 fn rejects_malformed_geometry_and_duplicate_keys() {
-    let manifest = [(Worldview::Iso, [1; 32])];
     let valid = record(Worldview::Iso, 1, 0.0, shape());
-    assert!(write_display_asset(&manifest, &[valid.clone(), valid]).is_err());
-    assert!(write_display_asset(&manifest, &[record(Worldview::Chn, 1, 0.0, shape())]).is_err());
-    assert!(write_display_asset(&[manifest[0], manifest[0]], &[]).is_err());
+    assert!(combined(&[valid.clone(), valid]).is_err());
     let mut invalid = record(Worldview::Iso, 2, 0.0, shape());
     invalid.polygons[0][0].pop(); // not closed
-    assert!(write_display_asset(&manifest, &[invalid]).is_err());
+    assert!(combined(&[invalid]).is_err());
     let mut invalid_bounds = record(Worldview::Iso, 2, 0.0, shape());
     invalid_bounds.bounds.east = f64::INFINITY;
-    assert!(write_display_asset(&manifest, &[invalid_bounds]).is_err());
+    assert!(combined(&[invalid_bounds]).is_err());
     let mut too_wide = record(Worldview::Iso, 2, -180.0, shape());
     too_wide.bounds.east = 181.0;
-    assert!(write_display_asset(&manifest, &[too_wide]).is_err());
+    assert!(combined(&[too_wide]).is_err());
 }

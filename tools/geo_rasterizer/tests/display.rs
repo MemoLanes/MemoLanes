@@ -4,7 +4,7 @@ use geo::{
     coordinate_position::CoordPos, dimensions::Dimensions, wkt, Area, BooleanOps, Relate,
     Validation,
 };
-use geo_data_format::{DisplayAsset, GeoData, GeoEntityId, GeoEntityKind, Worldview};
+use geo_data_format::{GeoData, GeoEntityId, GeoEntityKind, Worldview};
 use geo_rasterizer::display::{build_display_records, DisplaySource};
 use geo_types::{LineString, MultiPolygon, Polygon};
 
@@ -433,17 +433,8 @@ fn write_test_fixture_inputs(dir: &Path) {
     .unwrap();
 }
 
-fn run_test_fixture_batch(dir: &Path, display: Option<&Path>) -> anyhow::Result<()> {
+fn run_test_fixture_batch(dir: &Path) -> anyhow::Result<()> {
     use geo_rasterizer::batch::{rasterize_batch, RasterizeMode, RasterizePaths};
-    let mode = match display {
-        Some(display_output) => RasterizeMode::WithDisplay {
-            ensure_source: false,
-            display_output,
-        },
-        None => RasterizeMode::RasterOnly {
-            ensure_source: false,
-        },
-    };
     rasterize_batch(
         FIXTURE_WORLDVIEWS.map(|worldview| {
             (
@@ -461,7 +452,9 @@ fn run_test_fixture_batch(dir: &Path, display: Option<&Path>) -> anyhow::Result<
                 },
             )
         }),
-        mode,
+        RasterizeMode::Build {
+            ensure_source: false,
+        },
     )
 }
 
@@ -470,393 +463,70 @@ fn raster(dir: &Path, w: Worldview) -> std::path::PathBuf {
 }
 
 #[test]
-fn display_export_does_not_change_raster_bytes() {
+fn each_worldview_contains_its_raster_entities_and_display() {
     let dir = tempfile::tempdir().unwrap();
-    write_test_fixture_inputs(dir.path());
-    run_test_fixture_batch(dir.path(), None).unwrap();
-    let display = dir.path().join("display.bin");
-    assert!(!display.exists());
-    let before = FIXTURE_WORLDVIEWS
-        .iter()
-        .map(|&w| fs::read(raster(dir.path(), w)).unwrap())
-        .collect::<Vec<_>>();
-    for w in FIXTURE_WORLDVIEWS {
-        fs::remove_file(raster(dir.path(), w)).unwrap();
-    }
-    run_test_fixture_batch(dir.path(), Some(&display)).unwrap();
-    let asset = DisplayAsset::open(&display).unwrap();
-    for (&w, bytes) in FIXTURE_WORLDVIEWS.iter().zip(before) {
-        let path = raster(dir.path(), w);
-        assert!(
-            fs::read(&path).unwrap() == bytes,
-            "{} raster bytes changed",
-            w.spec().id
-        );
-        let data = GeoData::open(&path).unwrap();
-        assert_eq!(asset.raster_provenance(w), Some(data.provenance_hash));
-        for entity in data.entities().unwrap() {
+    run_fixture(dir.path());
+    for worldview in FIXTURE_WORLDVIEWS {
+        let path = raster(dir.path(), worldview);
+        let asset = GeoData::open(&path).unwrap();
+        assert_eq!(asset.worldview_id, worldview.spec().id);
+        let entities = asset.entities().unwrap();
+        assert!(entities.len() > 1);
+        for entity in entities {
             assert_eq!(
-                asset.get(w, entity.id).unwrap().is_some(),
+                asset.display_geometry(entity.id).unwrap().is_some(),
                 entity.kind != GeoEntityKind::Continent,
                 "{} {:?}",
-                w.spec().id,
+                worldview.spec().id,
                 entity.id
             );
         }
     }
+    assert_eq!(fs::read_dir(dir.path()).unwrap().count(), 5);
 }
 
-fn old_mtime() -> std::time::SystemTime {
-    std::time::UNIX_EPOCH + std::time::Duration::from_secs(1_234_567)
+fn run_fixture(dir: &Path) {
+    write_test_fixture_inputs(dir);
+    run_test_fixture_batch(dir).unwrap();
 }
 
-fn mark_old(path: &Path) {
+#[test]
+fn cache_reuses_complete_assets_and_rebuilds_damaged_or_raster_only_files() {
+    let dir = tempfile::tempdir().unwrap();
+    run_fixture(dir.path());
+    let [iso, usa] = FIXTURE_WORLDVIEWS.map(|w| raster(dir.path(), w));
+    let expected_iso = fs::read(&iso).unwrap();
+    let expected_usa = fs::read(&usa).unwrap();
+    let old = std::time::UNIX_EPOCH + std::time::Duration::from_secs(1_234_567);
     fs::OpenOptions::new()
         .write(true)
-        .open(path)
+        .open(&usa)
         .unwrap()
-        .set_modified(old_mtime())
+        .set_modified(old)
         .unwrap();
-}
+    fs::write(&iso, &expected_iso[..expected_iso.len() - 1]).unwrap();
+    run_test_fixture_batch(dir.path()).unwrap();
+    assert_eq!(fs::read(&iso).unwrap(), expected_iso);
+    assert_eq!(fs::metadata(&usa).unwrap().modified().unwrap(), old);
 
-fn was_rewritten(path: &Path) -> bool {
-    fs::metadata(path).unwrap().modified().unwrap() != old_mtime()
-}
+    let mut damaged = expected_iso.clone();
+    *damaged.last_mut().unwrap() ^= 1;
+    fs::write(&iso, damaged).unwrap();
+    run_test_fixture_batch(dir.path()).unwrap();
+    assert_eq!(fs::read(&iso).unwrap(), expected_iso);
 
-#[test]
-fn display_publication_does_not_touch_preexisting_staging_aliases() {
-    let mut failures = Vec::new();
-    for stamp_alias in [false, true] {
-        for symlink_alias in [false, true] {
-            #[cfg(not(unix))]
-            if symlink_alias {
-                continue;
-            }
-            let case = format!("stamp={stamp_alias}, symlink={symlink_alias}");
-            let result = std::panic::catch_unwind(|| {
-                let dir = tempfile::tempdir().unwrap();
-                let root = dir.path();
-                write_test_fixture_inputs(root);
-                let display = root.join("display.bin");
-                let stamp = root.join(".build-metadata/display.bin");
-                run_test_fixture_batch(root, Some(&display)).unwrap();
-                let expected_display = fs::read(&display).unwrap();
-                let expected_stamp = fs::read(&stamp).unwrap();
-                let before = FIXTURE_WORLDVIEWS.map(|w| fs::read(raster(root, w)).unwrap());
-                for w in FIXTURE_WORLDVIEWS {
-                    mark_old(&raster(root, w));
-                }
-                // Invalidate only the display cache; neither raster needs rebuilding.
-                fs::remove_file(&stamp).unwrap();
-                let alias = if stamp_alias {
-                    root.join(".build-metadata/display.bin.tmp")
-                } else {
-                    root.join("display.bin.tmp")
-                };
-                let target = raster(root, Worldview::Iso);
-                if symlink_alias {
-                    #[cfg(unix)]
-                    std::os::unix::fs::symlink(&target, &alias).unwrap();
-                } else if let Err(err) = fs::hard_link(&target, &alias) {
-                    if matches!(err.kind(), std::io::ErrorKind::Unsupported) {
-                        eprintln!("hard links unsupported: {err}");
-                        return;
-                    }
-                    panic!("creating fixture hard link: {err}");
-                }
-                let alias_metadata = fs::symlink_metadata(&alias).unwrap();
-                let output = run_test_fixture_batch(root, Some(&display));
-                // Check bytes before status: the legacy writer can corrupt the
-                // raster even when publishing itself succeeds.
-                for (w, bytes) in FIXTURE_WORLDVIEWS.into_iter().zip(&before) {
-                    assert!(
-                        fs::read(raster(root, w)).unwrap() == *bytes,
-                        "{case}: {w:?} raster bytes changed"
-                    );
-                    assert!(!was_rewritten(&raster(root, w)), "{case}: raster rewritten");
-                }
-                output.unwrap();
-                assert!(fs::read(&display).unwrap() == expected_display);
-                assert_eq!(fs::read(&stamp).unwrap(), expected_stamp);
-                assert!(fs::read(&alias).unwrap() == before[0]);
-                let after = fs::symlink_metadata(&alias).unwrap();
-                assert_eq!(after.file_type(), alias_metadata.file_type());
-                assert_eq!(
-                    after.modified().unwrap(),
-                    alias_metadata.modified().unwrap()
-                );
-                #[cfg(unix)]
-                {
-                    use std::os::unix::fs::MetadataExt;
-                    assert_eq!(after.ino(), alias_metadata.ino());
-                    assert_eq!(after.dev(), alias_metadata.dev());
-                    if symlink_alias {
-                        assert_eq!(fs::read_link(&alias).unwrap(), target);
-                    }
-                }
-                mark_old(&display);
-                mark_old(&stamp);
-                run_test_fixture_batch(root, Some(&display)).unwrap();
-                assert!(!was_rewritten(&display));
-                assert!(!was_rewritten(&stamp));
-                for w in FIXTURE_WORLDVIEWS {
-                    assert!(!was_rewritten(&raster(root, w)));
-                }
-            });
-            if result.is_err() {
-                failures.push(case);
-            }
-        }
-    }
-    assert!(failures.is_empty(), "staging alias failures: {failures:?}");
-}
-
-#[test]
-fn display_cache_reuses_only_the_current_complete_batch() {
-    use geo_data_format::write_display_asset;
-    use sha2::{Digest, Sha256};
-
-    let dir = tempfile::tempdir().unwrap();
-    let root = dir.path();
-    write_test_fixture_inputs(root);
-    let display = root.join("display.bin");
-    let stamp = root.join(".build-metadata/display.bin");
-    run_test_fixture_batch(root, Some(&display)).unwrap();
-    let before = fs::read(&display).unwrap();
-    for w in FIXTURE_WORLDVIEWS {
-        mark_old(&raster(root, w));
-    }
-    mark_old(&display);
-    mark_old(&stamp);
-    run_test_fixture_batch(root, Some(&display)).unwrap();
-    assert!(!was_rewritten(&display), "identical batch rewrote display");
-    assert!(!was_rewritten(&stamp), "identical batch rewrote stamp");
-
-    let initial_stamp = fs::read(&stamp).unwrap();
-    assert_eq!(initial_stamp.len(), 4 + 32 + 32);
-    let rebuild = |case: &str| {
-        if display.exists() {
-            mark_old(&display);
-        }
-        run_test_fixture_batch(root, Some(&display)).unwrap();
-        assert!(was_rewritten(&display), "no rebuild: {case}");
-        assert!(
-            fs::read(&display).unwrap() == before,
-            "changed bytes: {case}"
-        );
-        for w in FIXTURE_WORLDVIEWS {
-            assert!(
-                !was_rewritten(&raster(root, w)),
-                "rewrote {w:?} raster: {case}"
-            );
-        }
-    };
-
-    fs::remove_file(&display).unwrap();
-    rebuild("missing display");
-    let mut corrupt = before.clone();
-    *corrupt.last_mut().unwrap() ^= 1;
-    fs::write(&display, corrupt).unwrap();
-    rebuild("corrupt display frame");
-    fs::remove_file(&stamp).unwrap();
-    rebuild("missing build metadata");
-    fs::write(&stamp, b"partial").unwrap();
-    rebuild("malformed build metadata");
-    let mut stale_recipe = initial_stamp.clone();
-    stale_recipe[0] ^= 1;
-    fs::write(&stamp, stale_recipe).unwrap();
-    rebuild("stale display recipe");
-
-    let mut legacy_stamp = vec![0xa5; 32];
-    legacy_stamp.extend_from_slice(&initial_stamp[4..]);
-    fs::write(&stamp, legacy_stamp).unwrap();
-    rebuild("legacy source-fingerprint stamp");
-    assert_eq!(fs::read(&stamp).unwrap(), initial_stamp);
-
-    let replace_with_stamp = |bytes: &[u8]| {
-        let mut matching_stamp = initial_stamp.clone();
-        matching_stamp[4..36].copy_from_slice(&Sha256::digest(bytes));
-        fs::write(&display, bytes).unwrap();
-        fs::write(&stamp, matching_stamp).unwrap();
-    };
-    replace_with_stamp(b"not a display asset");
-    rebuild("invalid display format with matching digest");
-
-    // For valid files with a matching digest, the embedded manifest must
-    // still match exactly.
-    let asset = DisplayAsset::open(&display).unwrap();
-    let [iso, usa] = FIXTURE_WORLDVIEWS.map(|w| (w, asset.raster_provenance(w).unwrap()));
-    drop(asset);
-    for (case, manifest) in [
-        ("missing worldview", vec![iso]),
-        ("extra worldview", vec![iso, usa, (Worldview::Chn, [0; 32])]),
-        ("wrong raster provenance", vec![(iso.0, [0; 32]), usa]),
-    ] {
-        replace_with_stamp(&write_display_asset(&manifest, &[]).unwrap());
-        rebuild(case);
-    }
-
-    let iso_path = raster(root, Worldview::Iso);
-    let usa_path = raster(root, Worldview::Usa);
-    let iso_bytes = fs::read(&iso_path).unwrap();
-    fs::remove_file(&iso_path).unwrap();
-    mark_old(&display);
-    run_test_fixture_batch(root, Some(&display)).unwrap();
-    assert!(
-        was_rewritten(&display),
-        "raster rebuild did not rebuild display"
-    );
-    assert!(fs::read(&display).unwrap() == before);
-    assert!(!was_rewritten(&usa_path));
-
-    // Keep the ISO provenance header but substitute the raster with USA's
-    // embedded worldview. The header hash alone would allow a false hit.
-    let mut misidentified = fs::read(&usa_path).unwrap();
-    let hash = geo_data_format::PROVENANCE_HASH_OFFSET..geo_data_format::PROVENANCE_HASH_END;
-    misidentified[hash].copy_from_slice(&iso.1);
-    fs::write(&iso_path, misidentified).unwrap();
-    mark_old(&display);
-    run_test_fixture_batch(root, Some(&display)).unwrap();
-    assert!(
-        was_rewritten(&display),
-        "raster worldview mismatch did not rebuild display"
-    );
-    assert!(fs::read(&display).unwrap() == before);
-    assert!(fs::read(&iso_path).unwrap() == iso_bytes);
-    assert!(!was_rewritten(&usa_path));
-}
-
-#[test]
-fn display_cache_rebuilds_from_replaced_raster_entities_with_the_same_provenance() {
-    let dir = tempfile::tempdir().unwrap();
-    let root = dir.path();
-    write_test_fixture_inputs(root);
-    let display = root.join("display.bin");
-    let iso_path = raster(root, Worldview::Iso);
-    run_test_fixture_batch(root, Some(&display)).unwrap();
-
-    let dropped = GeoEntityId(6); // AAA-001, Alpha North
-    let asset = DisplayAsset::open(&display).unwrap();
-    assert!(asset.get(Worldview::Iso, dropped).unwrap().is_some());
-    drop(asset);
-    let iso = GeoData::open(&iso_path).unwrap();
-    let mut entities = iso.entities().unwrap();
-    let provenance = iso.provenance_hash;
-    drop(iso);
-    let replace_raster = |entities: &[_]| {
-        // Write a valid raster with no populated tiles, retaining ISO's
-        // worldview and provenance but using the supplied entity table.
-        let bytes =
-            geo_data_format::write_geo_data_planes(entities, "iso", &[], provenance).unwrap();
-        fs::write(&iso_path, bytes).unwrap();
-        mark_old(&iso_path);
-    };
-
-    entities.retain(|entity| entity.id != dropped);
-    replace_raster(&entities);
-    mark_old(&display);
-    run_test_fixture_batch(root, Some(&display)).unwrap();
-    assert!(was_rewritten(&display), "reused a stale display");
-    assert!(!was_rewritten(&iso_path), "replaced the current raster");
-    let asset = DisplayAsset::open(&display).unwrap();
-    assert_eq!(asset.raster_provenance(Worldview::Iso), Some(provenance));
-    assert!(asset.get(Worldview::Iso, dropped).unwrap().is_none());
-    assert!(asset.get(Worldview::Usa, dropped).unwrap().is_some());
-    drop(asset);
-
-    // Raster statistics do not participate in export, so changing them
-    // must not invalidate the newly stamped display.
-    entities[0].total_area_m2 ^= 1;
-    replace_raster(&entities);
-    mark_old(&display);
-    run_test_fixture_batch(root, Some(&display)).unwrap();
-    assert!(!was_rewritten(&display), "raster stats invalidated display");
-}
-
-#[cfg(unix)]
-#[test]
-fn display_cache_rejects_raster_output_aliases_before_invalidation() {
-    use std::os::unix::fs::symlink;
-
-    let dir = tempfile::tempdir().unwrap();
-    let root = dir.path();
-    write_test_fixture_inputs(root);
-    run_test_fixture_batch(root, None).unwrap();
-    let iso = raster(root, Worldview::Iso);
-    let usa = raster(root, Worldview::Usa);
-    let iso_bytes = fs::read(&iso).unwrap();
-    mark_old(&iso);
-    fs::remove_file(&usa).unwrap();
-
-    let alternate = root.join("alternate");
-    fs::create_dir(&alternate).unwrap();
-    symlink(root, root.join(".build-metadata")).unwrap();
-    symlink(root, alternate.join(".build-metadata")).unwrap();
-    for display in [
-        iso.clone(), // Both the output and stamp alias a current raster.
-        alternate.join(iso.file_name().unwrap()), // Only the stamp aliases a raster.
-        usa.clone(), // The raster output does not exist yet.
-        root.join("display.bin"), // The stamp aliases the display itself.
-    ] {
-        let result = run_test_fixture_batch(root, Some(&display));
-        assert!(iso.exists(), "stamp invalidation removed the ISO raster");
-        assert!(fs::read(&iso).unwrap() == iso_bytes, "overwrote ISO raster");
-        assert!(!was_rewritten(&iso));
-        let error = result.unwrap_err();
-        let message = format!("{error:#}");
-        assert!(
-            message.contains("is a raster") || message.contains("is its own stamp"),
-            "{message}"
-        );
-        assert!(!usa.exists(), "rebuilt USA before rejecting output alias");
-    }
-}
-
-#[test]
-fn display_cache_rebuilds_after_failed_publication_following_a_raster_rebuild() {
-    let dir = tempfile::tempdir().unwrap();
-    let root = dir.path();
-    write_test_fixture_inputs(root);
-    let display = root.join("display.bin");
-    let parked_display = root.join("parked-display.bin");
-    let iso = raster(root, Worldview::Iso);
-    let usa = raster(root, Worldview::Usa);
-    run_test_fixture_batch(root, Some(&display)).unwrap();
-    let display_bytes = fs::read(&display).unwrap();
-    let iso_bytes = fs::read(&iso).unwrap();
-    mark_old(&display);
-    mark_old(&usa);
-
-    // The raster is rebuilt with identical provenance, but the display
-    // cannot be published. The old display must not be reused on retry.
-    fs::remove_file(&iso).unwrap();
-    fs::rename(&display, &parked_display).unwrap();
-    fs::create_dir(&display).unwrap();
-    fs::write(display.join("blocker"), b"keep directory nonempty").unwrap();
-    let failed = run_test_fixture_batch(root, Some(&display));
-    let error = failed.unwrap_err();
-    let stderr = format!("{error:#}");
-    assert!(
-        stderr.contains("renaming") && stderr.contains("display.bin"),
-        "{stderr}"
-    );
-    assert!(fs::read(&iso).unwrap() == iso_bytes);
-    assert!(
-        was_rewritten(&iso),
-        "raster was not rebuilt before publication failed"
-    );
-    assert!(!was_rewritten(&usa));
-    assert!(!was_rewritten(&parked_display));
-    assert!(!root.join(".build-metadata/display.bin").exists());
-
-    fs::remove_dir_all(&display).unwrap();
-    fs::rename(&parked_display, &display).unwrap();
-    mark_old(&iso);
-    run_test_fixture_batch(root, Some(&display)).unwrap();
-    assert!(was_rewritten(&display), "retry reused the old display");
-    assert!(fs::read(&display).unwrap() == display_bytes);
-    assert!(!was_rewritten(&iso));
-    assert!(!was_rewritten(&usa));
+    let geo = GeoData::open(&iso).unwrap();
+    let raster_only = geo_data_format::write_geo_data_planes(
+        &geo.entities().unwrap(),
+        "iso",
+        &[],
+        geo.provenance_hash,
+    )
+    .unwrap();
+    fs::write(&iso, raster_only).unwrap();
+    run_test_fixture_batch(dir.path()).unwrap();
+    assert_eq!(fs::read(&iso).unwrap(), expected_iso);
+    assert_eq!(fs::read(&usa).unwrap(), expected_usa);
 }
 
 #[test]
@@ -911,11 +581,8 @@ fn does_not_snap_distinct_lines_together() {
 #[test]
 fn shipped_display_covers_key_entities_in_all_worldviews() {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../app/assets/geo");
-    let display = DisplayAsset::open(&dir.join("region_display.bin"))
-        .expect("missing or unreadable shipped display — run just rasterize-geo");
     for &w in Worldview::ALL {
         let raster = GeoData::open(&raster(&dir, w)).unwrap();
-        assert_eq!(display.raster_provenance(w), Some(raster.provenance_hash));
         let entities = raster.entities().unwrap();
         let china = entities
             .iter()
@@ -945,7 +612,7 @@ fn shipped_display_covers_key_entities_in_all_worldviews() {
         for e in [
             china, guangdong, guangzhou, macao, antarctica, fiji, vatican,
         ] {
-            let shape = display.get(w, e.id).unwrap().unwrap_or_else(|| {
+            let shape = raster.display_geometry(e.id).unwrap().unwrap_or_else(|| {
                 panic!("{} missing {} ({})", w.spec().id, e.canonical_code, e.id.0)
             });
             let geometry = MultiPolygon(

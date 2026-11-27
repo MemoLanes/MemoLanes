@@ -3,12 +3,15 @@
 
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
-use std::sync::Mutex;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Mutex,
+};
 
 use anyhow::Result;
 use geo_data_format::{
-    plane_tile_index, GeoData, GeoEntity, GeoEntityId, GeoEntityKind, PackedTile, TileEntry,
-    TileMembership,
+    plane_tile_index, DisplayGeometry, GeoData, GeoEntity, GeoEntityId, GeoEntityKind, PackedTile,
+    TileEntry, TileMembership,
 };
 
 use crate::journey_bitmap::{BlockKey, TileKey};
@@ -58,12 +61,17 @@ pub struct GeoIndex {
     child_offsets: Vec<u32>,
     child_ids: Vec<GeoEntityId>,
     decoded: Mutex<Option<(u32, PackedTile)>>,
+    display_needs_repair: AtomicBool,
 }
 
 impl GeoIndex {
     /// border tiles on disk, decoded on demand
     pub fn open(path: &Path) -> Result<Self> {
         Self::new(GeoData::open(path)?)
+    }
+
+    pub fn open_installed(path: &Path) -> Result<Self> {
+        Self::new(GeoData::open_for_coverage(path)?)
     }
 
     fn new(data: GeoData) -> Result<Self> {
@@ -105,6 +113,7 @@ impl GeoIndex {
             child_offsets,
             child_ids,
             decoded: Mutex::new(None),
+            display_needs_repair: AtomicBool::new(false),
         })
     }
 
@@ -118,6 +127,16 @@ impl GeoIndex {
 
     pub fn worldview_id(&self) -> &str {
         &self.data.worldview_id
+    }
+
+    pub fn display_geometry(&self, id: GeoEntityId) -> Result<Option<DisplayGeometry>> {
+        self.data.display_geometry(id).inspect_err(|_| {
+            self.display_needs_repair.store(true, Ordering::Relaxed);
+        })
+    }
+
+    pub fn display_needs_repair(&self) -> bool {
+        self.display_needs_repair.load(Ordering::Relaxed)
     }
 }
 

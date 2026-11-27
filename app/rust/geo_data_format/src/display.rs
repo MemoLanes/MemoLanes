@@ -1,20 +1,17 @@
-//! Independently compressed, per-entity display geometry. Coordinates are signed
-//! integer units of 0.00001°, and bounds are unwrapped degrees kept outside frames.
+//! The display section holds the entity index, block table and checksummed zstd
+//! frames. Each span in the section header is relative to the display section;
+//! each block offset is relative to the frames span. Coordinates are signed
+//! integer units of 0.00001°; bounds are unwrapped degrees kept outside frames.
 use std::collections::BTreeMap;
 use std::fs::File;
-use std::io::{Read, Seek, SeekFrom};
-use std::path::Path;
 
 use anyhow::{anyhow, bail, ensure, Context, Result};
 
-use crate::{file_io::read_exact_at, GeoEntityId, Worldview};
+use crate::{file_io::read_exact_at, GeoEntityId, Section, Worldview};
 
-const MAGIC: &[u8; 4] = b"MDSP";
-/// Independent of the raster geo-data format and its provenance/version.
-pub const DISPLAY_DATASET_VERSION: u32 = 3;
-const HEADER_LEN: u64 = 72;
-const INDEX_LEN: u64 = 41;
-const BLOCK_LEN: u64 = 16;
+const DISPLAY_HEADER_LEN: usize = 3 * 16;
+const INDEX_LEN: usize = 40;
+const BLOCK_LEN: usize = 16;
 const MAX_TABLE_BYTES: u64 = 64 * 1024 * 1024;
 const MAX_FRAME_BYTES: usize = 16 * 1024 * 1024;
 const MAX_VERTICES: usize = 1_000_000;
@@ -42,50 +39,31 @@ pub struct DisplayGeometry {
     pub polygons: Vec<Vec<Vec<[i32; 2]>>>,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 struct Span {
     offset: u64,
     len: u64,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 struct IndexEntry {
-    worldview: Worldview,
     id: GeoEntityId,
     bounds: DisplayBounds,
     block: u32,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 struct BlockEntry {
     offset: u64, // relative to frame section
     len: u32,
     raw_len: u32,
 }
 
-pub struct DisplayAsset {
-    file: File,
-    provenance: BTreeMap<Worldview, [u8; 32]>,
+#[derive(Debug)]
+pub(crate) struct DisplayIndex {
     index: Vec<IndexEntry>,
     blocks: Vec<BlockEntry>,
-    frames: Span,
-}
-
-fn worldview_byte(worldview: Worldview) -> u8 {
-    match worldview {
-        Worldview::Iso => 0,
-        Worldview::Chn => 1,
-        Worldview::Usa => 2,
-    }
-}
-
-fn parse_worldview(byte: u8) -> Result<Worldview> {
-    match byte {
-        0 => Ok(Worldview::Iso),
-        1 => Ok(Worldview::Chn),
-        2 => Ok(Worldview::Usa),
-        _ => bail!("display: invalid worldview {byte}"),
-    }
+    frames_offset: u64, // absolute file offset, validated against the display section
 }
 
 fn check_bounds(b: DisplayBounds) -> Result<()> {
@@ -224,43 +202,45 @@ fn put_span(out: &mut Vec<u8>, offset: usize, len: usize) -> Result<()> {
 }
 
 /// Write sorted tables and deduplicate *raw* blocks before compression.
-pub fn write_display_asset(
-    worldviews: &[(Worldview, [u8; 32])],
+pub(crate) fn write_display_section(
+    worldview_id: &str,
     records: &[DisplayRecord],
 ) -> Result<Vec<u8>> {
-    let mut manifest = BTreeMap::new();
-    for &(worldview, hash) in worldviews {
-        ensure!(
-            manifest.insert(worldview, hash).is_none(),
-            "display: duplicate worldview"
-        );
-    }
+    ensure!(
+        records.len() as u64 <= MAX_TABLE_BYTES / INDEX_LEN as u64,
+        "display: table too large"
+    );
     let mut sorted: Vec<_> = records.iter().collect();
-    sorted.sort_by_key(|r| (r.worldview, r.entity_id));
+    sorted.sort_by_key(|r| r.entity_id);
+    let mut compressor = zstd::bulk::Compressor::new(3)?;
+    compressor.set_parameter(zstd::zstd_safe::CParameter::ChecksumFlag(true))?;
     let mut index = Vec::new();
     let mut block_bytes = Vec::new();
     let mut frames = Vec::new();
     let mut seen = BTreeMap::<Vec<u8>, u32>::new();
     let mut previous = None;
     for record in sorted {
-        let key = (record.worldview, record.entity_id);
-        ensure!(previous != Some(key), "display: duplicate entity");
-        previous = Some(key);
         ensure!(
-            manifest.contains_key(&record.worldview),
-            "display: worldview absent from manifest"
+            record.worldview.spec().id == worldview_id,
+            "display: record worldview {:?} does not match asset worldview {worldview_id}",
+            record.worldview
         );
+        ensure!(
+            previous != Some(record.entity_id),
+            "display: duplicate entity"
+        );
+        previous = Some(record.entity_id);
         check_bounds(record.bounds)?;
         let raw = encode(&record.polygons)?;
         let block = if let Some(&id) = seen.get(&raw) {
             id
         } else {
-            let compressed = zstd::bulk::compress(&raw, 3)?;
+            let compressed = compressor.compress(&raw)?;
             ensure!(
                 compressed.len() <= MAX_FRAME_BYTES,
                 "display: compressed frame too large"
             );
-            let id = u32::try_from(block_bytes.len() / BLOCK_LEN as usize)?;
+            let id = u32::try_from(block_bytes.len() / BLOCK_LEN)?;
             block_bytes.extend_from_slice(&u64::try_from(frames.len())?.to_le_bytes());
             block_bytes.extend_from_slice(&u32::try_from(compressed.len())?.to_le_bytes());
             block_bytes.extend_from_slice(&u32::try_from(raw.len())?.to_le_bytes());
@@ -268,7 +248,6 @@ pub fn write_display_asset(
             seen.insert(raw, id);
             id
         };
-        index.push(worldview_byte(record.worldview));
         index.extend_from_slice(&record.entity_id.0.to_le_bytes());
         for value in [
             record.bounds.west,
@@ -280,25 +259,17 @@ pub fn write_display_asset(
         }
         index.extend_from_slice(&block.to_le_bytes());
     }
-    ensure!(
-        index.len() as u64 <= MAX_TABLE_BYTES && block_bytes.len() as u64 <= MAX_TABLE_BYTES,
-        "display: table too large"
-    );
-    let mut manifest_bytes = Vec::new();
-    for (worldview, hash) in manifest {
-        manifest_bytes.push(worldview_byte(worldview));
-        manifest_bytes.extend_from_slice(&hash);
-    }
-    let mut result = Vec::from(&MAGIC[..]);
-    result.extend_from_slice(&DISPLAY_DATASET_VERSION.to_le_bytes());
-    let mut offset = HEADER_LEN as usize;
-    for section in [&manifest_bytes, &index, &block_bytes, &frames] {
+    let mut result = Vec::with_capacity(DISPLAY_HEADER_LEN);
+    let mut offset = DISPLAY_HEADER_LEN;
+    let sections = [&index, &block_bytes, &frames];
+    for section in sections {
         put_span(&mut result, offset, section.len())?;
         offset = offset
             .checked_add(section.len())
-            .context("display: file size overflow")?;
+            .context("display: section size overflow")?;
     }
-    for section in [&manifest_bytes, &index, &block_bytes, &frames] {
+    result.reserve(offset - DISPLAY_HEADER_LEN);
+    for section in sections {
         result.extend_from_slice(section);
     }
     Ok(result)
@@ -314,30 +285,24 @@ fn f64_at(bytes: &[u8], at: usize) -> f64 {
     f64::from_le_bytes(bytes[at..at + 8].try_into().unwrap())
 }
 
-fn read_section(file: &mut File, span: Span) -> Result<Vec<u8>> {
+fn read_table(file: &File, section: Section, span: Span) -> Result<Vec<u8>> {
     let mut bytes = vec![0; usize::try_from(span.len)?];
-    file.seek(SeekFrom::Start(span.offset))?;
-    file.read_exact(&mut bytes)?;
+    read_exact_at(file, &mut bytes, section.off as u64 + span.offset)
+        .context("display: reading table")?;
     Ok(bytes)
 }
 
-impl DisplayAsset {
-    pub fn open(path: &Path) -> Result<Self> {
-        let mut file = File::open(path)?;
-        let size = file.metadata()?.len();
-        ensure!(size >= HEADER_LEN, "display: short header");
-        let mut header = [0; HEADER_LEN as usize];
-        file.read_exact(&mut header)?;
-        ensure!(
-            &header[..4] == MAGIC && u32_at(&header, 4) == DISPLAY_DATASET_VERSION,
-            "display: incompatible header"
-        );
-        let mut spans = Vec::new();
-        let mut expected = HEADER_LEN;
-        for at in (8..HEADER_LEN as usize).step_by(16) {
-            let span = Span {
-                offset: u64_at(&header, at),
-                len: u64_at(&header, at + 8),
+impl DisplayIndex {
+    pub(crate) fn read(file: &File, section: Section) -> Result<Self> {
+        ensure!(section.len >= DISPLAY_HEADER_LEN, "display: short header");
+        let mut header = [0; DISPLAY_HEADER_LEN];
+        read_exact_at(file, &mut header, section.off as u64).context("display: reading header")?;
+        let mut expected = DISPLAY_HEADER_LEN as u64;
+        let mut spans = [Span { offset: 0, len: 0 }; 3];
+        for (row, span) in header.as_chunks::<16>().0.iter().zip(&mut spans) {
+            *span = Span {
+                offset: u64_at(row, 0),
+                len: u64_at(row, 8),
             };
             ensure!(
                 span.offset == expected,
@@ -347,62 +312,47 @@ impl DisplayAsset {
                 .offset
                 .checked_add(span.len)
                 .context("display: section overflow")?;
-            ensure!(expected <= size, "display: section past end of file");
-            spans.push(span);
+            ensure!(
+                expected <= section.len as u64,
+                "display: span out of bounds"
+            );
         }
-        ensure!(expected == size, "display: trailing data");
+        ensure!(expected == section.len as u64, "display: trailing data");
+        let [index_span, blocks_span, frames_span] = spans;
         ensure!(
-            spans[0].len <= 33 * 3
-                && spans[0].len % 33 == 0
-                && spans[1].len <= MAX_TABLE_BYTES
-                && spans[1].len % INDEX_LEN == 0
-                && spans[2].len <= MAX_TABLE_BYTES
-                && spans[2].len % BLOCK_LEN == 0,
+            index_span.len <= MAX_TABLE_BYTES
+                && index_span.len.is_multiple_of(INDEX_LEN as u64)
+                && blocks_span.len <= MAX_TABLE_BYTES
+                && blocks_span.len.is_multiple_of(BLOCK_LEN as u64),
             "display: invalid table lengths"
         );
-        let manifest = read_section(&mut file, spans[0])?;
-        let mut provenance = BTreeMap::new();
-        for row in manifest.as_chunks::<33>().0 {
-            let worldview = parse_worldview(row[0])?;
-            ensure!(
-                provenance.insert(worldview, row[1..].try_into()?).is_none(),
-                "display: duplicate worldview"
-            );
-        }
-        let table = read_section(&mut file, spans[1])?;
-        let mut index = Vec::new();
+        let table = read_table(file, section, index_span)?;
+        let mut index = Vec::with_capacity(table.len() / INDEX_LEN);
         let mut last = None;
-        for row in table.as_chunks::<{ INDEX_LEN as usize }>().0 {
-            let worldview = parse_worldview(row[0])?;
-            let id = GeoEntityId(u32_at(row, 1));
-            let key = (worldview, id);
+        for row in table.as_chunks::<INDEX_LEN>().0 {
+            let id = GeoEntityId(u32_at(row, 0));
             ensure!(
-                last.is_none_or(|previous| previous < key),
+                last.is_none_or(|previous| previous < id),
                 "display: unsorted or duplicate index"
             );
-            ensure!(
-                provenance.contains_key(&worldview),
-                "display: unlisted worldview"
-            );
-            last = Some(key);
+            last = Some(id);
             let bounds = DisplayBounds {
-                west: f64_at(row, 5),
-                south: f64_at(row, 13),
-                east: f64_at(row, 21),
-                north: f64_at(row, 29),
+                west: f64_at(row, 4),
+                south: f64_at(row, 12),
+                east: f64_at(row, 20),
+                north: f64_at(row, 28),
             };
             check_bounds(bounds)?;
             index.push(IndexEntry {
-                worldview,
                 id,
                 bounds,
-                block: u32_at(row, 37),
+                block: u32_at(row, 36),
             });
         }
-        let table = read_section(&mut file, spans[2])?;
-        let mut blocks = Vec::new();
+        let table = read_table(file, section, blocks_span)?;
+        let mut blocks = Vec::with_capacity(table.len() / BLOCK_LEN);
         let mut end = 0;
-        for row in table.as_chunks::<{ BLOCK_LEN as usize }>().0 {
+        for row in table.as_chunks::<BLOCK_LEN>().0 {
             let entry = BlockEntry {
                 offset: u64_at(row, 0),
                 len: u32_at(row, 8),
@@ -420,10 +370,10 @@ impl DisplayAsset {
                 .offset
                 .checked_add(entry.len as u64)
                 .context("display: block overflow")?;
-            ensure!(end <= spans[3].len, "display: block past frames");
+            ensure!(end <= frames_span.len, "display: block past frames");
             blocks.push(entry);
         }
-        ensure!(end == spans[3].len, "display: unindexed frame bytes");
+        ensure!(end == frames_span.len, "display: unindexed frame bytes");
         ensure!(
             index
                 .iter()
@@ -431,43 +381,42 @@ impl DisplayAsset {
             "display: bad block reference"
         );
         Ok(Self {
-            file,
-            provenance,
             index,
             blocks,
-            frames: spans[3],
+            frames_offset: section.off as u64 + frames_span.offset,
         })
     }
 
-    pub fn raster_provenance(&self, worldview: Worldview) -> Option<[u8; 32]> {
-        self.provenance.get(&worldview).copied()
-    }
-
     /// Only the requested compressed frame is read and decompressed.
-    pub fn get(&self, worldview: Worldview, id: GeoEntityId) -> Result<Option<DisplayGeometry>> {
-        let Ok(row) = self
-            .index
-            .binary_search_by_key(&(worldview, id), |entry| (entry.worldview, entry.id))
-        else {
+    pub(crate) fn get(&self, file: &File, id: GeoEntityId) -> Result<Option<DisplayGeometry>> {
+        let Ok(row) = self.index.binary_search_by_key(&id, |entry| entry.id) else {
             return Ok(None);
         };
         let entry = self.index[row];
-        let block = self.blocks[entry.block as usize];
+        let raw = self.read_frame(file, self.blocks[entry.block as usize])?;
+        Ok(Some(DisplayGeometry {
+            bounds: entry.bounds,
+            polygons: decode(&raw)?,
+        }))
+    }
+
+    pub(crate) fn validate_frames(&self, file: &File) -> Result<()> {
+        for &block in &self.blocks {
+            decode(&self.read_frame(file, block)?)?;
+        }
+        Ok(())
+    }
+
+    fn read_frame(&self, file: &File, block: BlockEntry) -> Result<Vec<u8>> {
         let mut compressed = vec![0; block.len as usize];
-        read_exact_at(
-            &self.file,
-            &mut compressed,
-            self.frames.offset + block.offset,
-        )?;
+        read_exact_at(file, &mut compressed, self.frames_offset + block.offset)
+            .context("display: reading entity frame")?;
         let raw = zstd::bulk::decompress(&compressed, block.raw_len as usize)
             .context("display: decompressing entity frame")?;
         ensure!(
             raw.len() == block.raw_len as usize,
             "display: wrong decompressed length"
         );
-        Ok(Some(DisplayGeometry {
-            bounds: entry.bounds,
-            polygons: decode(&raw)?,
-        }))
+        Ok(raw)
     }
 }

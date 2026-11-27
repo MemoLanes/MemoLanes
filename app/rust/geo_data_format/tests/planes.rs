@@ -81,7 +81,7 @@ fn rejects_legacy_mercator_only_index_and_duplicate_planes() {
     );
     // Update section lengths/offsets so only the legacy index size is invalid.
     bytes[48..52].copy_from_slice(&(legacy.len() as u32).to_le_bytes());
-    for pos in [52, 60] {
+    for pos in [52, 60, 68] {
         let old = u32::from_le_bytes(bytes[pos..pos + 4].try_into().unwrap());
         bytes[pos..pos + 4].copy_from_slice(&((old as i64 + delta) as u32).to_le_bytes());
     }

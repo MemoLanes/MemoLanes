@@ -1,4 +1,3 @@
-use sha2::{Digest, Sha256};
 use std::env;
 use std::path::Path;
 use std::process::Command;
@@ -60,10 +59,11 @@ fn generate_geo_provenance() {
         let id = worldview.spec().id;
         let bin = assets.join(format!("geo_data_{id}.bin"));
         println!("cargo:rerun-if-changed={}", bin.display());
-        let arm = match geo_data_format::read_provenance_hash(&bin)
+        let arm = match geo_data_format::read_header(&bin)
             .unwrap_or_else(|e| panic!("reading {}: {e:#}", bin.display()))
+            .filter(|header| header.display.len != 0)
         {
-            Some(hash) => format!("Some({hash:?})"),
+            Some(header) => format!("Some({:?})", header.provenance_hash),
             None => {
                 missing.push(bin.display().to_string());
                 "None".to_owned()
@@ -142,13 +142,6 @@ pub const MAPBOX_ACCESS_TOKEN: Option<&str> = {mapbox_access_token};
     }
 
     generate_geo_provenance();
-    let display = Path::new("../assets/geo/region_display.bin");
-    println!("cargo:rerun-if-changed={}", display.display());
-    if let Ok(bytes) = fs::read(display) {
-        let digest = Sha256::digest(bytes);
-        let digest_hex: String = digest.iter().map(|byte| format!("{byte:02x}")).collect();
-        println!("cargo:rustc-env=REGION_DISPLAY_SHA256={digest_hex}");
-    }
 
     // Generate protobuf files
     println!("cargo:rerun-if-changed=src/protos/journey.proto");

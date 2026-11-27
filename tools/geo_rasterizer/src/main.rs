@@ -57,10 +57,6 @@ struct Args {
     /// registry bootstrap reads, without needing a registry yet.
     #[arg(long, requires = "ensure_source")]
     download_only: bool,
-
-    /// Write a separate display asset including all worldviews.
-    #[arg(long, conflicts_with_all = ["worldview", "download_only"])]
-    display_output: Option<PathBuf>,
 }
 
 /// Crate dir, baked at compile time — defaults resolve relative to it so the
@@ -177,13 +173,8 @@ fn main() -> Result<()> {
         .unwrap_or_else(geo_rasterizer::admin2::default_dir);
     let mode = if args.download_only {
         RasterizeMode::DownloadSources
-    } else if let Some(path) = &args.display_output {
-        RasterizeMode::WithDisplay {
-            ensure_source: args.ensure_source,
-            display_output: path,
-        }
     } else {
-        RasterizeMode::RasterOnly {
+        RasterizeMode::Build {
             ensure_source: args.ensure_source,
         }
     };

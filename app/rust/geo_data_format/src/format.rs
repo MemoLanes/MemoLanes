@@ -1,26 +1,30 @@
 //! Sectioned on-disk geo data format.
 //!
-//! Layout: `Header(68 B) | Meta | TileIndex | BorderOffsets | BorderBlobs`.
+//! Layout: `Header(76 B) | Meta | TileIndex | BorderOffsets | BorderBlobs | Display`.
 //! All integers little-endian. Border tiles are stored already
 //! `PackedTile`-compressed. [`GeoData::open`] keeps the tile index (sparse)
 //! and the compressed meta section in memory; border offsets and blobs stay
-//! on disk and are read per lookup, entities are decoded per request.
+//! on disk. Display tables are read on the first geometry lookup, and only
+//! the requested frame is decoded. A zero-length display span is raster-only.
 
 use std::collections::BTreeMap;
 use std::fs::File;
-use std::io::{BufReader, Read};
+use std::io::ErrorKind;
 use std::path::Path;
+use std::sync::{Arc, OnceLock};
 
 use bitmap_geometry::BitmapPlane;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    file_io::read_exact_at, GeoEntity, GeoEntityId, PackedTile, TileMembership,
+    display::{write_display_section, DisplayIndex},
+    file_io::read_exact_at,
+    DisplayGeometry, DisplayRecord, GeoEntity, GeoEntityId, PackedTile, TileMembership,
     ALL_PLANE_TILE_COUNT, MAGIC, PROVENANCE_HASH_END,
 };
 
-/// magic(4) + provenance_hash(32) + 4 sections × (u32 offset, u32 len).
-pub const HEADER_LEN: usize = PROVENANCE_HASH_END + 4 * 8; // PROVENANCE_HASH_END=36, sections table=32
+/// magic(4) + provenance_hash(32) + 5 sections × (u32 offset, u32 len).
+pub const HEADER_LEN: usize = PROVENANCE_HASH_END + 5 * 8;
 const META_ZSTD_LEVEL: i32 = 19;
 const TILE_INDEX_ZSTD_LEVEL: i32 = 19;
 
@@ -126,7 +130,7 @@ pub struct Section {
 
 #[derive(Debug)]
 pub struct BorderBlobs {
-    file: File,
+    file: Arc<File>,
     offsets: Section,
     region: Section,
 }
@@ -170,11 +174,35 @@ pub struct GeoData {
     pub border_blobs: BorderBlobs,
     pub provenance_hash: [u8; 32],
     meta_compressed: Box<[u8]>,
+    file: Arc<File>,
+    display: Section,
+    display_index: OnceLock<anyhow::Result<DisplayIndex>>,
 }
 
 impl GeoData {
     pub fn entities(&self) -> anyhow::Result<Vec<GeoEntity>> {
         Ok(decode_meta(&self.meta_compressed)?.entities)
+    }
+
+    /// Validate all embedded outlines for build-cache reuse, not runtime activation.
+    pub fn validate_display(&self) -> anyhow::Result<()> {
+        anyhow::ensure!(self.display.len != 0, "geo_data: no display section");
+        DisplayIndex::read(&self.file, self.display)?.validate_frames(&self.file)
+    }
+
+    /// Read this entity's display geometry from the same open file as the border blobs.
+    /// Missing geometry (including raster-only files) is not an error.
+    pub fn display_geometry(&self, id: GeoEntityId) -> anyhow::Result<Option<DisplayGeometry>> {
+        if self.display.len == 0 {
+            return Ok(None);
+        }
+        match self
+            .display_index
+            .get_or_init(|| DisplayIndex::read(&self.file, self.display))
+        {
+            Ok(index) => index.get(&self.file, id),
+            Err(err) => Err(anyhow::anyhow!("{err:#}")),
+        }
     }
 }
 
@@ -216,11 +244,35 @@ pub struct PlaneRaster<'a> {
     pub blocks: &'a BTreeMap<(u16, u16), Vec<u32>>,
 }
 
+/// Write raster coverage without a display section.
 pub fn write_geo_data_planes(
     entities: &[GeoEntity],
     worldview_id: &str,
     rasters: &[PlaneRaster<'_>],
     provenance_hash: [u8; 32],
+) -> anyhow::Result<Vec<u8>> {
+    write_sections(entities, worldview_id, rasters, provenance_hash, &[])
+}
+
+/// Write raster coverage and display geometry in a single worldview asset.
+/// An empty record list still writes a display section.
+pub fn write_geo_data_planes_with_display(
+    entities: &[GeoEntity],
+    worldview_id: &str,
+    rasters: &[PlaneRaster<'_>],
+    provenance_hash: [u8; 32],
+    records: &[DisplayRecord],
+) -> anyhow::Result<Vec<u8>> {
+    let display = write_display_section(worldview_id, records)?;
+    write_sections(entities, worldview_id, rasters, provenance_hash, &display)
+}
+
+fn write_sections(
+    entities: &[GeoEntity],
+    worldview_id: &str,
+    rasters: &[PlaneRaster<'_>],
+    provenance_hash: [u8; 32],
+    display: &[u8],
 ) -> anyhow::Result<Vec<u8>> {
     for (i, raster) in rasters.iter().enumerate() {
         let width = raster.plane.grid_width() as usize;
@@ -285,57 +337,48 @@ pub fn write_geo_data_planes(
     let mut border_offsets = Vec::with_capacity(blobs.len() * 8);
     let mut border_blobs = Vec::new();
     for blob in &blobs {
-        let off = border_blobs.len() as u32;
-        let len = blob.len() as u32;
+        let off = u32::try_from(border_blobs.len())?;
+        let len = u32::try_from(blob.len())?;
         border_offsets.extend_from_slice(&off.to_le_bytes());
         border_offsets.extend_from_slice(&len.to_le_bytes());
         border_blobs.extend_from_slice(blob);
     }
 
-    let meta_off = HEADER_LEN as u32;
-    let tile_off = meta_off + meta_bytes.len() as u32;
-    let boff_off = tile_off + tile_index_bytes.len() as u32;
-    let blob_off = boff_off + border_offsets.len() as u32;
-
-    let mut out = Vec::with_capacity(blob_off as usize + border_blobs.len());
+    let sections = [
+        &meta_bytes,
+        &tile_index_bytes,
+        &border_offsets,
+        &border_blobs,
+        display,
+    ];
+    let mut offset = HEADER_LEN as u32;
+    let mut out = Vec::with_capacity(HEADER_LEN);
     out.extend_from_slice(MAGIC);
     out.extend_from_slice(&provenance_hash);
-    for (off, len) in [
-        (meta_off, meta_bytes.len() as u32),
-        (tile_off, tile_index_bytes.len() as u32),
-        (boff_off, border_offsets.len() as u32),
-        (blob_off, border_blobs.len() as u32),
-    ] {
-        out.extend_from_slice(&off.to_le_bytes());
+    for section in sections {
+        let len = u32::try_from(section.len())?;
+        out.extend_from_slice(&offset.to_le_bytes());
         out.extend_from_slice(&len.to_le_bytes());
+        offset = offset
+            .checked_add(len)
+            .ok_or_else(|| anyhow::anyhow!("geo_data: file too large"))?;
     }
-    out.extend_from_slice(&meta_bytes);
-    out.extend_from_slice(&tile_index_bytes);
-    out.extend_from_slice(&border_offsets);
-    out.extend_from_slice(&border_blobs);
+    out.reserve(offset as usize - HEADER_LEN);
+    for section in sections {
+        out.extend_from_slice(section);
+    }
     Ok(out)
 }
 
 /// Total byte length a complete file must have, derived from its header
-/// alone: the maximum of every section's `offset + len`. Returns `None` if
-/// `header` is shorter than [`HEADER_LEN`] or the magic doesn't match.
+/// alone. Returns `None` if the magic or section layout is invalid.
 ///
 /// The smart-skip cache uses this to detect a torn/truncated `geo_data.bin`
 /// (actual file size != expected) and rebuild instead of trusting the
 /// provenance hash, which sits at the front of the header and would survive
 /// a write that left the body truncated.
 pub fn expected_total_len(header: &[u8]) -> Option<usize> {
-    if header.len() < HEADER_LEN || &header[0..crate::PROVENANCE_HASH_OFFSET] != MAGIC {
-        return None;
-    }
-    let mut total = HEADER_LEN;
-    for i in 0..4 {
-        let base = crate::PROVENANCE_HASH_END + i * 8;
-        let off = read_u32(header, base) as usize;
-        let len = read_u32(header, base + 4) as usize;
-        total = total.max(off + len);
-    }
-    Some(total)
+    parse_header(header).ok().map(|(_, len)| len)
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -345,9 +388,10 @@ pub struct Header {
     pub tile_index: Section,
     pub border_offsets: Section,
     pub border_blobs: Section,
+    pub display: Section,
 }
 
-fn parse_header(header: &[u8]) -> anyhow::Result<Header> {
+fn parse_header(header: &[u8]) -> anyhow::Result<(Header, usize)> {
     anyhow::ensure!(
         header.len() >= HEADER_LEN,
         "geo_data: too short ({} bytes)",
@@ -367,27 +411,59 @@ fn parse_header(header: &[u8]) -> anyhow::Result<Header> {
             len: read_u32(header, base + 4) as usize,
         }
     };
-    Ok(Header {
+    let parsed = Header {
         provenance_hash,
         meta: sec(0),
         tile_index: sec(1),
         border_offsets: sec(2),
         border_blobs: sec(3),
-    })
+        display: sec(4),
+    };
+    // The first section must start at the end of this header. Older MGEO
+    // headers had four spans and placed it earlier, so they cannot pass.
+    let mut end = HEADER_LEN as u32;
+    for (name, section) in [
+        ("meta", parsed.meta),
+        ("tile index", parsed.tile_index),
+        ("border offsets", parsed.border_offsets),
+        ("border blobs", parsed.border_blobs),
+        ("display", parsed.display),
+    ] {
+        anyhow::ensure!(
+            section.off == end as usize,
+            "geo_data: invalid {name} offset {} (expected {end})",
+            section.off
+        );
+        end = end
+            .checked_add(section.len as u32)
+            .ok_or_else(|| anyhow::anyhow!("geo_data: {name} span overflows"))?;
+    }
+    Ok((parsed, end as usize))
 }
 
 impl GeoData {
     pub fn open(path: &Path) -> anyhow::Result<GeoData> {
+        Self::open_inner(path, false)
+    }
+
+    /// Open an installed file even if only its display tail was truncated.
+    pub fn open_for_coverage(path: &Path) -> anyhow::Result<GeoData> {
+        Self::open_inner(path, true)
+    }
+
+    fn open_inner(path: &Path, allow_truncated_display: bool) -> anyhow::Result<GeoData> {
         let file = File::open(path)
             .map_err(|e| anyhow::anyhow!("geo_data: opening {}: {e}", path.display()))?;
         let mut header_bytes = [0u8; HEADER_LEN];
         read_exact_at(&file, &mut header_bytes, 0)
             .map_err(|e| anyhow::anyhow!("geo_data: reading header: {e}"))?;
-        let header = parse_header(&header_bytes)?;
-        let expected = expected_total_len(&header_bytes).expect("header already validated") as u64;
+        let (header, expected) = parse_header(&header_bytes)?;
         let actual = file.metadata()?.len();
         anyhow::ensure!(
-            actual == expected,
+            actual == expected as u64
+                || (allow_truncated_display
+                    && actual >= header.display.off as u64
+                    && actual < expected as u64),
             "geo_data: file is {actual} bytes, header says {expected}"
         );
         let read = |s: Section| -> anyhow::Result<Vec<u8>> {
@@ -413,8 +489,9 @@ impl GeoData {
             header.border_offsets.len.is_multiple_of(8),
             "geo_data: border offset table misaligned"
         );
+        let file = Arc::new(file);
         let border_blobs = BorderBlobs {
-            file,
+            file: Arc::clone(&file),
             offsets: header.border_offsets,
             region: header.border_blobs,
         };
@@ -432,6 +509,9 @@ impl GeoData {
             border_blobs,
             provenance_hash: header.provenance_hash,
             meta_compressed,
+            file,
+            display: header.display,
+            display_index: OnceLock::new(),
         })
     }
 }
@@ -439,7 +519,7 @@ impl GeoData {
 pub fn read_header(bin_path: &Path) -> anyhow::Result<Option<Header>> {
     let f = match File::open(bin_path) {
         Ok(f) => f,
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(e) if e.kind() == ErrorKind::NotFound => return Ok(None),
         Err(e) => anyhow::bail!("geo_data: opening {}: {e}", bin_path.display()),
     };
     let file_len = f
@@ -447,20 +527,15 @@ pub fn read_header(bin_path: &Path) -> anyhow::Result<Option<Header>> {
         .map_err(|e| anyhow::anyhow!("geo_data: stat {}: {e}", bin_path.display()))?
         .len();
     let mut buf = [0u8; HEADER_LEN];
-    let mut reader = BufReader::new(f);
-    let mut total = 0;
-    while total < HEADER_LEN {
-        let n = reader.read(&mut buf[total..])?;
-        if n == 0 {
-            return Ok(None);
-        }
-        total += n;
+    match read_exact_at(&f, &mut buf, 0) {
+        Ok(()) => {}
+        Err(e) if e.kind() == ErrorKind::UnexpectedEof => return Ok(None),
+        Err(e) => return Err(e.into()),
     }
-    match expected_total_len(&buf) {
-        Some(expected) if expected as u64 == file_len => {}
-        _ => return Ok(None),
-    }
-    parse_header(&buf).map(Some)
+    Ok(match parse_header(&buf) {
+        Ok((header, expected)) if expected as u64 == file_len => Some(header),
+        _ => None,
+    })
 }
 
 pub fn read_provenance_hash(bin_path: &Path) -> anyhow::Result<Option<[u8; 32]>> {

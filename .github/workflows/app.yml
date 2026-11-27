@@ -95,17 +95,13 @@ jobs:
           path: tools/geo_rasterizer/natural_earth/*.geojson
           key: geo-natural-earth-${{ hashFiles('tools/geo_rasterizer/src/download.rs', 'app/rust/geo_data_format/src/**', 'app/rust/geo_data_format/Cargo.toml', 'app/rust/geo_data_format/Cargo.lock') }}
 
-      # Hash generator code as well as data inputs: raster provenance tracks
-      # inputs and the format version, not algorithm changes.
+      # Hash generator code as well as data inputs so recipe edits also miss CI's cache.
       - name: Cache generated geo assets
         uses: actions/cache@v5
         with:
-          path: |
-            app/assets/geo/geo_data_*.bin
-            app/assets/geo/region_display.bin
-            app/assets/geo/.build-metadata/region_display.bin
+          path: app/assets/geo/geo_data_*.bin
           key: >-
-            geo-assets-${{ hashFiles(
+            geo-assets-combined-${{ hashFiles(
             'tools/geo_rasterizer/src/**',
             'tools/geo_rasterizer/Cargo.*',
             'tools/geo_rasterizer/geo_policy.toml',

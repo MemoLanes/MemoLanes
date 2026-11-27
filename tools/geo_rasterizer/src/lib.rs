@@ -8,7 +8,6 @@ pub mod batch;
 pub mod cache;
 pub mod cldr;
 pub mod display;
-mod display_cache;
 pub mod download;
 pub mod entities;
 pub mod names;

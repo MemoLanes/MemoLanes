@@ -14,15 +14,12 @@ mod geo_install_fixture;
 pub mod test_utils;
 
 use std::collections::HashMap;
-use std::future::{poll_fn, ready, Future};
-use std::pin::pin;
-use std::task::Poll;
 
 use flutter_rust_bridge::DartFnFuture;
 use geo_data_format::{
-    write_display_asset, DisplayBounds, DisplayRecord, Worldview as GeoWorldview,
+    read_provenance_hash, write_geo_data_planes_with_display, DisplayBounds, DisplayRecord,
+    Worldview as GeoWorldview,
 };
-use memolanes_core::storage::Storage;
 use memolanes_core::{
     api::achievement::{
         activate_geo_data, get_explored_area, get_explored_area_by_layer, region_detail,
@@ -35,12 +32,10 @@ use memolanes_core::{
     import_data,
     journey_header::JourneyKind,
 };
-use sha2::{Digest, Sha256};
 use std::fs;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use tempdir::TempDir;
-use tokio::sync::oneshot;
 
 /// Import one GPX track as a finalized journey via the public GPS ingest path.
 fn import_gpx_as_journey(path: &str) {
@@ -61,326 +56,116 @@ fn import_gpx_as_journey(path: &str) {
     assert!(api::finalize_ongoing_journey().unwrap(), "finalize {path}");
 }
 
-// A wrong worldview, a reused block from the prior raster, or using display
-// errors to discard geo would break these user-visible assertions.
-#[tokio::test]
-async fn region_geometry_rejects_worldview_switch_then_reuses_installed_display() {
+#[test]
+fn display_follows_the_active_geo_file_and_its_provenance() {
     let dir = TempDir::new("display_worldviews").unwrap();
     let storage = geo_install_fixture::storage(&dir);
-    let id = GeoEntityId(1);
-    let raster = |worldview: GeoWorldview| {
-        let bytes = fs::read(test_utils::geo_asset(worldview.spec().id)).unwrap();
-        let hash =
-            geo_data_format::read_provenance_hash(&test_utils::geo_asset(worldview.spec().id))
-                .unwrap()
+    let indonesia = GeoEntityId(1);
+    assert!(storage.region_geometry(indonesia).is_err());
+    for worldview in [GeoWorldview::Iso, GeoWorldview::Usa, GeoWorldview::Iso] {
+        let path = test_utils::geo_asset(worldview.spec().id);
+        let provenance = read_provenance_hash(&path).unwrap().unwrap();
+        if !storage
+            .open_installed_geo_data(worldview, provenance)
+            .unwrap()
+        {
+            storage
+                .init_or_change_geo_data(worldview, provenance, &fs::read(path).unwrap())
                 .unwrap();
-        (bytes, hash)
-    };
-    let (iso, iso_hash) = raster(GeoWorldview::Iso);
-    let (usa, usa_hash) = raster(GeoWorldview::Usa);
-    let geometry = |worldview, west: f64| DisplayRecord {
+        }
+        let shape = storage.region_geometry(indonesia).unwrap().unwrap();
+        assert_eq!(shape.entity_id, indonesia);
+        assert_eq!(shape.worldview, Worldview::from(worldview));
+        assert_eq!(shape.display_dataset_version, hex::encode(provenance));
+        assert!(storage
+            .region_geometry(GeoEntityId(u32::MAX))
+            .unwrap()
+            .is_none());
+    }
+    let files = fs::read_dir(
+        storage
+            .installed_geo_data_file(GeoWorldview::Iso)
+            .parent()
+            .unwrap(),
+    )
+    .unwrap()
+    .map(|entry| entry.unwrap().file_name())
+    .collect::<std::collections::BTreeSet<_>>();
+    assert_eq!(
+        files,
+        ["geo_data_iso.bin".into(), "geo_data_usa.bin".into()].into()
+    );
+}
+
+#[test]
+fn corrupt_display_frame_does_not_disable_geo_achievements() {
+    let dir = TempDir::new("display_frame_isolation").unwrap();
+    let storage = geo_install_fixture::storage(&dir);
+    let worldview = GeoWorldview::Iso;
+    let raster = geo_data_format::GeoData::open(&test_utils::geo_asset("iso")).unwrap();
+    let entities = raster.entities().unwrap();
+    let id = GeoEntityId(1);
+    let records = [DisplayRecord {
         worldview,
         entity_id: id,
-        bounds: DisplayBounds {
-            west,
-            south: 1.0,
-            east: west + 1.0,
-            north: 2.0,
-        },
-        polygons: vec![vec![vec![
-            [west as i32 * 100_000, 100_000],
-            [(west as i32 + 1) * 100_000, 100_000],
-            [(west as i32 + 1) * 100_000, 200_000],
-            [west as i32 * 100_000, 100_000],
-        ]]],
-    };
-    let asset = write_display_asset(
-        &[(GeoWorldview::Iso, iso_hash), (GeoWorldview::Usa, usa_hash)],
-        &[
-            geometry(GeoWorldview::Iso, 3.0),
-            geometry(GeoWorldview::Usa, 7.0),
-        ],
-    )
-    .unwrap();
-    let digest: [u8; 32] = Sha256::digest(&asset).into();
-    storage
-        .init_or_change_geo_data(GeoWorldview::Iso, iso_hash, &iso)
-        .unwrap();
-    let unexpected_load = || -> std::future::Ready<anyhow::Result<Vec<u8>>> {
-        panic!("should not load the display bundle")
-    };
-    {
-        let (release, resume) = oneshot::channel::<()>();
-        let mut loading = pin!(storage.region_geometry(id, digest, || async {
-            resume.await.unwrap();
-            Ok(asset.clone())
-        }));
-        let mut queued = pin!(storage.region_geometry(id, digest, unexpected_load));
-        poll_fn(|cx| {
-            assert!(loading.as_mut().poll(cx).is_pending());
-            assert!(queued.as_mut().poll(cx).is_pending());
-            Poll::Ready(())
-        })
-        .await;
-        storage
-            .init_or_change_geo_data(GeoWorldview::Usa, usa_hash, &usa)
-            .unwrap();
-        release.send(()).unwrap();
-        let (loading, queued) = tokio::join!(loading, queued);
-        for error in [loading.unwrap_err(), queued.unwrap_err()] {
-            assert_eq!(
-                error.to_string(),
-                "active raster changed during display lookup"
-            );
-        }
-        assert!(!display_file(&storage, digest).exists());
-    }
-    let check = |found: memolanes_core::api::achievement::RegionGeometry, worldview, west| {
-        assert_eq!(found.worldview, worldview);
-        assert_eq!(found.bounds.west, west);
-        assert_eq!(found.entity_id, id);
-        let feature: serde_json::Value = serde_json::from_str(&found.feature_geojson).unwrap();
-        assert_eq!(feature["id"], id.0);
-        assert_eq!(feature["geometry"]["coordinates"][0][0][0], west);
-        assert_eq!(found.display_dataset_version, hex::encode(digest));
-    };
-    let found = storage
-        .region_geometry(id, digest, || ready(Ok(asset)))
-        .await
-        .unwrap()
-        .unwrap();
-    check(found, Worldview::Usa, 7.0);
-    assert!(display_file(&storage, digest).exists());
-    assert!(storage
-        .region_geometry(GeoEntityId(u32::MAX), digest, unexpected_load)
-        .await
-        .unwrap()
-        .is_none());
-    drop(storage);
-
-    let reopened = geo_install_fixture::storage(&dir);
-    assert!(reopened
-        .open_installed_geo_data(GeoWorldview::Iso, iso_hash)
-        .unwrap());
-    let found = reopened
-        .region_geometry(id, digest, unexpected_load)
-        .await
-        .unwrap()
-        .unwrap();
-    check(found, Worldview::Iso, 3.0);
-}
-
-fn display_file(storage: &Storage, digest: [u8; 32]) -> std::path::PathBuf {
-    storage
-        .installed_geo_data_file(GeoWorldview::Iso)
-        .with_file_name(format!("region_display_{}.bin", hex::encode(digest)))
-}
-
-#[tokio::test]
-async fn region_geometry_rejects_provenance_switch_within_worldview() {
-    use geo_install_fixture::{asset, storage, HASH_A, HASH_B};
-    let dir = TempDir::new("display_provenance").unwrap();
-    let storage = storage(&dir);
-    let worldview = GeoWorldview::Iso;
-    storage
-        .init_or_change_geo_data(worldview, HASH_A, &asset(HASH_A))
-        .unwrap();
-    let bytes = write_display_asset(&[(worldview, HASH_B)], &[]).unwrap();
-    let digest = Sha256::digest(&bytes).into();
-    let id = GeoEntityId(1);
-    let (release, resume) = oneshot::channel::<()>();
-    let mut loading = pin!(storage.region_geometry(id, digest, || async {
-        resume.await.unwrap();
-        Ok(bytes.clone())
-    }));
-    poll_fn(|cx| {
-        assert!(loading.as_mut().poll(cx).is_pending());
-        Poll::Ready(())
-    })
-    .await;
-    storage
-        .init_or_change_geo_data(worldview, HASH_B, &asset(HASH_B))
-        .unwrap();
-    release.send(()).unwrap();
-    assert_eq!(
-        loading.await.unwrap_err().to_string(),
-        "active raster changed during display lookup"
-    );
-    assert!(!display_file(&storage, digest).exists());
-    assert!(storage
-        .region_geometry(id, digest, || ready(Ok(bytes.clone())))
-        .await
-        .unwrap()
-        .is_none());
-    assert!(display_file(&storage, digest).exists());
-}
-
-#[tokio::test]
-async fn region_geometry_retries_after_loader_and_install_errors() {
-    use geo_install_fixture::{asset, storage, HASH_A};
-    let dir = TempDir::new("display_retry").unwrap();
-    let storage = storage(&dir);
-    let worldview = GeoWorldview::Iso;
-    storage
-        .init_or_change_geo_data(worldview, HASH_A, &asset(HASH_A))
-        .unwrap();
-    let bytes = write_display_asset(&[(worldview, HASH_A)], &[]).unwrap();
-    let digest = Sha256::digest(&bytes).into();
-    let id = GeoEntityId(1);
-    let error = storage
-        .region_geometry(id, digest, || async { anyhow::bail!("bundle unavailable") })
-        .await
-        .unwrap_err();
-    assert_eq!(error.to_string(), "bundle unavailable");
-    assert!(!display_file(&storage, digest).exists());
-    let error = storage
-        .region_geometry(id, digest, || ready(Ok(vec![0; bytes.len()])))
-        .await
-        .unwrap_err();
-    assert_eq!(error.to_string(), "display bundle digest mismatch");
-    assert!(!display_file(&storage, digest).exists());
-    assert!(storage
-        .region_geometry(id, digest, || ready(Ok(bytes)))
-        .await
-        .unwrap()
-        .is_none());
-    assert!(display_file(&storage, digest).exists());
-}
-
-#[tokio::test]
-async fn region_geometry_isolates_and_repairs_a_bad_display_frame() {
-    let dir = TempDir::new("display_frame_isolation").unwrap();
-    let sub = |s: &str| {
-        let path = dir.path().join(s);
-        fs::create_dir(&path).unwrap();
-        path.to_string_lossy().into_owned()
-    };
-    let storage = Storage::init(sub("temp"), sub("doc"), sub("support"), sub("cache")).unwrap();
-    let worldview = GeoWorldview::Iso;
-    let raster = test_utils::geo_asset(worldview.spec().id);
-    let hash = geo_data_format::read_provenance_hash(&raster)
-        .unwrap()
-        .unwrap();
-    storage
-        .init_or_change_geo_data(worldview, hash, &fs::read(raster).unwrap())
-        .unwrap();
-    let records = [1, 2].map(|id| DisplayRecord {
-        worldview,
-        entity_id: GeoEntityId(id),
         bounds: DisplayBounds {
             west: 0.0,
             south: 0.0,
             east: 1.0,
             north: 1.0,
         },
-        polygons: vec![vec![vec![
-            [0, 0],
-            [100_000, 0],
-            [100_000, 50_000 * id as i32],
-            [0, 0],
-        ]]],
-    });
-    let bytes = write_display_asset(&[(worldview, hash)], &records).unwrap();
-    let digest: [u8; 32] = Sha256::digest(&bytes).into();
-    assert!(storage
-        .region_geometry(GeoEntityId(1), digest, || ready(Ok(bytes.clone())))
-        .await
-        .unwrap()
-        .is_some());
-
-    // Damage A's first compressed byte after the asset has been opened.
-    use std::io::{Seek, SeekFrom, Write};
-    let frame_offset = u64::from_le_bytes(bytes[56..64].try_into().unwrap());
-    let path = display_file(&storage, digest);
-    let mut file = fs::OpenOptions::new().write(true).open(&path).unwrap();
-    file.seek(SeekFrom::Start(frame_offset)).unwrap();
-    file.write_all(&[0xff]).unwrap();
-    drop(file);
-    let unexpected_load = || -> std::future::Ready<anyhow::Result<Vec<u8>>> {
-        panic!("must read the original frame without repair")
-    };
-    // Read B while A is still corrupt and before any failure requests repair.
-    assert_eq!(
-        storage
-            .region_geometry(GeoEntityId(2), digest, unexpected_load)
-            .await
-            .unwrap()
-            .unwrap()
-            .entity_id,
-        GeoEntityId(2)
-    );
-    let error = storage
-        .region_geometry(GeoEntityId(1), digest, unexpected_load)
-        .await
-        .unwrap_err();
-    assert_eq!(error.to_string(), "display: decompressing entity frame");
-    assert!(storage
-        .region_geometry(GeoEntityId(1), digest, || ready(Ok(bytes.clone())))
-        .await
-        .unwrap()
-        .is_some());
-    assert_eq!(fs::read(path).unwrap(), bytes);
-    assert!(storage
-        .region_geometry(GeoEntityId(1), digest, unexpected_load)
-        .await
-        .unwrap()
-        .is_some());
-}
-
-#[tokio::test]
-async fn stale_display_asset_does_not_affect_stats() {
-    let dir = TempDir::new("stale_display").unwrap();
-    let sub = |s: &str| {
-        let p = dir.path().join(s);
-        fs::create_dir(&p).unwrap();
-        p.to_string_lossy().into_owned()
-    };
-    let storage = Storage::init(sub("temp"), sub("doc"), sub("support"), sub("cache")).unwrap();
-    let raster = test_utils::geo_asset("iso");
-    let hash = geo_data_format::read_provenance_hash(&raster)
-        .unwrap()
-        .unwrap();
+        polygons: vec![vec![vec![[0, 0], [100_000, 0], [100_000, 100_000], [0, 0]]]],
+    }];
+    let hash = [42; 32];
+    let bytes = write_geo_data_planes_with_display(&entities, "iso", &[], hash, &records).unwrap();
     storage
-        .init_or_change_geo_data(GeoWorldview::Iso, hash, &fs::read(&raster).unwrap())
+        .init_or_change_geo_data(worldview, hash, &bytes)
         .unwrap();
+    assert!(storage.region_geometry(id).unwrap().is_some());
     let detail = || {
         storage
             .with_achievement_read(|store| {
-                let ids =
-                    memolanes_core::achievement::region::detail_scope(store.geo()?, GeoEntityId(1));
+                let ids = memolanes_core::achievement::region::detail_scope(store.geo()?, id);
                 let areas = store.region_areas(AchievementLayer::Default, &ids)?;
-                memolanes_core::achievement::region::detail_view(
-                    store.geo()?,
-                    GeoEntityId(1),
-                    &areas,
-                )
+                let detail =
+                    memolanes_core::achievement::region::detail_view(store.geo()?, id, &areas)?
+                        .expect("fixture must include Indonesia");
+                Ok((
+                    detail.node.total_area_m2,
+                    detail.node.visited_area_m2,
+                    detail.children.len(),
+                ))
             })
             .unwrap()
     };
-    let before = detail().map(|value| {
-        (
-            value.node.total_area_m2,
-            value.node.visited_area_m2,
-            value.children.len(),
-        )
-    });
-    assert!(before.is_some(), "fixture must exercise existing stats");
-    let bytes = write_display_asset(&[(GeoWorldview::Iso, [42; 32])], &[]).unwrap();
-    let digest: [u8; 32] = Sha256::digest(&bytes).into();
-    let error = storage
-        .region_geometry(GeoEntityId(1), digest, || ready(Ok(bytes)))
-        .await
-        .unwrap_err();
-    assert_eq!(error.to_string(), "display raster provenance mismatch");
-    assert!(!display_file(&storage, digest).exists());
-    assert_eq!(
-        detail().map(|value| (
-            value.node.total_area_m2,
-            value.node.visited_area_m2,
-            value.children.len()
-        )),
-        before
-    );
+    let before = detail();
+    {
+        use std::io::{Seek, SeekFrom, Write};
+        let mut file = fs::OpenOptions::new()
+            .write(true)
+            .open(storage.installed_geo_data_file(worldview))
+            .unwrap();
+        file.seek(SeekFrom::End(-1)).unwrap();
+        file.write_all(&[bytes.last().unwrap() ^ 1]).unwrap();
+    }
+    assert!(storage.region_geometry(id).is_err());
+    assert_eq!(detail(), before);
+    assert!(!storage.open_installed_geo_data(worldview, hash).unwrap());
+    assert_eq!(detail(), before);
+    storage
+        .init_or_change_geo_data(worldview, hash, &bytes)
+        .unwrap();
+    assert!(storage.region_geometry(id).unwrap().is_some());
+    let path = storage.installed_geo_data_file(worldview);
+    fs::OpenOptions::new()
+        .write(true)
+        .open(path)
+        .unwrap()
+        .set_len((bytes.len() - 1) as u64)
+        .unwrap();
+    assert!(storage.open_installed_geo_data(worldview, hash).unwrap());
+    assert_eq!(detail(), before);
+    assert!(storage.region_geometry(id).is_err());
 }
 
 fn areas() -> HashMap<AchievementLayer, u64> {
@@ -516,39 +301,10 @@ async fn api_achievement_explored_area_and_region_contract() {
 
     // Indonesia (frozen country ID 1) has real geometry in the bundled ISO display.
     let indonesia = GeoEntityId(1);
-    let display_loads = AtomicUsize::new(0);
-    let (release, resume) = oneshot::channel::<()>();
-    let resume = Mutex::new(Some(resume));
-    let load_display = || -> DartFnFuture<anyhow::Result<Vec<u8>>> {
-        display_loads.fetch_add(1, Ordering::SeqCst);
-        let resume = resume.lock().unwrap().take().expect("only one bundle load");
-        Box::pin(async move {
-            resume.await?;
-            Ok(fs::read("../assets/geo/region_display.bin")?)
-        })
-    };
-    let mut first = pin!(region_geometry(indonesia, &load_display));
-    let mut concurrent = pin!(region_geometry(indonesia, &load_display));
-    poll_fn(|cx| {
-        assert!(first.as_mut().poll(cx).is_pending());
-        assert_eq!(display_loads.load(Ordering::SeqCst), 1, "loader started");
-        assert!(concurrent.as_mut().poll(cx).is_pending());
-        Poll::Ready(())
-    })
-    .await;
-    release.send(()).unwrap();
-    let (first, concurrent) = tokio::join!(first, concurrent);
-    let warm = region_geometry(indonesia, &load_display).await;
-    for result in [first, concurrent, warm] {
-        let geometry = result
-            .expect("lookup should prepare the display without activation")
-            .expect("Indonesia has display geometry");
-        assert_eq!(geometry.entity_id, indonesia);
-        assert_eq!(geometry.worldview, Worldview::Iso);
-    }
-    assert!(region_geometry(unknown, &load_display)
-        .await
-        .unwrap()
-        .is_none());
-    assert_eq!(display_loads.load(Ordering::SeqCst), 1);
+    let geometry = region_geometry(indonesia)
+        .expect("geometry comes from the active geo data")
+        .expect("Indonesia has display geometry");
+    assert_eq!(geometry.entity_id, indonesia);
+    assert_eq!(geometry.worldview, Worldview::Iso);
+    assert!(region_geometry(unknown).unwrap().is_none());
 }

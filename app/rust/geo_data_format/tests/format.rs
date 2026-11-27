@@ -1,9 +1,9 @@
 use std::collections::BTreeMap;
 
 use geo_data_format::{
-    read_header, read_provenance_hash, tile_xy, write_geo_data, GeoData, GeoEntity, GeoEntityId,
-    GeoEntityKind, PackedTile, TileEntry, TileMembership, CELLS_PER_TILE, HEADER_LEN, MAGIC,
-    NO_ENTITY, TILE_COUNT,
+    expected_total_len, read_header, read_provenance_hash, tile_xy, write_geo_data, GeoData,
+    GeoEntity, GeoEntityId, GeoEntityKind, PackedTile, TileEntry, TileMembership, CELLS_PER_TILE,
+    HEADER_LEN, MAGIC, NO_ENTITY, PROVENANCE_HASH_END, TILE_COUNT,
 };
 
 fn entity(id: u32, iso: &str) -> GeoEntity {
@@ -210,9 +210,38 @@ fn read_provenance_hash_rejects_torn_file() {
 
 #[test]
 fn read_provenance_hash_old_layout_does_not_false_match() {
-    // A file that is exactly MAGIC with no hash must not be accepted.
-    let f = write_tmp(MAGIC);
+    let hash = [0x7E; 32];
+    let mut bytes = well_formed_bin(hash);
+    assert_eq!(&bytes[..4], MAGIC);
+    let v6_header_len = PROVENANCE_HASH_END + 4 * 8;
+    bytes.drain(v6_header_len..HEADER_LEN);
+    // In v6 the first section began after four spans, not five. The same
+    // provenance bytes and MGEO magic must not give a false cache hit.
+    for at in (PROVENANCE_HASH_END..v6_header_len).step_by(8) {
+        let off = u32::from_le_bytes(bytes[at..at + 4].try_into().unwrap());
+        bytes[at..at + 4].copy_from_slice(&(off - 8).to_le_bytes());
+    }
+    let f = write_tmp(&bytes);
+    assert_eq!(expected_total_len(&bytes), None);
+    assert!(read_header(f.path()).unwrap().is_none());
     assert_eq!(read_provenance_hash(f.path()).unwrap(), None);
+    assert!(GeoData::open(f.path()).is_err());
+}
+
+#[test]
+fn rejects_outer_display_span_overlapping_raster() {
+    let mut bytes = three_border_tiles();
+    let display = PROVENANCE_HASH_END + 4 * 8;
+    let border_blobs = display - 8;
+    let blob_off = bytes[border_blobs..border_blobs + 4].to_vec();
+    let blob_len = bytes[border_blobs + 4..border_blobs + 8].to_vec();
+    bytes[display..display + 4].copy_from_slice(&blob_off);
+    bytes[display + 4..display + 8].copy_from_slice(&blob_len);
+    // The overall file length still matches, but the sections overlap.
+    let f = write_tmp(&bytes);
+    assert_eq!(expected_total_len(&bytes), None);
+    assert!(read_header(f.path()).unwrap().is_none());
+    assert!(GeoData::open(f.path()).is_err());
 }
 
 #[test]
@@ -227,6 +256,7 @@ fn read_header_returns_section_spans() {
         ("tile_index", header.tile_index),
         ("border_offsets", header.border_offsets),
         ("border_blobs", header.border_blobs),
+        ("display", header.display),
     ] {
         assert!(
             section.off >= HEADER_LEN && section.off + section.len <= bytes.len(),

@@ -9,8 +9,11 @@ use sha2::{Digest, Sha256};
 
 use crate::registry::Namespace;
 
-/// SHA-256 identifying the data instance this run would produce:
-/// `GEO_DATA_VERSION` (4 LE bytes, a domain-separation salt), the raw bytes
+// Bump when the display generation algorithm changes without a format change.
+const DISPLAY_RECIPE_VERSION: u32 = 1;
+
+/// SHA-256 identifying the combined asset this run would produce:
+/// the format and display recipe versions (4 LE bytes each), the raw bytes
 /// of `geojson_path`, `admin1_path`,
 /// every per-namespace file under `registry_dir` (in `Namespace::ALL` order),
 /// `policy_path` and `admin2_inputs`, then the asset's `worldview_id`
@@ -29,6 +32,7 @@ pub fn compute_provenance_hash(
 ) -> Result<[u8; 32]> {
     let mut hasher = Sha256::new();
     hasher.update(geo_data_format::GEO_DATA_VERSION.to_le_bytes());
+    hasher.update(DISPLAY_RECIPE_VERSION.to_le_bytes());
     let registry_files = Namespace::ALL.map(|ns| registry_dir.join(ns.file_name()));
     let paths = [geojson_path, admin1_path]
         .into_iter()

@@ -21,125 +21,33 @@ use crate::{
     refine::{block_counts, measure_coverage, refine_raster},
     registry::Registry,
 };
-use anyhow::{ensure, Context, Result};
+use anyhow::{Context, Result};
 use bitmap_geometry::BitmapPlane;
 use geo_data_format::{
-    read_provenance_hash, write_display_asset, write_geo_data_planes, DisplayRecord, GeoData,
-    GeoEntity, GeoEntityId, GeoEntityKind, PlaneRaster, Worldview,
+    read_header, write_geo_data_planes_with_display, DisplayRecord, GeoData, GeoEntity,
+    GeoEntityId, GeoEntityKind, PlaneRaster, Worldview,
 };
 
-use crate::display_cache;
-
 /// Execution mode for a batch with explicit input and output paths.
-pub enum RasterizeMode<'a> {
+pub enum RasterizeMode {
     DownloadSources,
-    RasterOnly {
-        ensure_source: bool,
-    },
-    WithDisplay {
-        ensure_source: bool,
-        display_output: &'a Path,
-    },
+    Build { ensure_source: bool },
 }
 
-/// Run each worldview, planning the entire display batch before publishing anything.
 pub fn rasterize_batch(
     inputs: impl IntoIterator<Item = (Worldview, RasterizePaths)>,
-    mode: RasterizeMode<'_>,
+    mode: RasterizeMode,
 ) -> Result<()> {
-    let (ensure_source, download_only, display_output) = match mode {
-        RasterizeMode::DownloadSources => (true, true, None),
-        RasterizeMode::RasterOnly { ensure_source } => (ensure_source, false, None),
-        RasterizeMode::WithDisplay {
-            ensure_source,
-            display_output,
-        } => (ensure_source, false, Some(display_output)),
+    let (ensure_source, download_only) = match mode {
+        RasterizeMode::DownloadSources => (true, true),
+        RasterizeMode::Build { ensure_source } => (ensure_source, false),
     };
-    let mut plans = Vec::new();
     for (worldview, paths) in inputs {
-        if let Some(plan) = plan_raster(
-            worldview,
-            paths,
-            ensure_source,
-            download_only,
-            display_output.is_some(),
-        )? {
-            if display_output.is_some() {
-                plans.push(plan);
-            } else {
-                rasterize_one(&plan, None)?;
-            }
+        if let Some(plan) = plan_raster(worldview, paths, ensure_source, download_only)? {
+            rasterize_one(&plan)?;
         }
     }
-    if let Some(path) = display_output {
-        build_display_batch(path, &plans)?;
-    }
     Ok(())
-}
-
-fn build_display_batch(path: &Path, plans: &[RasterPlan]) -> Result<()> {
-    let raster_paths = || plans.iter().map(|p| p.paths.output.as_path());
-    display_cache::validate_paths(path, raster_paths())?;
-    let manifest: Vec<_> = plans
-        .iter()
-        .map(|p| (p.worldview, p.provenance_hash))
-        .collect();
-    let mut current_hash = display_cache::RasterEntitiesHash::default();
-    let rasters_current = plans.iter().all(|p| {
-        let RasterState::CurrentForDisplay(entities) = &p.state else {
-            return false;
-        };
-        current_hash.add_worldview(p.worldview, entities);
-        true
-    });
-    if rasters_current && display_cache::is_current(path, &manifest, current_hash.finish()) {
-        eprintln!("[geo_rasterizer] display cache hit: {}", path.display());
-        return Ok(());
-    }
-    if !rasters_current {
-        // Even identical raster entities must not allow a hit after an
-        // incomplete batch that published new rasters but no display.
-        display_cache::invalidate(path)?;
-    }
-
-    let mut display = DisplayExport::default();
-    for plan in plans {
-        rasterize_one(plan, Some(&mut display))?;
-    }
-    // Newly created files can now be canonicalized in full.
-    if !rasters_current {
-        display_cache::validate_paths(path, raster_paths())?;
-    }
-    let bytes = write_display_asset(&manifest, &display.records)?;
-    display_cache::publish(path, &bytes, display.raster_entities.finish())?;
-    eprintln!(
-        "[geo_rasterizer] wrote {} ({} records, {} bytes)",
-        path.display(),
-        display.records.len(),
-        bytes.len()
-    );
-    Ok(())
-}
-
-#[derive(Default)]
-struct DisplayExport {
-    records: Vec<DisplayRecord>,
-    raster_entities: display_cache::RasterEntitiesHash,
-}
-
-impl DisplayExport {
-    fn add_raster(
-        &mut self,
-        worldview: Worldview,
-        entities: &[GeoEntity],
-        model: &EntityModel,
-        admin2: Vec<Admin2Feature>,
-    ) -> Result<()> {
-        self.records
-            .extend(export_records(worldview, entities, model, admin2)?);
-        self.raster_entities.add_worldview(worldview, entities);
-        Ok(())
-    }
 }
 
 /// Input/output paths for one worldview run.
@@ -151,17 +59,10 @@ pub struct RasterizePaths {
     pub output: PathBuf,
 }
 
-enum RasterState {
-    Rebuild,
-    Current,
-    CurrentForDisplay(Vec<GeoEntity>),
-}
-
 struct RasterPlan {
     worldview: Worldview,
     paths: RasterizePaths,
     provenance_hash: [u8; 32],
-    state: RasterState,
 }
 
 fn plan_raster(
@@ -169,7 +70,6 @@ fn plan_raster(
     paths: RasterizePaths,
     ensure_source: bool,
     download_only: bool,
-    export_display: bool,
 ) -> Result<Option<RasterPlan>> {
     let started = Instant::now();
     let worldview_id = worldview.spec().id;
@@ -195,49 +95,31 @@ fn plan_raster(
         &admin2_inputs,
         worldview_id,
     )?;
-    let state = if read_provenance_hash(&paths.output)? != Some(provenance_hash) {
-        RasterState::Rebuild
-    } else if !export_display {
-        RasterState::Current
-    } else {
-        // The display batch also needs the raster's embedded worldview and
-        // entity metadata. Save the entities for export if the display misses.
-        let entities = GeoData::open(&paths.output).and_then(|raster| {
-            ensure!(
-                raster.worldview_id == worldview_id && raster.provenance_hash == provenance_hash,
-                "wrong worldview or provenance"
-            );
-            raster.entities()
-        });
-        match entities {
-            Ok(entities) => RasterState::CurrentForDisplay(entities),
-            Err(err) => {
+    if read_header(&paths.output)?
+        .is_some_and(|header| header.provenance_hash == provenance_hash && header.display.len != 0)
+    {
+        match GeoData::open(&paths.output).and_then(|asset| {
+            anyhow::ensure!(asset.worldview_id == worldview_id, "wrong worldview");
+            asset.validate_display()
+        }) {
+            Ok(()) => {
                 eprintln!(
-                    "[geo_rasterizer] rebuilding {}: {err:#}",
-                    paths.output.display()
+                    "[geo_rasterizer] {worldview_id} geo asset up to date in {:.1?}",
+                    started.elapsed()
                 );
-                RasterState::Rebuild
+                return Ok(None);
             }
+            Err(error) => eprintln!("[geo_rasterizer] rebuilding {worldview_id}: {error:#}"),
         }
-    };
-    if !matches!(state, RasterState::Rebuild) {
-        eprintln!(
-            "[geo_rasterizer] {worldview_id} raster up to date in {:.0?}",
-            started.elapsed()
-        );
     }
     Ok(Some(RasterPlan {
         worldview,
         paths,
         provenance_hash,
-        state,
     }))
 }
 
-fn rasterize_one(plan: &RasterPlan, display: Option<&mut DisplayExport>) -> Result<()> {
-    if matches!(plan.state, RasterState::Current) {
-        return Ok(());
-    }
+fn rasterize_one(plan: &RasterPlan) -> Result<()> {
     let RasterizePaths {
         countries,
         admin1: admin1_path,
@@ -251,12 +133,6 @@ fn rasterize_one(plan: &RasterPlan, display: Option<&mut DisplayExport>) -> Resu
     eprintln!("[geo_rasterizer] worldview={worldview_id}");
     let registry = Registry::load(registry_dir)?;
     let (mut model, merged) = assemble_geometry(worldview, countries, admin1_path, &registry)?;
-    if let RasterState::CurrentForDisplay(entities) = &plan.state {
-        let admin2 = crate::admin2::load(admin2_dir)?;
-        return display
-            .expect("planned display export")
-            .add_raster(worldview, entities, &model, admin2);
-    }
 
     eprintln!(
         "[geo_rasterizer] {} countries + {} provinces",
@@ -419,16 +295,13 @@ fn rasterize_one(plan: &RasterPlan, display: Option<&mut DisplayExport>) -> Resu
     // 5. Areas.
     populate_total_areas_planes(&mut model, &rasters);
 
-    // TODO: Phase 2 — instead of one bin per run, iterate the
-    // shipped worldview files and emit a shared base + per-worldview delta sections.
-    // The registry already gives cross-worldview-stable ids.
-
-    // 6. Serialize (sectioned format) + atomic write.
-    let bytes = write_geo_data_planes(
+    let display = export_records(worldview, &model.entities, &model, admin2_features)?;
+    let bytes = write_geo_data_planes_with_display(
         &model.entities,
         worldview_id,
         &rasters,
         plan.provenance_hash,
+        &display,
     )
     .context("serializing geo_data.bin")?;
     write_atomically(output, &bytes)?;
@@ -439,14 +312,8 @@ fn rasterize_one(plan: &RasterPlan, display: Option<&mut DisplayExport>) -> Resu
         bytes.len(),
         started.elapsed()
     );
-    if let Some(display) = display {
-        display.add_raster(worldview, &model.entities, &model, admin2_features)?;
-    }
     Ok(())
 }
-
-// Policy resolution is the same with or without a current raster. Only the
-// coverage-dependent inclusion and parent decisions come from raster metadata.
 fn assemble_geometry(
     worldview: Worldview,
     countries: &Path,

@@ -3,12 +3,10 @@
 Offline build tool. Converts Natural Earth GeoJSON into the geo-reference data
 shipped in `app/assets/geo/`:
 
-- `geo_data_<worldview>.bin` — the packed entity/tile data (one per worldview).
-  Its header carries a provenance hash of the inputs; `app/rust/build.rs` reads
-  that hash and compiles it in, so the app can recognize a stale installed copy
-  without loading the asset.
-- `region_display.bin` — standalone, offline outlines for the region explorer
-  for all shipped worldviews (see [Display outlines](#display-outlines)).
+- `geo_data_<worldview>.bin` — the packed entity/tile data and offline display
+  outlines for one worldview. `app/rust/build.rs` compiles in each file's
+  provenance hash so the app can recognize a stale installed copy without
+  reading the bundled asset.
 - `region_names.<locale>.json` — the localized region-name maps (one per
   locale), resolved from Unicode CLDR (see "Region names" below).
 
@@ -22,24 +20,12 @@ the registry first, then policy, then names.
 
 ## Display outlines
 
-`just rasterize-geo` opts into `geo_rasterizer --ensure-source --display-output
-assets/geo/region_display.bin`. Without `--display-output` the CLI does not build
-display geometry. An opt-in batch reuses the display file only when all rasters
-are current, its embedded worldview manifest matches their provenance, and its
-build stamp matches the exporter recipe version, the file's SHA-256, and a
-digest of actual raster entity IDs, source kinds, and canonical codes by
-worldview.
-Continents, raster areas, and tile data do not feed the digest. This catches
-entity changes after a raster-only rebuild even when provenance is unchanged.
-On a miss it exports all worldviews without rewriting current rasters. It
-publishes the asset atomically before publishing the stamp; the stamp is not
-bundled. Bump `DISPLAY_RECIPE_VERSION` in `src/display_cache.rs` when exporter
-changes affect the generated display bytes without changing the data inputs.
-It is independent of the display file-format version and raster provenance.
-
-CI caches the display file and its stamp together with the rasters. To force
-regeneration locally, remove `assets/geo/.build-metadata/region_display.bin`
-(from `app/`) and run `just rasterize-geo` again.
+The rasterizer generates coverage and display geometry together for each
+worldview and publishes them as one file. Both sections share the same
+provenance. Bump `DISPLAY_RECIPE_VERSION` in `src/cache.rs` when exporter
+changes affect the generated outlines without changing the data inputs or
+file format. To force regeneration locally, remove the relevant
+`assets/geo/geo_data_<worldview>.bin` (from `app/`) and run `just rasterize-geo`.
 
 The asset contains display copies of the resolved admin-0/admin-1 shapes and
 pinned Overture admin-2 shapes, indexed by the IDs actually present in the raster.
