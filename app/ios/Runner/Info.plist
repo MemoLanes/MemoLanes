@@ -55,6 +55,8 @@
 	<true/>
 	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<string>No</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>MemoLanes uses your location to continue recording a journey when the screen is locked or you switch apps.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>MemoLanes uses your location to show your position on the map and record journeys.</string>
 	<key>NSLocationTemporaryUsageDescriptionDictionary</key>

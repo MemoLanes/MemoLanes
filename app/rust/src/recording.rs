@@ -1,9 +1,12 @@
 use anyhow::Result;
-use chrono::DateTime;
+use chrono::{DateTime, Utc};
 
 use crate::gps::{ExtendedRawGPSPoint, Point};
 use crate::gps_processor::{GpsPreprocessor, ProcessResult};
 use crate::main_db::Txn;
+
+// Allow small clock differences without rejecting fixes delivered from the cache.
+const MAX_FUTURE_OFFSET_MS: i64 = 30_000;
 
 pub(crate) struct RecordedLocation {
     pub process_result: ProcessResult,
@@ -19,25 +22,20 @@ impl RecordedLocation {
     }
 }
 
-// The caller commits the preprocessor only after the database transaction succeeds.
-pub(crate) fn record_location(
-    txn: &mut Txn,
-    preprocessor: &mut GpsPreprocessor,
+pub(crate) fn eligible_capture_time(
+    txn: &Txn,
     data: &ExtendedRawGPSPoint,
-    record_raw_data: bool,
-) -> Result<RecordedLocation> {
+) -> Result<Option<DateTime<Utc>>> {
     let location = &data.raw_gps_point;
-    let Some(timestamp_ms) = location
+    let Some(capture_time) = location
         .timestamp_ms
-        .filter(|timestamp| DateTime::from_timestamp_millis(*timestamp).is_some())
+        .and_then(DateTime::from_timestamp_millis)
     else {
-        return Ok(RecordedLocation::ignored());
+        return Ok(None);
     };
-    // Native providers can deliver fixes out of order (observed on Android).
-    // Check persisted capture time before changing preprocessing state.
-    if txn
-        .last_recording_timestamp_ms()?
-        .is_some_and(|last| timestamp_ms <= last)
+    let timestamp_ms = capture_time.timestamp_millis();
+    let future_offset_ms = timestamp_ms.saturating_sub(data.received_timestamp_ms);
+    if future_offset_ms > MAX_FUTURE_OFFSET_MS
         || !location.point.latitude.is_finite()
         || !location.point.longitude.is_finite()
         || !(-90.0..=90.0).contains(&location.point.latitude)
@@ -46,8 +44,29 @@ pub(crate) fn record_location(
             .accuracy
             .is_some_and(|accuracy| !accuracy.is_finite() || accuracy < 0.0)
     {
-        return Ok(RecordedLocation::ignored());
+        return Ok(None);
     }
+    // Native providers can deliver fixes out of order or replay a committed fix.
+    if txn
+        .last_recording_timestamp_ms()?
+        .is_some_and(|last| timestamp_ms <= last)
+    {
+        return Ok(None);
+    }
+    Ok(Some(capture_time))
+}
+
+// The caller commits the preprocessor only after the database transaction succeeds.
+pub(crate) fn record_location(
+    txn: &mut Txn,
+    preprocessor: &mut GpsPreprocessor,
+    data: &ExtendedRawGPSPoint,
+    record_raw_data: bool,
+) -> Result<RecordedLocation> {
+    let Some(capture_time) = eligible_capture_time(txn, data)? else {
+        return Ok(RecordedLocation::ignored());
+    };
+    let location = &data.raw_gps_point;
     let raw_data = record_raw_data.then_some(data);
     if !preprocessor.accept_location(location) {
         // shortcut: bad-fix diagnostics may repeat after a failed acknowledgement; deduplicate if this becomes costly.
@@ -58,7 +77,7 @@ pub(crate) fn record_location(
     let previous_point = preprocessor.last_kept_point();
     let process_result = preprocessor.preprocess_accepted_location(location);
     txn.record(location, process_result, raw_data)?;
-    txn.set_last_recording_timestamp_ms(timestamp_ms)?;
+    txn.set_last_recording_timestamp_ms(capture_time.timestamp_millis())?;
     Ok(RecordedLocation {
         process_result,
         previous_point,

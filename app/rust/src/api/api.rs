@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex, OnceLock};
 
 use anyhow::{Context, Result};
 use auto_context::auto_context;
-use chrono::NaiveDate;
+use chrono::{Local, NaiveDate};
 use flutter_rust_bridge::frb;
 
 use crate::cache_db::LayerKind;
@@ -554,6 +554,33 @@ pub fn finalize_ongoing_journey() -> Result<bool> {
 
 pub fn try_auto_finalize_journey() -> Result<bool> {
     reset_gps_preprocessor_if_finalized(Storage::try_auto_finalize_journey)
+}
+
+/// Check the journey boundary before storing the first eligible fix in a cache drain.
+/// Returns `None` for an ineligible fix, so the caller can try the next queued fix.
+pub fn try_auto_finalize_before_location(data: ExtendedRawGPSPoint) -> Result<Option<bool>> {
+    let state = get();
+    let mut gps_preprocessor = state.gps_preprocessor.lock().unwrap();
+    let finalized = state.storage.with_db_txn(|txn| {
+        let Some(capture_time) = recording::eligible_capture_time(txn, &data)? else {
+            return Ok(None);
+        };
+        if !gps_preprocessor
+            .clone()
+            .accept_location(&data.raw_gps_point)
+        {
+            return Ok(None);
+        }
+        txn.try_auto_finalize_journey_at(
+            state.storage.get_raw_data_mode(),
+            capture_time.with_timezone(&Local),
+        )
+        .map(Some)
+    })?;
+    if finalized == Some(true) {
+        *gps_preprocessor = GpsPreprocessor::new();
+    }
+    Ok(finalized)
 }
 
 pub fn has_ongoing_journey() -> Result<bool> {

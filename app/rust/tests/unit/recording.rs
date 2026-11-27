@@ -116,6 +116,33 @@ fn delayed_fixes_newer_than_the_persistent_cursor_keep_their_capture_time() {
 }
 
 #[test]
+fn future_fix_does_not_block_valid_fixes_after_restart() {
+    let mut recorder = Recorder::new(true);
+    recorder.record(&point(1, 0.0)).unwrap();
+    let before = recorder.preprocessor.clone();
+
+    let mut future = point(3_600, 0.00001);
+    future.received_timestamp_ms = BASE + 2_000;
+    assert_eq!(
+        recorder.record(&future).unwrap().process_result,
+        ProcessResult::Ignore
+    );
+    assert_same_preprocessor(&before, &recorder.preprocessor);
+    assert_eq!(recorder.counts(), (1, 1));
+    assert_eq!(recorder.cursor(), Some(BASE + 1_000));
+
+    recorder.restart();
+    let mut next = point(3, 0.00002);
+    next.received_timestamp_ms = BASE + 3_000;
+    assert_eq!(
+        recorder.record(&next).unwrap().process_result,
+        ProcessResult::NewSegment
+    );
+    assert_eq!(recorder.counts(), (2, 2));
+    assert_eq!(recorder.cursor(), next.raw_gps_point.timestamp_ms);
+}
+
+#[test]
 fn duplicate_and_late_fixes_do_not_reach_preprocessing_or_raw_data() {
     let mut recorder = Recorder::new(true);
     recorder.record(&point(1, 0.0)).unwrap();

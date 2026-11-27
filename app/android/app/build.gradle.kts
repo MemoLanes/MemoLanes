@@ -19,7 +19,7 @@ android {
 
     defaultConfig {
         applicationId = "com.memolanes.oss.dev"
-        minSdk = 26 // Required by the Tracelet SDK.
+        minSdk = 26 // Required by the Tracelet Android SDK.
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
