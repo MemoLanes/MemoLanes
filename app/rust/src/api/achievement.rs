@@ -31,13 +31,11 @@ fn bundled_display_digest() -> Result<[u8; 32]> {
 
 pub async fn region_geometry(
     entity_id: GeoEntityId,
-    load_asset: impl Fn() -> DartFnFuture<Vec<u8>>,
+    load_asset: impl Fn() -> DartFnFuture<Result<Vec<u8>>>,
 ) -> Result<Option<RegionGeometry>> {
     crate::api::api::get()
         .storage
-        .region_geometry(entity_id, bundled_display_digest()?, || async {
-            Ok(load_asset().await)
-        })
+        .region_geometry(entity_id, bundled_display_digest()?, load_asset)
         .await
 }
 
@@ -105,7 +103,7 @@ impl From<Worldview> for GeoWorldview {
 
 pub async fn activate_geo_data(
     worldview: Worldview,
-    load_asset: impl Fn() -> DartFnFuture<Vec<u8>>,
+    load_asset: impl Fn() -> DartFnFuture<Result<Vec<u8>>>,
 ) -> Result<()> {
     let expected = crate::geo_provenance::bundled_provenance_hash(worldview.into())
         .ok_or_else(|| anyhow::anyhow!("this build has no bundled geo data"))?;
@@ -113,7 +111,7 @@ pub async fn activate_geo_data(
     if storage.open_installed_geo_data(worldview.into(), expected)? {
         return Ok(());
     }
-    let bytes = load_asset().await;
+    let bytes = load_asset().await?;
     storage.init_or_change_geo_data(worldview.into(), expected, &bytes)
 }
 

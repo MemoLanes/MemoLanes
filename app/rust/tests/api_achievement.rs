@@ -478,9 +478,9 @@ async fn api_achievement_explored_area_and_region_contract() {
     let load_asset = {
         let loads = loads.clone();
         let asset = asset.clone();
-        move || -> DartFnFuture<Vec<u8>> {
+        move || -> DartFnFuture<anyhow::Result<Vec<u8>>> {
             loads.fetch_add(1, Ordering::SeqCst);
-            Box::pin(std::future::ready(fs::read(&asset).unwrap()))
+            Box::pin(std::future::ready(fs::read(&asset).map_err(Into::into)))
         }
     };
     activate_geo_data(Worldview::Iso, &load_asset)
@@ -519,12 +519,12 @@ async fn api_achievement_explored_area_and_region_contract() {
     let display_loads = AtomicUsize::new(0);
     let (release, resume) = oneshot::channel::<()>();
     let resume = Mutex::new(Some(resume));
-    let load_display = || -> DartFnFuture<Vec<u8>> {
+    let load_display = || -> DartFnFuture<anyhow::Result<Vec<u8>>> {
         display_loads.fetch_add(1, Ordering::SeqCst);
         let resume = resume.lock().unwrap().take().expect("only one bundle load");
         Box::pin(async move {
-            resume.await.unwrap();
-            fs::read("../assets/geo/region_display.bin").unwrap()
+            resume.await?;
+            Ok(fs::read("../assets/geo/region_display.bin")?)
         })
     };
     let mut first = pin!(region_geometry(indonesia, &load_display));
