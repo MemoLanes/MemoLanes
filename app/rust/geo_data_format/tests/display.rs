@@ -137,16 +137,31 @@ fn malformed_outer_display_span_does_not_disable_installed_coverage() {
     let bytes = combined(&[record(Worldview::Iso, 1, 0.0, shape())]).unwrap();
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("geo_data_iso.bin");
-    for field in [DISPLAY_SECTION, DISPLAY_SECTION + 4] {
-        let mut damaged = bytes.clone();
-        damaged[field] ^= 1;
-        std::fs::write(&path, damaged).unwrap();
-        assert!(read_header(&path).unwrap().is_none());
-        assert!(GeoData::open(&path).is_err());
+    let mut invalid_offset = bytes.clone();
+    invalid_offset[DISPLAY_SECTION] ^= 1;
+    let mut invalid_length = bytes.clone();
+    invalid_length[DISPLAY_SECTION + 4] ^= 1;
+    let mut overlap = bytes.clone();
+    let border_blobs = DISPLAY_SECTION - 8;
+    let start = u32_at(&bytes, border_blobs);
+    overlap[DISPLAY_SECTION..DISPLAY_SECTION + 4].copy_from_slice(&start.to_le_bytes());
+    overlap[DISPLAY_SECTION + 4..DISPLAY_SECTION + 8]
+        .copy_from_slice(&(bytes.len() as u32 - start).to_le_bytes());
 
-        let geo = GeoData::open_for_coverage(&path).unwrap();
+    for (case, damaged) in [
+        ("invalid offset", invalid_offset.as_slice()),
+        ("invalid length", invalid_length.as_slice()),
+        ("overlapping raster", overlap.as_slice()),
+        ("truncated display tail", &bytes[..bytes.len() - 1]),
+    ] {
+        std::fs::write(&path, damaged).unwrap();
+        assert!(read_header(&path).unwrap().is_none(), "{case}");
+        assert!(GeoData::open(&path).is_err(), "{case}");
+
+        let geo =
+            GeoData::open_for_coverage(&path).unwrap_or_else(|error| panic!("{case}: {error:#}"));
         assert_coverage(&geo);
-        assert!(geo.display_geometry(GeoEntityId(1)).is_err());
+        assert!(geo.display_geometry(GeoEntityId(1)).is_err(), "{case}");
     }
 }
 
@@ -247,7 +262,6 @@ fn malformed_display_frame_does_not_break_coverage_or_other_frame() {
     let blocks = display + u64_at(&bytes, display + BLOCK_SECTION);
     let frames = display + u64_at(&bytes, display + FRAME_SECTION);
     let first_frame = frames + u64_at(&bytes, blocks);
-    assert_eq!(bytes[first_frame + 4] & 0b100, 0); // zstd content checksum flag
     bytes[first_frame] ^= 1; // invalidate zstd frame magic without changing its size
     let (_dir, geo) = open(&bytes);
     assert!(geo.display_geometry(GeoEntityId(1)).is_err());

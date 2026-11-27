@@ -221,21 +221,6 @@ fn read_header_rejects_the_old_layout() {
 }
 
 #[test]
-fn rejects_outer_display_span_overlapping_raster() {
-    let mut bytes = three_border_tiles();
-    let display = PROVENANCE_HASH_END + 4 * 8;
-    let border_blobs = display - 8;
-    let blob_off = bytes[border_blobs..border_blobs + 4].to_vec();
-    let blob_len = bytes[border_blobs + 4..border_blobs + 8].to_vec();
-    bytes[display..display + 4].copy_from_slice(&blob_off);
-    bytes[display + 4..display + 8].copy_from_slice(&blob_len);
-    // The overall file length still matches, but the sections overlap.
-    let f = write_tmp(&bytes);
-    assert!(read_header(f.path()).unwrap().is_none());
-    assert!(GeoData::open(f.path()).is_err());
-}
-
-#[test]
 fn read_header_returns_section_spans() {
     let hash = [0x7Eu8; 32];
     let bytes = well_formed_bin(hash);

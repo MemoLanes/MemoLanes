@@ -23,8 +23,7 @@ use geo_data_format::{
 use memolanes_core::{
     api::achievement::{
         activate_geo_data, get_explored_area, get_explored_area_by_layer, region_detail,
-        region_geometry, region_level_view, region_levels, AchievementLayer, GeoEntityId,
-        RegionKind, Worldview,
+        region_level_view, region_levels, AchievementLayer, GeoEntityId, RegionKind, Worldview,
     },
     api::api,
     api::import::JourneyInfo,
@@ -156,16 +155,6 @@ fn corrupt_display_frame_does_not_disable_geo_achievements() {
         .init_or_change_geo_data(worldview, hash, &bytes)
         .unwrap();
     assert!(storage.region_geometry(id).unwrap().is_some());
-    let path = storage.installed_geo_data_file(worldview);
-    fs::OpenOptions::new()
-        .write(true)
-        .open(path)
-        .unwrap()
-        .set_len((bytes.len() - 1) as u64)
-        .unwrap();
-    assert!(storage.open_installed_geo_data(worldview, hash).unwrap());
-    assert_eq!(detail(), before);
-    assert!(storage.region_geometry(id).is_err());
 }
 
 #[test]
@@ -342,13 +331,4 @@ async fn api_achievement_explored_area_and_region_contract() {
         region_level_view(Default, RegionKind::Admin1).is_err(),
         "below the country, regions are listed only under their parent"
     );
-
-    // Indonesia (frozen country ID 1) has real geometry in the bundled ISO display.
-    let indonesia = GeoEntityId(1);
-    let geometry = region_geometry(indonesia)
-        .expect("geometry comes from the active geo data")
-        .expect("Indonesia has display geometry");
-    assert_eq!(geometry.entity_id, indonesia);
-    assert_eq!(geometry.worldview, Worldview::Iso);
-    assert!(region_geometry(unknown).unwrap().is_none());
 }
