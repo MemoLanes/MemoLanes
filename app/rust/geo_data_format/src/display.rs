@@ -1,4 +1,4 @@
-//! The display section holds the entity index, block table and checksummed zstd
+//! The display section holds the entity index, block table and zstd
 //! frames. Each span in the section header is relative to the display section;
 //! each block offset is relative to the frames span. Coordinates are signed
 //! integer units of 0.00001°; bounds are unwrapped degrees kept outside frames.
@@ -213,7 +213,6 @@ pub(crate) fn write_display_section(
     let mut sorted: Vec<_> = records.iter().collect();
     sorted.sort_by_key(|r| r.entity_id);
     let mut compressor = zstd::bulk::Compressor::new(3)?;
-    compressor.set_parameter(zstd::zstd_safe::CParameter::ChecksumFlag(true))?;
     let mut index = Vec::new();
     let mut block_bytes = Vec::new();
     let mut frames = Vec::new();

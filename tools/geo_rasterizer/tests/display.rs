@@ -4,7 +4,7 @@ use geo::{
     coordinate_position::CoordPos, dimensions::Dimensions, wkt, Area, BooleanOps, Relate,
     Validation,
 };
-use geo_data_format::{GeoData, GeoEntityId, GeoEntityKind, Worldview};
+use geo_data_format::{read_header, GeoData, GeoEntityId, GeoEntityKind, Worldview};
 use geo_rasterizer::display::{build_display_records, DisplaySource};
 use geo_types::{LineString, MultiPolygon, Polygon};
 
@@ -510,7 +510,9 @@ fn cache_reuses_complete_assets_and_rebuilds_damaged_or_raster_only_files() {
     assert_eq!(fs::metadata(&usa).unwrap().modified().unwrap(), old);
 
     let mut damaged = expected_iso.clone();
-    *damaged.last_mut().unwrap() ^= 1;
+    let display = read_header(&iso).unwrap().unwrap().display.off;
+    let frames = u64::from_le_bytes(damaged[display + 32..display + 40].try_into().unwrap());
+    damaged[display + frames as usize] ^= 1;
     fs::write(&iso, damaged).unwrap();
     run_test_fixture_batch(dir.path()).unwrap();
     assert_eq!(fs::read(&iso).unwrap(), expected_iso);

@@ -140,12 +140,13 @@ fn corrupt_display_frame_does_not_disable_geo_achievements() {
     let before = detail();
     {
         use std::io::{Seek, SeekFrom, Write};
-        let mut file = fs::OpenOptions::new()
-            .write(true)
-            .open(storage.installed_geo_data_file(worldview))
-            .unwrap();
-        file.seek(SeekFrom::End(-1)).unwrap();
-        file.write_all(&[bytes.last().unwrap() ^ 1]).unwrap();
+        let path = storage.installed_geo_data_file(worldview);
+        let display = read_header(&path).unwrap().unwrap().display.off;
+        let frames = u64::from_le_bytes(bytes[display + 32..display + 40].try_into().unwrap());
+        let mut file = fs::OpenOptions::new().write(true).open(path).unwrap();
+        let first_frame = display as u64 + frames;
+        file.seek(SeekFrom::Start(first_frame)).unwrap();
+        file.write_all(&[bytes[first_frame as usize] ^ 1]).unwrap();
     }
     assert!(storage.region_geometry(id).is_err());
     assert_eq!(detail(), before);

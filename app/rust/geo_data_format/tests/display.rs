@@ -202,7 +202,7 @@ fn deduplicates_equal_frames_and_sorts_entity_ids() {
 }
 
 #[test]
-fn corrupt_frame_checksum_does_not_break_coverage_or_other_frame() {
+fn malformed_display_frame_does_not_break_coverage_or_other_frame() {
     let mut bytes = combined(&[
         record(Worldview::Iso, 1, 0.0, shape()),
         record(
@@ -217,13 +217,10 @@ fn corrupt_frame_checksum_does_not_break_coverage_or_other_frame() {
     let blocks = display + u64_at(&bytes, display + BLOCK_SECTION);
     let frames = display + u64_at(&bytes, display + FRAME_SECTION);
     let first_frame = frames + u64_at(&bytes, blocks);
-    let first_len = u32_at(&bytes, blocks + 8) as usize;
-    assert_ne!(bytes[first_frame + 4] & 0b100, 0); // zstd content checksum flag
-    bytes[first_frame + first_len - 1] ^= 1; // change only the checksum
+    assert_eq!(bytes[first_frame + 4] & 0b100, 0); // zstd content checksum flag
+    bytes[first_frame] ^= 1; // invalidate zstd frame magic without changing its size
     let (_dir, geo) = open(&bytes);
-    assert!(
-        format!("{:#}", geo.display_geometry(GeoEntityId(1)).unwrap_err()).contains("checksum")
-    );
+    assert!(geo.display_geometry(GeoEntityId(1)).is_err());
     assert_coverage(&geo);
     assert!(geo.display_geometry(GeoEntityId(2)).unwrap().is_some());
 }
