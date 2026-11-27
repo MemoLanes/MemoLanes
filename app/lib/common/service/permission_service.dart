@@ -59,11 +59,6 @@ class PermissionService {
   bool get supportsMotionPermission =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
 
-  Permission get _locationPermission =>
-      defaultTargetPlatform == TargetPlatform.iOS
-      ? Permission.locationWhenInUse
-      : Permission.location;
-
   bool _isPermanentlyDeniedFromStatus(PermissionStatus status) {
     // Android status cannot distinguish permanent denial from "Ask every time".
     // Only request() results can report permanent denial there.
@@ -74,7 +69,10 @@ class PermissionService {
     try {
       final locationServiceEnabled =
           await Geolocator.isLocationServiceEnabled();
-      final locationStatus = await _locationPermission.status;
+      final locationStatus = await Permission.location.status;
+      final locationAlwaysStatus = Platform.isIOS
+          ? '${await Permission.locationAlways.status}'
+          : 'n/a';
       final batteryOptimizationStatus = Platform.isAndroid
           ? '${await Permission.ignoreBatteryOptimizations.status}'
           : 'n/a';
@@ -107,7 +105,7 @@ class PermissionService {
       log.info(
         '[PermissionState] event=$event '
         'os={locationServiceEnabled=$locationServiceEnabled '
-        'location=$locationStatus '
+        'location=$locationStatus locationAlways=$locationAlwaysStatus '
         'batteryOptimization=$batteryOptimizationStatus '
         'notification=$notificationStatus motion=$motionStatus} '
         'mmkv={permissionSheetShown=$permissionSheetShown '
@@ -124,8 +122,18 @@ class PermissionService {
   }
 
   Future<PermissionSnapshot> readPermissionSnapshot() async {
-    final hasLocation = await checkLocationPermission();
-    final locStatus = await _locationPermission.status;
+    var locStatus = PermissionStatus.denied;
+    var hasLocation = false;
+    try {
+      locStatus = await Permission.location.status;
+      hasLocation =
+          locStatus.isGranted && await Geolocator.isLocationServiceEnabled();
+    } catch (error, stackTrace) {
+      log.error(
+        '[PermissionService] Location status unavailable: $error',
+        stackTrace,
+      );
+    }
     final isAndroid = Platform.isAndroid;
     final batteryGranted =
         !isAndroid || await Permission.ignoreBatteryOptimizations.isGranted;
@@ -218,7 +226,7 @@ class PermissionService {
       if (!serviceEnabled) {
         return false;
       }
-      final granted = await _locationPermission.isGranted;
+      final granted = await Permission.location.isGranted;
       if (!granted) {
         return false;
       }
@@ -239,8 +247,7 @@ class PermissionService {
       return const [PermissionEffect(openLocationSettings: true)];
     }
 
-    final permission = _locationPermission;
-    var status = await permission.status;
+    var status = await Permission.location.status;
 
     if (_isPermanentlyDeniedFromStatus(status)) {
       MMKVUtil.putBool(MMKVKey.requestedLocation, true);
@@ -259,7 +266,7 @@ class PermissionService {
 
     if (!status.isGranted) {
       MMKVUtil.putBool(MMKVKey.requestedLocation, true);
-      status = await permission.request();
+      status = await Permission.location.request();
       log.info(
         '[PermissionService] runLocationRequest requested result=$status',
       );
@@ -279,6 +286,14 @@ class PermissionService {
           ),
         ];
       }
+    }
+
+    if (status.isGranted && defaultTargetPlatform == TargetPlatform.iOS) {
+      // Keep When In Use sufficient even if the user declines the upgrade.
+      final alwaysResult = await Permission.locationAlways.request();
+      log.info(
+        '[PermissionService] runLocationRequest iOS always result=$alwaysResult',
+      );
     }
 
     return const [];

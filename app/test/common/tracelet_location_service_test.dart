@@ -81,7 +81,7 @@ void main() {
       if (call.arguments == Permission.sensors.value) {
         return motionPermission.index;
       }
-      expect(call.arguments, Permission.locationWhenInUse.value);
+      expect(call.arguments, Permission.location.value);
       return permission.index;
     });
   });

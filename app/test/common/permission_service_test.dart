@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:memolanes/common/component/permission_request_sheet.dart';
+import 'package:memolanes/common/component/setup_tile.dart';
 import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/common/service/permission_service.dart';
 import 'package:memolanes/theme/app_theme.dart';
@@ -31,6 +32,8 @@ void main() {
   final service = PermissionService();
   final checked = <int>[];
   final requested = <int>[];
+  var location = PermissionStatus.granted;
+  var locationStatusUnavailable = false;
   var motion = PermissionStatus.denied;
   var motionResult = PermissionStatus.denied;
   var notification = PermissionStatus.granted;
@@ -52,6 +55,8 @@ void main() {
     preferences.failedKey = null;
     checked.clear();
     requested.clear();
+    location = PermissionStatus.granted;
+    locationStatusUnavailable = false;
     motion = PermissionStatus.denied;
     motionResult = PermissionStatus.denied;
     notification = PermissionStatus.granted;
@@ -65,6 +70,12 @@ void main() {
         case 'checkPermissionStatus':
           final permission = call.arguments as int;
           checked.add(permission);
+          if (permission == Permission.location.value) {
+            if (locationStatusUnavailable) {
+              throw PlatformException(code: 'location_status_unavailable');
+            }
+            return location.index;
+          }
           if (permission == Permission.sensors.value) return motion.index;
           if (permission == Permission.notification.value) {
             return notification.index;
@@ -87,24 +98,31 @@ void main() {
     debugDefaultTargetPlatformOverride = null;
   });
 
-  for (final (platform, permission) in [
-    (TargetPlatform.iOS, Permission.locationWhenInUse),
-    (TargetPlatform.android, Permission.location),
-  ]) {
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     test(
-      'requests only the required location permission on ${platform.name}',
+      'keeps location usable after permission setup on ${platform.name}',
       () async {
         debugDefaultTargetPlatformOverride = platform;
+        final expectedRequests = [
+          Permission.location.value,
+          if (platform == TargetPlatform.iOS) Permission.locationAlways.value,
+        ];
+        var location = PermissionStatus.denied;
         messenger.setMockMethodCallHandler(permissionChannel, (call) async {
           switch (call.method) {
             case 'checkPermissionStatus':
-              expect(call.arguments, permission.value);
-              return PermissionStatus.denied.index;
+              expect(call.arguments, Permission.location.value);
+              return location.index;
             case 'requestPermissions':
               final permissions = (call.arguments as List).cast<int>();
-              expect(permissions, [permission.value]);
-              requested.addAll(permissions);
-              return {permission.value: PermissionStatus.granted.index};
+              final permission = expectedRequests[requested.length];
+              expect(permissions, [permission]);
+              requested.add(permission);
+              if (permission == Permission.location.value) {
+                location = PermissionStatus.granted;
+                return {permission: location.index};
+              }
+              return {permission: PermissionStatus.denied.index};
             default:
               throw UnsupportedError(
                 'Unexpected permission call: ${call.method}',
@@ -114,7 +132,8 @@ void main() {
 
         expect(await service.checkLocationPermission(), isFalse);
         expect(await service.runLocationRequest(), isEmpty);
-        expect(requested, [permission.value]);
+        expect(requested, expectedRequests);
+        expect(await service.checkLocationPermission(), isTrue);
       },
     );
   }
@@ -244,6 +263,41 @@ void main() {
       }
     },
   );
+
+  for (final statusUnavailable in [false, true]) {
+    testWidgets(
+      'shows a motion grant with ${statusUnavailable ? 'unavailable' : 'denied'} location',
+      (tester) async {
+        try {
+          location = PermissionStatus.permanentlyDenied;
+          locationStatusUnavailable = statusUnavailable;
+          motionResult = PermissionStatus.granted;
+          await _pumpPermissionHost(tester);
+          await tester.tap(find.text('Permissions'));
+          await tester.pumpAndSettle();
+
+          final motionTitle = tr('permission_sheet.motion_title');
+          await tester.tap(find.text(motionTitle));
+          await tester.pumpAndSettle();
+
+          final check = find.byIcon(Icons.check_circle);
+          expect(
+            find.descendant(
+              of: find.widgetWithText(SetupTile, motionTitle),
+              matching: check,
+            ),
+            findsOneWidget,
+          );
+          expect(await service.checkLocationPermission(), isFalse);
+          expect(requested, [Permission.sensors.value]);
+          await tester.tap(find.text(tr('permission_sheet.skip')));
+          await tester.pumpAndSettle();
+        } finally {
+          debugDefaultTargetPlatformOverride = null;
+        }
+      },
+    );
+  }
 
   testWidgets('the unified sheet hides motion outside iOS', (tester) async {
     try {
