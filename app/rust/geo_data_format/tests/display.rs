@@ -133,6 +133,36 @@ fn combined_round_trip_includes_coverage_and_display_geometry() {
 }
 
 #[test]
+fn malformed_outer_display_span_does_not_disable_installed_coverage() {
+    let bytes = combined(&[record(Worldview::Iso, 1, 0.0, shape())]).unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("geo_data_iso.bin");
+    for field in [DISPLAY_SECTION, DISPLAY_SECTION + 4] {
+        let mut damaged = bytes.clone();
+        damaged[field] ^= 1;
+        std::fs::write(&path, damaged).unwrap();
+        assert!(read_header(&path).unwrap().is_none());
+        assert!(GeoData::open(&path).is_err());
+
+        let geo = GeoData::open_for_coverage(&path).unwrap();
+        assert_coverage(&geo);
+        assert!(geo.display_geometry(GeoEntityId(1)).is_err());
+    }
+}
+
+#[test]
+fn both_open_modes_reject_truncation_inside_raster() {
+    let mut bytes = combined(&[record(Worldview::Iso, 1, 0.0, shape())]).unwrap();
+    let raster_end = u32_at(&bytes, DISPLAY_SECTION) as usize;
+    bytes.truncate(raster_end - 1);
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("geo_data_iso.bin");
+    std::fs::write(&path, bytes).unwrap();
+    assert!(GeoData::open(&path).is_err());
+    assert!(GeoData::open_for_coverage(&path).is_err());
+}
+
+#[test]
 fn empty_display_section_differs_from_raster_only() {
     let (combined_dir, geo) = open(&combined(&[]).unwrap());
     assert!(geo.display_geometry(GeoEntityId(1)).unwrap().is_none());

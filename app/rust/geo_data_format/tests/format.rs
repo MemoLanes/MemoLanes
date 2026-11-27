@@ -217,6 +217,7 @@ fn read_header_rejects_the_old_layout() {
     let f = write_tmp(&bytes);
     assert!(read_header(f.path()).unwrap().is_none());
     assert!(GeoData::open(f.path()).is_err());
+    assert!(GeoData::open_for_coverage(f.path()).is_err());
 }
 
 #[test]

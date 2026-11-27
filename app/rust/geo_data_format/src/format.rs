@@ -174,7 +174,7 @@ pub struct GeoData {
     pub border_blobs: BorderBlobs,
     pub provenance_hash: [u8; 32],
     meta_compressed: Box<[u8]>,
-    display: Section,
+    display: anyhow::Result<Section>,
     display_index: OnceLock<anyhow::Result<DisplayIndex>>,
 }
 
@@ -183,23 +183,32 @@ impl GeoData {
         Ok(decode_meta(&self.meta_compressed)?.entities)
     }
 
+    fn display_section(&self) -> anyhow::Result<Section> {
+        self.display
+            .as_ref()
+            .copied()
+            .map_err(|err| anyhow::anyhow!("{err:#}"))
+    }
+
     /// Validate all embedded outlines for build-cache reuse, not runtime activation.
     pub fn validate_display(&self) -> anyhow::Result<()> {
-        anyhow::ensure!(self.display.len != 0, "geo_data: no display section");
+        let section = self.display_section()?;
+        anyhow::ensure!(section.len != 0, "geo_data: no display section");
         let file = &self.border_blobs.file;
-        DisplayIndex::read(file, self.display)?.validate_frames(file)
+        DisplayIndex::read(file, section)?.validate_frames(file)
     }
 
     /// Read this entity's display geometry from the same open file as the border blobs.
     /// Missing geometry (including raster-only files) is not an error.
     pub fn display_geometry(&self, id: GeoEntityId) -> anyhow::Result<Option<DisplayGeometry>> {
-        if self.display.len == 0 {
+        let section = self.display_section()?;
+        if section.len == 0 {
             return Ok(None);
         }
         let file = &self.border_blobs.file;
         match self
             .display_index
-            .get_or_init(|| DisplayIndex::read(file, self.display))
+            .get_or_init(|| DisplayIndex::read(file, section))
         {
             Ok(index) => index.get(file, id),
             Err(err) => Err(anyhow::anyhow!("{err:#}")),
@@ -381,7 +390,18 @@ pub struct Header {
     pub display: Section,
 }
 
-fn parse_header(header: &[u8]) -> anyhow::Result<(Header, usize)> {
+fn section_end(name: &str, section: Section, start: u32) -> anyhow::Result<u32> {
+    anyhow::ensure!(
+        section.off == start as usize,
+        "geo_data: invalid {name} offset {} (expected {start})",
+        section.off
+    );
+    start
+        .checked_add(section.len as u32)
+        .ok_or_else(|| anyhow::anyhow!("geo_data: {name} span overflows"))
+}
+
+fn parse_raster_header(header: &[u8]) -> anyhow::Result<(Header, u32)> {
     anyhow::ensure!(
         header.len() >= HEADER_LEN,
         "geo_data: too short ({} bytes)",
@@ -417,18 +437,23 @@ fn parse_header(header: &[u8]) -> anyhow::Result<(Header, usize)> {
         ("tile index", parsed.tile_index),
         ("border offsets", parsed.border_offsets),
         ("border blobs", parsed.border_blobs),
-        ("display", parsed.display),
     ] {
-        anyhow::ensure!(
-            section.off == end as usize,
-            "geo_data: invalid {name} offset {} (expected {end})",
-            section.off
-        );
-        end = end
-            .checked_add(section.len as u32)
-            .ok_or_else(|| anyhow::anyhow!("geo_data: {name} span overflows"))?;
+        end = section_end(name, section, end)?;
     }
-    Ok((parsed, end as usize))
+    Ok((parsed, end))
+}
+
+fn validate_display_span(
+    section: Section,
+    raster_end: u32,
+    file_len: u64,
+) -> anyhow::Result<Section> {
+    let expected_end = section_end("display", section, raster_end)?;
+    anyhow::ensure!(
+        file_len == u64::from(expected_end),
+        "geo_data: file is {file_len} bytes, display span ends at {expected_end}"
+    );
+    Ok(section)
 }
 
 impl GeoData {
@@ -436,26 +461,29 @@ impl GeoData {
         Self::open_inner(path, false)
     }
 
-    /// Open an installed file even if only its display tail was truncated.
+    /// Open installed coverage even when the display span is malformed or truncated.
     pub fn open_for_coverage(path: &Path) -> anyhow::Result<GeoData> {
         Self::open_inner(path, true)
     }
 
-    fn open_inner(path: &Path, allow_truncated_display: bool) -> anyhow::Result<GeoData> {
+    fn open_inner(path: &Path, allow_invalid_display: bool) -> anyhow::Result<GeoData> {
         let file = File::open(path)
             .map_err(|e| anyhow::anyhow!("geo_data: opening {}: {e}", path.display()))?;
         let mut header_bytes = [0u8; HEADER_LEN];
         read_exact_at(&file, &mut header_bytes, 0)
             .map_err(|e| anyhow::anyhow!("geo_data: reading header: {e}"))?;
-        let (header, expected) = parse_header(&header_bytes)?;
-        let actual = file.metadata()?.len();
+        let (header, raster_end) = parse_raster_header(&header_bytes)?;
+        let file_len = file.metadata()?.len();
         anyhow::ensure!(
-            actual == expected as u64
-                || (allow_truncated_display
-                    && actual >= header.display.off as u64
-                    && actual < expected as u64),
-            "geo_data: file is {actual} bytes, header says {expected}"
+            file_len >= u64::from(raster_end),
+            "geo_data: file is {file_len} bytes, raster ends at {raster_end}"
         );
+        let display = validate_display_span(header.display, raster_end, file_len);
+        let display = if allow_invalid_display {
+            display
+        } else {
+            Ok(display?)
+        };
         let read = |s: Section| -> anyhow::Result<Vec<u8>> {
             let mut buf = vec![0u8; s.len];
             read_exact_at(&file, &mut buf, s.off as u64)
@@ -498,7 +526,7 @@ impl GeoData {
             border_blobs,
             provenance_hash: header.provenance_hash,
             meta_compressed,
-            display: header.display,
+            display,
             display_index: OnceLock::new(),
         })
     }
@@ -521,8 +549,10 @@ pub fn read_header(bin_path: &Path) -> anyhow::Result<Option<Header>> {
         Err(e) if e.kind() == ErrorKind::UnexpectedEof => return Ok(None),
         Err(e) => return Err(e.into()),
     }
-    Ok(match parse_header(&buf) {
-        Ok((header, expected)) if expected as u64 == file_len => Some(header),
-        _ => None,
-    })
+    Ok(parse_raster_header(&buf)
+        .ok()
+        .and_then(|(header, raster_end)| {
+            validate_display_span(header.display, raster_end, file_len).ok()?;
+            Some(header)
+        }))
 }

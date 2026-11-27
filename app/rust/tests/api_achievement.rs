@@ -168,6 +168,50 @@ fn corrupt_display_frame_does_not_disable_geo_achievements() {
     assert!(storage.region_geometry(id).is_err());
 }
 
+#[test]
+fn malformed_display_span_is_retryable_without_losing_installed_coverage() {
+    let dir = TempDir::new("display_header_repair").unwrap();
+    let worldview = GeoWorldview::Iso;
+    let path = test_utils::geo_asset("iso");
+    let hash = read_header(&path).unwrap().unwrap().provenance_hash;
+    let bytes = fs::read(path).unwrap();
+    let mut damaged = bytes.clone();
+    damaged[geo_data_format::HEADER_LEN - 8] ^= 1;
+    let id = GeoEntityId(1);
+
+    let storage = geo_install_fixture::storage(&dir);
+    storage
+        .init_or_change_geo_data(worldview, hash, &bytes)
+        .unwrap();
+    let installed = storage.installed_geo_data_file(worldview);
+    assert!(storage
+        .init_or_change_geo_data(worldview, hash, &damaged)
+        .is_err());
+    assert_eq!(fs::read(&installed).unwrap(), bytes);
+    drop(storage);
+
+    fs::write(&installed, &damaged).unwrap();
+    let storage = geo_install_fixture::storage(&dir);
+    assert!(storage.open_installed_geo_data(worldview, hash).unwrap());
+    assert!(storage.region_geometry(id).is_err());
+    assert!(!storage.open_installed_geo_data(worldview, hash).unwrap());
+    assert!(storage
+        .init_or_change_geo_data(worldview, hash, &damaged)
+        .is_err());
+    storage
+        .with_achievement_read(|reader| {
+            assert!(reader.geo()?.node(id).is_some());
+            Ok(())
+        })
+        .unwrap();
+    assert_eq!(fs::read(&installed).unwrap(), damaged);
+
+    storage
+        .init_or_change_geo_data(worldview, hash, &bytes)
+        .unwrap();
+    assert!(storage.region_geometry(id).unwrap().is_some());
+}
+
 fn areas() -> HashMap<AchievementLayer, u64> {
     get_explored_area_by_layer().unwrap()
 }
