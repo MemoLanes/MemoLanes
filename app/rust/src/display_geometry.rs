@@ -23,16 +23,10 @@ pub fn feature(
                 .collect()
         })
         .collect();
-    let (kind, coordinates) = if polygons.len() == 1 {
-        ("Polygon", serde_json::to_value(&polygons[0])?)
-    } else {
-        ("MultiPolygon", serde_json::to_value(&polygons)?)
+    let feature = match polygons.as_slice() {
+        [polygon] => geojson_feature(id, "Polygon", polygon),
+        polygons => geojson_feature(id, "MultiPolygon", polygons),
     };
-    let feature_geojson = serde_json::to_string(&serde_json::json!({
-        "type": "Feature", "id": id.0,
-        "properties": {"entity_id": id.0},
-        "geometry": {"type": kind, "coordinates": coordinates}
-    }))?;
     let bounds = geometry.bounds;
     Ok(RegionGeometry {
         entity_id: id,
@@ -43,6 +37,19 @@ pub fn feature(
             east: bounds.east,
             north: bounds.north,
         },
-        feature_geojson,
+        feature_geojson: serde_json::to_string(&feature)?,
+    })
+}
+
+fn geojson_feature(
+    id: GeoEntityId,
+    geometry_type: &str,
+    coordinates: impl serde::Serialize,
+) -> serde_json::Value {
+    serde_json::json!({
+        "type": "Feature",
+        "id": id.0,
+        "properties": { "entity_id": id.0 },
+        "geometry": { "type": geometry_type, "coordinates": coordinates }
     })
 }
