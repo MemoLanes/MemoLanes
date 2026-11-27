@@ -24,8 +24,8 @@ use crate::{
 use anyhow::{Context, Result};
 use bitmap_geometry::BitmapPlane;
 use geo_data_format::{
-    read_header, write_geo_data_planes_with_display, DisplayRecord, GeoData, GeoEntity,
-    GeoEntityId, GeoEntityKind, PlaneRaster, Worldview,
+    read_header, write_geo_data_planes_with_display, DisplayRecord, GeoData, GeoEntityId,
+    GeoEntityKind, PlaneRaster, Worldview,
 };
 
 /// Execution mode for a batch with explicit input and output paths.
@@ -295,7 +295,7 @@ fn rasterize_one(plan: &RasterPlan) -> Result<()> {
     // 5. Areas.
     populate_total_areas_planes(&mut model, &rasters);
 
-    let display = export_records(worldview, &model.entities, &model, admin2_features)?;
+    let display = export_records(worldview, &model, admin2_features)?;
     let bytes = write_geo_data_planes_with_display(
         &model.entities,
         worldview_id,
@@ -314,6 +314,7 @@ fn rasterize_one(plan: &RasterPlan) -> Result<()> {
     );
     Ok(())
 }
+
 fn assemble_geometry(
     worldview: Worldview,
     countries: &Path,
@@ -354,7 +355,6 @@ fn assemble_geometry(
 
 fn export_records(
     worldview: Worldview,
-    entities: &[GeoEntity],
     model: &EntityModel,
     admin2: Vec<Admin2Feature>,
 ) -> Result<Vec<DisplayRecord>> {
@@ -363,7 +363,7 @@ fn export_records(
         .map(|f| (f.canonical_code, f.geometry))
         .collect();
     let mut sources = Vec::new();
-    for entity in entities {
+    for entity in &model.entities {
         let code = &entity.canonical_code;
         let polygons = match entity.kind {
             GeoEntityKind::Continent => continue,

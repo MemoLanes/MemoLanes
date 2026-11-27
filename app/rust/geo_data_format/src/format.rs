@@ -11,7 +11,7 @@ use std::collections::BTreeMap;
 use std::fs::File;
 use std::io::ErrorKind;
 use std::path::Path;
-use std::sync::{Arc, OnceLock};
+use std::sync::OnceLock;
 
 use bitmap_geometry::BitmapPlane;
 use serde::{Deserialize, Serialize};
@@ -130,7 +130,7 @@ pub struct Section {
 
 #[derive(Debug)]
 pub struct BorderBlobs {
-    file: Arc<File>,
+    file: File,
     offsets: Section,
     region: Section,
 }
@@ -174,7 +174,6 @@ pub struct GeoData {
     pub border_blobs: BorderBlobs,
     pub provenance_hash: [u8; 32],
     meta_compressed: Box<[u8]>,
-    file: Arc<File>,
     display: Section,
     display_index: OnceLock<anyhow::Result<DisplayIndex>>,
 }
@@ -187,7 +186,8 @@ impl GeoData {
     /// Validate all embedded outlines for build-cache reuse, not runtime activation.
     pub fn validate_display(&self) -> anyhow::Result<()> {
         anyhow::ensure!(self.display.len != 0, "geo_data: no display section");
-        DisplayIndex::read(&self.file, self.display)?.validate_frames(&self.file)
+        let file = &self.border_blobs.file;
+        DisplayIndex::read(file, self.display)?.validate_frames(file)
     }
 
     /// Read this entity's display geometry from the same open file as the border blobs.
@@ -196,11 +196,12 @@ impl GeoData {
         if self.display.len == 0 {
             return Ok(None);
         }
+        let file = &self.border_blobs.file;
         match self
             .display_index
-            .get_or_init(|| DisplayIndex::read(&self.file, self.display))
+            .get_or_init(|| DisplayIndex::read(file, self.display))
         {
-            Ok(index) => index.get(&self.file, id),
+            Ok(index) => index.get(file, id),
             Err(err) => Err(anyhow::anyhow!("{err:#}")),
         }
     }
@@ -370,17 +371,6 @@ fn write_sections(
     Ok(out)
 }
 
-/// Total byte length a complete file must have, derived from its header
-/// alone. Returns `None` if the magic or section layout is invalid.
-///
-/// The smart-skip cache uses this to detect a torn/truncated `geo_data.bin`
-/// (actual file size != expected) and rebuild instead of trusting the
-/// provenance hash, which sits at the front of the header and would survive
-/// a write that left the body truncated.
-pub fn expected_total_len(header: &[u8]) -> Option<usize> {
-    parse_header(header).ok().map(|(_, len)| len)
-}
-
 #[derive(Debug, Clone, Copy)]
 pub struct Header {
     pub provenance_hash: [u8; 32],
@@ -489,9 +479,8 @@ impl GeoData {
             header.border_offsets.len.is_multiple_of(8),
             "geo_data: border offset table misaligned"
         );
-        let file = Arc::new(file);
         let border_blobs = BorderBlobs {
-            file: Arc::clone(&file),
+            file,
             offsets: header.border_offsets,
             region: header.border_blobs,
         };
@@ -509,13 +498,13 @@ impl GeoData {
             border_blobs,
             provenance_hash: header.provenance_hash,
             meta_compressed,
-            file,
             display: header.display,
             display_index: OnceLock::new(),
         })
     }
 }
 
+/// Read the header only when its section layout and the file length agree.
 pub fn read_header(bin_path: &Path) -> anyhow::Result<Option<Header>> {
     let f = match File::open(bin_path) {
         Ok(f) => f,
@@ -536,8 +525,4 @@ pub fn read_header(bin_path: &Path) -> anyhow::Result<Option<Header>> {
         Ok((header, expected)) if expected as u64 == file_len => Some(header),
         _ => None,
     })
-}
-
-pub fn read_provenance_hash(bin_path: &Path) -> anyhow::Result<Option<[u8; 32]>> {
-    Ok(read_header(bin_path)?.map(|header| header.provenance_hash))
 }

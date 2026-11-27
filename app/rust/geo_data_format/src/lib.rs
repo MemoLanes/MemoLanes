@@ -77,9 +77,8 @@ mod worldview;
 pub use cldr::*;
 pub use display::{DisplayBounds, DisplayGeometry, DisplayRecord};
 pub use format::{
-    expected_total_len, read_header, read_provenance_hash, write_geo_data, write_geo_data_planes,
-    write_geo_data_planes_with_display, BorderBlobs, GeoData, Header, PlaneRaster, Section,
-    TileEntry, TileIndex, HEADER_LEN,
+    read_header, write_geo_data, write_geo_data_planes, write_geo_data_planes_with_display,
+    BorderBlobs, GeoData, Header, PlaneRaster, Section, TileEntry, TileIndex, HEADER_LEN,
 };
 pub use locale::*;
 pub use packed_tile::PackedTile;

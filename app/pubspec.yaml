@@ -151,7 +151,11 @@ flutter:
     - assets/screenshot_logo_zh.svg
     - assets/translations/
     - assets/map_webview/
-    - assets/geo/
+    - assets/geo/geo_data_iso.bin
+    - assets/geo/geo_data_chn.bin
+    - assets/geo/geo_data_usa.bin
+    - assets/geo/region_names.en-US.json
+    - assets/geo/region_names.zh-CN.json
 
   # To add custom fonts to your application, add a fonts section here,
   # in this "flutter" section. Each entry in this list should have a

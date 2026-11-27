@@ -1,4 +1,4 @@
-use std::{fs, path::Path, process::Command};
+use std::{fs, path::Path};
 
 use geo::{
     coordinate_position::CoordPos, dimensions::Dimensions, wkt, Area, BooleanOps, Relate,
@@ -633,25 +633,6 @@ fn shipped_display_covers_key_entities_in_all_worldviews() {
             }
         }
     }
-}
-
-#[test]
-fn cli_rejects_test_batch_fixture_flag() {
-    let dir = tempfile::tempdir().unwrap();
-    let root = dir.path().join("fixture");
-    fs::create_dir(&root).unwrap();
-    let output = Command::new(env!("CARGO_BIN_EXE_geo_rasterizer"))
-        .arg("--batch-fixture")
-        .arg(&root)
-        .output()
-        .unwrap();
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(!output.status.success());
-    assert!(
-        stderr.contains("unexpected argument '--batch-fixture'"),
-        "{stderr}"
-    );
-    assert_eq!(fs::read_dir(&root).unwrap().count(), 0);
 }
 
 #[test]

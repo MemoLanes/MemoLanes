@@ -17,7 +17,7 @@ use std::collections::HashMap;
 
 use flutter_rust_bridge::DartFnFuture;
 use geo_data_format::{
-    read_provenance_hash, write_geo_data_planes_with_display, DisplayBounds, DisplayRecord,
+    read_header, write_geo_data_planes_with_display, DisplayBounds, DisplayRecord,
     Worldview as GeoWorldview,
 };
 use memolanes_core::{
@@ -57,14 +57,14 @@ fn import_gpx_as_journey(path: &str) {
 }
 
 #[test]
-fn display_follows_the_active_geo_file_and_its_provenance() {
+fn display_follows_the_active_worldview() {
     let dir = TempDir::new("display_worldviews").unwrap();
     let storage = geo_install_fixture::storage(&dir);
     let indonesia = GeoEntityId(1);
     assert!(storage.region_geometry(indonesia).is_err());
     for worldview in [GeoWorldview::Iso, GeoWorldview::Usa, GeoWorldview::Iso] {
         let path = test_utils::geo_asset(worldview.spec().id);
-        let provenance = read_provenance_hash(&path).unwrap().unwrap();
+        let provenance = read_header(&path).unwrap().unwrap().provenance_hash;
         if !storage
             .open_installed_geo_data(worldview, provenance)
             .unwrap()
@@ -76,7 +76,6 @@ fn display_follows_the_active_geo_file_and_its_provenance() {
         let shape = storage.region_geometry(indonesia).unwrap().unwrap();
         assert_eq!(shape.entity_id, indonesia);
         assert_eq!(shape.worldview, Worldview::from(worldview));
-        assert_eq!(shape.display_dataset_version, hex::encode(provenance));
         assert!(storage
             .region_geometry(GeoEntityId(u32::MAX))
             .unwrap()

@@ -16,7 +16,6 @@ pub use geo_data_format::GeoEntityId;
 pub struct RegionGeometry {
     pub entity_id: GeoEntityId,
     pub worldview: Worldview,
-    pub display_dataset_version: String,
     pub bounds: crate::utils::MapBounds,
     pub feature_geojson: String,
 }

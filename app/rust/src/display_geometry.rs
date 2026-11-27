@@ -7,7 +7,6 @@ use crate::utils::MapBounds;
 pub fn feature(
     id: GeoEntityId,
     worldview: Worldview,
-    provenance: [u8; 32],
     geometry: DisplayGeometry,
 ) -> Result<RegionGeometry> {
     let polygons: Vec<Vec<Vec<[f64; 2]>>> = geometry
@@ -38,7 +37,6 @@ pub fn feature(
     Ok(RegionGeometry {
         entity_id: id,
         worldview,
-        display_dataset_version: hex::encode(provenance),
         bounds: MapBounds {
             west: bounds.west,
             south: bounds.south,

@@ -106,9 +106,7 @@ impl Storage {
         };
         let geometry = geo.display_geometry(id).and_then(|geometry| {
             geometry
-                .map(|geometry| {
-                    display_geometry::feature(id, worldview.into(), geo.provenance_hash(), geometry)
-                })
+                .map(|geometry| display_geometry::feature(id, worldview.into(), geometry))
                 .transpose()
         });
         let dbs = self.dbs.lock().unwrap();
