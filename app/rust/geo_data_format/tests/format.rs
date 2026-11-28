@@ -1,9 +1,9 @@
 use std::collections::BTreeMap;
 
 use geo_data_format::{
-    read_header, read_provenance_hash, tile_xy, write_geo_data, GeoData, GeoEntity, GeoEntityId,
-    GeoEntityKind, PackedTile, TileEntry, TileMembership, CELLS_PER_TILE, HEADER_LEN, MAGIC,
-    NO_ENTITY, TILE_COUNT,
+    read_header, tile_xy, write_geo_data, GeoData, GeoEntity, GeoEntityId, GeoEntityKind,
+    PackedTile, TileEntry, TileMembership, CELLS_PER_TILE, HEADER_LEN, MAGIC, NO_ENTITY,
+    PROVENANCE_HASH_END, TILE_COUNT,
 };
 
 fn entity(id: u32, iso: &str) -> GeoEntity {
@@ -179,40 +179,45 @@ fn write_tmp(bytes: &[u8]) -> tempfile::NamedTempFile {
 }
 
 #[test]
-fn read_provenance_hash_returns_none_for_missing_file() {
+fn read_header_returns_none_for_missing_file() {
     let dir = tempfile::tempdir().unwrap();
     let missing = dir.path().join("does_not_exist.bin");
-    assert_eq!(read_provenance_hash(&missing).unwrap(), None);
+    assert!(read_header(&missing).unwrap().is_none());
 }
 
 #[test]
-fn read_provenance_hash_returns_none_for_short_file() {
+fn read_header_returns_none_for_short_file() {
     let f = write_tmp(b"too short");
-    assert_eq!(read_provenance_hash(f.path()).unwrap(), None);
+    assert!(read_header(f.path()).unwrap().is_none());
 }
 
 #[test]
-fn read_provenance_hash_returns_bytes_for_complete_file() {
-    let hash = [0xABu8; 32];
-    let f = write_tmp(&well_formed_bin(hash));
-    assert_eq!(read_provenance_hash(f.path()).unwrap(), Some(hash));
-}
-
-#[test]
-fn read_provenance_hash_rejects_torn_file() {
+fn read_header_rejects_torn_file() {
     // A complete header (valid magic + hash) over a truncated body must be
     // rejected: the file size won't match the length the header encodes, so
     // the rasterizer's smart-skip rebuilds instead of trusting the stale hash.
     let bytes = well_formed_bin([0xCDu8; 32]);
     let f = write_tmp(&bytes[..bytes.len() - 1]);
-    assert_eq!(read_provenance_hash(f.path()).unwrap(), None);
+    assert!(read_header(f.path()).unwrap().is_none());
 }
 
 #[test]
-fn read_provenance_hash_old_layout_does_not_false_match() {
-    // A file that is exactly MAGIC with no hash must not be accepted.
-    let f = write_tmp(MAGIC);
-    assert_eq!(read_provenance_hash(f.path()).unwrap(), None);
+fn read_header_rejects_the_old_layout() {
+    let hash = [0x7E; 32];
+    let mut bytes = well_formed_bin(hash);
+    assert_eq!(&bytes[..4], MAGIC);
+    let v6_header_len = PROVENANCE_HASH_END + 4 * 8;
+    bytes.drain(v6_header_len..HEADER_LEN);
+    // In v6 the first section began after four spans, not five. The same
+    // provenance bytes and MGEO magic must not give a false cache hit.
+    for at in (PROVENANCE_HASH_END..v6_header_len).step_by(8) {
+        let off = u32::from_le_bytes(bytes[at..at + 4].try_into().unwrap());
+        bytes[at..at + 4].copy_from_slice(&(off - 8).to_le_bytes());
+    }
+    let f = write_tmp(&bytes);
+    assert!(read_header(f.path()).unwrap().is_none());
+    assert!(GeoData::open(f.path()).is_err());
+    assert!(GeoData::open_for_coverage(f.path()).is_err());
 }
 
 #[test]
@@ -227,6 +232,7 @@ fn read_header_returns_section_spans() {
         ("tile_index", header.tile_index),
         ("border_offsets", header.border_offsets),
         ("border_blobs", header.border_blobs),
+        ("display", header.display),
     ] {
         assert!(
             section.off >= HEADER_LEN && section.off + section.len <= bytes.len(),

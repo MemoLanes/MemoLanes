@@ -1,0 +1,985 @@
+use std::{fs, path::Path};
+
+use geo::{
+    coordinate_position::CoordPos, dimensions::Dimensions, wkt, Area, BooleanOps, Relate,
+    Validation,
+};
+use geo_data_format::{
+    read_header, DisplayPolygons, GeoData, GeoEntityId, GeoEntityKind, Worldview,
+};
+use geo_rasterizer::display::{build_display_records, DisplaySource};
+use geo_types::{LineString, MultiPolygon, Polygon};
+
+#[test]
+fn one_invalid_source_fails_the_whole_export_with_its_location() {
+    let sources = [
+        DisplaySource {
+            entity_id: GeoEntityId(10),
+            polygons: wkt!(MULTIPOLYGON(((0.0 0.0,2.0 0.0,0.0 2.0,0.0 0.0)))),
+        },
+        DisplaySource {
+            entity_id: GeoEntityId(42),
+            polygons: wkt!(MULTIPOLYGON(((0.0 91.0,1.0 89.0,2.0 89.0,0.0 91.0)))),
+        },
+    ];
+    let error = build_display_records(Worldview::Usa, &sources).unwrap_err();
+    let diagnostic = format!("{error:#}");
+    assert!(diagnostic.contains("[display:usa] id=42"), "{diagnostic}");
+    assert!(diagnostic.contains("polygon 0 exterior"), "{diagnostic}");
+    assert!(diagnostic.contains("(0, 91)"), "{diagnostic}");
+}
+
+#[test]
+fn shared_edge_fallback_applies_to_both_rings() {
+    // The triangle collapses at 0.0001°. Both rectangles are large enough
+    // to keep that grid if validated alone. Their junction splits the
+    // triangle's unsegmented edge; the upper rectangle has an extra vertex.
+    let sources = [
+        wkt!(POLYGON((0.00004 0.0,0.00004 0.002,0.00003 0.001,0.00004 0.0))),
+        wkt!(POLYGON((0.00004 0.001,0.1 0.001,0.1 0.0,0.00004 0.0,0.00004 0.001))),
+        wkt!(POLYGON((0.00004 0.002,0.00004 0.0015,0.00004 0.001,0.1 0.001,0.1 0.002,0.00004 0.002))),
+    ]
+    .into_iter()
+    .enumerate()
+    .map(|(id, p)| DisplaySource {
+        entity_id: GeoEntityId(id as u32),
+        polygons: MultiPolygon(vec![p]),
+    })
+    .collect::<Vec<_>>();
+    let records = build_display_records(Worldview::Iso, &sources).unwrap();
+    assert_eq!(records.len(), 3);
+    let edge = |i: usize| {
+        let ring = &grid(&records[i].polygons)[0][0];
+        let polygon = polygon_from_grid(&grid(&records[i].polygons)[0]);
+        assert!(polygon.is_valid() && polygon.unsigned_area() > 0.0);
+        let mut points = ring[..ring.len() - 1]
+            .iter()
+            .filter(|p| p[0] == 4)
+            .copied()
+            .collect::<Vec<_>>();
+        points.sort_unstable();
+        points
+    };
+    let lo = edge(1);
+    let hi = edge(2);
+    assert_eq!(lo, [[4, 0], [4, 100]]);
+    assert_eq!(hi.first(), Some(&[4, 100]));
+    assert_eq!(hi.last(), Some(&[4, 200]));
+    assert_eq!(edge(0), [lo, hi[1..].to_vec()].concat());
+}
+
+#[test]
+fn retries_both_ids_sharing_a_collapsing_triangle() {
+    let triangle = wkt!(POLYGON((0.00004 0.0,0.00004 0.002,0.00003 0.001,0.00004 0.0)));
+    let sources = [GeoEntityId(7), GeoEntityId(12)].map(|entity_id| DisplaySource {
+        entity_id,
+        polygons: MultiPolygon(vec![triangle.clone()]),
+    });
+    let records = build_display_records(Worldview::Iso, &sources).unwrap();
+    assert_eq!(
+        records.iter().map(|r| r.entity_id).collect::<Vec<_>>(),
+        [GeoEntityId(7), GeoEntityId(12)]
+    );
+    assert_eq!(records[0].polygons, records[1].polygons);
+    assert_eq!(
+        polygon_from_grid(&grid(&records[0].polygons)[0]).unsigned_area(),
+        100.0
+    );
+}
+
+#[test]
+fn a_shared_cycle_is_independent_of_source_order_and_ring_start() {
+    let square = wkt!(POLYGON((4.0 4.0,0.0 4.0,0.0 0.0,4.0 0.0,4.0 4.0)));
+    let rotated = wkt!(POLYGON((0.0 4.0,4.0 4.0,4.0 0.0,0.0 0.0,0.0 4.0)));
+    let export = |polygons: [(u32, Polygon<f64>); 2]| {
+        let sources = polygons.map(|(id, polygon)| DisplaySource {
+            entity_id: GeoEntityId(id),
+            polygons: MultiPolygon(vec![polygon]),
+        });
+        build_display_records(Worldview::Iso, &sources).unwrap()
+    };
+    let first = export([(3, square.clone()), (5, rotated.clone())]);
+    let second = export([(5, square), (3, rotated)]);
+    for (a, b) in first.iter().zip(&second) {
+        assert_eq!(a.entity_id, b.entity_id);
+        assert_eq!(a.polygons, b.polygons);
+        let ring = &grid(&a.polygons)[0][0];
+        assert_eq!(ring[0], [0, 0]);
+        assert_eq!(ring.len(), 5);
+    }
+}
+
+#[test]
+fn retries_overlap_bounded_by_two_vertex_crossings() {
+    // The source diagonal is y = x + 0.00008, above even the apex of
+    // the second ring. On the coarse grid it becomes y = x: the two
+    // endpoint intersections bound a sliver of new positive area.
+    let sources = [
+        wkt!(POLYGON((-0.00004 0.00004,0.19996 0.20004,-0.00004 0.20004,-0.00004 0.00004))),
+        wkt!(POLYGON((0.01 0.01,0.020011 0.020089,0.03 0.03,0.03 0.008,0.01 0.01))),
+    ]
+    .into_iter()
+    .enumerate()
+    .map(|(id, polygon)| DisplaySource {
+        entity_id: GeoEntityId(id as u32),
+        polygons: MultiPolygon(vec![polygon]),
+    })
+    .collect::<Vec<_>>();
+    let records = build_display_records(Worldview::Iso, &sources).unwrap();
+    assert_eq!(records.len(), 2);
+    let a = degree_geometry(records[0].polygons.clone());
+    let b = degree_geometry(records[1].polygons.clone());
+    assert!(a.is_valid() && b.is_valid());
+    assert!(
+        a.relate(&b).is_disjoint(),
+        "the fine grid still pinches the gap"
+    );
+    assert_eq!(
+        a.intersection(&b).unsigned_area(),
+        0.0,
+        "rounding invented an overlap"
+    );
+}
+
+#[test]
+fn retries_new_containment_without_boundary_crossings() {
+    // The mainland's shallow inlet opens south. Simplifying the two sides
+    // across its mouth swallows the island without intersecting its ring.
+    let mainland =
+        wkt!(POLYGON((0.0 10.0,0.0 0.0,9.9 0.0,10.0 0.005,10.1 0.0,20.0 0.0,20.0 10.0,0.0 10.0)));
+    let island = wkt!(POLYGON((9.996 0.001,10.004 0.001,10.004 0.003,9.996 0.003,9.996 0.001)));
+    assert_eq!(mainland.intersection(&island).unsigned_area(), 0.0);
+    // Neighbors sharing the two side edges pin the inlet arc at the two
+    // bottom corners, independently of how the ring's start is chosen.
+    let left = wkt!(POLYGON((-1.0 0.0,0.0 0.0,0.0 10.0,-1.0 10.0,-1.0 0.0)));
+    let right = wkt!(POLYGON((20.0 0.0,21.0 0.0,21.0 10.0,20.0 10.0,20.0 0.0)));
+    let sources = [mainland, island, left, right]
+        .into_iter()
+        .enumerate()
+        .map(|(id, polygon)| DisplaySource {
+            entity_id: GeoEntityId(id as u32),
+            polygons: MultiPolygon(vec![polygon]),
+        })
+        .collect::<Vec<_>>();
+    let records = build_display_records(Worldview::Iso, &sources).unwrap();
+    assert_eq!(records.len(), 4, "the original shore can be recovered");
+    let mainland = polygon_from_grid(&grid(&records[0].polygons)[0]);
+
+    let island = polygon_from_grid(&grid(&records[1].polygons)[0]);
+    assert_eq!(
+        mainland.intersection(&island).unsigned_area(),
+        0.0,
+        "the simplified mainland swallowed the island"
+    );
+}
+
+#[test]
+fn preserves_enclosed_land_when_simplification_cuts_off_a_narrow_cape() {
+    let sources = [
+        wkt!(POLYGON((0.0 0.0,9.9 0.0,10.0 -0.005,10.1 0.0,20.0 0.0,20.0 10.0,0.0 10.0,0.0 0.0))),
+        wkt!(POLYGON((
+            9.996 - 0.001,
+            10.004 - 0.001,
+            10.004 - 0.003,
+            9.996 - 0.003,
+            9.996 - 0.001
+        ))),
+    ]
+    .into_iter()
+    .enumerate()
+    .map(|(i, polygon)| DisplaySource {
+        entity_id: GeoEntityId(i as u32),
+        polygons: MultiPolygon(vec![polygon]),
+    })
+    .collect::<Vec<_>>();
+    let records = build_display_records(Worldview::Iso, &sources).unwrap();
+    let mainland = degree_geometry(records[0].polygons.clone());
+    let district = degree_geometry(records[1].polygons.clone());
+    assert!(mainland.relate(&district).is_contains());
+}
+
+#[test]
+fn retries_new_overlap_when_a_hole_snaps_inside_an_island() {
+    // This extent keeps the mainland's hole on the coarse grid while the
+    // tiny island needs the fine grid. The snapped boundaries don't cross.
+    let mainland = wkt!(POLYGON((
+        -0.02 -0.02,0.02 -0.02,0.02 0.02,-0.02 0.02,-0.02 -0.02
+    ),(
+        0.00006 0.00006,0.00006 0.00024,0.00024 0.00024,0.00024 0.00006,0.00006 0.00006
+    )));
+    let island = wkt!(POLYGON((
+        0.00007 0.00007,0.00023 0.00007,0.00023 0.00023,0.00007 0.00023,0.00007 0.00007
+    )));
+    assert_eq!(
+        mainland
+            .relate(&island)
+            .get(CoordPos::Inside, CoordPos::Inside),
+        Dimensions::Empty
+    );
+
+    // Pass the island first to check the exported stable IDs, not input order.
+    let records = build_display_records(
+        Worldview::Iso,
+        &[
+            DisplaySource {
+                entity_id: GeoEntityId(42),
+                polygons: MultiPolygon(vec![island]),
+            },
+            DisplaySource {
+                entity_id: GeoEntityId(7),
+                polygons: MultiPolygon(vec![mainland]),
+            },
+        ],
+    )
+    .unwrap();
+    assert_eq!(
+        records.iter().map(|r| r.entity_id).collect::<Vec<_>>(),
+        [GeoEntityId(7), GeoEntityId(42)]
+    );
+    let [mainland, island] = records.as_slice() else {
+        unreachable!()
+    };
+    let mainland = grid(&mainland.polygons);
+    let island = grid(&island.polygons);
+    assert_eq!(mainland.len(), 1);
+    assert_eq!(island.len(), 1);
+    assert_eq!(mainland[0].len(), 2);
+    assert_eq!(island[0].len(), 1);
+    let hole = &mainland[0][1];
+    let mainland = polygon_from_grid(&mainland[0]);
+    let island = polygon_from_grid(&island[0]);
+    assert!(mainland.is_valid() && island.is_valid());
+    assert_eq!(island.unsigned_area(), 256.0);
+    assert_eq!(
+        mainland.intersection(&island).unsigned_area(),
+        0.0,
+        "snapping invented an overlap; emitted hole grid vertices: {hole:?}"
+    );
+    let mut hole_vertices = hole[..hole.len() - 1].to_vec();
+    hole_vertices.sort_unstable();
+    assert_eq!(hole_vertices, [[6, 6], [6, 24], [24, 6], [24, 24]]);
+}
+
+#[test]
+fn preserves_existing_interior_overlap_through_a_hole() {
+    // Keep this partial-overlap fixture large enough to retain its corners
+    // under the camera-floor budget, with off-grid vertices. Old subpixel
+    // vertices are no longer invariant under the camera zoom cap.
+    let mainland = wkt!(POLYGON((
+        -0.22 -0.22,0.22 -0.22,0.22 0.22,-0.22 0.22,-0.22 -0.22
+    ),(
+        0.00066 0.00066,0.00066 0.00242,0.00242 0.00242,0.00242 0.00066,0.00066 0.00066
+    )));
+    let island = wkt!(POLYGON((
+        0.00077 0.00077,0.00253 0.00077,0.00253 0.00253,0.00077 0.00253,0.00077 0.00077
+    )));
+    // The source area already overlaps, even though the island starts in the hole.
+    assert_eq!(
+        mainland
+            .relate(&island)
+            .get(CoordPos::Inside, CoordPos::Inside),
+        Dimensions::TwoDimensional
+    );
+    let sources = [mainland, island]
+        .into_iter()
+        .enumerate()
+        .map(|(id, polygon)| DisplaySource {
+            entity_id: GeoEntityId(id as u32),
+            polygons: MultiPolygon(vec![polygon]),
+        })
+        .collect::<Vec<_>>();
+    let records = build_display_records(Worldview::Iso, &sources).unwrap();
+    assert_eq!(records.len(), 2);
+    assert!(grid(&records[0].polygons)[0][1].contains(&[240, 240]));
+    let mainland = polygon_from_grid(&grid(&records[0].polygons)[0]);
+    let island = polygon_from_grid(&grid(&records[1].polygons)[0]);
+    assert!(mainland.is_valid() && island.is_valid());
+    assert_eq!(mainland.intersection(&island).unsigned_area(), 3300.0);
+}
+
+#[test]
+fn preserves_boundary_only_contact_without_refining() {
+    // The diagonal is a shared edge, but the two component bounds overlap
+    // in both axes. Boundary-only contact does not justify fine snapping.
+    let lower = wkt!(POLYGON((0.01003 0.0,0.1 0.0,0.1 0.1,0.01003 0.0)));
+    let upper = wkt!(POLYGON((0.01003 0.0,0.1 0.1,0.01003 0.1,0.01003 0.0)));
+    assert!(lower.relate(&upper).is_touches());
+    let sources = [lower, upper]
+        .into_iter()
+        .enumerate()
+        .map(|(id, polygon)| DisplaySource {
+            entity_id: GeoEntityId(id as u32),
+            polygons: MultiPolygon(vec![polygon]),
+        })
+        .collect::<Vec<_>>();
+    let records = build_display_records(Worldview::Iso, &sources).unwrap();
+    assert_eq!(records.len(), 2);
+    assert!(records
+        .iter()
+        .all(|r| grid(&r.polygons)[0][0].contains(&[1000, 0])));
+    let lower = polygon_from_grid(&grid(&records[0].polygons)[0]);
+    let upper = polygon_from_grid(&grid(&records[1].polygons)[0]);
+    assert!(lower.relate(&upper).is_touches());
+}
+
+#[test]
+fn preserves_tangent_outline_sharing_a_crossing_arc() {
+    // The overlap between A and B persists even after retrying on the fine
+    // grid. C shares B's edge from (100, 100) to (300, 80) in grid units,
+    // but its continuation at (100, 100) only touches A tangentially.
+    let sources = [
+        wkt!(POLYGON((-0.000004 0.000004,0.019996 0.020004,-0.000004 0.020004,-0.000004 0.000004))),
+        wkt!(POLYGON((0.001 0.001,0.0020011 0.0020089,0.003 0.003,0.003 0.0008,0.001 0.001))),
+        wkt!(POLYGON((0.001 0.001,0.003 0.0008,0.0018 0.0005,0.001 0.001))),
+    ]
+    .into_iter()
+    .enumerate()
+    .map(|(id, polygon)| DisplaySource {
+        entity_id: GeoEntityId(id as u32),
+        polygons: MultiPolygon(vec![polygon]),
+    })
+    .collect::<Vec<_>>();
+    let records = build_display_records(Worldview::Iso, &sources).unwrap();
+    assert_eq!(
+        records.iter().map(|r| r.entity_id).collect::<Vec<_>>(),
+        [GeoEntityId(0), GeoEntityId(1), GeoEntityId(2)]
+    );
+    let a = degree_geometry(records[0].polygons.clone());
+    let c = degree_geometry(records[2].polygons.clone());
+    assert!(c.is_valid());
+    assert_eq!(a.intersection(&c).unsigned_area(), 0.0);
+    assert!(c.0[0].exterior().0.contains(&(0.001, 0.001).into()));
+}
+
+#[test]
+fn preserves_every_outline_when_shared_crossing_paths_need_source_precision() {
+    // C shares B's boundaries at both crossings. B and D use the identical
+    // ring there. All owners must remain present and use the same traversal.
+    let a =
+        wkt!(POLYGON((-0.000004 0.000004,0.019996 0.020004,-0.000004 0.020004,-0.000004 0.000004)));
+    let b = wkt!(POLYGON((0.001 0.001,0.0020011 0.0020089,0.003 0.003,0.003 0.0008,0.001 0.001)));
+    let c = wkt!(POLYGON((0.001 0.001,0.003 0.0008,0.003 0.003,0.0028 0.001,0.001 0.001)));
+    let island = wkt!(POLYGON((0.04 0.0,0.041 0.0,0.04 0.001,0.04 0.0)));
+    let sources = [vec![a], vec![b.clone()], vec![c], vec![b, island]]
+        .into_iter()
+        .enumerate()
+        .map(|(id, polygons)| DisplaySource {
+            entity_id: GeoEntityId(id as u32),
+            polygons: MultiPolygon(polygons),
+        })
+        .collect::<Vec<_>>();
+    let records = build_display_records(Worldview::Iso, &sources).unwrap();
+    assert_eq!(
+        records.iter().map(|r| r.entity_id).collect::<Vec<_>>(),
+        [
+            GeoEntityId(0),
+            GeoEntityId(1),
+            GeoEntityId(2),
+            GeoEntityId(3)
+        ]
+    );
+    assert!(matches!(records[0].polygons, DisplayPolygons::Exact(_)));
+    let b = records[1].polygons.clone().into_degrees();
+    let d = records[3].polygons.clone().into_degrees();
+    assert_eq!(b[0], d[0]);
+    assert_eq!(d.len(), 2);
+}
+
+#[test]
+fn a_new_tangent_refines_both_sides_of_a_gap() {
+    // The coarse grid pinches the gap to a point without changing overlap area.
+    let sources = [
+        wkt!(POLYGON((-0.00004 0.00004,0.19996 0.20004,-0.00004 0.20004,-0.00004 0.00004))),
+        wkt!(POLYGON((0.01 0.008,0.020011 0.020009,0.03 0.008,0.01 0.008))),
+    ]
+    .into_iter()
+    .enumerate()
+    .map(|(id, polygon)| DisplaySource {
+        entity_id: GeoEntityId(id as u32),
+        polygons: MultiPolygon(vec![polygon]),
+    })
+    .collect::<Vec<_>>();
+    let records = build_display_records(Worldview::Iso, &sources).unwrap();
+    assert_eq!(records.len(), 2);
+    let left = degree_geometry(records[0].polygons.clone());
+    let right = degree_geometry(records[1].polygons.clone());
+    assert!(left.relate(&right).is_disjoint());
+    assert!(grid(&records[1].polygons)[0][0].contains(&[2001, 2001]));
+}
+
+#[test]
+fn preserves_a_local_overlap_even_when_the_regions_overlap_elsewhere() {
+    use geo::Contains;
+
+    let polygons = [
+        wkt!(POLYGON((0.0 0.0,5.0 0.0,5.0 2.0,0.0 2.0,0.0 0.0))),
+        wkt!(POLYGON((0.5 -0.2,1.0 0.2,1.5 -0.2,2.8 -0.0001,3.0 0.000004,3.2 -0.0001,4.0 -0.2,4.0 -1.0,0.5 -1.0,0.5 -0.2))),
+    ];
+    let sources: Vec<_> = polygons
+        .into_iter()
+        .enumerate()
+        .map(|(i, polygon)| DisplaySource {
+            entity_id: GeoEntityId(i as u32),
+            polygons: MultiPolygon(vec![polygon]),
+        })
+        .collect();
+    let records = build_display_records(Worldview::Iso, &sources).unwrap();
+    assert_eq!(records.len(), 2);
+    for record in records {
+        let shape = degree_geometry(record.polygons);
+        assert!(shape.contains(&geo_types::Point::new(1.0, 0.1)));
+        assert!(shape.contains(&geo_types::Point::new(3.0, 0.000002)));
+    }
+}
+
+fn grid(polygons: &DisplayPolygons) -> &[Vec<Vec<[i32; 2]>>] {
+    let DisplayPolygons::Grid(polygons) = polygons else {
+        panic!("expected grid geometry");
+    };
+    polygons
+}
+
+fn degree_geometry(polygons: DisplayPolygons) -> MultiPolygon<f64> {
+    MultiPolygon(
+        polygons
+            .into_degrees()
+            .into_iter()
+            .map(|rings| {
+                let mut lines = rings.into_iter().map(|ring| {
+                    LineString::from(ring.into_iter().map(|[x, y]| (x, y)).collect::<Vec<_>>())
+                });
+                Polygon::new(lines.next().unwrap(), lines.collect())
+            })
+            .collect(),
+    )
+}
+
+fn polygon_from_grid(rings: &[Vec<[i32; 2]>]) -> Polygon<f64> {
+    let mut lines = rings.iter().map(|ring| {
+        LineString::from(
+            ring.iter()
+                .map(|p| (f64::from(p[0]), f64::from(p[1])))
+                .collect::<Vec<_>>(),
+        )
+    });
+    Polygon::new(lines.next().unwrap(), lines.collect())
+}
+
+#[test]
+fn preserves_holes_islands_and_crossing_bounds() {
+    let records = build_display_records(
+        Worldview::Iso,
+        &[DisplaySource {
+            entity_id: GeoEntityId(42),
+            polygons: wkt!(MULTIPOLYGON(
+                ((179.0 0.0,-179.0 0.0,-179.0 4.0,179.0 4.0,179.0 0.0),
+                 (179.2 1.0,179.2 2.0,179.7 2.0,179.7 1.0,179.2 1.0)),
+                ((179.2 5.0,179.5 5.0,179.5 6.0,179.2 6.0,179.2 5.0))
+            )),
+        }],
+    )
+    .unwrap();
+    let r = &records[0];
+    assert_eq!((r.bounds.west, r.bounds.east), (179.0, 181.0));
+    assert_eq!((r.bounds.south, r.bounds.north), (0.0, 6.0));
+    let polygons = grid(&r.polygons)
+        .iter()
+        .map(|p| polygon_from_grid(p))
+        .collect::<Vec<_>>();
+    assert_eq!(
+        polygons.iter().map(|p| p.interiors().len()).sum::<usize>(),
+        1
+    );
+    assert!(polygons
+        .iter()
+        .any(|p| p.exterior().0.iter().all(|v| v.y >= 500_000.0)));
+    assert!(polygons.iter().all(|p| p.is_valid()));
+    assert!(grid(&r.polygons)
+        .iter()
+        .flatten()
+        .flat_map(|r| r.windows(2))
+        .all(|e| (e[0][0] - e[1][0]).abs() <= 200_000));
+}
+
+#[test]
+fn polar_and_broad_bounds_are_not_short_wrapped_intervals() {
+    let records = build_display_records(
+        Worldview::Iso,
+        &[
+            DisplaySource {
+                entity_id: GeoEntityId(1),
+                polygons: wkt!(MULTIPOLYGON(((-180.0 -90.0,180.0 -90.0,180.0 -75.0,0.0 -70.0,-180.0 -75.0,-180.0 -90.0)))),
+            },
+            DisplaySource {
+                entity_id: GeoEntityId(2),
+                polygons: wkt!(MULTIPOLYGON(((-150.0 0.0,0.0 0.0,150.0 0.0,150.0 40.0,0.0 40.0,-150.0 40.0,-150.0 0.0)))),
+            },
+        ],
+    )
+    .unwrap();
+    assert_eq!(records.len(), 2);
+    let a = records[0].bounds;
+    assert_eq!((a.west, a.east, a.south), (-180.0, 180.0, -90.0));
+    let b = records[1].bounds;
+    assert_eq!((b.west, b.east), (-150.0, 150.0));
+}
+
+// Two synthetic worldviews exercise batching without changing the existing
+// single-worldview fixture or its golden binary. China-specific production
+// policy expects source features that the synthetic input does not model.
+const FIXTURE_WORLDVIEWS: [Worldview; 2] = [Worldview::Iso, Worldview::Usa];
+fn write_test_fixture_inputs(dir: &Path) {
+    let fixtures = Path::new("tests/fixtures");
+    for (destination, inputs) in [
+        ("geo_entity_registry", "synthetic_registry"),
+        ("admin2", "synthetic_admin2"),
+    ] {
+        fs::create_dir(dir.join(destination)).unwrap();
+        for entry in fs::read_dir(fixtures.join(inputs)).unwrap() {
+            let entry = entry.unwrap();
+            fs::copy(entry.path(), dir.join(destination).join(entry.file_name())).unwrap();
+        }
+    }
+    let natural_earth = dir.join("natural_earth");
+    fs::create_dir(&natural_earth).unwrap();
+    for worldview in FIXTURE_WORLDVIEWS {
+        fs::copy(
+            fixtures.join("synthetic.geojson"),
+            natural_earth.join(worldview.spec().source_filename),
+        )
+        .unwrap();
+    }
+    fs::copy(
+        fixtures.join("synthetic_admin1.geojson"),
+        natural_earth.join(geo_data_format::ADMIN1_SOURCE_FILENAME),
+    )
+    .unwrap();
+}
+
+fn run_test_fixture_batch(dir: &Path) -> anyhow::Result<()> {
+    use geo_rasterizer::batch::{rasterize_batch, RasterizeMode, RasterizePaths};
+    rasterize_batch(
+        FIXTURE_WORLDVIEWS.map(|worldview| {
+            (
+                worldview,
+                RasterizePaths {
+                    countries: dir
+                        .join("natural_earth")
+                        .join(worldview.spec().source_filename),
+                    admin1: dir
+                        .join("natural_earth")
+                        .join(geo_data_format::ADMIN1_SOURCE_FILENAME),
+                    registry: dir.join("geo_entity_registry"),
+                    admin2_dir: dir.join("admin2"),
+                    output: raster(dir, worldview),
+                },
+            )
+        }),
+        RasterizeMode::Build {
+            ensure_source: false,
+        },
+    )
+}
+
+fn raster(dir: &Path, w: Worldview) -> std::path::PathBuf {
+    dir.join(format!("geo_data_{}.bin", w.spec().id))
+}
+
+#[test]
+fn each_worldview_contains_its_raster_entities_and_display() {
+    let dir = tempfile::tempdir().unwrap();
+    run_fixture(dir.path());
+    for worldview in FIXTURE_WORLDVIEWS {
+        let path = raster(dir.path(), worldview);
+        let asset = GeoData::open(&path).unwrap();
+        assert_eq!(asset.worldview_id, worldview.spec().id);
+        let entities = asset.entities().unwrap();
+        assert!(entities.len() > 1);
+        for entity in entities {
+            assert_eq!(
+                asset.display_geometry(entity.id).unwrap().is_some(),
+                entity.kind != GeoEntityKind::Continent,
+                "{} {:?}",
+                worldview.spec().id,
+                entity.id
+            );
+        }
+    }
+    assert_eq!(fs::read_dir(dir.path()).unwrap().count(), 5);
+}
+
+fn run_fixture(dir: &Path) {
+    write_test_fixture_inputs(dir);
+    run_test_fixture_batch(dir).unwrap();
+}
+
+#[test]
+fn cache_reuses_complete_assets_and_rebuilds_damaged_or_raster_only_files() {
+    let dir = tempfile::tempdir().unwrap();
+    run_fixture(dir.path());
+    let [iso, usa] = FIXTURE_WORLDVIEWS.map(|w| raster(dir.path(), w));
+    let expected_iso = fs::read(&iso).unwrap();
+    let expected_usa = fs::read(&usa).unwrap();
+    let old = std::time::UNIX_EPOCH + std::time::Duration::from_secs(1_234_567);
+    fs::OpenOptions::new()
+        .write(true)
+        .open(&usa)
+        .unwrap()
+        .set_modified(old)
+        .unwrap();
+    fs::write(&iso, &expected_iso[..expected_iso.len() - 1]).unwrap();
+    run_test_fixture_batch(dir.path()).unwrap();
+    assert_eq!(fs::read(&iso).unwrap(), expected_iso);
+    assert_eq!(fs::metadata(&usa).unwrap().modified().unwrap(), old);
+
+    let mut damaged = expected_iso.clone();
+    let display = read_header(&iso).unwrap().unwrap().display.off;
+    let frames = u64::from_le_bytes(damaged[display + 16..display + 24].try_into().unwrap());
+    damaged[display + frames as usize] ^= 1;
+    fs::write(&iso, damaged).unwrap();
+    run_test_fixture_batch(dir.path()).unwrap();
+    assert_eq!(fs::read(&iso).unwrap(), expected_iso);
+
+    let mut duplicate = expected_iso.clone();
+    let index = u64::from_le_bytes(duplicate[display..display + 8].try_into().unwrap());
+    let first_row = display + index as usize;
+    duplicate.copy_within(first_row..first_row + 4, first_row + 52);
+    fs::write(&iso, duplicate).unwrap();
+    run_test_fixture_batch(dir.path()).unwrap();
+    assert_eq!(fs::read(&iso).unwrap(), expected_iso);
+
+    let geo = GeoData::open(&iso).unwrap();
+    let raster_only = geo_data_format::write_geo_data_planes(
+        &geo.entities().unwrap(),
+        "iso",
+        &[],
+        geo.provenance_hash,
+    )
+    .unwrap();
+    fs::write(&iso, raster_only).unwrap();
+    run_test_fixture_batch(dir.path()).unwrap();
+    assert_eq!(fs::read(&iso).unwrap(), expected_iso);
+    assert_eq!(fs::read(&usa).unwrap(), expected_usa);
+}
+
+#[test]
+fn cache_rebuilds_when_valid_camera_bounds_do_not_fit_the_outline() {
+    let dir = tempfile::tempdir().unwrap();
+    run_fixture(dir.path());
+    let iso = raster(dir.path(), Worldview::Iso);
+    let expected = fs::read(&iso).unwrap();
+    let display = read_header(&iso).unwrap().unwrap().display.off;
+    let index = u64::from_le_bytes(expected[display..display + 8].try_into().unwrap()) as usize;
+    let first = display + index;
+    assert_eq!(
+        u32::from_le_bytes(expected[first..first + 4].try_into().unwrap()),
+        3
+    );
+    // ID 3 occupies [0, 0] to [1, 1]. Corrupt only its camera, keeping all raster and frame bytes.
+    for bounds in [[120.0_f64, 50.0, 121.0, 51.0], [-180.0, -90.0, 180.0, 90.0]] {
+        let mut damaged = expected.clone();
+        for (slot, value) in damaged[first + 4..first + 36]
+            .as_chunks_mut::<8>()
+            .0
+            .iter_mut()
+            .zip(bounds)
+        {
+            slot.copy_from_slice(&value.to_le_bytes());
+        }
+        fs::write(&iso, damaged).unwrap();
+        run_test_fixture_batch(dir.path()).unwrap();
+        assert!(
+            fs::read(&iso).unwrap() == expected,
+            "cache accepted bounds {bounds:?}"
+        );
+    }
+}
+
+#[test]
+fn cache_rebuilds_decodable_display_with_the_wrong_ids_or_invalid_geometry() {
+    let dir = tempfile::tempdir().unwrap();
+    run_fixture(dir.path());
+    let iso = raster(dir.path(), Worldview::Iso);
+    let expected = fs::read(&iso).unwrap();
+    let asset = GeoData::open(&iso).unwrap();
+    let entities = asset.entities().unwrap();
+    let mut records: Vec<_> = entities
+        .iter()
+        .filter(|e| e.kind != GeoEntityKind::Continent)
+        .map(|e| {
+            let shape = asset.display_geometry(e.id).unwrap().unwrap();
+            geo_data_format::DisplayRecord {
+                worldview: Worldview::Iso,
+                entity_id: e.id,
+                bounds: shape.bounds,
+                polygons: shape.polygons,
+            }
+        })
+        .collect();
+    let check_rebuild = |records: &[geo_data_format::DisplayRecord]| {
+        let damaged = geo_data_format::write_geo_data_planes_with_display(
+            &entities,
+            "iso",
+            &[],
+            asset.provenance_hash,
+            records,
+        )
+        .unwrap();
+        fs::write(&iso, damaged).unwrap();
+        run_test_fixture_batch(dir.path()).unwrap();
+        assert_eq!(fs::read(&iso).unwrap(), expected);
+    };
+    check_rebuild(&records[1..]);
+    let first_id = records[0].entity_id;
+    records[0].entity_id = GeoEntityId(u32::MAX - 1);
+    check_rebuild(&records);
+    records[0].entity_id = first_id;
+    records[0].polygons = DisplayPolygons::Grid(vec![vec![vec![[0, 0], [1, 1], [2, 2], [0, 0]]]]);
+    check_rebuild(&records);
+    records[0].polygons =
+        DisplayPolygons::Exact(vec![vec![vec![[0., 91.], [1., 91.], [1., 92.], [0., 91.]]]]);
+    check_rebuild(&records);
+}
+
+#[test]
+fn repairs_a_detached_pair_of_tiny_islands_at_their_own_scale() {
+    let epsilon = 1e-9;
+    let source = DisplaySource {
+        entity_id: GeoEntityId(17),
+        polygons: MultiPolygon(vec![
+            geo_types::Rect::new((0., 0.), (20., 10.)).to_polygon(),
+            geo_types::Rect::new((20., 0.), (40., 10.)).to_polygon(),
+            geo_types::Rect::new((50., 0.), (50. + epsilon, epsilon)).to_polygon(),
+            geo_types::Rect::new((50. + epsilon, 0.), (50. + 2. * epsilon, epsilon)).to_polygon(),
+        ]),
+    };
+    let records = build_display_records(Worldview::Iso, &[source]).unwrap();
+    let parts = records.into_iter().next().unwrap().polygons.into_degrees();
+    assert_eq!(parts.len(), 2);
+    assert!(parts
+        .iter()
+        .any(|p| p[0].contains(&[50. + 2. * epsilon, epsilon])));
+}
+
+#[test]
+fn joins_touching_source_components_without_losing_the_detached_island() {
+    let source = DisplaySource {
+        entity_id: GeoEntityId(42),
+        polygons: wkt!(MULTIPOLYGON(
+            ((0.0 0.0,1.0 0.0,1.0 1.0,0.0 1.0,0.0 0.0)),
+            ((1.0 0.0,2.0 0.0,2.0 1.0,1.0 1.0,1.0 0.0)),
+            ((3.0 0.0,4.0 0.0,4.0 1.0,3.0 1.0,3.0 0.0))
+        )),
+    };
+    let records = build_display_records(Worldview::Iso, &[source]).unwrap();
+    assert_eq!(records.len(), 1);
+    let polygons = MultiPolygon(
+        grid(&records[0].polygons)
+            .iter()
+            .map(|p| polygon_from_grid(p))
+            .collect(),
+    );
+    assert!(polygons.is_valid());
+    assert_eq!(polygons.0.len(), 2);
+    assert_eq!(polygons.unsigned_area(), 30_000_000_000.0);
+}
+
+#[test]
+fn does_not_snap_distinct_lines_together() {
+    let sources = [
+        wkt!(POLYGON((0.0 0.0,0.00102 0.0,0.00102 0.1,0.0 0.1,0.0 0.0))),
+        wkt!(POLYGON((0.00104 0.0,0.1 0.0,0.1 0.1,0.00104 0.1,0.00104 0.0))),
+    ]
+    .into_iter()
+    .enumerate()
+    .map(|(i, polygon)| DisplaySource {
+        entity_id: GeoEntityId(i as u32),
+        polygons: MultiPolygon(vec![polygon]),
+    })
+    .collect::<Vec<_>>();
+    let records = build_display_records(Worldview::Iso, &sources).unwrap();
+    assert_eq!(records.len(), 2);
+    assert_eq!(
+        grid(&records[0].polygons)[0][0].iter().map(|p| p[0]).max(),
+        Some(102)
+    );
+    assert_eq!(
+        grid(&records[1].polygons)[0][0].iter().map(|p| p[0]).min(),
+        Some(104)
+    );
+}
+
+#[test]
+fn keeps_a_real_gap_narrower_than_the_fine_grid() {
+    let sources = [
+        wkt!(POLYGON((0.0 0.0,0.010001 0.0,0.010001 0.1,0.0 0.1,0.0 0.0))),
+        wkt!(POLYGON((0.0100022 0.0,0.1 0.0,0.1 0.1,0.0100022 0.1,0.0100022 0.0))),
+    ]
+    .into_iter()
+    .enumerate()
+    .map(|(id, polygon)| DisplaySource {
+        entity_id: GeoEntityId(id as u32),
+        polygons: MultiPolygon(vec![polygon]),
+    })
+    .collect::<Vec<_>>();
+    let records = build_display_records(Worldview::Iso, &sources).unwrap();
+    assert_eq!(records.len(), 2);
+    let [left, right] = records.try_into().ok().unwrap_or_else(|| unreachable!());
+    let left = degree_geometry(left.polygons);
+    let right = degree_geometry(right.polygons);
+    assert!(left.relate(&right).is_disjoint());
+    assert!(left.0[0].exterior().0.contains(&(0.010001, 0.0).into()));
+    assert!(right.0[0].exterior().0.contains(&(0.0100022, 0.0).into()));
+}
+
+#[test]
+fn source_noding_does_not_merge_a_gap_between_differently_segmented_edges() {
+    let sources = [
+        wkt!(MULTIPOLYGON(((0.0 0.0,1.0 0.0,1.0 2.0,0.0 2.0,0.0 0.0)),((-1.0 0.0,-0.9999999 0.0,-1.0 0.0000001,-1.0 0.0)))),
+        wkt!(MULTIPOLYGON(((1.0000000000009095 0.5,2.0 0.5,2.0 1.5,1.0000000000009095 1.5,1.0000000000009095 0.5)))),
+    ].into_iter().enumerate().map(|(id, polygons)| DisplaySource {
+        entity_id: GeoEntityId(id as u32), polygons,
+    }).collect::<Vec<_>>();
+    let records = build_display_records(Worldview::Iso, &sources).unwrap();
+    assert_eq!(records.len(), 2);
+    let left = degree_geometry(records[0].polygons.clone());
+    let right = degree_geometry(records[1].polygons.clone());
+    assert!(left.relate(&right).is_disjoint());
+}
+
+#[test]
+fn nodes_an_exact_shared_edge_one_ulp_before_a_long_segments_endpoint() {
+    let near = 1.0_f64.next_down();
+    let polygons = [
+        wkt!(POLYGON((-120.0 0.0,1.0 0.0,1.0 1.0,-120.0 1.0,-120.0 0.0))),
+        Polygon::new(
+            LineString::from(vec![
+                (near, 0.0),
+                (1.0, 0.0),
+                (4.0, -5.0),
+                (-3.0, -4.0),
+                (near, 0.0),
+            ]),
+            vec![],
+        ),
+    ];
+    let sources: Vec<_> = polygons
+        .into_iter()
+        .enumerate()
+        .map(|(i, polygon)| DisplaySource {
+            entity_id: GeoEntityId(i as u32),
+            polygons: MultiPolygon(vec![polygon]),
+        })
+        .collect();
+    let records = build_display_records(Worldview::Iso, &sources).unwrap();
+    assert_eq!(records.len(), 2);
+    for record in records {
+        let polygons = record.polygons.into_degrees();
+        assert!(polygons[0][0]
+            .windows(2)
+            .any(|pair| pair == [[near, 0.0], [1.0, 0.0]] || pair == [[1.0, 0.0], [near, 0.0]]));
+    }
+}
+
+#[test]
+fn shipped_display_contains_every_raster_region_in_all_worldviews() {
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../app/assets/geo");
+    for &w in Worldview::ALL {
+        let raster = GeoData::open(&raster(&dir, w)).unwrap();
+        let entities = raster.entities().unwrap();
+        let mut expected: Vec<_> = entities
+            .iter()
+            .filter(|e| e.kind != GeoEntityKind::Continent)
+            .map(|e| e.id)
+            .collect();
+        expected.sort_unstable();
+        assert_eq!(
+            raster.display_ids().unwrap(),
+            expected,
+            "{} display ID parity",
+            w.spec().id
+        );
+        let alaska = entities
+            .iter()
+            .find(|e| e.canonical_code == "USA-3563")
+            .unwrap();
+        let usa = entities.iter().find(|e| e.canonical_code == "USA").unwrap();
+        let coast_at_fork = |id, vertex| {
+            let shape = raster.display_geometry(id).unwrap().unwrap();
+            for polygon in shape.polygons.into_degrees() {
+                let exterior = &polygon[0][..polygon[0].len() - 1];
+                if let Some(i) = exterior.iter().position(|&p| p == vertex) {
+                    let n = exterior.len();
+                    let mut window = [n - 2, n - 1, 0, 1, 2].map(|d| exterior[(i + d) % n]);
+                    if window[1][0] < window[3][0] {
+                        window.reverse();
+                    }
+                    return window;
+                }
+            }
+            panic!("{} ID {} lost fork vertex {vertex:?}", w.spec().id, id.0);
+        };
+        let child = coast_at_fork(alaska.id, [-152.2329, 60.559882]);
+        let parent = coast_at_fork(usa.id, [-152.232901, 60.559881]);
+        assert_eq!(child[1], [-152.171254, 60.580878]);
+        assert_eq!(child[3], [-152.3155, 60.505845]);
+        assert_eq!(child[..2], parent[..2]);
+        assert_eq!(child[3..], parent[3..]);
+        let china = entities
+            .iter()
+            .find(|e| e.canonical_code == "CHN" && e.kind == GeoEntityKind::Admin0)
+            .unwrap();
+        let guangdong = entities
+            .iter()
+            .find(|e| e.canonical_code == "CHN-1180")
+            .unwrap();
+        let guangzhou = entities
+            .iter()
+            .find(|e| e.canonical_code == "CN-4401")
+            .unwrap();
+        let macao = entities
+            .iter()
+            .find(|e| e.name_key == "country.MAC")
+            .unwrap();
+        let antarctica = entities.iter().find(|e| e.canonical_code == "ATA").unwrap();
+        let fiji = entities.iter().find(|e| e.canonical_code == "FJI").unwrap();
+        let vatican = entities
+            .iter()
+            .find(|e| e.canonical_code == "VAT" && e.kind == GeoEntityKind::Admin0)
+            .unwrap();
+        assert_eq!(guangdong.parent_id, Some(china.id));
+        assert_eq!(guangzhou.parent_id, Some(guangdong.id));
+        assert_eq!(macao.parent_id == Some(china.id), w == Worldview::Chn);
+        for e in [
+            china, guangdong, guangzhou, macao, antarctica, fiji, vatican,
+        ] {
+            let shape = raster.display_geometry(e.id).unwrap().unwrap_or_else(|| {
+                panic!("{} missing {} ({})", w.spec().id, e.canonical_code, e.id.0)
+            });
+            let geometry = degree_geometry(shape.polygons);
+            assert!(geometry.unsigned_area() > 0.0);
+            if e == antarctica {
+                assert_eq!(
+                    (shape.bounds.west, shape.bounds.east, shape.bounds.south),
+                    (-180.0, 180.0, -90.0)
+                );
+            } else if e == fiji {
+                assert!(shape.bounds.east > 180.0 && shape.bounds.east - shape.bounds.west < 10.0);
+            }
+        }
+    }
+}
+
+#[test]
+fn subpixel_eligible_shape_survives_display_fit_budget() {
+    let records = build_display_records(
+        Worldview::Iso,
+        &[DisplaySource {
+            entity_id: GeoEntityId(42),
+            polygons: wkt!(MULTIPOLYGON(((12.000003 40.000003,12.000023 40.000003,12.000023 40.000023,12.000003 40.000023,12.000003 40.000003)))),
+        }],
+    ).unwrap();
+    assert_eq!(records.len(), 1);
+    let polygon = degree_geometry(records[0].polygons.clone());
+    assert!(polygon.is_valid() && polygon.unsigned_area() > 0.0);
+}

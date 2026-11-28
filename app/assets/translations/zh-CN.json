@@ -292,6 +292,15 @@
       "empty": "还没有点亮国家与地区。",
       "error": "无法加载探索国家与地区。"
     },
+    "region_explorer": {
+      "panel": "地区列表",
+      "expand": "展开地区列表",
+      "collapse": "收起地区列表",
+      "select": "在地图上显示{}",
+      "drill": "查看{}的下级地区",
+      "unavailable": "暂无该地区的边界。",
+      "error": "无法加载该地区的边界。"
+    },
     "region_list": {
       "country_title": "国家与地区",
       "region_empty": "还没有点亮下辖地区。",

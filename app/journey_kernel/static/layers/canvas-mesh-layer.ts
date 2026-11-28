@@ -12,6 +12,8 @@ import {
   type PolarHemisphere,
 } from "../polar-projection";
 import { PolarCanvasProvider } from "../polar-canvas-provider";
+import { achievementFogMask } from "./achievement-region-mask";
+import { createLinearClampedTexture2D } from "./webgl-texture";
 
 interface CanvasImage {
   canvas: HTMLCanvasElement;
@@ -213,6 +215,25 @@ export class CanvasMeshLayer implements CustomLayerInterface {
       projection.projectionTransition,
     );
     gl.uniform1i(uniforms.texture, 0);
+    const mask = this.bg[3] > 0 ? achievementFogMask(this.map, gl) : null;
+    gl.uniform1i(uniforms.revealFog, Number(!!mask));
+    gl.uniform1i(uniforms.achievementMask, mask ? 1 : 0);
+    if (mask) {
+      gl.activeTexture(gl.TEXTURE1);
+      gl.bindTexture(gl.TEXTURE_2D, mask);
+      gl.uniform2f(
+        uniforms.maskBufferPixel,
+        1 / gl.drawingBufferWidth,
+        1 / gl.drawingBufferHeight,
+      );
+      gl.uniform4f(
+        uniforms.fg,
+        this.fg[0] * this.fg[3],
+        this.fg[1] * this.fg[3],
+        this.fg[2] * this.fg[3],
+        this.fg[3],
+      );
+    }
     gl.activeTexture(gl.TEXTURE0);
     const layout = [
       [3, 0],
@@ -270,6 +291,11 @@ export class CanvasMeshLayer implements CustomLayerInterface {
       if (depth) gl.enable(gl.DEPTH_TEST);
       if (cull) gl.enable(gl.CULL_FACE);
       gl.bindTexture(gl.TEXTURE_2D, null);
+      if (mask) {
+        gl.activeTexture(gl.TEXTURE1);
+        gl.bindTexture(gl.TEXTURE_2D, null);
+        gl.activeTexture(gl.TEXTURE0);
+      }
     }
   }
 
@@ -385,11 +411,26 @@ export class CanvasMeshLayer implements CustomLayerInterface {
       precision highp float;
       in vec2 v_uv; in float v_horizon;
       uniform sampler2D u_texture; uniform vec4 u_bg; uniform float u_hasImage; uniform float u_wrap;
+      uniform bool u_revealFog;
+      uniform vec2 u_maskBufferPixel;
+      uniform vec4 u_fg;
+      uniform sampler2D u_achievementMask;
       out vec4 color;
       void main(){if(v_horizon<0.0)discard;color=u_bg;
       vec2 uv=v_uv;
       if(u_wrap>0.0) uv.x+=floor((0.5-uv.x)/u_wrap+0.5)*u_wrap;
-      if(u_hasImage>0.5 && all(greaterThanEqual(uv,vec2(0.0))) && all(lessThanEqual(uv,vec2(1.0))))color=texture(u_texture,uv);}`,
+      if(u_hasImage>0.5 && all(greaterThanEqual(uv,vec2(0.0))) && all(lessThanEqual(uv,vec2(1.0))))color=texture(u_texture,uv);
+      if (u_revealFog && color.a > 0.0) {
+        float reduction = 0.36 * texture(u_achievementMask, gl_FragCoord.xy * u_maskBufferPixel).r;
+        if (u_fg.a == 0.0) {
+          color *= 1.0 - reduction;
+        } else {
+          vec4 delta = u_bg - u_fg;
+          float distance = dot(delta, delta);
+          float fog = distance > 0.0 ? clamp(dot(color - u_fg, delta) / distance, 0.0, 1.0) : 0.0;
+          color = max(vec4(0.0), color - reduction * fog * u_bg);
+        }
+      }}`,
       ],
     ] as const;
     for (const [type, source] of sources) {
@@ -416,6 +457,10 @@ export class CanvasMeshLayer implements CustomLayerInterface {
     for (const name of [
       "bg",
       "texture",
+      "revealFog",
+      "achievementMask",
+      "maskBufferPixel",
+      "fg",
       "hasImage",
       "wrap",
       "useMapProjection",
@@ -436,13 +481,8 @@ export class CanvasMeshLayer implements CustomLayerInterface {
   ): void {
     this.buffer = gl.createBuffer();
     for (const chart of this.charts) {
-      const texture = gl.createTexture();
+      const texture = createLinearClampedTexture2D(gl);
       if (!texture) throw new Error("Unable to allocate Canvas mesh texture");
-      gl.bindTexture(gl.TEXTURE_2D, texture);
-      for (const p of [gl.TEXTURE_WRAP_S, gl.TEXTURE_WRAP_T])
-        gl.texParameteri(gl.TEXTURE_2D, p, gl.CLAMP_TO_EDGE);
-      for (const p of [gl.TEXTURE_MIN_FILTER, gl.TEXTURE_MAG_FILTER])
-        gl.texParameteri(gl.TEXTURE_2D, p, gl.LINEAR);
       gl.texImage2D(
         gl.TEXTURE_2D,
         0,

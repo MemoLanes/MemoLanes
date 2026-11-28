@@ -21,8 +21,10 @@ class AchievementBody extends StatefulWidget {
     super.key,
     required this.topSafeArea,
     required this.bottomSafeArea,
+    required this.onOpenExplorer,
   });
 
+  final VoidCallback onOpenExplorer;
   final double topSafeArea;
   final double bottomSafeArea;
 
@@ -95,7 +97,7 @@ class _AchievementBodyState extends State<AchievementBody> {
         ],
         const _AchievementStatsCards(),
         const SizedBox(height: 14),
-        const AchievementCountriesCard(),
+        AchievementCountriesCard(onOpenExplorer: widget.onOpenExplorer),
         const SizedBox(height: 14),
         const AchievementComingSoonCard(),
       ],

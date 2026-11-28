@@ -1,10 +1,12 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/map_style.dart';
+import 'package:memolanes/common/map_fog_style.dart';
 import 'package:memolanes/common/mmkv_util.dart';
 
-class MapStyleStore {
+class MapStyleStore extends ChangeNotifier {
   MapStyleStore({
     String? Function(String)? readString,
     bool Function(String, String?)? writeString,
@@ -70,10 +72,17 @@ class MapStyleStore {
     );
   }
 
+  MapFogStyle get fogStyle => MapFogStyle.findById(_read(MMKVKey.mapFogMode));
+
+  void selectFogStyle(MapFogStyle style) {
+    if (_write(MMKVKey.mapFogMode, style.id)) notifyListeners();
+  }
+
   void select(MapStyleRef ref) {
     if (!_write(MMKVKey.mapStyle, ref.toStorage())) {
       throw StateError('Could not save basemap selection');
     }
+    notifyListeners();
   }
 
   void save(MapStyle style, {bool selectAfterSaving = false}) {
@@ -105,5 +114,6 @@ class MapStyleStore {
     if (!_write(MMKVKey.customBasemaps, value)) {
       throw StateError('Could not save custom basemaps');
     }
+    notifyListeners();
   }
 }

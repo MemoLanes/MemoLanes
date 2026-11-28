@@ -8,7 +8,6 @@ import 'package:memolanes/common/component/tiles/label_tile_content.dart';
 import 'package:memolanes/common/map_fog_style.dart';
 import 'package:memolanes/common/map_style_store.dart';
 import 'package:memolanes/body/settings/map_styles_page.dart';
-import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/common/region_preference.dart';
 import 'package:memolanes/common/utils.dart';
 import 'package:memolanes/body/settings/settings_section.dart';
@@ -28,8 +27,7 @@ class _MapSettingsPageState extends State<MapSettingsPage> {
   @override
   void initState() {
     super.initState();
-    final fogModeId = MMKVUtil.getStringOpt(MMKVKey.mapFogMode);
-    _currentFogStyle = MapFogStyle.findById(fogModeId);
+    _currentFogStyle = MapStyleStore.instance.fogStyle;
     _worldview = WorldviewManager.instance.currentWorldview;
   }
 
@@ -40,7 +38,7 @@ class _MapSettingsPageState extends State<MapSettingsPage> {
   void _updateFogStyle(MapFogStyle style) {
     if (_currentFogStyle.id == style.id) return;
     setState(() => _currentFogStyle = style);
-    MMKVUtil.putString(MMKVKey.mapFogMode, style.id);
+    MapStyleStore.instance.selectFogStyle(style);
   }
 
   Future<void> _showMapStylePicker() async {

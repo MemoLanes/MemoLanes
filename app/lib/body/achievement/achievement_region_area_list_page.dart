@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:memolanes/theme/app_colors.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:material_ui/material_ui.dart';
@@ -6,8 +8,9 @@ import 'package:memolanes/common/component/capsule_style_app_bar.dart';
 import 'package:memolanes/common/component/cards/option_card.dart';
 import 'package:memolanes/common/component/page_content_layout.dart';
 import 'package:memolanes/constants/app_typography.dart';
+import 'package:memolanes/src/rust/achievement/region.dart';
 
-enum _RegionAreaSortMode { area, coverage }
+import 'package:memolanes/body/achievement/achievement_region_sort.dart';
 
 const _areaFractionDigits = 2;
 const _coverageFractionDigits = 3;
@@ -19,15 +22,43 @@ class AchievementRegionAreaListItem {
     required this.totalKm2,
     this.flagCountryCode,
     this.onTap,
+    this.onDrill,
+    this.selected = false,
     String? sortKey,
   }) : sortKey = sortKey ?? name;
+
+  factory AchievementRegionAreaListItem.fromEntity(
+    RegionEntity entity,
+    String worldviewId, {
+    required bool showFlag,
+    VoidCallback? onTap,
+    VoidCallback? onDrill,
+    bool selected = false,
+  }) => AchievementRegionAreaListItem(
+    name: entity.displayName(worldviewId),
+    visitedKm2: entity.visitedAreaM2.toDouble() / 1000000,
+    totalKm2: entity.totalAreaM2.toDouble() / 1000000,
+    flagCountryCode: showFlag ? entity.isoA3Eh : null,
+    sortKey: entity.isoA3Eh ?? entity.nameKey.value,
+    onTap: onTap,
+    onDrill: onDrill,
+    selected: selected,
+  );
 
   final String name;
   final double visitedKm2;
   final double totalKm2;
   final String? flagCountryCode;
   final VoidCallback? onTap;
+  final VoidCallback? onDrill;
+  final bool selected;
   final String sortKey;
+
+  FormattedArea formattedArea(BuildContext context) =>
+      formatArea(context, visitedKm2, fractionDigits: _areaFractionDigits);
+
+  String get coverageText =>
+      formatPercent(progress, fractionDigits: _coverageFractionDigits);
 
   double get progress {
     if (totalKm2 <= 0) return 0;
@@ -35,7 +66,77 @@ class AchievementRegionAreaListItem {
   }
 }
 
-class AchievementRegionAreaListPage extends StatefulWidget {
+class AchievementRegionAreaSummary extends StatelessWidget {
+  const AchievementRegionAreaSummary({super.key, required this.item});
+
+  final AchievementRegionAreaListItem item;
+
+  static const _nameStyle = AppTypography.itemTitle;
+  static const _statsStyle = AppTypography.caption;
+  static const _flagSize = 28.0;
+  static const _padding = EdgeInsets.fromLTRB(16, 4, 16, 10);
+
+  static double heightFor(TextScaler scaler) {
+    double lineHeight(TextStyle style) =>
+        (scaler.scale(style.fontSize!) * style.height!).ceilToDouble();
+    return math.max(
+          _flagSize,
+          math.max(lineHeight(_nameStyle), lineHeight(_statsStyle)),
+        ) +
+        _padding.vertical;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final area = item.formattedArea(context);
+    final statsStyle = _statsStyle.copyWith(
+      color: context.appColors.mutedInkColor,
+    );
+    return Padding(
+      padding: _padding,
+      child: LayoutBuilder(
+        builder: (context, constraints) => Row(
+          spacing: 8,
+          children: [
+            if (item.flagCountryCode case final code?)
+              ExcludeSemantics(
+                child: AchievementCountryFlagBadge(
+                  countryCode: code,
+                  size: _flagSize,
+                  flagSize: 24,
+                ),
+              ),
+            Expanded(
+              child: Text(
+                item.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: _nameStyle.copyWith(color: context.appColors.inkColor),
+              ),
+            ),
+            ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: constraints.maxWidth * .55),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: AlignmentDirectional.centerEnd,
+                child: Row(
+                  spacing: 6,
+                  children: [
+                    Text('${area.value} ${area.unit}', style: statsStyle),
+                    ExcludeSemantics(child: Text('·', style: statsStyle)),
+                    Text(item.coverageText, style: statsStyle),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class AchievementRegionAreaListPage extends StatelessWidget {
   const AchievementRegionAreaListPage({
     super.key,
     required this.title,
@@ -43,8 +144,6 @@ class AchievementRegionAreaListPage extends StatefulWidget {
     required this.items,
     this.isLoading = false,
     this.onRetry,
-    this.showIcons = true,
-    this.skeletonShowsChevron = false,
   });
 
   final String title;
@@ -52,57 +151,99 @@ class AchievementRegionAreaListPage extends StatefulWidget {
   final List<AchievementRegionAreaListItem> items;
   final bool isLoading;
   final VoidCallback? onRetry;
-  final bool showIcons;
-  final bool skeletonShowsChevron;
 
   @override
-  State<AchievementRegionAreaListPage> createState() =>
-      _AchievementRegionAreaListPageState();
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: context.appColors.canvasColor,
+    appBar: CapsuleStyleAppBar(title: title),
+    body: PageContentLayout(
+      children: [
+        AchievementRegionAreaListContent(
+          items: items,
+          emptyText: emptyText,
+          isLoading: isLoading,
+          onRetry: onRetry,
+          showIcons: false,
+          skeletonShowsChevron: false,
+        ),
+      ],
+    ),
+  );
 }
 
-class _AchievementRegionAreaListPageState
-    extends State<AchievementRegionAreaListPage> {
-  _RegionAreaSortMode _sortMode = _RegionAreaSortMode.area;
+class AchievementRegionAreaListContent extends StatefulWidget {
+  const AchievementRegionAreaListContent({
+    super.key,
+    required this.items,
+    required this.emptyText,
+    required this.showIcons,
+    required this.skeletonShowsChevron,
+    required this.isLoading,
+    this.onRetry,
+    this.selectOnMap = false,
+    this.sortMode,
+    this.onSortChanged,
+  });
+
+  final List<AchievementRegionAreaListItem> items;
+  final String emptyText;
+  final bool showIcons;
+  final bool skeletonShowsChevron;
+  final bool isLoading;
+  final VoidCallback? onRetry;
+  final bool selectOnMap;
+  final AchievementRegionSort? sortMode;
+  final ValueChanged<AchievementRegionSort>? onSortChanged;
+
+  @override
+  State<AchievementRegionAreaListContent> createState() =>
+      _AchievementRegionAreaListContentState();
+}
+
+class _AchievementRegionAreaListContentState
+    extends State<AchievementRegionAreaListContent> {
+  AchievementRegionSort _localSortMode = AchievementRegionSort.area;
+  AchievementRegionSort get _sortMode => widget.sortMode ?? _localSortMode;
 
   @override
   Widget build(BuildContext context) {
+    if (widget.isLoading) {
+      return _RegionAreaListSkeleton(
+        showIcons: widget.showIcons,
+        showChevron: widget.skeletonShowsChevron,
+      );
+    }
+    if (widget.onRetry case final retry?) {
+      return _RegionAreaListErrorCard(onRetry: retry);
+    }
     final items = _sortedItems(widget.items);
-    final reserveChevronSpace = items.any((item) => item.onTap != null);
-
-    return Scaffold(
-      backgroundColor: context.appColors.canvasColor,
-      appBar: CapsuleStyleAppBar(title: widget.title),
-      body: PageContentLayout(
-        children: [
-          if (widget.isLoading)
-            _RegionAreaListSkeleton(
-              showIcons: widget.showIcons,
-              showChevron: widget.skeletonShowsChevron,
-            )
-          else if (widget.onRetry != null)
-            _RegionAreaListErrorCard(onRetry: widget.onRetry!)
-          else if (items.isEmpty)
-            _RegionAreaListEmptyCard(text: widget.emptyText)
-          else ...[
-            _RegionAreaSortControl(
-              value: _sortMode,
-              onChanged: (value) => setState(() => _sortMode = value),
-            ),
-            const SizedBox(height: 12),
-            OptionCard(
-              useSafeArea: false,
-              children: [
-                for (final item in items)
-                  _RegionAreaListTile(
-                    item: item,
-                    showIcon: widget.showIcons,
-                    reserveChevronSpace: reserveChevronSpace,
-                  ),
-              ],
-            ),
+    if (items.isEmpty) return _RegionAreaListEmptyCard(text: widget.emptyText);
+    final reserveChevronSpace = items.any(
+      (item) => widget.selectOnMap ? item.onDrill != null : item.onTap != null,
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _RegionAreaSortControl(
+          value: _sortMode,
+          onChanged:
+              widget.onSortChanged ??
+              (value) => setState(() => _localSortMode = value),
+        ),
+        const SizedBox(height: 12),
+        OptionCard(
+          useSafeArea: false,
+          children: [
+            for (final item in items)
+              _RegionAreaListTile(
+                item: item,
+                showIcon: widget.showIcons,
+                reserveChevronSpace: reserveChevronSpace,
+                selectOnMap: widget.selectOnMap,
+              ),
           ],
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -112,12 +253,13 @@ class _AchievementRegionAreaListPageState
     final sorted = [...items];
     sorted.sort((a, b) {
       return switch (_sortMode) {
-        _RegionAreaSortMode.area => _compareWithSortKeyFallback(
-          b.visitedKm2.compareTo(a.visitedKm2),
-          a,
-          b,
+        AchievementRegionSort.area => compareAchievementRegionArea(
+          aVisitedKm2: a.visitedKm2,
+          aSortKey: a.sortKey,
+          bVisitedKm2: b.visitedKm2,
+          bSortKey: b.sortKey,
         ),
-        _RegionAreaSortMode.coverage => _compareWithSortKeyFallback(
+        AchievementRegionSort.coverage => _compareWithSortKeyFallback(
           b.progress.compareTo(a.progress),
           a,
           b,
@@ -140,21 +282,21 @@ class _AchievementRegionAreaListPageState
 class _RegionAreaSortControl extends StatelessWidget {
   const _RegionAreaSortControl({required this.value, required this.onChanged});
 
-  final _RegionAreaSortMode value;
-  final ValueChanged<_RegionAreaSortMode> onChanged;
+  final AchievementRegionSort value;
+  final ValueChanged<AchievementRegionSort> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    return SegmentedButton<_RegionAreaSortMode>(
+    return SegmentedButton<AchievementRegionSort>(
       expandedInsets: EdgeInsets.zero,
       showSelectedIcon: false,
       segments: [
         ButtonSegment(
-          value: _RegionAreaSortMode.area,
+          value: AchievementRegionSort.area,
           label: Text(context.tr('achievement.region_list.sort_area')),
         ),
         ButtonSegment(
-          value: _RegionAreaSortMode.coverage,
+          value: AchievementRegionSort.coverage,
           label: Text(context.tr('achievement.region_list.sort_coverage')),
         ),
       ],
@@ -188,117 +330,158 @@ class _RegionAreaListTile extends StatelessWidget {
     required this.item,
     required this.showIcon,
     required this.reserveChevronSpace,
+    required this.selectOnMap,
   });
 
   final AchievementRegionAreaListItem item;
   final bool showIcon;
   final bool reserveChevronSpace;
+  final bool selectOnMap;
 
   @override
   Widget build(BuildContext context) {
-    final area = formatArea(
-      context,
-      item.visitedKm2,
-      fractionDigits: _areaFractionDigits,
+    final area = item.formattedArea(context);
+    final coverage = Text(
+      item.coverageText,
+      style: AppTypography.label.copyWith(
+        color: context.appColors.mutedInkColor,
+      ),
     );
-
-    return Material(
-      type: MaterialType.transparency,
-      child: InkWell(
-        onTap: item.onTap,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              if (showIcon) ...[
-                item.flagCountryCode == null
-                    ? Container(
-                        width: 42,
-                        height: 42,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: context.appColors.softGreen,
-                          border: Border.all(
-                            color: context.appColors.lineColor,
-                          ),
-                        ),
-                        child: Icon(
-                          Icons.public_rounded,
-                          color: context.appColors.deepGreen,
-                          size: 23,
-                        ),
-                      )
-                    : AchievementCountryFlagBadge(
-                        countryCode: item.flagCountryCode!,
-                      ),
-                const SizedBox(width: 12),
-              ],
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+    final content = Padding(
+      padding: EdgeInsets.fromLTRB(
+        16,
+        14,
+        selectOnMap && reserveChevronSpace ? 0 : 16,
+        14,
+      ),
+      child: Row(
+        children: [
+          if (showIcon) ...[
+            item.flagCountryCode == null
+                ? Container(
+                    width: 42,
+                    height: 42,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: context.appColors.softGreen,
+                      border: Border.all(color: context.appColors.lineColor),
+                    ),
+                    child: Icon(
+                      Icons.public_rounded,
+                      color: context.appColors.deepGreen,
+                      size: 23,
+                    ),
+                  )
+                : AchievementCountryFlagBadge(
+                    countryCode: item.flagCountryCode!,
+                  ),
+            const SizedBox(width: 12),
+          ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            item.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppTypography.subpageTitle.copyWith(
-                              color: context.appColors.inkColor,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
+                    Expanded(
+                      child: Text(
+                        item.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.subpageTitle.copyWith(
+                          color: context.appColors.inkColor,
+                          fontWeight: FontWeight.w700,
                         ),
-                        const SizedBox(width: 10),
-                        _RegionAreaText(area: area),
-                      ],
+                      ),
                     ),
-                    const SizedBox(height: 9),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: AchievementProgressLine(
-                            progress: item.progress,
-                            accent: context.appColors.primaryGreen,
-                            height: 6,
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Text(
-                          formatPercent(
-                            item.progress,
-                            fractionDigits: _coverageFractionDigits,
-                          ),
-                          style: AppTypography.label.copyWith(
-                            color: context.appColors.mutedInkColor,
-                          ),
-                        ),
-                      ],
-                    ),
+                    const SizedBox(width: 10),
+                    if (selectOnMap)
+                      Flexible(child: _RegionAreaText(area: area))
+                    else
+                      _RegionAreaText(area: area),
                   ],
                 ),
-              ),
-              if (reserveChevronSpace) ...[
-                const SizedBox(width: 8),
-                SizedBox(
-                  width: 22,
-                  child: item.onTap == null
-                      ? null
-                      : Icon(
-                          Icons.chevron_right_rounded,
-                          color: context.appColors.mutedInkColor,
-                          size: 22,
+                const SizedBox(height: 9),
+                Row(
+                  children: [
+                    Expanded(
+                      child: AchievementProgressLine(
+                        progress: item.progress,
+                        accent: context.appColors.primaryGreen,
+                        height: 6,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    if (selectOnMap)
+                      Flexible(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerRight,
+                          child: coverage,
                         ),
+                      )
+                    else
+                      coverage,
+                  ],
                 ),
               ],
-            ],
+            ),
           ),
-        ),
+          if (reserveChevronSpace && !selectOnMap) ...[
+            const SizedBox(width: 8),
+            SizedBox(
+              width: 22,
+              child: item.onTap == null
+                  ? null
+                  : Icon(
+                      Icons.chevron_right_rounded,
+                      color: context.appColors.mutedInkColor,
+                      size: 22,
+                    ),
+            ),
+          ],
+        ],
       ),
+    );
+    final row = InkWell(onTap: item.onTap, child: content);
+    return Material(
+      type: item.selected ? MaterialType.canvas : MaterialType.transparency,
+      color: item.selected ? context.appColors.softGreen : null,
+      child: selectOnMap
+          ? Row(
+              children: [
+                Expanded(
+                  child: Semantics(
+                    container: true,
+                    button: true,
+                    selected: item.selected,
+                    label: context.tr(
+                      'achievement.region_explorer.select',
+                      args: [item.name],
+                    ),
+                    child: row,
+                  ),
+                ),
+                if (reserveChevronSpace)
+                  if (item.onDrill case final drill?)
+                    IconButton(
+                      tooltip: context.tr(
+                        'achievement.region_explorer.drill',
+                        args: [item.name],
+                      ),
+                      onPressed: drill,
+                      icon: Icon(
+                        Icons.chevron_right_rounded,
+                        color: context.appColors.mutedInkColor,
+                      ),
+                    )
+                  else
+                    const SizedBox(width: 48),
+              ],
+            )
+          : row,
     );
   }
 }

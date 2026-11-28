@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:memolanes/common/region_preference.dart';
 
@@ -50,6 +52,31 @@ void main() {
         expect(nextLaunch.currentWorldview, Worldview.usa);
       },
     );
+
+    test('activation notifies start before work and settlement after failure', () async {
+      await manager.initialize();
+      final pending = Completer<void>();
+      final observed = <String>[];
+      final controlled = WorldviewManager.forTesting(
+        readSavedWorldview: () => Worldview.iso,
+        readDeviceRegion: () async => null,
+        activateGeoData: (worldview) =>
+            worldview == Worldview.iso ? Future<void>.value() : pending.future,
+        persistWorldview: (_) {},
+      );
+      await controlled.initialize();
+      controlled.addActivationListener((activating) {
+        observed.add(
+          '${activating ? 'start' : 'settled'}:${controlled.currentWorldview}',
+        );
+      });
+      final update = controlled.update(Worldview.usa);
+      await Future<void>.delayed(Duration.zero);
+      expect(observed, ['start:Worldview.iso']);
+      pending.completeError(StateError('failed'));
+      await expectLater(update, throwsStateError);
+      expect(observed, ['start:Worldview.iso', 'settled:Worldview.iso']);
+    });
 
     test('activation failure preserves active and saved choices', () async {
       preferences.saved = Worldview.chn;

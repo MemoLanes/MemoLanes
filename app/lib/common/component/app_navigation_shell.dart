@@ -29,6 +29,9 @@ class AppNavigationShell extends StatelessWidget {
     this.animateNavigationVisibility = false,
     this.contentMode = AppNavigationContentMode.fullBleed,
     this.bottomTrailingOverlay,
+    this.fullBleedOverlay,
+    this.retainedMap,
+    this.mapVisible = true,
   });
 
   /// Scroll-content offsets resolved by the shared layout on every device.
@@ -40,6 +43,12 @@ class AppNavigationShell extends StatelessWidget {
 
   /// Small map overlay aligned above the navigation, hidden with app chrome.
   final Widget? bottomTrailingOverlay;
+
+  /// Hides navigation and body without changing the body's layout.
+  final Widget? fullBleedOverlay;
+
+  final Widget? retainedMap;
+  final bool mapVisible;
 
   @override
   Widget build(BuildContext context) {
@@ -57,19 +66,46 @@ class AppNavigationShell extends StatelessWidget {
         navigationMedia: mediaQuery,
         builder: (context, layout) => Stack(
           children: [
+            if (retainedMap != null)
+              Positioned.fill(
+                child: IgnorePointer(
+                  ignoring: !mapVisible,
+                  child: ExcludeSemantics(
+                    excluding: !mapVisible,
+                    child: retainedMap!,
+                  ),
+                ),
+              ),
+            // Menu content is transparent; cover the retained native surface
+            // without changing its viewport, identity, or document underneath.
+            if (retainedMap != null && !mapVisible)
+              Positioned.fill(
+                child: ColoredBox(
+                  color: Theme.of(context).scaffoldBackgroundColor,
+                ),
+              ),
             // Menu pages keep vertical insets inside their scroll content so
             // the viewport extends beneath system chrome and the nav bar.
-            PageContentInsets.menu(
-              layout: layout,
-              enabled: insetContent,
-              child: bodyBuilder(
-                topSafeArea: insetContent ? layout.menuScrollInsets.top : 0,
-                bottomSafeArea: layout.menuScrollInsets.bottom,
+            Offstage(
+              key: const ValueKey('navigation-shell-body'),
+              offstage: fullBleedOverlay != null,
+              child: PageContentInsets.menu(
+                layout: layout,
+                enabled: insetContent,
+                child: bodyBuilder(
+                  topSafeArea: insetContent ? layout.menuScrollInsets.top : 0,
+                  bottomSafeArea: layout.menuScrollInsets.bottom,
+                ),
               ),
             ),
+            if (fullBleedOverlay != null)
+              SizedBox.expand(child: fullBleedOverlay),
             FadingOverlay(
               animate: animateNavigationVisibility,
-              child: navigationVisible && layout.chromeReady
+              child:
+                  fullBleedOverlay == null &&
+                      navigationVisible &&
+                      layout.chromeReady
                   ? Stack(
                       children: [
                         Positioned.fromRect(

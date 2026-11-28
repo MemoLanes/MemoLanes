@@ -183,8 +183,9 @@ fn init_or_change_geo_data_rejects_mismatched_worldview_id() {
         .init_or_change_geo_data(Worldview::Iso, [0u8; 32], &bytes)
         .expect_err("mismatched worldview id must be rejected");
     assert!(
-        err.to_string().contains("declares worldview"),
-        "unexpected error: {err}"
+        err.chain()
+            .any(|cause| cause.to_string().contains("declares worldview")),
+        "unexpected error: {err:#}"
     );
 }
 

@@ -12,6 +12,18 @@ pub use crate::achievement::region::{
 };
 pub use geo_data_format::GeoEntityId;
 
+#[derive(Debug, Clone)]
+pub struct RegionGeometry {
+    pub entity_id: GeoEntityId,
+    pub worldview: Worldview,
+    pub bounds: crate::utils::MapBounds,
+    pub feature_geojson: String,
+}
+
+pub fn region_geometry(entity_id: GeoEntityId) -> Result<Option<RegionGeometry>> {
+    crate::api::api::get().storage.region_geometry(entity_id)
+}
+
 // `GeoEntityId` (external `geo_data_format`) keys `RegionLevelView.entries` /
 // `RegionDetail.children`. Mirror its field so Dart gets a value class with
 // `==`/`hashCode` (usable as a `Map` key, buildable from an int), not an opaque box.
@@ -76,7 +88,7 @@ impl From<Worldview> for GeoWorldview {
 
 pub async fn activate_geo_data(
     worldview: Worldview,
-    load_asset: impl Fn() -> DartFnFuture<Vec<u8>>,
+    load_asset: impl Fn() -> DartFnFuture<Result<Vec<u8>>>,
 ) -> Result<()> {
     let expected = crate::geo_provenance::bundled_provenance_hash(worldview.into())
         .ok_or_else(|| anyhow::anyhow!("this build has no bundled geo data"))?;
@@ -84,8 +96,16 @@ pub async fn activate_geo_data(
     if storage.open_installed_geo_data(worldview.into(), expected)? {
         return Ok(());
     }
-    let bytes = load_asset().await;
-    storage.init_or_change_geo_data(worldview.into(), expected, &bytes)
+    let replacement = load_asset()
+        .await
+        .and_then(|bytes| storage.init_or_change_geo_data(worldview.into(), expected, &bytes));
+    match replacement {
+        Err(error) if storage.has_coverage_during_display_repair(worldview.into(), expected) => {
+            warn!("could not repair {worldview:?} display; continuing with installed coverage: {error:#}");
+            Ok(())
+        }
+        result => result,
+    }
 }
 
 /// Explored area for a single layer.
