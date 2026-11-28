@@ -1484,8 +1484,8 @@ packages:
     dependency: "direct main"
     description:
       path: "packages/tracelet"
-      ref: "codex/memolanes-stationary-exit"
-      resolved-ref: ec7077a9766cf6dba85f10e29dd53591da66811d
+      ref: "codex/memolanes"
+      resolved-ref: c39cb0a5a14ce04263a9e82c0fded2eb394201b6
       url: "https://github.com/kuailezhiyuan/Tracelet.git"
     source: git
     version: "3.8.10"
@@ -1493,8 +1493,8 @@ packages:
     dependency: "direct overridden"
     description:
       path: "packages/tracelet_android"
-      ref: "codex/memolanes-stationary-exit"
-      resolved-ref: ec7077a9766cf6dba85f10e29dd53591da66811d
+      ref: "codex/memolanes"
+      resolved-ref: c39cb0a5a14ce04263a9e82c0fded2eb394201b6
       url: "https://github.com/kuailezhiyuan/Tracelet.git"
     source: git
     version: "3.8.10"
@@ -1502,8 +1502,8 @@ packages:
     dependency: "direct overridden"
     description:
       path: "packages/tracelet_ios"
-      ref: "codex/memolanes-stationary-exit"
-      resolved-ref: ec7077a9766cf6dba85f10e29dd53591da66811d
+      ref: "codex/memolanes"
+      resolved-ref: c39cb0a5a14ce04263a9e82c0fded2eb394201b6
       url: "https://github.com/kuailezhiyuan/Tracelet.git"
     source: git
     version: "3.8.10"
@@ -1511,8 +1511,8 @@ packages:
     dependency: "direct overridden"
     description:
       path: "packages/tracelet_platform_interface"
-      ref: "codex/memolanes-stationary-exit"
-      resolved-ref: ec7077a9766cf6dba85f10e29dd53591da66811d
+      ref: "codex/memolanes"
+      resolved-ref: c39cb0a5a14ce04263a9e82c0fded2eb394201b6
       url: "https://github.com/kuailezhiyuan/Tracelet.git"
     source: git
     version: "3.8.10"
