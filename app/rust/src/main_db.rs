@@ -31,9 +31,6 @@ two parts: header and data, so most common operation only need to fetch and
 deserialize the header.
 */
 
-// 3 is the zstd default
-pub const ZSTD_COMPRESS_LEVEL: i32 = 3;
-
 pub struct Txn<'a> {
     db_txn: rusqlite::Transaction<'a>,
     pub action: Option<Action>,
