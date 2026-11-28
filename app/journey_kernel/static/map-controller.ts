@@ -38,6 +38,7 @@ import type { JourneyLayer } from "./layers/journey-layer-interface";
 import { MAX_MAP_ZOOM } from "./layer-config";
 import { waitForRenderedFrame } from "./display-ready";
 import { captureMapScreenshot } from "./map-screenshot";
+import { configureMapTouchGestures } from "./map-touch-gestures";
 import {
   PLACEHOLDER_STYLE_METADATA_KEY,
   StyleLoadRetry,
@@ -175,6 +176,7 @@ export class MapController {
     // Disable rotation controls
     this.map.dragRotate.disable();
     this.map.touchZoomRotate.disableRotation();
+    configureMapTouchGestures(this.map);
     this.map.on("move", () => this.updatePolarProjectionMode());
     this.map.on("moveend", () => {
       this.polarCameraTargetLatitude = null;

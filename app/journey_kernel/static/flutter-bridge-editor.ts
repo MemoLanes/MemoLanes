@@ -1,5 +1,5 @@
-import * as maplibregl from "maplibre-gl";
-import { FlutterBridge } from "./flutter-bridge";
+import type * as maplibregl from "maplibre-gl";
+import type { FlutterBridge } from "./flutter-bridge";
 
 // Declare window extensions for Flutter channels (editor only)
 declare global {
@@ -151,6 +151,8 @@ export class FlutterBridgeEditor {
         this.clearSelectionOverlay();
         return;
       }
+      // Consume MapLibre's gesture too, so rapid selections cannot zoom.
+      e.preventDefault();
       this.preventDefault(originalEvent);
 
       this.startPoint = e.point;
@@ -281,6 +283,8 @@ export class FlutterBridgeEditor {
         this.clearDrawLayer();
         return;
       }
+      // Consume MapLibre's gesture too, so rapid strokes cannot zoom.
+      e.preventDefault();
       this.preventDefault(originalEvent);
 
       this.ensureDrawLayer();
