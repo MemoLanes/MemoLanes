@@ -158,12 +158,14 @@ void main() {
       expect(platform.config!.motion.speedMovingThreshold, 0.9);
       expect(platform.config!.motion.enableGpsTremorOverride, false);
       expect(platform.config!.motion.speedWakeConfirmCount, 3);
+      expect(platform.config!.motion.stationaryExitRadiusMeters, 1000);
       await service.flushRecording();
       await service.stopLocationUpdates();
       await service.flushRecording();
       final map = TraceletLocationService(_recordLocation);
       await map.startLocationUpdates(false);
       expect(platform.config!.app.heartbeatInterval, -1);
+      expect(platform.config!.motion.stationaryExitRadiusMeters, 0);
       expect(platform.config!.motion.disableMotionActivityUpdates, true);
       expect(platform.motionRequests, 0);
       await map.stopLocationUpdates();
