@@ -49,14 +49,16 @@ mod process_result_tests {
 // It is unfortunate that we may keep duplicate data but I believe this is
 // clearer and easier to maintain.
 struct BadDataDetector {
-    timestamp_ms_and_point: Option<(i64, Point)>,
+    last_timestamp_ms: Option<i64>,
+    last_point: Option<Point>,
     speed: Option<f32>,
 }
 
 impl BadDataDetector {
     pub fn new() -> Self {
         BadDataDetector {
-            timestamp_ms_and_point: None,
+            last_timestamp_ms: None,
+            last_point: None,
             speed: None,
         }
     }
@@ -75,18 +77,21 @@ impl BadDataDetector {
         }
 
         if let Some(timestamp_ms) = curr_data.timestamp_ms {
-            if let Some((prev_timestamp_ms, prev_point)) = &self.timestamp_ms_and_point {
-                // Invalid timestamp
-                if timestamp_ms <= *prev_timestamp_ms {
-                    return true;
-                }
+            if self
+                .last_timestamp_ms
+                .is_some_and(|prev| timestamp_ms <= prev)
+            {
+                return true;
+            }
+            if let (Some(prev_timestamp_ms), Some(prev_point)) =
+                (self.last_timestamp_ms, &self.last_point)
+            {
                 let time_span_in_sec = (timestamp_ms - prev_timestamp_ms) as f32 / 1000.0;
 
-                // reset the state if the time span is too long, otherwise we
-                // might have a very outdated speed value. In general, a lot of
-                // assumptions here do not hold if the time span is too long.
+                // Restart speed estimation after a gap, but keep the ordering check.
                 if time_span_in_sec >= 10. {
-                    self.timestamp_ms_and_point = None;
+                    self.last_timestamp_ms = Some(timestamp_ms);
+                    self.last_point = None;
                     self.speed = None;
                     return false;
                 }
@@ -107,7 +112,8 @@ impl BadDataDetector {
                 // Note: state should only be updated for good data
                 self.speed = Some(speed);
             }
-            self.timestamp_ms_and_point = Some((timestamp_ms, curr_data.point.clone()));
+            self.last_timestamp_ms = Some(timestamp_ms);
+            self.last_point = Some(curr_data.point.clone());
         }
         false
     }
@@ -148,6 +154,12 @@ pub struct GpsPreprocessor {
 impl GpsPreprocessor {
     pub fn new() -> Self {
         Self::new_with_rule(SegmentGapRule::Default)
+    }
+
+    pub(crate) fn from_last_timestamp(timestamp_ms: Option<i64>) -> Self {
+        let mut preprocessor = Self::new();
+        preprocessor.bad_data_detector.last_timestamp_ms = timestamp_ms;
+        preprocessor
     }
 
     pub fn new_with_rule(rule: SegmentGapRule) -> Self {

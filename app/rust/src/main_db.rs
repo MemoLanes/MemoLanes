@@ -753,35 +753,6 @@ impl Txn<'_> {
         Ok(days)
     }
 
-    // TODO: consider moving this to `storage.rs`
-    #[auto_context]
-    pub fn try_auto_finalize_journey(&mut self, retain_raw_data: bool) -> Result<bool> {
-        match self.get_ongoing_journey_timestamp_range()? {
-            None => Ok(false),
-            Some((start, end)) => {
-                // NOTE: this logic is not called very frequently
-
-                let now = Local::now();
-                let recording_length_hours = (now.timestamp() - start.timestamp()) / 60 / 60;
-                let required_gap_mins =
-                    crate::journey_date_picker::min_gap(start, now, recording_length_hours);
-
-                let gap_mins = (now.timestamp() - end.timestamp()).max(0) / 60;
-
-                let try_finalize = gap_mins >= required_gap_mins;
-
-                info!(
-                    "Auto finalize ongoing journey: recording_length_hours={recording_length_hours}, gap_mins={gap_mins}, required_gap_mins={required_gap_mins}, try_finalize={try_finalize}"
-                );
-                if try_finalize {
-                    self.finalize_ongoing_journey(retain_raw_data)
-                } else {
-                    Ok(false)
-                }
-            }
-        }
-    }
-
     pub fn earliest_journey_date(&self) -> Result<Option<NaiveDate>> {
         let mut query = self
             .db_txn
