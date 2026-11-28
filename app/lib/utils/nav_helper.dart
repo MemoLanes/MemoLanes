@@ -1,9 +1,13 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:memolanes/common/component/permission_request_sheet.dart';
 import 'package:memolanes/common/loading_manager.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/common/service/permission_service.dart';
+import 'package:memolanes/common/utils.dart' show showCommonDialog;
+import 'package:permission_handler/permission_handler.dart'
+    show openAppSettings;
 
 /// Root [Navigator] key shared across the app (dialogs, permission flow, share handler).
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -30,7 +34,7 @@ Future<T?> navigatorPush<T>(
   );
 }
 
-// --- Permission sheet (needs [navigatorKey], kept out of [PermissionService]) ---
+// --- Permission UI (needs [navigatorKey], kept out of [PermissionService]) ---
 
 /// First launch only: if any permission is still needed and the sheet was never shown,
 /// show it once and persist in MMKV.
@@ -102,6 +106,37 @@ Future<bool> checkAndRequestPermission() async {
     return hasLocation;
   } catch (e, s) {
     log.error("[NavHelper] checkAndRequestPermission $e", s);
+    return false;
+  }
+}
+
+/// Ask for Always location access when starting background recording.
+Future<bool> checkAndRequestBackgroundLocationPermission() async {
+  try {
+    final permissions = PermissionService();
+    if (await permissions.checkBackgroundLocationPermission()) return true;
+
+    final context = navigatorKey.currentState?.context;
+    if (context == null || !context.mounted) return false;
+    final confirmed = await showCommonDialog(
+      context,
+      context.tr('location_service.always_location_required'),
+      hasCancel: true,
+      confirmButtonText: context.tr('permission_sheet.open_system_settings'),
+    );
+    if (!context.mounted) return false;
+    if (confirmed) {
+      if (!await openAppSettings()) {
+        throw StateError('Could not open app settings for background location');
+      }
+      return false;
+    }
+    return await permissions.checkBackgroundLocationPermission();
+  } catch (error, stackTrace) {
+    log.error(
+      '[PermissionFlow] Requesting background location failed: $error',
+      stackTrace,
+    );
     return false;
   }
 }

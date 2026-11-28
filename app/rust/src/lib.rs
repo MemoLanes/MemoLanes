@@ -35,6 +35,7 @@ mod logs;
 pub mod main_db;
 mod protos;
 pub mod raw_data;
+mod recording;
 pub mod renderer;
 mod spherical_geometry;
 pub mod storage;

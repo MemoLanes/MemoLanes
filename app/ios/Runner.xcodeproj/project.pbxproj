@@ -24,6 +24,7 @@
 		EC2080012F2A1000003C4334 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = EC2080022F2A1000003C4334 /* Localizable.strings */; };
 		EC946C1B2F0E1A7C00214BC0 /* ShareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = EC946C112F0E1A7C00214BC0 /* ShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		F7B13A802FCA000000000003 /* zikzak-share-handler-ios-models in Frameworks */ = {isa = PBXBuildFile; productRef = F7B13A802FCA000000000004 /* zikzak-share-handler-ios-models */; };
+		FDBE54862FA0000000000002 /* TraceletMotionDiagnosticsPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDBE54862FA0000000000001 /* TraceletMotionDiagnosticsPlugin.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -101,6 +102,7 @@
 		EC2080032F2A1000003C4334 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		EC2080042F2A1000003C4334 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
 		EC946C112F0E1A7C00214BC0 /* ShareExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		FDBE54862FA0000000000001 /* TraceletMotionDiagnosticsPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = TraceletMotionDiagnosticsPlugin.swift; path = Debug/TraceletMotionDiagnosticsPlugin.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -228,6 +230,7 @@
 				1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */,
 				74858FAE1ED2DC5600515810 /* AppDelegate.swift */,
 				75D9523F319D0A73004A2911 /* DeviceRegionPlugin.swift */,
+				FDBE54862FA0000000000001 /* TraceletMotionDiagnosticsPlugin.swift */,
 				8A8F4D662A7B4A3B00112233 /* AppShortcuts.swift */,
 				74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */,
 			);
@@ -505,6 +508,7 @@
 				8A8F4D672A7B4A3B00112233 /* AppShortcuts.swift in Sources */,
 				74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */,
 				75D95240319D0A73004A2911 /* DeviceRegionPlugin.swift in Sources */,
+				FDBE54862FA0000000000002 /* TraceletMotionDiagnosticsPlugin.swift in Sources */,
 				1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -835,6 +839,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.memolanes.oss.dev;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_OBJC_BRIDGING_HEADER = "Runner/Runner-Bridging-Header.h";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";

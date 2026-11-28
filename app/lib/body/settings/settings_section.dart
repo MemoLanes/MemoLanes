@@ -39,6 +39,7 @@ class SettingsTile extends StatelessWidget {
       trailing: trailing,
       onTap: onTap,
       minHeight: 56,
+      margin: EdgeInsets.zero,
       // Leave room for a 48px switch target and the bottom border within 56px.
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
     );

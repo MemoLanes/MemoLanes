@@ -38,7 +38,8 @@ fn basic() {
         api::on_location_update(ExtendedRawGPSPoint {
             raw_gps_point: raw_data.clone(),
             received_timestamp_ms: raw_data.timestamp_ms.unwrap(),
-        });
+        })
+        .unwrap();
         if i == 1000 {
             assert!(api::has_ongoing_journey().unwrap());
             assert!(api::finalize_ongoing_journey().unwrap());
@@ -69,7 +70,8 @@ fn basic() {
         api::on_location_update(ExtendedRawGPSPoint {
             raw_gps_point: raw_data.clone(),
             received_timestamp_ms: raw_data.timestamp_ms.unwrap(),
-        });
+        })
+        .unwrap();
     }
 
     {
