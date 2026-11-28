@@ -303,7 +303,7 @@ class TraceletLocationService extends ILocationService {
           // Slow movement must not be overridden by a near-zero GPS reading.
           enableGpsTremorOverride: enableBackground ? false : null,
           speedWakeConfirmCount: enableBackground ? 3 : null,
-          stationaryExitRadiusMeters: useSmartPowerSaving ? 1000 : 0,
+          stationaryExitDistanceMeters: useSmartPowerSaving ? 500 : 0,
           stationaryTrackingMode: enableBackground
               ? tl.StationaryTrackingMode.continuous
               : null,
