@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use chrono::{DateTime, Local, NaiveDate, TimeZone, Utc};
+use chrono::{DateTime, NaiveDate, TimeZone, Utc};
 
 use crate::gps::RawGPSPoint;
 use crate::journey_date_picker::{BoundaryTracker, JourneyDatePicker};
@@ -89,7 +89,7 @@ impl PartBuilder {
     }
 
     fn should_split_at(&self, timestamp: DateTime<Utc>) -> bool {
-        self.has_points() && self.boundary.should_end_at(timestamp.with_timezone(&Local))
+        self.has_points() && self.boundary.should_end_at(timestamp.timestamp_millis())
     }
 
     fn push(&mut self, point: &RawGPSPoint, point_index: usize) {
@@ -103,7 +103,7 @@ impl PartBuilder {
             self.untimed += 1;
             return;
         };
-        self.boundary.observe(timestamp);
+        self.boundary.observe(timestamp.timestamp_millis());
         self.date_picker.add_point(
             timestamp,
             &TrackPoint {

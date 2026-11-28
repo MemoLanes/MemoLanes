@@ -95,9 +95,10 @@ fn time_difference() {
         gps_preprocessor.last_kept_point().unwrap().latitude,
         120.163857
     );
+    // A late fix after a long gap must be rejected even if it moved far enough to keep.
     let result = gps_preprocessor.preprocess(&RawGPSPoint {
         point: Point {
-            latitude: 120.163856,
+            latitude: 120.173856,
             longitude: 30.2719716,
         },
         timestamp_ms: Some(1697349116449),

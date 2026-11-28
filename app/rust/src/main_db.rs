@@ -12,7 +12,7 @@ use uuid::Uuid;
 pub use crate::cache_db::CacheEntry;
 use crate::gps_processor::{self, GpsPostprocessor, PreprocessedData, ProcessResult};
 use crate::journey_data::JourneyData;
-use crate::journey_date_picker::JourneyDatePicker;
+use crate::journey_date_picker::{should_end_journey, JourneyDatePicker};
 use crate::journey_header::{JourneyHeader, JourneyKind, JourneyType};
 use crate::journey_vector::{JourneyVector, TrackPoint};
 use crate::{gps, protos, raw_data, utils};
@@ -759,29 +759,19 @@ impl Txn<'_> {
     // TODO: consider moving this to `storage.rs`
     #[auto_context]
     pub fn try_auto_finalize_journey(&mut self, retain_raw_data: bool) -> Result<bool> {
-        match self.get_ongoing_journey_timestamp_range()? {
-            None => Ok(false),
-            Some((start, end)) => {
-                // NOTE: this logic is not called very frequently
-
-                let now = Local::now();
-                let recording_length_hours = (now.timestamp() - start.timestamp()) / 60 / 60;
-                let required_gap_mins =
-                    crate::journey_date_picker::min_gap(start, now, recording_length_hours);
-
-                let gap_mins = (now.timestamp() - end.timestamp()).max(0) / 60;
-
-                let try_finalize = gap_mins >= required_gap_mins;
-
-                info!(
-                    "Auto finalize ongoing journey: recording_length_hours={recording_length_hours}, gap_mins={gap_mins}, required_gap_mins={required_gap_mins}, try_finalize={try_finalize}"
-                );
-                if try_finalize {
-                    self.finalize_ongoing_journey(retain_raw_data)
-                } else {
-                    Ok(false)
-                }
-            }
+        if self
+            .get_ongoing_journey_timestamp_range()?
+            .is_some_and(|(start, end)| {
+                should_end_journey(
+                    start.timestamp_millis(),
+                    end.timestamp_millis(),
+                    Utc::now().timestamp_millis(),
+                )
+            })
+        {
+            self.finalize_ongoing_journey(retain_raw_data)
+        } else {
+            Ok(false)
         }
     }
 
