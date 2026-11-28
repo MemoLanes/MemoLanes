@@ -179,8 +179,8 @@ void _providerTests(TargetPlatform target, _Preferences preferences) {
       expect(platform.config!.motion.enableGpsTremorOverride, false);
       expect(platform.config!.motion.speedWakeConfirmCount, 3);
       expect(
-        platform.config!.motion.stationaryExitRadiusMeters,
-        target == TargetPlatform.iOS ? 1000 : 0,
+        platform.config!.motion.stationaryExitDistanceMeters,
+        target == TargetPlatform.iOS ? 500 : 0,
       );
       await service.flushRecording();
       await service.stopLocationUpdates();
@@ -188,7 +188,7 @@ void _providerTests(TargetPlatform target, _Preferences preferences) {
       final map = TraceletLocationService(_recordLocation);
       await map.startLocationUpdates(false);
       expect(platform.config!.app.heartbeatInterval, -1);
-      expect(platform.config!.motion.stationaryExitRadiusMeters, 0);
+      expect(platform.config!.motion.stationaryExitDistanceMeters, 0);
       expect(platform.config!.app.stopOnTerminate, isTrue);
       expect(platform.config!.android.stationaryLocationUpdateInterval, 0);
       expect(platform.config!.android.releaseWakelockWhenStationary, isFalse);

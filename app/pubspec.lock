@@ -1485,7 +1485,7 @@ packages:
     description:
       path: "packages/tracelet"
       ref: "codex/memolanes"
-      resolved-ref: c39cb0a5a14ce04263a9e82c0fded2eb394201b6
+      resolved-ref: "7dbb97b85abad8dd8d8cc357a3e0b8024a7e6caa"
       url: "https://github.com/kuailezhiyuan/Tracelet.git"
     source: git
     version: "3.8.10"
@@ -1494,7 +1494,7 @@ packages:
     description:
       path: "packages/tracelet_android"
       ref: "codex/memolanes"
-      resolved-ref: c39cb0a5a14ce04263a9e82c0fded2eb394201b6
+      resolved-ref: "7dbb97b85abad8dd8d8cc357a3e0b8024a7e6caa"
       url: "https://github.com/kuailezhiyuan/Tracelet.git"
     source: git
     version: "3.8.10"
@@ -1503,7 +1503,7 @@ packages:
     description:
       path: "packages/tracelet_ios"
       ref: "codex/memolanes"
-      resolved-ref: c39cb0a5a14ce04263a9e82c0fded2eb394201b6
+      resolved-ref: "7dbb97b85abad8dd8d8cc357a3e0b8024a7e6caa"
       url: "https://github.com/kuailezhiyuan/Tracelet.git"
     source: git
     version: "3.8.10"
@@ -1512,7 +1512,7 @@ packages:
     description:
       path: "packages/tracelet_platform_interface"
       ref: "codex/memolanes"
-      resolved-ref: c39cb0a5a14ce04263a9e82c0fded2eb394201b6
+      resolved-ref: "7dbb97b85abad8dd8d8cc357a3e0b8024a7e6caa"
       url: "https://github.com/kuailezhiyuan/Tracelet.git"
     source: git
     version: "3.8.10"

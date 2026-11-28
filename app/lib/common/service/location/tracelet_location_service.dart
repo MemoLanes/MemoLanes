@@ -338,9 +338,9 @@ class TraceletLocationService extends ILocationService {
           enableGpsTremorOverride: enableBackground ? false : null,
           speedWakeConfirmCount: enableBackground ? 3 : null,
           // TODO: Enable stationary exit recovery on Android after validating it on a device.
-          stationaryExitRadiusMeters:
+          stationaryExitDistanceMeters:
               defaultTargetPlatform == TargetPlatform.iOS && useSmartPowerSaving
-              ? 1000
+              ? 500
               : 0,
           stationaryTrackingMode: enableBackground
               ? tl.StationaryTrackingMode.continuous
