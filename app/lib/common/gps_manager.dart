@@ -100,7 +100,6 @@ class GpsManager extends ChangeNotifier {
     if (recordingStatus == GpsRecordingStatus.recording) {
       _idleTimer.onResume();
     } else if (recordingStatus == GpsRecordingStatus.paused) {
-      // Let foreground work settle before checking a paused journey.
       _pausedResumeTimer ??= Timer(const Duration(seconds: 5), () {
         _pausedResumeTimer = null;
         unawaited(
@@ -295,16 +294,12 @@ class GpsManager extends ChangeNotifier {
   Future<void> _record(LocationData data, int receivedAtMs) async {
     try {
       final result = await api.onLocationUpdate(
-        data: ExtendedRawGPSPoint(
-          rawGpsPoint: RawGPSPoint(
-            point: Point(latitude: data.latitude, longitude: data.longitude),
-            timestampMs: data.timestampMs,
-            accuracy: data.accuracy,
-            altitude: data.altitude,
-            speed: data.speed,
-          ),
-          receivedTimestampMs: receivedAtMs,
-        ),
+        point: Point(latitude: data.latitude, longitude: data.longitude),
+        timestampMs: data.timestampMs,
+        receivedTimestampMs: receivedAtMs,
+        accuracy: data.accuracy,
+        altitude: data.altitude,
+        speed: data.speed,
       );
       if (result.previousJourneyFinalized) _showJourneySaved();
     } catch (error, stackTrace) {

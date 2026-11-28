@@ -4,7 +4,7 @@ use chrono::{DateTime, Local, NaiveDate, TimeZone, Timelike, Utc};
 
 use crate::{gps::Point, journey_vector::TrackPoint};
 
-pub(crate) fn should_end_journey(start_ms: i64, end_ms: i64, now_ms: i64) -> bool {
+fn should_end_journey(start_ms: i64, end_ms: i64, now_ms: i64) -> bool {
     const MINUTE_MS: i64 = 60_000;
     let duration_hours = (now_ms.div_euclid(1000) - start_ms.div_euclid(1000)) / 3600;
     if duration_hours >= 48 {

@@ -10,7 +10,7 @@ use flutter_rust_bridge::frb;
 use crate::cache_db::LayerKind;
 pub use crate::export_data::RawDataExportType;
 use crate::frb_generated::StreamSink;
-pub use crate::gps::ExtendedRawGPSPoint;
+use crate::gps::{ExtendedRawGPSPoint, Point, RawGPSPoint};
 use crate::gps_processor::{GpsPreprocessor, ProcessResult};
 use crate::journey_bitmap::{BitmapPlane, JourneyBitmap};
 use crate::journey_data::JourneyData;
@@ -466,25 +466,36 @@ pub struct LocationUpdateResult {
     pub previous_journey_finalized: bool,
 }
 
-pub fn on_location_update(data: ExtendedRawGPSPoint) -> Result<LocationUpdateResult> {
+pub fn on_location_update(
+    point: Point,
+    timestamp_ms: i64,
+    received_timestamp_ms: i64,
+    accuracy: Option<f32>,
+    altitude: Option<f32>,
+    speed: Option<f32>,
+) -> Result<LocationUpdateResult> {
+    let data = ExtendedRawGPSPoint {
+        raw_gps_point: RawGPSPoint {
+            point,
+            timestamp_ms: Some(timestamp_ms),
+            accuracy,
+            altitude,
+            speed,
+        },
+        received_timestamp_ms,
+    };
     let state = get();
     // The idle finalizer takes this same lock. Hold it through the point write.
     let mut recording = state.recording.lock().unwrap();
     let raw_gps_point = &data.raw_gps_point;
-    let previous_journey_finalized = if let Some(at_ms) = raw_gps_point.timestamp_ms {
-        recording.try_finalize_at(&state.storage, at_ms)?
-    } else {
-        false
-    };
+    let previous_journey_finalized = recording.try_finalize_at(&state.storage, timestamp_ms)?;
 
     let last_point = recording.preprocessor.last_kept_point();
     let process_result = recording.preprocessor.preprocess(raw_gps_point);
     // Persist before drawing so a concurrent map reload cannot overwrite this fix with an older snapshot.
     state.storage.record_gps_data(&data, process_result);
     if process_result != ProcessResult::Ignore {
-        if let Some(at_ms) = raw_gps_point.timestamp_ms {
-            recording.boundary.observe(at_ms);
-        }
+        recording.boundary.observe(timestamp_ms);
     }
 
     let mut main_map_state = state.main_map_state.lock().unwrap();

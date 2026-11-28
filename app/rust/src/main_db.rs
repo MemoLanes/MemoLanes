@@ -12,7 +12,7 @@ use uuid::Uuid;
 pub use crate::cache_db::CacheEntry;
 use crate::gps_processor::{self, GpsPostprocessor, PreprocessedData, ProcessResult};
 use crate::journey_data::JourneyData;
-use crate::journey_date_picker::{should_end_journey, JourneyDatePicker};
+use crate::journey_date_picker::JourneyDatePicker;
 use crate::journey_header::{JourneyHeader, JourneyKind, JourneyType};
 use crate::journey_vector::{JourneyVector, TrackPoint};
 use crate::{gps, protos, raw_data, utils};
@@ -751,25 +751,6 @@ impl Txn<'_> {
             days.push(row?);
         }
         Ok(days)
-    }
-
-    // TODO: consider moving this to `storage.rs`
-    #[auto_context]
-    pub fn try_auto_finalize_journey(&mut self, retain_raw_data: bool) -> Result<bool> {
-        if self
-            .get_ongoing_journey_timestamp_range()?
-            .is_some_and(|(start, end)| {
-                should_end_journey(
-                    start.timestamp_millis(),
-                    end.timestamp_millis(),
-                    Utc::now().timestamp_millis(),
-                )
-            })
-        {
-            self.finalize_ongoing_journey(retain_raw_data)
-        } else {
-            Ok(false)
-        }
     }
 
     pub fn earliest_journey_date(&self) -> Result<Option<NaiveDate>> {

@@ -42,10 +42,18 @@ fn recording_boundaries_follow_sample_time() {
     }
     drop(db);
     api::init(folder.into(), folder.into(), folder.into(), folder.into()).unwrap();
-    let finalizes_previous = |fix| {
-        api::on_location_update(fix)
-            .unwrap()
-            .previous_journey_finalized
+    let finalizes_previous = |fix: ExtendedRawGPSPoint| {
+        let p = fix.raw_gps_point;
+        api::on_location_update(
+            p.point,
+            p.timestamp_ms.unwrap(),
+            fix.received_timestamp_ms,
+            p.accuracy,
+            p.altitude,
+            p.speed,
+        )
+        .unwrap()
+        .previous_journey_finalized
     };
 
     assert!(api::has_ongoing_journey().unwrap());

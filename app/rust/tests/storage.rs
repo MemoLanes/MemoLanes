@@ -116,93 +116,84 @@ where
 
 #[test]
 fn raw_data_mode_controls_capture_and_finalization() {
-    for auto_finalize in [false, true] {
-        for retain_raw_data in [false, true] {
-            setup_storage_for_test(|mut storage| {
-                use std::sync::{
-                    atomic::{AtomicUsize, Ordering},
-                    Arc,
-                };
-                let notifications = Arc::new(AtomicUsize::new(0));
-                let callback_notifications = notifications.clone();
-                storage.set_finalized_journey_changed_callback(Box::new(move |storage| {
-                    // Re-entering Storage verifies callbacks run after releasing
-                    // the database lock and can observe the committed journey.
-                    assert_eq!(
-                        storage
-                            .with_db_txn(|txn| txn.query_journeys(None, None, None))
-                            .unwrap()
-                            .len(),
-                        1
-                    );
-                    callback_notifications.fetch_add(1, Ordering::Relaxed);
-                }));
-                assert!(!storage.get_raw_data_mode());
-                storage.toggle_raw_data_mode(true);
-                let point = ExtendedRawGPSPoint {
-                    raw_gps_point: RawGPSPoint {
-                        point: Point {
-                            latitude: 31.2304,
-                            longitude: 121.4737,
-                        },
-                        timestamp_ms: Some(1_700_000_000_000),
-                        accuracy: None,
-                        altitude: None,
-                        speed: None,
+    for retain_raw_data in [false, true] {
+        setup_storage_for_test(|mut storage| {
+            use std::sync::{
+                atomic::{AtomicUsize, Ordering},
+                Arc,
+            };
+            let notifications = Arc::new(AtomicUsize::new(0));
+            let callback_notifications = notifications.clone();
+            storage.set_finalized_journey_changed_callback(Box::new(move |storage| {
+                // Re-entering Storage verifies callbacks run after releasing
+                // the database lock and can observe the committed journey.
+                assert_eq!(
+                    storage
+                        .with_db_txn(|txn| txn.query_journeys(None, None, None))
+                        .unwrap()
+                        .len(),
+                    1
+                );
+                callback_notifications.fetch_add(1, Ordering::Relaxed);
+            }));
+            assert!(!storage.get_raw_data_mode());
+            storage.toggle_raw_data_mode(true);
+            let point = ExtendedRawGPSPoint {
+                raw_gps_point: RawGPSPoint {
+                    point: Point {
+                        latitude: 31.2304,
+                        longitude: 121.4737,
                     },
-                    received_timestamp_ms: 1_700_000_000_010,
-                };
-                storage.record_gps_data(&point, ProcessResult::Append);
-                storage.toggle_raw_data_mode(retain_raw_data);
-                assert_eq!(storage.get_raw_data_mode(), retain_raw_data);
-                let mut next_point = point.clone();
-                next_point.raw_gps_point.point.latitude += 0.001;
-                next_point.raw_gps_point.timestamp_ms = Some(1_700_000_001_000);
-                next_point.received_timestamp_ms += 1_000;
-                storage.record_gps_data(&next_point, ProcessResult::Append);
+                    timestamp_ms: Some(1_700_000_000_000),
+                    accuracy: None,
+                    altitude: None,
+                    speed: None,
+                },
+                received_timestamp_ms: 1_700_000_000_010,
+            };
+            storage.record_gps_data(&point, ProcessResult::Append);
+            storage.toggle_raw_data_mode(retain_raw_data);
+            assert_eq!(storage.get_raw_data_mode(), retain_raw_data);
+            let mut next_point = point.clone();
+            next_point.raw_gps_point.point.latitude += 0.001;
+            next_point.raw_gps_point.timestamp_ms = Some(1_700_000_001_000);
+            next_point.received_timestamp_ms += 1_000;
+            storage.record_gps_data(&next_point, ProcessResult::Append);
 
-                let expected_points = if retain_raw_data {
-                    vec![point, next_point]
-                } else {
-                    vec![point]
-                };
-                storage
-                    .with_db_txn(|txn| {
-                        let pending = txn.get_ongoing_journey_raw_data()?;
-                        assert_eq!(pending.points, expected_points);
-                        Ok(())
-                    })
-                    .unwrap();
-                let finalize = || {
-                    if auto_finalize {
-                        storage.try_auto_finalize_journey()
-                    } else {
-                        storage.finalize_ongoing_journey()
+            let expected_points = if retain_raw_data {
+                vec![point, next_point]
+            } else {
+                vec![point]
+            };
+            storage
+                .with_db_txn(|txn| {
+                    let pending = txn.get_ongoing_journey_raw_data()?;
+                    assert_eq!(pending.points, expected_points);
+                    Ok(())
+                })
+                .unwrap();
+            assert!(storage.finalize_ongoing_journey().unwrap());
+            assert_eq!(notifications.load(Ordering::Relaxed), 1);
+            assert!(!storage.finalize_ongoing_journey().unwrap());
+            assert_eq!(notifications.load(Ordering::Relaxed), 1);
+            storage
+                .with_db_txn(|txn| {
+                    let headers = txn.query_journeys(None, None, None)?;
+                    assert_eq!(headers.len(), 1);
+                    let header = &headers[0];
+                    assert_eq!(header.has_raw_data, retain_raw_data);
+                    assert!(!txn.get_journey_data(&header.id)?.is_empty());
+                    let raw_data = txn.get_journey_raw_data(&header.id)?;
+                    assert_eq!(raw_data.is_some(), retain_raw_data);
+                    if let Some(raw_data) = raw_data {
+                        assert_eq!(raw_data.deserialize()?.points, expected_points);
                     }
-                };
-                assert!(finalize().unwrap());
-                assert_eq!(notifications.load(Ordering::Relaxed), 1);
-                assert!(!finalize().unwrap());
-                assert_eq!(notifications.load(Ordering::Relaxed), 1);
-                storage
-                    .with_db_txn(|txn| {
-                        let headers = txn.query_journeys(None, None, None)?;
-                        assert_eq!(headers.len(), 1);
-                        let header = &headers[0];
-                        assert_eq!(header.has_raw_data, retain_raw_data);
-                        assert!(!txn.get_journey_data(&header.id)?.is_empty());
-                        let raw_data = txn.get_journey_raw_data(&header.id)?;
-                        assert_eq!(raw_data.is_some(), retain_raw_data);
-                        if let Some(raw_data) = raw_data {
-                            assert_eq!(raw_data.deserialize()?.points, expected_points);
-                        }
-                        assert!(txn.get_ongoing_journey_raw_data()?.is_empty());
-                        assert!(txn.get_ongoing_journey(None)?.is_none());
-                        Ok(())
-                    })
-                    .unwrap();
-            });
-        }
+                    assert!(txn.get_ongoing_journey_raw_data()?.is_empty());
+                    assert!(txn.get_ongoing_journey(None)?.is_none());
+                    Ok(())
+                })
+                .unwrap();
+        });
     }
 }
 
