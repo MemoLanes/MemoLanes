@@ -135,7 +135,7 @@ geo-rasterizer-check:
 [working-directory: 'rust']
 rust-test:
     @echo "🧪 Running Rust tests"
-    @cargo test -- --nocapture
+    @TZ=Asia/Hong_Kong cargo test -- --nocapture
     @echo "✅ Rust tests completed"
 
 [group: 'utils']
