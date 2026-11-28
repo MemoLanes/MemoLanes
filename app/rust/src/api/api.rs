@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex, OnceLock};
 
 use anyhow::{Context, Result};
 use auto_context::auto_context;
-use chrono::NaiveDate;
+use chrono::{Local, NaiveDate};
 use flutter_rust_bridge::frb;
 
 use crate::cache_db::LayerKind;
@@ -20,7 +20,7 @@ use crate::logs;
 use crate::renderer::internal_server::{dispatch_request, WebviewResponse};
 use crate::renderer::MapRenderer;
 use crate::storage::Storage;
-use crate::{archive, build_info, export_data};
+use crate::{archive, build_info, export_data, recording};
 
 use crate::utils::{db::DbError, get_bounds_from_journey_bitmap, MapBounds};
 
@@ -427,20 +427,29 @@ pub fn get_map_renderer_proxy_for_journey_data(
     get_map_renderer_proxy_for_journey_data_internal(journey_data)
 }
 
-// Return `true` if this update contains meaningful data.
-// Meaningful data means it is not ignored by the gps preprocessor.
-pub fn on_location_update(data: ExtendedRawGPSPoint) -> bool {
+/// Returns `true` for a kept track point, or `false` for an ignored or rejected fix.
+/// Persistence errors propagate so callers can retry.
+pub fn on_location_update(data: ExtendedRawGPSPoint) -> Result<bool> {
     let state = get();
-    // NOTE: On Android, we might received a batch of location updates that are out of order.
-    // Not very sure why yet.
-
-    // we need handle a batch in one go so we hold the lock for the whole time
+    // Keep preprocessing, persistence, and map updates serialized.
     let mut gps_preprocessor = state.gps_preprocessor.lock().unwrap();
+    let mut next_preprocessor = gps_preprocessor.clone();
+    // Commit before taking the renderer lock so disk I/O does not block tile generation.
+    let recorded = state.storage.with_db_txn(|txn| {
+        recording::record_location(
+            txn,
+            &mut next_preprocessor,
+            &data,
+            state.storage.get_raw_data_mode(),
+        )
+    })?;
+
+    *gps_preprocessor = next_preprocessor;
     let mut main_map_state = state.main_map_state.lock().unwrap();
 
     let raw_gps_point = &data.raw_gps_point;
-    let last_point = gps_preprocessor.last_kept_point();
-    let process_result = gps_preprocessor.preprocess(raw_gps_point);
+    let last_point = recorded.previous_point;
+    let process_result = recorded.process_result;
     if !main_map_state.dropped_for_power_saving && main_map_state.layer_filter.current_journey {
         let line_to_add = match process_result {
             ProcessResult::Ignore => None,
@@ -460,16 +469,10 @@ pub fn on_location_update(data: ExtendedRawGPSPoint) -> bool {
         };
     };
 
-    // Tile-range generation uses the same mutex. Release it before the storage
-    // write so persistence does not extend renderer lock hold time.
-    drop(main_map_state);
-
-    state.storage.record_gps_data(&data, process_result);
-
-    match process_result {
+    Ok(match process_result {
         ProcessResult::Ignore => false,
         ProcessResult::Append | ProcessResult::NewSegment => true,
-    }
+    })
 }
 
 pub fn list_all_legacy_raw_data() -> Result<Vec<LegacyRawDataFile>> {
@@ -551,6 +554,33 @@ pub fn finalize_ongoing_journey() -> Result<bool> {
 
 pub fn try_auto_finalize_journey() -> Result<bool> {
     reset_gps_preprocessor_if_finalized(Storage::try_auto_finalize_journey)
+}
+
+/// Check the journey boundary before storing the first eligible fix in a cache drain.
+/// Returns `None` for an ineligible fix, so the caller can try the next queued fix.
+pub fn try_auto_finalize_before_location(data: ExtendedRawGPSPoint) -> Result<Option<bool>> {
+    let state = get();
+    let mut gps_preprocessor = state.gps_preprocessor.lock().unwrap();
+    let finalized = state.storage.with_db_txn(|txn| {
+        let Some(capture_time) = recording::eligible_capture_time(txn, &data)? else {
+            return Ok(None);
+        };
+        if !gps_preprocessor
+            .clone()
+            .accept_location(&data.raw_gps_point)
+        {
+            return Ok(None);
+        }
+        txn.try_auto_finalize_journey_at(
+            state.storage.get_raw_data_mode(),
+            capture_time.with_timezone(&Local),
+        )
+        .map(Some)
+    })?;
+    if finalized == Some(true) {
+        *gps_preprocessor = GpsPreprocessor::new();
+    }
+    Ok(finalized)
 }
 
 pub fn has_ongoing_journey() -> Result<bool> {
