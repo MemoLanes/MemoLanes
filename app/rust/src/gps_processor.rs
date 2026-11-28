@@ -156,6 +156,12 @@ impl GpsPreprocessor {
         Self::new_with_rule(SegmentGapRule::Default)
     }
 
+    pub(crate) fn from_last_timestamp(timestamp_ms: Option<i64>) -> Self {
+        let mut preprocessor = Self::new();
+        preprocessor.bad_data_detector.last_timestamp_ms = timestamp_ms;
+        preprocessor
+    }
+
     pub fn new_with_rule(rule: SegmentGapRule) -> Self {
         Self {
             state: GpsPreprocessorState::Empty,

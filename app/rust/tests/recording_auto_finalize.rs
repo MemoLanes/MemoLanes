@@ -49,6 +49,13 @@ fn recording_boundaries_follow_sample_time() {
     };
 
     assert!(api::has_ongoing_journey().unwrap());
+    assert!(!finalizes_previous(sample(-5, true)));
+    let (_, restored_tail) = MainDb::open(folder)
+        .unwrap()
+        .with_txn(|txn| txn.get_ongoing_journey_timestamp_range())
+        .unwrap()
+        .unwrap();
+    assert_eq!(restored_tail, start - Duration::minutes(1));
     assert!(!finalizes_previous(sample(0, false)));
     assert!(finalizes_previous(sample(2, false)));
     assert!(api::try_auto_finalize_journey().unwrap());

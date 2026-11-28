@@ -42,17 +42,17 @@ struct RecordingState {
 }
 
 impl RecordingState {
-    fn new(boundary: BoundaryTracker) -> Self {
+    fn new(range_ms: Option<(i64, i64)>) -> Self {
         Self {
-            preprocessor: GpsPreprocessor::new(),
-            boundary,
+            preprocessor: GpsPreprocessor::from_last_timestamp(range_ms.map(|(_, end)| end)),
+            boundary: BoundaryTracker::from_range(range_ms),
         }
     }
 
     fn finalize(&mut self, storage: &Storage) -> Result<bool> {
         let finalized = storage.finalize_ongoing_journey()?;
         if finalized {
-            *self = Self::new(BoundaryTracker::default());
+            *self = Self::new(None);
         }
         Ok(finalized)
     }
@@ -177,7 +177,7 @@ pub fn init(
             .map(|(start, end)| (start.timestamp_millis(), end.timestamp_millis()));
         Ok(MainState {
             storage,
-            recording: Mutex::new(RecordingState::new(BoundaryTracker::from_range(range_ms))),
+            recording: Mutex::new(RecordingState::new(range_ms)),
             main_map_state,
         })
     });
