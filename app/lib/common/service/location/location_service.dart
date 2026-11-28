@@ -44,6 +44,9 @@ abstract class ILocationService {
 
   Future<void> stopLocationUpdates();
 
+  /// Synchronously delivers all fixes already buffered by this source.
+  void flushPendingUpdates();
+
   StreamSubscription<LocationData> onLocationUpdate(
     void Function(LocationData) callback,
   );

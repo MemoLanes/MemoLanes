@@ -1,9 +1,5 @@
 pub mod test_utils;
-use memolanes_core::{
-    api::api,
-    gps::{ExtendedRawGPSPoint, RawGPSPoint},
-    import_data,
-};
+use memolanes_core::{api::api, gps::RawGPSPoint, import_data};
 use std::fs;
 use tempdir::TempDir;
 
@@ -35,10 +31,7 @@ fn basic() {
 
     assert!(!api::has_ongoing_journey().unwrap());
     for (i, raw_data) in first_elements.iter().enumerate() {
-        api::on_location_update(ExtendedRawGPSPoint {
-            raw_gps_point: raw_data.clone(),
-            received_timestamp_ms: raw_data.timestamp_ms.unwrap(),
-        });
+        test_utils::record_gpx_point(raw_data);
         if i == 1000 {
             assert!(api::has_ongoing_journey().unwrap());
             assert!(api::finalize_ongoing_journey().unwrap());
@@ -66,10 +59,7 @@ fn basic() {
     assert!(!api::finalize_ongoing_journey().unwrap());
 
     for raw_data in remaining_elements {
-        api::on_location_update(ExtendedRawGPSPoint {
-            raw_gps_point: raw_data.clone(),
-            received_timestamp_ms: raw_data.timestamp_ms.unwrap(),
-        });
+        test_utils::record_gpx_point(raw_data);
     }
 
     {

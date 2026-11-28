@@ -22,7 +22,7 @@ use memolanes_core::{
     },
     api::api,
     api::import::JourneyInfo,
-    gps::{ExtendedRawGPSPoint, RawGPSPoint},
+    gps::RawGPSPoint,
     import_data,
     journey_header::JourneyKind,
 };
@@ -40,12 +40,8 @@ fn import_gpx_as_journey(path: &str) {
         .filter(|p| p.timestamp_ms.is_some())
         .collect();
     assert!(!points.is_empty(), "no timestamped points in {path}");
-    for p in points {
-        let received_timestamp_ms = p.timestamp_ms.unwrap();
-        api::on_location_update(ExtendedRawGPSPoint {
-            raw_gps_point: p,
-            received_timestamp_ms,
-        });
+    for p in &points {
+        test_utils::record_gpx_point(p);
     }
     assert!(api::finalize_ongoing_journey().unwrap(), "finalize {path}");
 }

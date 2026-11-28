@@ -1,6 +1,7 @@
 use chrono::NaiveDate;
 use memolanes_core::cache_db::{self, CacheDb};
 use memolanes_core::geo::GeoIndex;
+use memolanes_core::gps::RawGPSPoint;
 use memolanes_core::journey_bitmap::JourneyBitmap;
 use memolanes_core::journey_data::JourneyData;
 use memolanes_core::journey_header::JourneyKind;
@@ -45,6 +46,19 @@ pub struct RenderResult {
     pub right: f64,
     pub bottom: f64,
     pub data: Vec<u8>,
+}
+
+pub fn record_gpx_point(sample: &RawGPSPoint) {
+    let timestamp_ms = sample.timestamp_ms.unwrap();
+    memolanes_core::api::api::on_location_update(
+        sample.point.clone(),
+        timestamp_ms,
+        timestamp_ms,
+        sample.accuracy,
+        sample.altitude,
+        sample.speed,
+    )
+    .unwrap();
 }
 
 /// Open a synthetic geo asset from its bytes; `dir` must outlive the index.

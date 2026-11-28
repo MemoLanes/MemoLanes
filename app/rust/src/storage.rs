@@ -165,11 +165,6 @@ impl Storage {
         self.with_db_txn(|txn| txn.finalize_ongoing_journey(self.get_raw_data_mode()))
     }
 
-    #[auto_context]
-    pub fn try_auto_finalize_journey(&self) -> Result<bool> {
-        self.with_db_txn(|txn| txn.try_auto_finalize_journey(self.get_raw_data_mode()))
-    }
-
     pub fn list_all_legacy_raw_data(&self) -> Result<Vec<LegacyRawDataFile>> {
         legacy_raw_data::list_all_legacy_raw_data(&self.support_dir)
     }

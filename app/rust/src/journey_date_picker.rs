@@ -4,50 +4,103 @@ use chrono::{DateTime, Local, NaiveDate, TimeZone, Timelike, Utc};
 
 use crate::{gps::Point, journey_vector::TrackPoint};
 
-/// Returns the idle gap required to end a journey at `now`.
-pub(crate) fn min_gap<Tz: TimeZone>(
-    start: DateTime<Utc>,
-    now: DateTime<Tz>,
-    duration_hours: i64,
-) -> i64 {
+fn should_end_journey(start_ms: i64, end_ms: i64, now_ms: i64) -> bool {
+    const MINUTE_MS: i64 = 60_000;
+    let duration_hours = (now_ms.div_euclid(1000) - start_ms.div_euclid(1000)) / 3600;
     if duration_hours >= 48 {
-        0 // Finalize very long recordings immediately.
-    } else if duration_hours >= 24 {
-        2
-    } else {
-        // On the starting date, avoid ending a journey unless there is a huge
-        // gap. After crossing midnight, shorter gaps are enough, while the
-        // first few hours retain a 20-minute grace period.
-        if start.with_timezone(&now.timezone()).date_naive() == now.date_naive() {
-            6 * 60
-        } else if now.hour() <= 4 || duration_hours <= 8 {
-            20
-        } else {
-            5
-        }
+        return true;
     }
+    let gap_ms = now_ms.saturating_sub(end_ms);
+    if duration_hours >= 24 {
+        return gap_ms >= 2 * MINUTE_MS;
+    }
+    if gap_ms < 5 * MINUTE_MS {
+        return false;
+    }
+
+    let (Some(start), Some(now)) = (
+        Local.timestamp_millis_opt(start_ms).single(),
+        Local.timestamp_millis_opt(now_ms).single(),
+    ) else {
+        return false;
+    };
+    let required_minutes = if start.date_naive() == now.date_naive() {
+        6 * 60
+    } else if now.hour() <= 4 || duration_hours <= 8 {
+        20
+    } else {
+        5
+    };
+    gap_ms >= required_minutes * MINUTE_MS
 }
 
-/// Tracks enough history to apply `min_gap` to a stream of timestamps.
 #[derive(Default)]
 pub(crate) struct BoundaryTracker {
-    start: Option<DateTime<Utc>>,
-    end: Option<DateTime<Utc>>,
+    start_ms: Option<i64>,
+    end_ms: Option<i64>,
 }
 
 impl BoundaryTracker {
-    pub(crate) fn should_end_at<Tz: TimeZone>(&self, now: DateTime<Tz>) -> bool {
-        let (Some(start), Some(end)) = (self.start, self.end) else {
-            return false;
-        };
-        let duration_hours = (now.timestamp() - start.timestamp()) / 60 / 60;
-        let gap_mins = (now.timestamp() - end.timestamp()).max(0) / 60;
-        gap_mins >= min_gap(start, now, duration_hours)
+    pub(crate) fn from_range(range_ms: Option<(i64, i64)>) -> Self {
+        let (start_ms, end_ms) = range_ms.unzip();
+        Self { start_ms, end_ms }
     }
 
-    pub(crate) fn observe(&mut self, timestamp: DateTime<Utc>) {
-        self.start.get_or_insert(timestamp);
-        self.end = Some(timestamp);
+    pub(crate) fn has_timestamps(&self) -> bool {
+        self.start_ms.is_some()
+    }
+
+    pub(crate) fn should_end_at(&self, now_ms: i64) -> bool {
+        let (Some(start_ms), Some(end_ms)) = (self.start_ms, self.end_ms) else {
+            return false;
+        };
+        should_end_journey(start_ms, end_ms, now_ms)
+    }
+
+    pub(crate) fn observe(&mut self, timestamp_ms: i64) {
+        self.start_ms.get_or_insert(timestamp_ms);
+        self.end_ms = self.end_ms.max(Some(timestamp_ms));
+    }
+}
+
+#[cfg(test)]
+mod boundary_tests {
+    use super::*;
+
+    #[test]
+    fn late_samples_do_not_move_the_boundary_backwards() {
+        let start_ms = Local
+            .with_ymd_and_hms(2025, 1, 1, 0, 0, 0)
+            .unwrap()
+            .timestamp_millis();
+        let at_hour = |hour: i64| start_ms + hour * 3_600_000;
+        let mut tracker = BoundaryTracker::default();
+        for hour in [0, 5, 1] {
+            tracker.observe(at_hour(hour));
+        }
+        assert!(!tracker.should_end_at(at_hour(7)));
+        assert!(tracker.should_end_at(at_hour(11)));
+    }
+
+    #[test]
+    fn five_minute_gap_after_midnight_starts_qualifying_at_local_five_am() {
+        let local_ms = |day, hour, minute| {
+            Local
+                .with_ymd_and_hms(2025, 1, day, hour, minute, 0)
+                .unwrap()
+                .timestamp_millis()
+        };
+        let start = local_ms(1, 18, 0);
+        assert!(!should_end_journey(
+            start,
+            local_ms(2, 4, 54),
+            local_ms(2, 4, 59)
+        ));
+        assert!(should_end_journey(
+            start,
+            local_ms(2, 4, 55),
+            local_ms(2, 5, 0)
+        ));
     }
 }
 
