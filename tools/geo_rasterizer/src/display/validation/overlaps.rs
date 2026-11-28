@@ -1,115 +1,94 @@
-//! Compare filled interiors, including containment with no boundary crossing.
+//! Check where every boundary ring lies with respect to every nearby ring.
 
-use std::collections::HashMap;
-
-use anyhow::Result;
-use geo::{
-    coordinate_position::{CoordPos, CoordinatePosition},
-    dimensions::Dimensions,
-    BoundingRect, Relate,
-};
-use geo_types::Polygon;
+use geo::{coordinate_position::coord_pos_relative_to_ring, BoundingRect};
+use geo_types::LineString;
 use rayon::prelude::*;
 
 use crate::display::{
+    rings,
     source::Prepared,
     spatial::{Bounds, SpatialIndex},
-    topology::{polygon_from_grid, Shape},
+    topology::{Graph, RingId, Shape, Vertex},
+    Point,
 };
 
-fn interior_intersection(a: &Polygon<f64>, b: &Polygon<f64>) -> Dimensions {
-    a.relate(b).get(CoordPos::Inside, CoordPos::Inside)
-}
-
-// The owner index is stable (prepared sources are sorted by entity ID),
-// as is the component's index within its prepared source.
-type ComponentId = (usize, usize);
-
-struct OverlapComponent<'a> {
-    id: ComponentId,
-    before: &'a Polygon<f64>,
-    after: Polygon<f64>,
+struct Ring<'a> {
+    id: RingId,
+    before: &'a LineString<f64>,
+    after: LineString<f64>,
+    source_anchor: Point,
     bounds: Bounds,
-    unchanged: bool,
 }
 
-#[derive(Default)]
-pub(super) struct InteriorOverlapCache {
-    shapes: Vec<Option<Shape>>,
-    pairs: HashMap<[ComponentId; 2], bool>,
+pub(super) struct NestingChange {
+    pub(super) rings: [RingId; 2],
+    pub(super) at: Point,
 }
 
-// A new overlap needn't cross any boundary: for example, a hole can
-// shrink inside an island. Compare the filled interiors, including holes.
-pub(super) fn new_interior_overlaps(
+// Crossing order and junction incidence determine adjacent faces. For
+// disconnected boundaries (e.g. an island inside a hole), one corresponding
+// vertex per ring also fixes which face contains the whole boundary.
+pub(super) fn changed_nesting(
+    graph: &Graph,
     sources: &[Prepared],
-    shapes: &[Option<Result<Shape>>],
-    cache: &mut InteriorOverlapCache,
-) -> Vec<[usize; 2]> {
-    let valid_shapes = || {
-        shapes
+    shapes: &[Shape],
+) -> Vec<NestingChange> {
+    let mut boundaries = Vec::new();
+    for (owner, source) in sources.iter().enumerate() {
+        for ((original, candidate), ids) in source
+            .geometry
+            .0
             .iter()
-            .map(|shape| shape.as_ref().and_then(|s| s.as_ref().ok()))
-    };
-    let mut components = Vec::new();
-    for (owner, shape) in valid_shapes().enumerate() {
-        let Some(shape) = shape else { continue };
-        let previous = cache.shapes.get(owner).and_then(Option::as_ref);
-        for (part, (before, grid)) in sources[owner].geometry.0.iter().zip(shape).enumerate() {
-            // Use exact storage units: converting snapped vertices
-            // to degrees can turn a tangent into a sliver of area.
-            let after = polygon_from_grid(grid, |[x, y]| (x.into(), y.into()).into());
-            components.push(OverlapComponent {
-                id: (owner, part),
-                before,
-                bounds: Bounds::from_rect(after.bounding_rect().unwrap()),
-                after,
-                unchanged: previous.and_then(|shape| shape.get(part)) == Some(grid),
-            });
+            .zip(&shapes[owner])
+            .zip(&graph.shapes[owner])
+        {
+            for ((before, after), &id) in rings(original).zip(candidate).zip(ids) {
+                let (first, forward) = graph.rings[id].arcs[0];
+                let path = &graph.arcs[first].nodes;
+                let node = if forward {
+                    path[0]
+                } else {
+                    *path.last().unwrap()
+                };
+                let after = LineString(after.iter().copied().map(Vertex::degrees).collect());
+                let bounds = Bounds::from_rect(before.bounding_rect().unwrap())
+                    .union(Bounds::from_rect(after.bounding_rect().unwrap()));
+                boundaries.push(Ring {
+                    id,
+                    before,
+                    after,
+                    source_anchor: graph.points[node],
+                    bounds,
+                });
+            }
         }
     }
-    let index = SpatialIndex::new(components.iter().map(|c| c.bounds));
-    let pairs = &cache.pairs;
-    let checked: Vec<_> = components
+    let index = SpatialIndex::new(boundaries.iter().map(|r| r.bounds));
+    let mut conflicts = boundaries
         .par_iter()
-        .flat_map_iter(|a| {
-            let mut checked = Vec::new();
-            index.query(a.bounds, |j| {
-                let b = &components[j];
-                if a.id >= b.id || a.id.0 == b.id.0 || !a.bounds.has_area_in_common(b.bounds) {
+        .enumerate()
+        .fold(Vec::new, |mut conflicts, (i, a)| {
+            let output_anchor = a.after.0[0];
+            index.query(Bounds::new(a.source_anchor, output_anchor), |j| {
+                if i == j {
                     return;
                 }
-                let key = [a.id, b.id];
-                // Cache only one snapshot. A candidate is reusable only if
-                // both full grid components match, including shared endpoints.
-                if a.unchanged && b.unchanged {
-                    if let Some(&overlap) = pairs.get(&key) {
-                        checked.push((key, overlap));
-                        return;
-                    }
-                }
-                // A boundary vertex strictly inside a valid source polygon
-                // proves that their interiors already overlap nearby.
-                if a.before.coordinate_position(&b.before.exterior().0[0]) == CoordPos::Inside
-                    || b.before.coordinate_position(&a.before.exterior().0[0]) == CoordPos::Inside
+                let b = &boundaries[j];
+                if coord_pos_relative_to_ring(a.source_anchor, b.before)
+                    != coord_pos_relative_to_ring(output_anchor, &b.after)
                 {
-                    return;
+                    conflicts.push(NestingChange {
+                        rings: [a.id, b.id],
+                        at: a.source_anchor,
+                    });
                 }
-                let overlap = interior_intersection(&a.after, &b.after)
-                    == Dimensions::TwoDimensional
-                    && interior_intersection(a.before, b.before) == Dimensions::Empty;
-                checked.push((key, overlap));
             });
-            checked
+            conflicts
         })
-        .collect();
-    let mut changed: Vec<_> = checked
-        .iter()
-        .filter_map(|&([(a, _), (b, _)], overlap)| overlap.then_some([a, b]))
-        .collect();
-    cache.shapes = valid_shapes().map(|shape| shape.cloned()).collect();
-    cache.pairs = checked.into_iter().collect();
-    changed.sort_unstable();
-    changed.dedup();
-    changed
+        .reduce(Vec::new, |mut a, b| {
+            a.extend(b);
+            a
+        });
+    conflicts.sort_unstable_by_key(|c| c.rings);
+    conflicts
 }

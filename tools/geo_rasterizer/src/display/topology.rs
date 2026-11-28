@@ -2,13 +2,14 @@
 
 use std::collections::HashMap;
 
+use geo::{kernels::RobustKernel, Kernel, Orientation};
 use geo_types::{LineString, Polygon};
 
 use super::{
     at_seam, parameter, point_key, rings,
     source::Prepared,
     spatial::{Bounds, SpatialIndex},
-    Point, ROUNDOFF,
+    Point,
 };
 
 const UNIT: f64 = 100_000.0;
@@ -18,7 +19,36 @@ const FINE: f64 = 1.0;
 pub(super) type GridPoint = [i32; 2];
 pub(super) type RingId = usize;
 pub(super) type NodeId = usize;
-pub(super) type Shape = Vec<Vec<Vec<GridPoint>>>;
+pub(super) type Shape = Vec<Vec<Vec<Vertex>>>;
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(super) enum Vertex {
+    Grid(GridPoint),
+    Exact(Point),
+}
+
+impl Vertex {
+    pub(super) fn degrees(self) -> Point {
+        match self {
+            Self::Grid(p) => degrees(p),
+            Self::Exact(p) => p,
+        }
+    }
+
+    pub(super) fn grid(self) -> Option<GridPoint> {
+        match self {
+            Self::Grid(p) => Some(p),
+            Self::Exact(_) => None,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub(super) enum Precision {
+    Coarse,
+    Fine,
+    Exact,
+}
 
 struct Edge {
     ends: [NodeId; 2],
@@ -26,10 +56,14 @@ struct Edge {
     arc: usize,
 }
 
-pub(super) struct Ring {
-    pub(super) owner: usize,
+struct SourceRing {
+    owner: usize,
     nodes: Vec<NodeId>, // excludes closure until graph noding
     edges: Vec<usize>,
+}
+
+pub(super) struct Ring {
+    pub(super) owner: usize,
     pub(super) arcs: Vec<(usize, bool)>, // arc index and traversal direction (forward)
 }
 
@@ -37,14 +71,14 @@ pub(super) struct Arc {
     pub(super) nodes: Vec<NodeId>,
     pub(super) owners: Vec<usize>,
     pub(super) keep: Vec<usize>,
-    pub(super) fine: bool,
+    pub(super) precision: Precision,
 }
 
 pub(super) struct Graph {
     pub(super) points: Vec<Point>,
     pub(super) rings: Vec<Ring>,
     pub(super) arcs: Vec<Arc>,
-    fine_nodes: Vec<bool>,
+    node_precision: Vec<Precision>,
     // Paired -180/+180 nodes with the same latitude must quantize together.
     seam_mates: Vec<Option<NodeId>>,
     // Per source: polygons → rings, exterior first.
@@ -62,9 +96,33 @@ fn distance(a: Point, b: Point) -> f64 {
     (a.x - b.x).hypot(a.y - b.y)
 }
 
-fn simplify(nodes: &[NodeId], points: &[Point], budget: f64) -> Vec<usize> {
+fn canonicalize_arc(nodes: &mut [NodeId], points: &[Point], junctions: &[bool]) {
+    let compare = |a: NodeId, b: NodeId| {
+        let (a, b) = (points[a], points[b]);
+        a.x.total_cmp(&b.x).then_with(|| a.y.total_cmp(&b.y))
+    };
+    let end = nodes.len() - 1;
+    let order = if nodes[0] == nodes[end] {
+        // A loop attached to a junction must start there in every incident ring.
+        if !junctions[nodes[0]] {
+            let start = (0..end)
+                .min_by(|&a, &b| compare(nodes[a], nodes[b]))
+                .unwrap();
+            nodes[..end].rotate_left(start);
+            nodes[end] = nodes[0];
+        }
+        compare(nodes[1], nodes[end - 1])
+    } else {
+        compare(nodes[0], nodes[end])
+    };
+    if order.is_gt() {
+        nodes.reverse();
+    }
+}
+
+fn simplify(nodes: &[NodeId], points: &[Point], budget: f64, pinned: &[usize]) -> Vec<usize> {
     let mut keep = vec![false; nodes.len()];
-    let mut pending = vec![(0, nodes.len() - 1)];
+    let mut pending: Vec<_> = pinned.windows(2).map(|pair| (pair[0], pair[1])).collect();
     while let Some((lo, hi)) = pending.pop() {
         keep[lo] = true;
         keep[hi] = true;
@@ -121,11 +179,10 @@ impl Graph {
                                         })
                                     })
                                     .collect();
-                                source_rings.push(Ring {
+                                source_rings.push(SourceRing {
                                     owner,
                                     nodes,
                                     edges: vec![],
-                                    arcs: vec![],
                                 });
                                 source_rings.len() - 1
                             })
@@ -162,27 +219,28 @@ impl Graph {
             for (&from, &to) in original.iter().zip(original.iter().cycle().skip(1)) {
                 let (a, b) = (points[from], points[to]);
                 split.clear();
-                split.push((0.0, from));
-                spatial.query(Bounds::new(a, b).expanded(ROUNDOFF), |id| {
-                    if id == from || id == to {
-                        return;
-                    }
-                    let p = points[id];
-                    let t = parameter(a, b, p);
-                    if 0.0 < t
-                        && t < 1.0
-                        && distance(p, mix(a, b, t)) <= ROUNDOFF
-                        && distance(a, p) > ROUNDOFF
-                        && distance(b, p) > ROUNDOFF
+                split.extend([from, to]);
+                spatial.query(Bounds::new(a, b), |id| {
+                    if id != from
+                        && id != to
+                        && RobustKernel::orient2d(a, b, points[id]) == Orientation::Collinear
                     {
-                        split.push((t, id));
+                        split.push(id);
                     }
                 });
-                split.sort_unstable_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)));
-                for (&(_, a), b) in split
-                    .iter()
-                    .zip(split.iter().skip(1).map(|p| p.1).chain([to]))
-                {
+                // On a long segment the projected fraction can round to 1 for
+                // a distinct interior vertex immediately before the endpoint.
+                let ordinate = |p: Point| if a.x == b.x { p.y } else { p.x };
+                let forward = ordinate(a) < ordinate(b);
+                split.sort_unstable_by(|&u, &v| {
+                    let order = ordinate(points[u]).total_cmp(&ordinate(points[v]));
+                    if forward {
+                        order
+                    } else {
+                        order.reverse()
+                    }
+                });
+                for &[a, b] in split.array_windows() {
                     let ends = if a < b { [a, b] } else { [b, a] };
                     let eid = *edge_ids.entry(ends).or_insert_with(|| {
                         let eid = edges.len();
@@ -245,19 +303,16 @@ impl Graph {
             } else {
                 nodes.push(b);
             }
-            let budget = owners
-                .iter()
-                .map(|&i| sources[i].budget)
-                .fold(f64::INFINITY, f64::min);
-            let keep = simplify(&nodes, &points, budget * 0.8);
+            canonicalize_arc(&mut nodes, &points, &junctions);
             arcs.push(Arc {
                 nodes,
                 owners,
-                keep,
-                fine: false,
+                keep: Vec::new(),
+                precision: Precision::Coarse,
             });
         }
-        for ring in &mut source_rings {
+        let mut rings = Vec::with_capacity(source_rings.len());
+        for ring in source_rings {
             let start = ring
                 .nodes
                 .iter()
@@ -269,27 +324,69 @@ impl Graph {
                 })
                 .unwrap();
             let mut step = 0;
+            let mut directed_arcs = Vec::new();
             while step < ring.nodes.len() {
                 let i = (start + step) % ring.nodes.len();
                 let id = edges[ring.edges[i]].arc;
                 let next = ring.nodes[(i + 1) % ring.nodes.len()];
-                ring.arcs
-                    .push((id, forward(&arcs[id].nodes, ring.nodes[i], next).unwrap()));
+                directed_arcs.push((id, forward(&arcs[id].nodes, ring.nodes[i], next).unwrap()));
                 step += arcs[id].nodes.len() - 1;
             }
             debug_assert_eq!(step, ring.nodes.len());
+            rings.push(Ring {
+                owner: ring.owner,
+                arcs: directed_arcs,
+            });
         }
         Self {
-            fine_nodes: vec![false; points.len()],
+            node_precision: vec![Precision::Coarse; points.len()],
             points,
-            rings: source_rings,
+            rings,
             arcs,
             seam_mates,
             shapes,
         }
     }
 
-    pub(super) fn back_off_shape(&mut self, owner: usize) -> bool {
+    pub(super) fn simplify(
+        &mut self,
+        sources: &[Prepared],
+        protected_edges: &HashMap<usize, Vec<usize>>,
+    ) {
+        for (id, arc) in self.arcs.iter_mut().enumerate() {
+            let mut pinned = vec![0, arc.nodes.len() - 1];
+            if let Some(edges) = protected_edges.get(&id) {
+                for &offset in edges {
+                    for i in [offset, offset + 1] {
+                        pinned.push(i);
+                        let node = arc.nodes[i];
+                        self.node_precision[node] = Precision::Exact;
+                        if let Some(mate) = self.seam_mates[node] {
+                            self.node_precision[mate] = Precision::Exact;
+                        }
+                    }
+                }
+                pinned.sort_unstable();
+                pinned.dedup();
+            }
+            let budget = arc
+                .owners
+                .iter()
+                .map(|&i| sources[i].budget)
+                .fold(f64::INFINITY, f64::min);
+            arc.keep = simplify(&arc.nodes, &self.points, budget * 0.8, &pinned);
+        }
+    }
+
+    pub(super) fn back_off_ring(&mut self, ring: RingId, precision: Precision) -> bool {
+        let mut changed = false;
+        for (arc, _) in self.rings[ring].arcs.clone() {
+            changed |= self.back_off_arc(arc, precision);
+        }
+        changed
+    }
+
+    pub(super) fn back_off_shape(&mut self, owner: usize, precision: Precision) -> bool {
         let arcs: Vec<_> = self.shapes[owner]
             .iter()
             .flatten()
@@ -297,31 +394,35 @@ impl Graph {
             .collect();
         let mut changed = false;
         for arc in arcs {
-            changed |= self.back_off_arc(arc);
+            changed |= self.back_off_arc(arc, precision);
         }
         changed
     }
 
-    pub(super) fn back_off_arc(&mut self, id: usize) -> bool {
+    pub(super) fn back_off_arc(&mut self, id: usize, precision: Precision) -> bool {
         let arc = &mut self.arcs[id];
-        if arc.fine {
+        if arc.precision >= precision {
             return false;
         }
-        arc.fine = true;
+        arc.precision = precision;
         arc.keep = (0..arc.nodes.len()).collect();
         for &node in &arc.nodes {
-            self.fine_nodes[node] = true;
+            self.node_precision[node] = self.node_precision[node].max(precision);
             if let Some(mate) = self.seam_mates[node] {
-                self.fine_nodes[mate] = true;
+                self.node_precision[mate] = self.node_precision[mate].max(precision);
             }
         }
         true
     }
 
-    fn snap(&self, node: NodeId) -> GridPoint {
-        let grid = if self.fine_nodes[node] { FINE } else { COARSE };
+    fn vertex(&self, node: NodeId) -> Vertex {
+        let grid = match self.node_precision[node] {
+            Precision::Coarse => COARSE,
+            Precision::Fine => FINE,
+            Precision::Exact => return Vertex::Exact(self.points[node]),
+        };
         let q = |x: f64| ((x * UNIT / grid).round() * grid) as i32;
-        [q(self.points[node].x), q(self.points[node].y)]
+        Vertex::Grid([q(self.points[node].x), q(self.points[node].y)])
     }
 }
 
@@ -339,27 +440,29 @@ pub(super) fn degrees(p: GridPoint) -> Point {
     (f64::from(p[0]) / UNIT, f64::from(p[1]) / UNIT).into()
 }
 
-pub(super) fn polygon_from_grid(
-    rings: &[Vec<GridPoint>],
-    to_point: fn(GridPoint) -> Point,
-) -> Polygon<f64> {
-    let ring = |points: &Vec<GridPoint>| LineString(points.iter().copied().map(to_point).collect());
+pub(super) fn polygon_from_vertices(rings: &[Vec<Vertex>]) -> Polygon<f64> {
+    let ring =
+        |points: &Vec<Vertex>| LineString(points.iter().copied().map(Vertex::degrees).collect());
     Polygon::new(ring(&rings[0]), rings[1..].iter().map(ring).collect())
 }
 
 pub(super) struct ArcState {
-    pub(super) points: Vec<GridPoint>,
+    pub(super) points: Vec<Vertex>,
     pub(super) error: f64,
 }
 
 impl ArcState {
     pub(super) fn new(graph: &Graph, arc: &Arc) -> Self {
-        let points: Vec<_> = arc.keep.iter().map(|&i| graph.snap(arc.nodes[i])).collect();
+        let points: Vec<_> = arc
+            .keep
+            .iter()
+            .map(|&i| graph.vertex(arc.nodes[i]))
+            .collect();
         let mut error: f64 = 0.0;
         for (range, pair) in arc.keep.windows(2).zip(points.windows(2)) {
             let a = graph.points[arc.nodes[range[0]]];
             let b = graph.points[arc.nodes[range[1]]];
-            let (qa, qb) = (degrees(pair[0]), degrees(pair[1]));
+            let (qa, qb) = (pair[0].degrees(), pair[1].degrees());
             error = error.max(distance(a, qa)).max(distance(b, qb));
             for &node in &arc.nodes[range[0] + 1..range[1]] {
                 let p = graph.points[node];

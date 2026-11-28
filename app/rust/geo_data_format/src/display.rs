@@ -1,18 +1,19 @@
-//! The display section holds the entity index, block table and zstd
-//! frames. Each span in the section header is relative to the display section;
-//! each block offset is relative to the frames span. Coordinates are signed
-//! integer units of 0.00001°; bounds are unwrapped degrees kept outside frames.
-use std::collections::BTreeMap;
+//! The display section holds a sorted entity index and one zstd frame per entity.
+//! Both header spans are relative to the display section. Each index row stores
+//! its frame offset relative to the frames span and its compressed and raw lengths.
+//! Bounds are unwrapped degrees kept outside frames. A frame starts with the polygon count, or a
+//! zero marker followed by the polygon count for exact-degree coordinates.
+//! Both use signed delta varints. Exact coordinates delta-encode the f64 bits
+//! with wrapping arithmetic. Ring closure is implicit in both encodings.
 use std::fs::File;
 
 use anyhow::{anyhow, bail, ensure, Context, Result};
 
 use crate::{file_io::read_exact_at, GeoEntityId, Section, Worldview};
 
-const DISPLAY_HEADER_LEN: usize = 3 * 16;
-const INDEX_LEN: usize = 40;
-const BLOCK_LEN: usize = 16;
-const MAX_TABLE_BYTES: u64 = 64 * 1024 * 1024;
+const DISPLAY_HEADER_LEN: usize = 2 * 16;
+const INDEX_LEN: usize = 52;
+const MAX_INDEX_BYTES: u64 = 64 * 1024 * 1024;
 const MAX_FRAME_BYTES: usize = 16 * 1024 * 1024;
 const MAX_VERTICES: usize = 1_000_000;
 
@@ -24,46 +25,62 @@ pub struct DisplayBounds {
     pub north: f64,
 }
 
+/// Polygon → rings (exterior first) → vertices, including closure.
+#[derive(Debug, Clone, PartialEq)]
+pub enum DisplayPolygons {
+    /// Signed units of 0.00001°.
+    Grid(Vec<Vec<Vec<[i32; 2]>>>),
+    /// Finite degrees, with bit-identical first and last vertices in each ring.
+    Exact(Vec<Vec<Vec<[f64; 2]>>>),
+}
+
+impl DisplayPolygons {
+    pub fn into_degrees(self) -> Vec<Vec<Vec<[f64; 2]>>> {
+        match self {
+            Self::Grid(polygons) => polygons
+                .into_iter()
+                .map(|polygon| {
+                    polygon
+                        .into_iter()
+                        .map(|ring| {
+                            ring.into_iter()
+                                .map(|point| point.map(|v| f64::from(v) / 100_000.0))
+                                .collect()
+                        })
+                        .collect()
+                })
+                .collect(),
+            Self::Exact(polygons) => polygons,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct DisplayRecord {
     pub worldview: Worldview,
     pub entity_id: GeoEntityId,
     pub bounds: DisplayBounds,
-    /// Polygon → rings (exterior first) → vertices, including closure.
-    pub polygons: Vec<Vec<Vec<[i32; 2]>>>,
+    pub polygons: DisplayPolygons,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct DisplayGeometry {
     pub bounds: DisplayBounds,
-    pub polygons: Vec<Vec<Vec<[i32; 2]>>>,
+    pub polygons: DisplayPolygons,
 }
 
-#[derive(Debug, Clone, Copy)]
-struct Span {
-    offset: u64,
-    len: u64,
-}
-
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug)]
 struct IndexEntry {
     id: GeoEntityId,
     bounds: DisplayBounds,
-    block: u32,
-}
-
-#[derive(Debug, Clone, Copy)]
-struct BlockEntry {
-    offset: u64, // relative to frame section
-    len: u32,
+    file_offset: u64,
+    compressed_len: u32,
     raw_len: u32,
 }
 
 #[derive(Debug)]
 pub(crate) struct DisplayIndex {
-    index: Vec<IndexEntry>,
-    blocks: Vec<BlockEntry>,
-    frames_offset: u64, // absolute file offset, validated against the display section
+    entries: Vec<IndexEntry>,
 }
 
 fn check_bounds(b: DisplayBounds) -> Result<()> {
@@ -114,43 +131,96 @@ fn get_signed(data: &[u8], cursor: &mut usize) -> Result<i64> {
     Ok(((value >> 1) as i64) ^ (-((value & 1) as i64)))
 }
 
-fn encode(polygons: &[Vec<Vec<[i32; 2]>>]) -> Result<Vec<u8>> {
-    ensure!(!polygons.is_empty(), "display: empty geometry");
+fn finite_coordinate(value: f64) -> Result<f64> {
+    ensure!(value.is_finite(), "display: non-finite coordinate");
+    Ok(value)
+}
+
+fn encode(polygons: &DisplayPolygons) -> Result<Vec<u8>> {
     let mut raw = Vec::new();
-    put_varint(polygons.len() as u64, &mut raw);
+    match polygons {
+        DisplayPolygons::Grid(polygons) => {
+            encode_polygons(polygons, &mut raw, |v| Ok(i64::from(v)))?
+        }
+        DisplayPolygons::Exact(polygons) => {
+            put_varint(0, &mut raw);
+            encode_polygons(polygons, &mut raw, |v| {
+                Ok(finite_coordinate(v)?.to_bits() as i64)
+            })?;
+        }
+    }
+    Ok(raw)
+}
+
+fn encode_polygons<T: Copy>(
+    polygons: &[Vec<Vec<[T; 2]>>],
+    raw: &mut Vec<u8>,
+    coordinate_bits: impl Fn(T) -> Result<i64>,
+) -> Result<()> {
+    ensure!(!polygons.is_empty(), "display: empty geometry");
+    let point_bits =
+        |[x, y]: [T; 2]| -> Result<[i64; 2]> { Ok([coordinate_bits(x)?, coordinate_bits(y)?]) };
+    put_varint(polygons.len() as u64, raw);
     let mut total = 0usize;
     for polygon in polygons {
         ensure!(!polygon.is_empty(), "display: empty polygon");
-        put_varint(polygon.len() as u64, &mut raw);
+        put_varint(polygon.len() as u64, raw);
         for ring in polygon {
+            ensure!(ring.len() >= 4, "display: ring not closed or too short");
+            let count = ring.len() - 1;
+            // The closing point is implicit, so even its sign bits must match.
             ensure!(
-                ring.len() >= 4 && ring.first() == ring.last(),
+                point_bits(ring[0])? == point_bits(ring[count])?,
                 "display: ring not closed or too short"
             );
-            let count = ring.len() - 1;
             total = total
                 .checked_add(count)
                 .context("display: vertex count overflow")?;
             ensure!(total <= MAX_VERTICES, "display: too many vertices");
-            put_varint(count as u64, &mut raw);
+            put_varint(count as u64, raw);
             let (mut x, mut y) = (0i64, 0i64);
-            for &[next_x, next_y] in &ring[..count] {
-                put_signed(next_x as i64 - x, &mut raw);
-                put_signed(next_y as i64 - y, &mut raw);
-                x = next_x as i64;
-                y = next_y as i64;
+            for &point in &ring[..count] {
+                let [next_x, next_y] = point_bits(point)?;
+                put_signed(next_x.wrapping_sub(x), raw);
+                put_signed(next_y.wrapping_sub(y), raw);
+                ensure!(raw.len() <= MAX_FRAME_BYTES, "display: frame too large");
+                x = next_x;
+                y = next_y;
             }
         }
     }
-    ensure!(raw.len() <= MAX_FRAME_BYTES, "display: frame too large");
-    Ok(raw)
+    Ok(())
 }
 
-fn decode(raw: &[u8]) -> Result<Vec<Vec<Vec<[i32; 2]>>>> {
+fn decode(raw: &[u8]) -> Result<DisplayPolygons> {
     let mut cursor = 0;
     let polygon_count = get_varint(raw, &mut cursor)?;
+    if polygon_count == 0 {
+        let polygon_count = get_varint(raw, &mut cursor)?;
+        decode_polygons(raw, cursor, polygon_count, |previous, delta| {
+            *previous = previous.wrapping_add(delta);
+            finite_coordinate(f64::from_bits(*previous as u64))
+        })
+        .map(DisplayPolygons::Exact)
+    } else {
+        decode_polygons(raw, cursor, polygon_count, |previous, delta| {
+            *previous = previous
+                .checked_add(delta)
+                .context("display: grid coordinate overflow")?;
+            i32::try_from(*previous).context("display: grid coordinate out of range")
+        })
+        .map(DisplayPolygons::Grid)
+    }
+}
+
+fn decode_polygons<T: Copy>(
+    raw: &[u8],
+    mut cursor: usize,
+    polygon_count: u64,
+    coordinate: impl Fn(&mut i64, i64) -> Result<T>,
+) -> Result<Vec<Vec<Vec<[T; 2]>>>> {
     ensure!(
-        polygon_count > 0 && polygon_count <= raw.len() as u64,
+        polygon_count > 0 && polygon_count <= (raw.len() - cursor) as u64,
         "display: invalid polygon count"
     );
     let mut polygons = Vec::new();
@@ -175,15 +245,9 @@ fn decode(raw: &[u8]) -> Result<Vec<Vec<Vec<[i32; 2]>>>> {
             let mut ring = Vec::with_capacity(count as usize + 1);
             let (mut x, mut y) = (0i64, 0i64);
             for _ in 0..count {
-                x = x
-                    .checked_add(get_signed(raw, &mut cursor)?)
-                    .context("display: x overflow")?;
-                y = y
-                    .checked_add(get_signed(raw, &mut cursor)?)
-                    .context("display: y overflow")?;
                 ring.push([
-                    i32::try_from(x).context("display: x out of range")?,
-                    i32::try_from(y).context("display: y out of range")?,
+                    coordinate(&mut x, get_signed(raw, &mut cursor)?)?,
+                    coordinate(&mut y, get_signed(raw, &mut cursor)?)?,
                 ]);
             }
             ring.push(ring[0]);
@@ -201,22 +265,20 @@ fn put_span(out: &mut Vec<u8>, offset: usize, len: usize) -> Result<()> {
     Ok(())
 }
 
-/// Write sorted tables and deduplicate *raw* blocks before compression.
+/// Write one independently readable frame per entity in ID order.
 pub(crate) fn write_display_section(
     worldview_id: &str,
     records: &[DisplayRecord],
 ) -> Result<Vec<u8>> {
     ensure!(
-        records.len() as u64 <= MAX_TABLE_BYTES / INDEX_LEN as u64,
+        records.len() as u64 <= MAX_INDEX_BYTES / INDEX_LEN as u64,
         "display: table too large"
     );
     let mut sorted: Vec<_> = records.iter().collect();
     sorted.sort_by_key(|r| r.entity_id);
     let mut compressor = zstd::bulk::Compressor::new(3)?;
-    let mut index = Vec::new();
-    let mut block_bytes = Vec::new();
+    let mut index = Vec::with_capacity(records.len() * INDEX_LEN);
     let mut frames = Vec::new();
-    let mut seen = BTreeMap::<Vec<u8>, u32>::new();
     let mut previous = None;
     for record in sorted {
         ensure!(
@@ -231,22 +293,11 @@ pub(crate) fn write_display_section(
         previous = Some(record.entity_id);
         check_bounds(record.bounds)?;
         let raw = encode(&record.polygons)?;
-        let block = if let Some(&id) = seen.get(&raw) {
-            id
-        } else {
-            let compressed = compressor.compress(&raw)?;
-            ensure!(
-                compressed.len() <= MAX_FRAME_BYTES,
-                "display: compressed frame too large"
-            );
-            let id = u32::try_from(block_bytes.len() / BLOCK_LEN)?;
-            block_bytes.extend_from_slice(&u64::try_from(frames.len())?.to_le_bytes());
-            block_bytes.extend_from_slice(&u32::try_from(compressed.len())?.to_le_bytes());
-            block_bytes.extend_from_slice(&u32::try_from(raw.len())?.to_le_bytes());
-            frames.extend_from_slice(&compressed);
-            seen.insert(raw, id);
-            id
-        };
+        let compressed = compressor.compress(&raw)?;
+        ensure!(
+            compressed.len() <= MAX_FRAME_BYTES,
+            "display: compressed frame too large"
+        );
         index.extend_from_slice(&record.entity_id.0.to_le_bytes());
         for value in [
             record.bounds.west,
@@ -256,21 +307,21 @@ pub(crate) fn write_display_section(
         ] {
             index.extend_from_slice(&value.to_le_bytes());
         }
-        index.extend_from_slice(&block.to_le_bytes());
+        index.extend_from_slice(&u64::try_from(frames.len())?.to_le_bytes());
+        index.extend_from_slice(&u32::try_from(compressed.len())?.to_le_bytes());
+        index.extend_from_slice(&u32::try_from(raw.len())?.to_le_bytes());
+        frames.extend_from_slice(&compressed);
     }
-    let mut result = Vec::with_capacity(DISPLAY_HEADER_LEN);
-    let mut offset = DISPLAY_HEADER_LEN;
-    let sections = [&index, &block_bytes, &frames];
-    for section in sections {
-        put_span(&mut result, offset, section.len())?;
-        offset = offset
-            .checked_add(section.len())
-            .context("display: section size overflow")?;
-    }
-    result.reserve(offset - DISPLAY_HEADER_LEN);
-    for section in sections {
-        result.extend_from_slice(section);
-    }
+    let frames_offset = DISPLAY_HEADER_LEN + index.len();
+    let mut result = Vec::with_capacity(
+        frames_offset
+            .checked_add(frames.len())
+            .context("display: section size overflow")?,
+    );
+    put_span(&mut result, DISPLAY_HEADER_LEN, index.len())?;
+    put_span(&mut result, frames_offset, frames.len())?;
+    result.extend_from_slice(&index);
+    result.extend_from_slice(&frames);
     Ok(result)
 }
 
@@ -284,55 +335,38 @@ fn f64_at(bytes: &[u8], at: usize) -> f64 {
     f64::from_le_bytes(bytes[at..at + 8].try_into().unwrap())
 }
 
-fn read_table(file: &File, section: Section, span: Span) -> Result<Vec<u8>> {
-    let mut bytes = vec![0; usize::try_from(span.len)?];
-    read_exact_at(file, &mut bytes, section.off as u64 + span.offset)
-        .context("display: reading table")?;
-    Ok(bytes)
-}
-
 impl DisplayIndex {
     pub(crate) fn read(file: &File, section: Section) -> Result<Self> {
         ensure!(section.len >= DISPLAY_HEADER_LEN, "display: short header");
         let mut header = [0; DISPLAY_HEADER_LEN];
         read_exact_at(file, &mut header, section.off as u64).context("display: reading header")?;
-        let mut expected = DISPLAY_HEADER_LEN as u64;
-        let mut spans = [Span { offset: 0, len: 0 }; 3];
-        for (row, span) in header.as_chunks::<16>().0.iter().zip(&mut spans) {
-            *span = Span {
-                offset: u64_at(row, 0),
-                len: u64_at(row, 8),
-            };
-            ensure!(
-                span.offset == expected,
-                "display: overlapping or noncontiguous sections"
-            );
-            expected = span
-                .offset
-                .checked_add(span.len)
-                .context("display: section overflow")?;
-            ensure!(
-                expected <= section.len as u64,
-                "display: span out of bounds"
-            );
-        }
-        ensure!(expected == section.len as u64, "display: trailing data");
-        let [index_span, blocks_span, frames_span] = spans;
+        let index_offset = u64_at(&header, 0);
+        let index_len = u64_at(&header, 8);
+        let frames_offset = u64_at(&header, 16);
+        let frames_len = u64_at(&header, 24);
         ensure!(
-            index_span.len <= MAX_TABLE_BYTES
-                && index_span.len.is_multiple_of(INDEX_LEN as u64)
-                && blocks_span.len <= MAX_TABLE_BYTES
-                && blocks_span.len.is_multiple_of(BLOCK_LEN as u64),
-            "display: invalid table lengths"
+            index_offset == DISPLAY_HEADER_LEN as u64
+                && index_len <= MAX_INDEX_BYTES
+                && index_len.is_multiple_of(INDEX_LEN as u64),
+            "display: invalid index span"
         );
-        let table = read_table(file, section, index_span)?;
-        let mut index = Vec::with_capacity(table.len() / INDEX_LEN);
+        ensure!(
+            frames_offset == index_offset + index_len
+                && frames_offset.checked_add(frames_len) == Some(section.len as u64),
+            "display: invalid frames span"
+        );
+        let mut table = vec![0; usize::try_from(index_len)?];
+        read_exact_at(file, &mut table, section.off as u64 + index_offset)
+            .context("display: reading index")?;
+        let mut entries = Vec::with_capacity(table.len() / INDEX_LEN);
         let mut last = None;
+        let mut end = 0;
         for row in table.as_chunks::<INDEX_LEN>().0 {
             let id = GeoEntityId(u32_at(row, 0));
             ensure!(
                 last.is_none_or(|previous| previous < id),
-                "display: unsorted or duplicate index"
+                "display: unsorted or duplicate index at entity ID {}",
+                id.0
             );
             last = Some(id);
             let bounds = DisplayBounds {
@@ -342,80 +376,75 @@ impl DisplayIndex {
                 north: f64_at(row, 28),
             };
             check_bounds(bounds)?;
-            index.push(IndexEntry {
+            let offset = u64_at(row, 36);
+            let compressed_len = u32_at(row, 44);
+            let raw_len = u32_at(row, 48);
+            ensure!(
+                offset == end
+                    && compressed_len > 0
+                    && compressed_len as usize <= MAX_FRAME_BYTES
+                    && raw_len > 0
+                    && raw_len as usize <= MAX_FRAME_BYTES,
+                "display: invalid frame offset or length for entity ID {}",
+                id.0
+            );
+            end = offset
+                .checked_add(u64::from(compressed_len))
+                .context("display: frame offset overflow")?;
+            ensure!(end <= frames_len, "display: frame past end of section");
+            entries.push(IndexEntry {
                 id,
                 bounds,
-                block: u32_at(row, 36),
+                file_offset: section.off as u64 + frames_offset + offset,
+                compressed_len,
+                raw_len,
             });
         }
-        let table = read_table(file, section, blocks_span)?;
-        let mut blocks = Vec::with_capacity(table.len() / BLOCK_LEN);
-        let mut end = 0;
-        for row in table.as_chunks::<BLOCK_LEN>().0 {
-            let entry = BlockEntry {
-                offset: u64_at(row, 0),
-                len: u32_at(row, 8),
-                raw_len: u32_at(row, 12),
-            };
-            ensure!(
-                entry.offset == end
-                    && entry.len > 0
-                    && entry.len as usize <= MAX_FRAME_BYTES
-                    && entry.raw_len > 0
-                    && entry.raw_len as usize <= MAX_FRAME_BYTES,
-                "display: invalid block length or overlap"
-            );
-            end = entry
-                .offset
-                .checked_add(entry.len as u64)
-                .context("display: block overflow")?;
-            ensure!(end <= frames_span.len, "display: block past frames");
-            blocks.push(entry);
-        }
-        ensure!(end == frames_span.len, "display: unindexed frame bytes");
-        ensure!(
-            index
-                .iter()
-                .all(|entry| (entry.block as usize) < blocks.len()),
-            "display: bad block reference"
-        );
-        Ok(Self {
-            index,
-            blocks,
-            frames_offset: section.off as u64 + frames_span.offset,
-        })
+        ensure!(end == frames_len, "display: unindexed frame bytes");
+        Ok(Self { entries })
+    }
+
+    pub(crate) fn ids(&self) -> Vec<GeoEntityId> {
+        self.entries.iter().map(|entry| entry.id).collect()
     }
 
     /// Only the requested compressed frame is read and decompressed.
     pub(crate) fn get(&self, file: &File, id: GeoEntityId) -> Result<Option<DisplayGeometry>> {
-        let Ok(row) = self.index.binary_search_by_key(&id, |entry| entry.id) else {
+        let Ok(row) = self.entries.binary_search_by_key(&id, |entry| entry.id) else {
             return Ok(None);
         };
-        let entry = self.index[row];
-        let raw = self.read_frame(file, self.blocks[entry.block as usize])?;
-        Ok(Some(DisplayGeometry {
-            bounds: entry.bounds,
-            polygons: decode(&raw)?,
-        }))
+        self.entries[row].read_geometry(file).map(Some)
     }
 
-    pub(crate) fn validate_frames(&self, file: &File) -> Result<()> {
-        for &block in &self.blocks {
-            decode(&self.read_frame(file, block)?)?;
+    pub(crate) fn validate_frames(
+        &self,
+        file: &File,
+        mut validate: impl FnMut(GeoEntityId, DisplayGeometry) -> Result<()>,
+    ) -> Result<()> {
+        for entry in &self.entries {
+            let geometry = entry
+                .read_geometry(file)
+                .with_context(|| format!("display: decoding entity ID {}", entry.id.0))?;
+            validate(entry.id, geometry)?;
         }
         Ok(())
     }
+}
 
-    fn read_frame(&self, file: &File, block: BlockEntry) -> Result<Vec<u8>> {
-        let mut compressed = vec![0; block.len as usize];
-        read_exact_at(file, &mut compressed, self.frames_offset + block.offset)
+impl IndexEntry {
+    fn read_geometry(&self, file: &File) -> Result<DisplayGeometry> {
+        let mut compressed = vec![0; self.compressed_len as usize];
+        read_exact_at(file, &mut compressed, self.file_offset)
             .context("display: reading entity frame")?;
-        let raw = zstd::bulk::decompress(&compressed, block.raw_len as usize)
+        let raw = zstd::bulk::decompress(&compressed, self.raw_len as usize)
             .context("display: decompressing entity frame")?;
         ensure!(
-            raw.len() == block.raw_len as usize,
+            raw.len() == self.raw_len as usize,
             "display: wrong decompressed length"
         );
-        Ok(raw)
+        Ok(DisplayGeometry {
+            bounds: self.bounds,
+            polygons: decode(&raw)?,
+        })
     }
 }

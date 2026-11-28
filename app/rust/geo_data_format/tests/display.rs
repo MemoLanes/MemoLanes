@@ -3,17 +3,19 @@ use std::collections::BTreeMap;
 use bitmap_geometry::BitmapPlane;
 use geo_data_format::{
     read_header, write_geo_data_planes, write_geo_data_planes_with_display, DisplayBounds,
-    DisplayRecord, GeoData, GeoEntity, GeoEntityId, GeoEntityKind, PackedTile, PlaneRaster,
-    TileEntry, TileMembership, Worldview, CELLS_PER_TILE, NO_ENTITY, PROVENANCE_HASH_END,
-    TILE_COUNT,
+    DisplayPolygons, DisplayRecord, GeoData, GeoEntity, GeoEntityId, GeoEntityKind, PackedTile,
+    PlaneRaster, TileEntry, TileMembership, Worldview, CELLS_PER_TILE, NO_ENTITY,
+    PROVENANCE_HASH_END, TILE_COUNT,
 };
 
 // The display span is the final outer header entry; inner spans are relative to it.
 const DISPLAY_SECTION: usize = PROVENANCE_HASH_END + 4 * 8;
 const INDEX_SECTION: usize = 0;
-const BLOCK_SECTION: usize = 16;
-const FRAME_SECTION: usize = 32;
-const INDEX_ENTRY_LEN: usize = 40;
+const FRAME_SECTION: usize = 16;
+const INDEX_ENTRY_LEN: usize = 52;
+const FRAME_OFFSET: usize = 36;
+const COMPRESSED_LEN: usize = 44;
+const RAW_LEN: usize = 48;
 
 fn u64_at(bytes: &[u8], at: usize) -> usize {
     u64::from_le_bytes(bytes[at..at + 8].try_into().unwrap()) as usize
@@ -29,8 +31,8 @@ fn bounds(west: f64) -> DisplayBounds {
         north: 10.0,
     }
 }
-fn shape() -> Vec<Vec<Vec<[i32; 2]>>> {
-    vec![
+fn shape() -> DisplayPolygons {
+    DisplayPolygons::Grid(vec![
         vec![
             vec![
                 [17990000, -100],
@@ -46,14 +48,28 @@ fn shape() -> Vec<Vec<Vec<[i32; 2]>>> {
             ],
         ],
         vec![vec![[-15, -15], [-10, -15], [-10, -10], [-15, -15]]],
+    ])
+}
+fn exact_shape() -> Vec<Vec<Vec<[f64; 2]>>> {
+    vec![
+        vec![
+            vec![
+                [179.99999991, -0.0],
+                [180.00000002, -1.0],
+                [180.00000003, 1.0],
+                [179.99999991, -0.0],
+            ],
+            vec![
+                [180.0, -0.00000001],
+                [180.000000011, 0.00000002],
+                [180.000000012, 0.00000002],
+                [180.0, -0.00000001],
+            ],
+        ],
+        vec![vec![[181.0, 0.0], [181.2, 0.0], [181.1, 1.0], [181.0, 0.0]]],
     ]
 }
-fn record(
-    worldview: Worldview,
-    id: u32,
-    west: f64,
-    polygons: Vec<Vec<Vec<[i32; 2]>>>,
-) -> DisplayRecord {
+fn record(worldview: Worldview, id: u32, west: f64, polygons: DisplayPolygons) -> DisplayRecord {
     DisplayRecord {
         worldview,
         entity_id: GeoEntityId(id),
@@ -133,6 +149,76 @@ fn combined_round_trip_includes_coverage_and_display_geometry() {
 }
 
 #[test]
+fn exact_display_polygons_round_trip_every_coordinate_bit() {
+    let exact = exact_shape();
+    let bytes = combined(&[
+        record(Worldview::Iso, 2, 0.0, shape()),
+        record(
+            Worldview::Iso,
+            1,
+            179.0,
+            DisplayPolygons::Exact(exact.clone()),
+        ),
+    ])
+    .unwrap();
+    let (_dir, geo) = open(&bytes);
+    assert_eq!(geo.display_ids().unwrap(), [GeoEntityId(1), GeoEntityId(2)]);
+    let mut visited = Vec::new();
+    geo.validate_display(|id, geometry| {
+        visited.push((id, geometry.bounds, geometry.polygons));
+        Ok(())
+    })
+    .unwrap();
+    assert_eq!(
+        visited,
+        [
+            (
+                GeoEntityId(1),
+                bounds(179.0),
+                DisplayPolygons::Exact(exact.clone())
+            ),
+            (GeoEntityId(2), bounds(0.0), shape())
+        ]
+    );
+    assert_eq!(
+        geo.display_geometry(GeoEntityId(2))
+            .unwrap()
+            .unwrap()
+            .polygons,
+        shape()
+    );
+    let geometry = geo.display_geometry(GeoEntityId(1)).unwrap().unwrap();
+    assert_eq!(geometry.bounds, bounds(179.0));
+    assert!(matches!(&geometry.polygons, DisplayPolygons::Exact(_)));
+    let degrees = geometry.polygons.into_degrees();
+    assert_eq!(degrees, exact);
+    for (actual, expected) in degrees
+        .iter()
+        .flatten()
+        .flatten()
+        .zip(exact.iter().flatten().flatten())
+    {
+        assert_eq!(actual.map(f64::to_bits), expected.map(f64::to_bits));
+    }
+    let degrees = shape().into_degrees();
+    assert_eq!(degrees[0][0][0], [179.9, -0.001]);
+    assert_eq!(degrees[0][0][1], [180.1, -0.001]);
+}
+
+#[test]
+fn grid_display_frame_keeps_legacy_bytes() {
+    let polygons = DisplayPolygons::Grid(vec![vec![vec![[-1, 2], [2, 0], [2, 1], [-1, 2]]]]);
+    let bytes = combined(&[record(Worldview::Iso, 1, 0.0, polygons)]).unwrap();
+    let display = u32_at(&bytes, DISPLAY_SECTION) as usize;
+    let frames = display + u64_at(&bytes, display + FRAME_SECTION);
+    let legacy_payload = [1, 1, 3, 1, 4, 6, 3, 0, 2];
+    assert_eq!(
+        bytes[frames..],
+        zstd::bulk::compress(&legacy_payload, 3).unwrap()
+    );
+}
+
+#[test]
 fn malformed_outer_display_span_does_not_disable_installed_coverage() {
     let bytes = combined(&[record(Worldview::Iso, 1, 0.0, shape())]).unwrap();
     let dir = tempfile::tempdir().unwrap();
@@ -162,6 +248,7 @@ fn malformed_outer_display_span_does_not_disable_installed_coverage() {
             GeoData::open_for_coverage(&path).unwrap_or_else(|error| panic!("{case}: {error:#}"));
         assert_coverage(&geo);
         assert!(geo.display_geometry(GeoEntityId(1)).is_err(), "{case}");
+        assert!(geo.display_ids().is_err(), "{case}");
     }
 }
 
@@ -181,6 +268,7 @@ fn both_open_modes_reject_truncation_inside_raster() {
 fn empty_display_section_differs_from_raster_only() {
     let (combined_dir, geo) = open(&combined(&[]).unwrap());
     assert!(geo.display_geometry(GeoEntityId(1)).unwrap().is_none());
+    assert!(geo.display_ids().unwrap().is_empty());
     let header = read_header(&combined_dir.path().join("geo_data_iso.bin"))
         .unwrap()
         .unwrap();
@@ -189,6 +277,7 @@ fn empty_display_section_differs_from_raster_only() {
     let bytes = write_geo_data_planes(&[], "iso", &[], [5; 32]).unwrap();
     let (raster_dir, geo) = open(&bytes);
     assert!(geo.display_geometry(GeoEntityId(1)).unwrap().is_none());
+    assert!(geo.display_ids().unwrap().is_empty());
     let header = read_header(&raster_dir.path().join("geo_data_iso.bin"))
         .unwrap()
         .unwrap();
@@ -197,8 +286,8 @@ fn empty_display_section_differs_from_raster_only() {
 }
 
 #[test]
-fn deduplicates_equal_frames_and_sorts_entity_ids() {
-    let altered = vec![vec![vec![[0, 0], [10, 0], [10, 10], [0, 0]]]];
+fn each_entity_has_an_independent_frame_in_id_order() {
+    let altered = DisplayPolygons::Grid(vec![vec![vec![[0, 0], [10, 0], [10, 10], [0, 0]]]]);
     let records = vec![
         record(Worldview::Iso, 3, 30.0, altered.clone()),
         record(Worldview::Iso, 2, 20.0, shape()),
@@ -210,13 +299,21 @@ fn deduplicates_equal_frames_and_sorts_entity_ids() {
     assert_eq!(u32_at(&bytes, index), 1);
     assert_eq!(u32_at(&bytes, index + INDEX_ENTRY_LEN), 2);
     assert_eq!(u32_at(&bytes, index + INDEX_ENTRY_LEN * 2), 3);
+    let frames = display + u64_at(&bytes, display + FRAME_SECTION);
+    let first_len = u32_at(&bytes, index + COMPRESSED_LEN) as usize;
+    assert!(first_len > 0);
+    assert_eq!(u64_at(&bytes, index + FRAME_OFFSET), 0);
     assert_eq!(
-        u32_at(&bytes, index + 36),
-        u32_at(&bytes, index + INDEX_ENTRY_LEN + 36)
+        u64_at(&bytes, index + INDEX_ENTRY_LEN + FRAME_OFFSET),
+        first_len
     );
-    assert_ne!(
-        u32_at(&bytes, index + 36),
-        u32_at(&bytes, index + INDEX_ENTRY_LEN * 2 + 36)
+    assert_eq!(
+        u64_at(&bytes, index + 2 * INDEX_ENTRY_LEN + FRAME_OFFSET),
+        2 * first_len
+    );
+    assert_eq!(
+        &bytes[frames..frames + first_len],
+        &bytes[frames + first_len..frames + 2 * first_len]
     );
     let (_dir, geo) = open(&bytes);
     assert_eq!(
@@ -249,60 +346,122 @@ fn deduplicates_equal_frames_and_sorts_entity_ids() {
 #[test]
 fn malformed_display_frame_does_not_break_coverage_or_other_frame() {
     let mut bytes = combined(&[
-        record(Worldview::Iso, 1, 0.0, shape()),
         record(
             Worldview::Iso,
-            2,
-            0.0,
-            vec![vec![vec![[0, 0], [1, 0], [1, 1], [0, 0]]]],
+            1,
+            179.0,
+            DisplayPolygons::Exact(exact_shape()),
         ),
+        record(Worldview::Iso, 2, 0.0, shape()),
     ])
     .unwrap();
     let display = u32_at(&bytes, DISPLAY_SECTION) as usize;
-    let blocks = display + u64_at(&bytes, display + BLOCK_SECTION);
     let frames = display + u64_at(&bytes, display + FRAME_SECTION);
-    let first_frame = frames + u64_at(&bytes, blocks);
-    bytes[first_frame] ^= 1; // invalidate zstd frame magic without changing its size
+    bytes[frames] ^= 1; // invalidate zstd frame magic without changing its size
     let (_dir, geo) = open(&bytes);
-    assert!(geo.display_geometry(GeoEntityId(1)).is_err());
-    assert_coverage(&geo);
+    assert_eq!(geo.display_ids().unwrap(), [GeoEntityId(1), GeoEntityId(2)]);
     assert!(geo.display_geometry(GeoEntityId(2)).unwrap().is_some());
+    assert!(geo.display_geometry(GeoEntityId(1)).is_err());
+    assert!(geo.validate_display(|_, _| Ok(())).is_err());
+    assert_coverage(&geo);
+}
+
+#[test]
+fn rejects_malformed_exact_display_payloads() {
+    let bytes = combined(&[record(
+        Worldview::Iso,
+        1,
+        179.0,
+        DisplayPolygons::Exact(exact_shape()),
+    )])
+    .unwrap();
+    let display = u32_at(&bytes, DISPLAY_SECTION) as usize;
+    let index = display + u64_at(&bytes, display + INDEX_SECTION);
+    let frames = display + u64_at(&bytes, display + FRAME_SECTION);
+    let mut excessive_vertices = vec![0, 1, 1, 0xc1, 0x84, 0x3d]; // 1,000,001 vertices
+    excessive_vertices.resize(excessive_vertices.len() + 2 * 1_000_001, 0);
+    for (raw, error) in [
+        (&[0][..], "truncated varint"),
+        (&[0, 0], "invalid polygon count"),
+        (&[0, 1, 0], "invalid ring count"),
+        (&[0, 1, 1, 2, 0, 0, 0, 0], "invalid vertex count"),
+        (&[0, 1, 1, 3, 0, 0, 0, 0, 0, 128], "truncated varint"),
+        (&[0, 1, 1, 3, 0, 0, 0, 0, 0, 0, 1], "trailing frame data"),
+        // First x delta zigzags the f64 bits of positive infinity.
+        (
+            &[
+                0, 1, 1, 3, 128, 128, 128, 128, 128, 128, 128, 240, 255, 1, 0, 0, 0, 0, 0,
+            ],
+            "non-finite coordinate",
+        ),
+        (
+            &[
+                0, 1, 1, 3, 128, 128, 128, 128, 128, 128, 128, 128, 128, 2, 0, 0, 0, 0, 0,
+            ],
+            "varint overflow",
+        ),
+        (excessive_vertices.as_slice(), "too many vertices"),
+    ] {
+        // Replace the sole frame and keep the file and table lengths valid.
+        let mut corrupt = bytes[..frames].to_vec();
+        let payload = zstd::bulk::compress(raw, 3).unwrap();
+        corrupt.extend_from_slice(&payload);
+        let display_len = (corrupt.len() - display) as u32;
+        corrupt[DISPLAY_SECTION + 4..DISPLAY_SECTION + 8]
+            .copy_from_slice(&display_len.to_le_bytes());
+        corrupt[display + FRAME_SECTION + 8..display + FRAME_SECTION + 16]
+            .copy_from_slice(&(payload.len() as u64).to_le_bytes());
+        corrupt[index + COMPRESSED_LEN..index + COMPRESSED_LEN + 4]
+            .copy_from_slice(&(payload.len() as u32).to_le_bytes());
+        corrupt[index + RAW_LEN..index + RAW_LEN + 4]
+            .copy_from_slice(&(raw.len() as u32).to_le_bytes());
+        let (_dir, geo) = open(&corrupt);
+        let err = geo.display_geometry(GeoEntityId(1)).unwrap_err();
+        assert!(
+            format!("{err:#}").contains(error),
+            "expected {error}: {err:#}"
+        );
+        assert!(geo.validate_display(|_, _| Ok(())).is_err());
+        assert_coverage(&geo);
+    }
 }
 
 #[test]
 fn display_index_and_frames_are_bounded_without_affecting_coverage() {
     let bytes = combined(&[record(Worldview::Iso, 1, 0.0, shape())]).unwrap();
     let display = u32_at(&bytes, DISPLAY_SECTION) as usize;
-    let index = u64_at(&bytes, display + INDEX_SECTION);
-    let blocks = display + u64_at(&bytes, display + BLOCK_SECTION);
+    let index = display + u64_at(&bytes, display + INDEX_SECTION);
     let frames = display + u64_at(&bytes, display + FRAME_SECTION);
-    // Exercise malformed refs, overflowing spans, oversized frames, frames
-    // past the display boundary, and offsets that only work at the file origin.
+    let frame_len = (bytes.len() - frames) as u32;
     for (at, bad) in [
-        (display + index + 36, 42u32.to_le_bytes().to_vec()),
-        (display + INDEX_SECTION, u64::MAX.to_le_bytes().to_vec()),
+        (index + 4, f64::NAN.to_le_bytes().to_vec()),
+        (index + FRAME_OFFSET, u64::MAX.to_le_bytes().to_vec()),
+        (index + RAW_LEN, 0u32.to_le_bytes().to_vec()),
         (
-            blocks + 12,
+            index + RAW_LEN,
             (16 * 1024 * 1024 + 1u32).to_le_bytes().to_vec(),
         ),
-        (blocks, u64::MAX.to_le_bytes().to_vec()),
         (
-            blocks + 8,
-            ((bytes.len() - frames + 1) as u32).to_le_bytes().to_vec(),
+            index + COMPRESSED_LEN,
+            (frame_len + 1).to_le_bytes().to_vec(),
         ),
         (
-            display + BLOCK_SECTION,
+            index + COMPRESSED_LEN,
+            (frame_len - 1).to_le_bytes().to_vec(),
+        ),
+        (display + INDEX_SECTION, u64::MAX.to_le_bytes().to_vec()),
+        (display + INDEX_SECTION + 8, u64::MAX.to_le_bytes().to_vec()),
+        (
+            display + FRAME_SECTION,
             (index as u64).to_le_bytes().to_vec(),
         ),
-        (
-            display + INDEX_SECTION,
-            ((display - 1) as u64).to_le_bytes().to_vec(),
-        ),
+        (display + FRAME_SECTION + 8, u64::MAX.to_le_bytes().to_vec()),
     ] {
         let mut corrupt = bytes.clone();
         corrupt[at..at + bad.len()].copy_from_slice(&bad);
         let (_dir, geo) = open(&corrupt);
         assert!(geo.display_geometry(GeoEntityId(1)).is_err());
+        assert!(geo.display_ids().is_err());
         assert_coverage(&geo);
     }
 }
@@ -319,8 +478,9 @@ fn display_index_is_not_read_until_the_first_lookup() {
         .write(true)
         .open(dir.path().join("geo_data_iso.bin"))
         .unwrap();
-    file.seek(SeekFrom::Start((index + 36) as u64)).unwrap();
-    file.write_all(&42u32.to_le_bytes()).unwrap();
+    file.seek(SeekFrom::Start((index + FRAME_OFFSET) as u64))
+        .unwrap();
+    file.write_all(&42u64.to_le_bytes()).unwrap();
     assert!(geo.display_geometry(GeoEntityId(1)).is_err());
     assert_coverage(&geo);
 }
@@ -359,13 +519,47 @@ fn rejects_record_from_another_worldview() {
 fn rejects_malformed_geometry_and_duplicate_keys() {
     let valid = record(Worldview::Iso, 1, 0.0, shape());
     assert!(combined(&[valid.clone(), valid]).is_err());
-    let mut invalid = record(Worldview::Iso, 2, 0.0, shape());
-    invalid.polygons[0][0].pop(); // not closed
-    assert!(combined(&[invalid]).is_err());
+    let invalid = DisplayPolygons::Grid(vec![vec![vec![[0, 0], [1, 0], [1, 1], [0, 1]]]]);
+    assert!(combined(&[record(Worldview::Iso, 2, 0.0, invalid)]).is_err());
     let mut invalid_bounds = record(Worldview::Iso, 2, 0.0, shape());
     invalid_bounds.bounds.east = f64::INFINITY;
     assert!(combined(&[invalid_bounds]).is_err());
     let mut too_wide = record(Worldview::Iso, 2, -180.0, shape());
     too_wide.bounds.east = 181.0;
     assert!(combined(&[too_wide]).is_err());
+}
+
+#[test]
+fn exact_display_writer_rejects_invalid_geometry() {
+    let valid = [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 0.0]];
+    let alter = |index: usize, point| {
+        let mut ring = valid;
+        ring[index] = point;
+        vec![vec![ring.to_vec()]]
+    };
+    for (polygons, error) in [
+        (vec![], "empty geometry"),
+        (vec![vec![]], "empty polygon"),
+        (
+            vec![vec![valid[..3].to_vec()]],
+            "ring not closed or too short",
+        ),
+        (alter(3, [0.0, 1.0]), "ring not closed or too short"),
+        (alter(3, [-0.0, 0.0]), "ring not closed or too short"),
+        (alter(1, [f64::NAN, 0.0]), "non-finite coordinate"),
+        (alter(3, [f64::INFINITY, 0.0]), "non-finite coordinate"),
+        (vec![vec![vec![[0.0, 0.0]; 1_000_002]]], "too many vertices"),
+    ] {
+        let err = combined(&[record(
+            Worldview::Iso,
+            1,
+            0.0,
+            DisplayPolygons::Exact(polygons),
+        )])
+        .unwrap_err();
+        assert!(
+            format!("{err:#}").contains(error),
+            "expected {error}: {err:#}"
+        );
+    }
 }

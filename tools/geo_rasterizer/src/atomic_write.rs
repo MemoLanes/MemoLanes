@@ -18,6 +18,14 @@ pub fn write_atomically_with(
     path: &Path,
     write: impl FnOnce(&mut File) -> Result<()>,
 ) -> Result<()> {
+    publish_atomically(path, write, |_| Ok(()))
+}
+
+pub(crate) fn publish_atomically(
+    path: &Path,
+    write: impl FnOnce(&mut File) -> Result<()>,
+    verify: impl FnOnce(&Path) -> Result<()>,
+) -> Result<()> {
     let parent = path
         .parent()
         .filter(|parent| !parent.as_os_str().is_empty())
@@ -38,6 +46,7 @@ pub fn write_atomically_with(
     tmp.as_file()
         .sync_all()
         .with_context(|| format!("fsync {}", tmp.path().display()))?;
+    verify(tmp.path()).with_context(|| format!("verifying staged {}", path.display()))?;
     let temporary_path = tmp.path().to_owned();
     // persist replaces existing files on Windows too, without unlinking first.
     tmp.persist(path)

@@ -96,8 +96,16 @@ pub async fn activate_geo_data(
     if storage.open_installed_geo_data(worldview.into(), expected)? {
         return Ok(());
     }
-    let bytes = load_asset().await?;
-    storage.init_or_change_geo_data(worldview.into(), expected, &bytes)
+    let replacement = load_asset()
+        .await
+        .and_then(|bytes| storage.init_or_change_geo_data(worldview.into(), expected, &bytes));
+    match replacement {
+        Err(error) if storage.has_coverage_during_display_repair(worldview.into(), expected) => {
+            warn!("could not repair {worldview:?} display; continuing with installed coverage: {error:#}");
+            Ok(())
+        }
+        result => result,
+    }
 }
 
 /// Explored area for a single layer.

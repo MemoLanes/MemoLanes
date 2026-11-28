@@ -1,23 +1,23 @@
-//! Materialize and check each snapshot before refining or omitting outlines.
+//! Materialize and check each snapshot before committing display outlines.
 
 mod contacts;
 mod overlaps;
 
 use std::collections::BTreeMap;
 
-use anyhow::{ensure, Result};
+use anyhow::{bail, ensure, Result};
 use geo::{winding_order::Winding, Area, BooleanOps, Euclidean, Length};
-use geo_data_format::{DisplayRecord, Worldview};
+use geo_data_format::{DisplayPolygons, DisplayRecord, Worldview};
 use geo_types::{LineString, MultiPolygon};
 use rayon::prelude::*;
 
 use super::{
     rings,
     source::{valid_geometry, Prepared},
-    topology::{degrees, polygon_from_grid, ArcState, Graph, Shape},
+    topology::{polygon_from_vertices, ArcState, Graph, Precision, Shape, Vertex},
 };
-use contacts::{new_contacts, Conflict};
-use overlaps::{new_interior_overlaps, InteriorOverlapCache};
+use contacts::SourceContacts;
+use overlaps::changed_nesting;
 
 fn validated_shape(
     graph: &Graph,
@@ -26,6 +26,7 @@ fn validated_shape(
     source: &Prepared,
 ) -> Result<Shape> {
     let mut shape = vec![];
+    let budget = source.budget;
     for (ring_ids, reference) in graph.shapes[owner].iter().zip(&source.geometry.0) {
         let mut polygon = vec![];
         for (&r, original) in ring_ids.iter().zip(rings(reference)) {
@@ -33,10 +34,10 @@ fn validated_shape(
             for &(a, forward) in &graph.rings[r].arcs {
                 let state = &states[a];
                 ensure!(
-                    state.error <= source.budget,
-                    "combined fit error {:.7}° > {:.7}°",
+                    state.error <= budget,
+                    "ring {r} arc {a} fit error {:.7}° > {:.7}°",
                     state.error,
-                    source.budget
+                    budget
                 );
                 let path = &state.points;
                 if forward {
@@ -45,16 +46,20 @@ fn validated_shape(
                     ring.extend(path[1..].iter().rev().copied());
                 }
             }
-            ring.dedup();
-            if ring.last() != ring.first() {
+            ring.dedup_by(|a, b| a.degrees() == b.degrees());
+            if ring
+                .last()
+                .zip(ring.first())
+                .is_some_and(|(a, b)| a.degrees() != b.degrees())
+            {
                 ring.push(ring[0]);
             }
-            ensure!(ring.len() >= 4, "ring collapsed on grid");
-            let snapped = LineString(ring.iter().copied().map(degrees).collect());
+            ensure!(ring.len() >= 4, "ring {r} collapsed");
+            let snapped = LineString(ring.iter().copied().map(Vertex::degrees).collect());
             ensure!(
                 snapped.winding_order().is_some()
                     && snapped.winding_order() == original.winding_order(),
-                "ring collapsed or changed winding"
+                "ring {r} collapsed or changed winding"
             );
             polygon.push(ring);
         }
@@ -63,7 +68,7 @@ fn validated_shape(
     let candidate = MultiPolygon(
         shape
             .iter()
-            .map(|rings| polygon_from_grid(rings, degrees))
+            .map(|rings| polygon_from_vertices(rings))
             .collect(),
     );
     valid_geometry(&candidate)?;
@@ -83,17 +88,12 @@ fn validated_shape(
 pub(super) fn validated_records(
     worldview: Worldview,
     prepared: &[Prepared],
-    source_count: usize,
     prefix: &str,
-) -> Vec<DisplayRecord> {
+) -> Result<Vec<DisplayRecord>> {
     let mut graph = Graph::build(prepared);
-    let mut enabled = vec![true; prepared.len()];
     let mut fallback = BTreeMap::new();
-    let mut overlap_cache = InteriorOverlapCache::default();
-    let extent = |i: usize| {
-        let b = prepared[i].bounds;
-        (b.east - b.west).max(b.north - b.south)
-    };
+    let source_contacts = SourceContacts::new(&graph);
+    graph.simplify(prepared, &source_contacts.protected_edges);
     loop {
         let states: Vec<_> = graph
             .arcs
@@ -103,16 +103,16 @@ pub(super) fn validated_records(
         let shapes: Vec<_> = prepared
             .par_iter()
             .enumerate()
-            .map(|(i, s)| enabled[i].then(|| validated_shape(&graph, i, &states, s)))
+            .map(|(i, s)| validated_shape(&graph, i, &states, s))
             .collect();
-        let mut failures = shapes
+        let failures = shapes
             .iter()
             .enumerate()
-            .filter_map(|(i, shape)| shape.as_ref()?.as_ref().err().map(|error| (i, error)))
-            .peekable();
+            .filter_map(|(i, shape)| shape.as_ref().err().map(|error| (i, error)))
+            .collect::<Vec<_>>();
         let mut retry = false;
-        for (i, error) in failures.clone() {
-            if graph.back_off_shape(i) {
+        for &(i, error) in &failures {
+            if graph.back_off_shape(i, Precision::Fine) {
                 fallback.entry(i).or_insert_with(|| format!("{error:#}"));
                 retry = true;
             }
@@ -122,127 +122,141 @@ pub(super) fn validated_records(
         if retry {
             continue;
         }
-        if failures.peek().is_some() {
-            for (i, error) in failures {
-                enabled[i] = false;
-                eprintln!(
-                    "{prefix} id={} unavailable at fine grid: {error:#}",
-                    prepared[i].id.0
-                );
+        if !failures.is_empty() {
+            for &(i, _) in &failures {
+                retry |= graph.back_off_shape(i, Precision::Exact);
             }
-            continue;
-        }
-        let conflicts = new_contacts(&graph, &states, &enabled);
-        for Conflict { sides, .. } in &conflicts {
-            let mut changed = false;
-            for side in sides {
-                changed |= graph.back_off_arc(side.arc);
-                if let Some(arc) = side.continuation {
-                    changed |= graph.back_off_arc(arc);
-                }
-            }
-            if changed {
-                for i in sides.iter().flat_map(|side| side.owners(&graph, &enabled)) {
-                    fallback.entry(i).or_insert_with(|| {
-                        "new crossing or shared segment between distinct arcs".into()
-                    });
-                }
-                retry = true;
-            }
-        }
-        if retry {
-            continue;
-        }
-        let overlaps = new_interior_overlaps(prepared, &shapes, &mut overlap_cache);
-        for &[left, right] in &overlaps {
-            for (i, other) in [(left, right), (right, left)] {
-                if graph.back_off_shape(i) {
-                    fallback.insert(
-                        i,
-                        format!(
-                            "new component interior overlap (other ID {})",
-                            prepared[other].id.0
-                        ),
-                    );
-                    retry = true;
-                }
-            }
-        }
-        if retry {
-            continue;
-        }
-        for Conflict {
-            sides,
-            shared_segment,
-            at,
-        } in conflicts
-        {
-            let [left, right] = sides.map(|side| side.owners(&graph, &enabled));
-            if left.is_empty() || right.is_empty() {
+            if retry {
                 continue;
             }
-            // Both sides have used all stored precision. Keep the side with
-            // larger geographic extent if the conflict can't be resolved.
-            let strength =
-                |owners: &[usize]| owners.iter().copied().map(extent).fold(0.0, f64::max);
-            let (discard, kept) = if strength(&left) > strength(&right) {
-                (&right, &left)
-            } else {
-                (&left, &right)
-            };
-            let kept: Vec<_> = kept.iter().map(|&i| prepared[i].id.0).collect();
-            for &i in discard {
-                enabled[i] = false;
-                let reason = if shared_segment {
-                    "distinct arcs share a segment"
-                } else {
-                    "distinct arcs cross"
-                };
-                eprintln!("{prefix} id={} unavailable: {reason} at fine grid near {at:?} (other IDs {kept:?})", prepared[i].id.0);
-            }
-            retry = true;
-        }
-        if retry {
-            continue;
-        }
-        // All shared arcs and endpoints have been tried at fine precision.
-        // Keep the greater entity extent; equal extents favor the lower ID.
-        for [left, right] in overlaps {
-            if enabled[left] && enabled[right] {
-                let (omit, keep) = if extent(left) < extent(right) {
-                    (left, right)
-                } else {
-                    (right, left)
-                };
-                enabled[omit] = false;
-                eprintln!("{prefix} id={} unavailable: new component interior overlap at fine grid (other ID {})", prepared[omit].id.0, prepared[keep].id.0);
-                retry = true;
-            }
-        }
-        if retry {
-            continue;
-        }
-        for (&i, reason) in &fallback {
-            eprintln!(
-                "{prefix} id={} fallback to unsimplified/fine: {reason}",
+            let (i, error) = failures[0];
+            bail!(
+                "{prefix} id={} invalid at source precision: {error:#}",
                 prepared[i].id.0
             );
         }
-        let records: Vec<_> = prepared
+        let conflicts = source_contacts.conflicts(&graph, &states);
+        for precision in [Precision::Fine, Precision::Exact] {
+            for conflict in &conflicts {
+                for arc in conflict.arcs {
+                    if graph.back_off_arc(arc, precision) {
+                        for &owner in &graph.arcs[arc].owners {
+                            fallback
+                                .entry(owner)
+                                .or_insert_with(|| conflict.reason.to_owned());
+                        }
+                        retry = true;
+                    }
+                }
+            }
+            if retry {
+                break;
+            }
+        }
+        if retry {
+            continue;
+        }
+        if let Some(conflict) = conflicts.first() {
+            let ids = conflict.arcs.map(|arc| {
+                graph.arcs[arc]
+                    .owners
+                    .iter()
+                    .map(|&i| prepared[i].id.0)
+                    .collect::<Vec<_>>()
+            });
+            bail!(
+                "{prefix} {} at source precision near {:?} (arcs {:?}, IDs {ids:?})",
+                conflict.reason,
+                conflict.at,
+                conflict.arcs
+            );
+        }
+
+        let shapes = shapes.into_iter().collect::<Result<Vec<_>>>()?;
+        let nesting = changed_nesting(&graph, prepared, &shapes);
+        for precision in [Precision::Fine, Precision::Exact] {
+            for change in &nesting {
+                let [left, right] = change.rings;
+                for (ring, other) in [(left, right), (right, left)] {
+                    if graph.back_off_ring(ring, precision) {
+                        let i = graph.rings[ring].owner;
+                        let other = graph.rings[other].owner;
+                        fallback.entry(i).or_insert_with(|| {
+                            format!(
+                                "changed ring containment (other ID {})",
+                                prepared[other].id.0
+                            )
+                        });
+                        retry = true;
+                    }
+                }
+            }
+            if retry {
+                break;
+            }
+        }
+        if retry {
+            continue;
+        }
+        if let Some(change) = nesting.first() {
+            let ids = change
+                .rings
+                .map(|ring| prepared[graph.rings[ring].owner].id.0);
+            bail!("{prefix} changed ring containment at source precision near {:?} (rings {:?}, IDs {ids:?})", change.at, change.rings);
+        }
+        for (&i, reason) in &fallback {
+            eprintln!(
+                "{prefix} id={} restored boundary precision: {reason}",
+                prepared[i].id.0
+            );
+        }
+        let records: Vec<DisplayRecord> = prepared
             .iter()
             .zip(shapes)
-            .filter_map(|(s, shape)| {
-                shape.map(|polygons| DisplayRecord {
-                    worldview,
-                    entity_id: s.id,
-                    bounds: s.bounds,
-                    polygons: polygons.unwrap(),
-                })
+            .map(|(s, shape)| DisplayRecord {
+                worldview,
+                entity_id: s.id,
+                bounds: s.bounds,
+                polygons: display_polygons(shape),
             })
             .collect();
         let repaired = prepared.iter().filter(|s| s.repaired).count();
-        let fine_arcs = graph.arcs.iter().filter(|a| a.fine).count();
-        eprintln!("{prefix} {} records / {} sources; {} fallback requests, {fine_arcs} fine arcs, {repaired} repaired, {} unavailable", records.len(), source_count, fallback.len(), source_count - records.len());
-        return records;
+        let fine_arcs = graph
+            .arcs
+            .iter()
+            .filter(|a| a.precision == Precision::Fine)
+            .count();
+        let exact_arcs = graph
+            .arcs
+            .iter()
+            .filter(|a| a.precision == Precision::Exact)
+            .count();
+        let exact_records = records
+            .iter()
+            .filter(|r| matches!(r.polygons, DisplayPolygons::Exact(_)))
+            .count();
+        eprintln!("{prefix} {} records ({exact_records} source-precision frames), {} owners retried, {fine_arcs} fine arcs, {exact_arcs} exact arcs, {repaired} repaired", records.len(), fallback.len());
+        return Ok(records);
+    }
+}
+
+fn display_polygons(shape: Shape) -> DisplayPolygons {
+    fn map<T>(shape: Shape, vertex: impl Fn(Vertex) -> T) -> Vec<Vec<Vec<T>>> {
+        shape
+            .into_iter()
+            .map(|p| {
+                p.into_iter()
+                    .map(|r| r.into_iter().map(&vertex).collect())
+                    .collect()
+            })
+            .collect()
+    }
+    if shape.iter().flatten().flatten().all(|v| v.grid().is_some()) {
+        DisplayPolygons::Grid(map(shape, |v| v.grid().unwrap()))
+    } else {
+        DisplayPolygons::Exact(map(shape, |v| {
+            let p = v.degrees();
+            [p.x, p.y]
+        }))
     }
 }

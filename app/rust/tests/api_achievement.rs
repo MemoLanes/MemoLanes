@@ -17,7 +17,7 @@ use std::collections::HashMap;
 
 use flutter_rust_bridge::DartFnFuture;
 use geo_data_format::{
-    read_header, write_geo_data_planes_with_display, DisplayBounds, DisplayRecord,
+    read_header, write_geo_data_planes_with_display, DisplayBounds, DisplayPolygons, DisplayRecord,
     Worldview as GeoWorldview,
 };
 use memolanes_core::{
@@ -75,6 +75,13 @@ fn display_follows_the_active_worldview() {
         let shape = storage.region_geometry(indonesia).unwrap().unwrap();
         assert_eq!(shape.entity_id, indonesia);
         assert_eq!(shape.worldview, Worldview::from(worldview));
+        let feature: serde_json::Value = serde_json::from_str(&shape.feature_geojson).unwrap();
+        assert_eq!(feature["geometry"]["type"], "MultiPolygon");
+        let polygons = feature["geometry"]["coordinates"].as_array().unwrap();
+        assert!(polygons.len() > 1);
+        let position = polygons[0][0][0].as_array().unwrap();
+        assert_eq!(position.len(), 2);
+        assert!(position.iter().all(serde_json::Value::is_number));
         assert!(storage
             .region_geometry(GeoEntityId(u32::MAX))
             .unwrap()
@@ -103,7 +110,7 @@ fn corrupt_display_frame_does_not_disable_geo_achievements() {
     let raster = geo_data_format::GeoData::open(&test_utils::geo_asset("iso")).unwrap();
     let entities = raster.entities().unwrap();
     let id = GeoEntityId(1);
-    let records = [DisplayRecord {
+    let mut records = vec![DisplayRecord {
         worldview,
         entity_id: id,
         bounds: DisplayBounds {
@@ -112,14 +119,43 @@ fn corrupt_display_frame_does_not_disable_geo_achievements() {
             east: 1.0,
             north: 1.0,
         },
-        polygons: vec![vec![vec![[0, 0], [100_000, 0], [100_000, 100_000], [0, 0]]]],
+        polygons: DisplayPolygons::Exact(vec![vec![vec![
+            [0.0, 0.0],
+            [0.000_000_125, 0.0],
+            [1.0, 1.0],
+            [0.0, 0.0],
+        ]]]),
     }];
+    for entity in entities.iter().filter(|entity| {
+        entity.id != id && entity.kind != geo_data_format::GeoEntityKind::Continent
+    }) {
+        let geometry = raster.display_geometry(entity.id).unwrap().unwrap();
+        records.push(DisplayRecord {
+            worldview,
+            entity_id: entity.id,
+            bounds: geometry.bounds,
+            polygons: geometry.polygons,
+        });
+    }
     let hash = [42; 32];
     let bytes = write_geo_data_planes_with_display(&entities, "iso", &[], hash, &records).unwrap();
     storage
         .init_or_change_geo_data(worldview, hash, &bytes)
         .unwrap();
-    assert!(storage.region_geometry(id).unwrap().is_some());
+    let geometry = storage.region_geometry(id).unwrap().unwrap();
+    let geojson: serde_json::Value = serde_json::from_str(&geometry.feature_geojson).unwrap();
+    assert_eq!(
+        geojson,
+        serde_json::json!({
+            "type": "Feature",
+            "id": 1,
+            "properties": { "entity_id": 1 },
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [[[0.0, 0.0], [0.000_000_125, 0.0], [1.0, 1.0], [0.0, 0.0]]]
+            }
+        })
+    );
     let detail = || {
         storage
             .with_achievement_read(|store| {
@@ -141,7 +177,7 @@ fn corrupt_display_frame_does_not_disable_geo_achievements() {
         use std::io::{Seek, SeekFrom, Write};
         let path = storage.installed_geo_data_file(worldview);
         let display = read_header(&path).unwrap().unwrap().display.off;
-        let frames = u64::from_le_bytes(bytes[display + 32..display + 40].try_into().unwrap());
+        let frames = u64::from_le_bytes(bytes[display + 16..display + 24].try_into().unwrap());
         let mut file = fs::OpenOptions::new().write(true).open(path).unwrap();
         let first_frame = display as u64 + frames;
         file.seek(SeekFrom::Start(first_frame)).unwrap();
@@ -331,4 +367,31 @@ async fn api_achievement_explored_area_and_region_contract() {
         region_level_view(Default, RegionKind::Admin1).is_err(),
         "below the country, regions are listed only under their parent"
     );
+
+    // A failed bundle read can still activate a known-damaged installation
+    // when it already supplies the requested worldview's coverage.
+    let installed = dir.path().join("support/geo/geo_data_iso.bin");
+    let mut bytes = fs::read(&installed).unwrap();
+    let display = read_header(&installed).unwrap().unwrap().display.off;
+    let frames = u64::from_le_bytes(bytes[display + 16..display + 24].try_into().unwrap());
+    bytes[display + frames as usize] ^= 1;
+    fs::write(&installed, bytes).unwrap();
+    let id = GeoEntityId(1);
+    assert!(memolanes_core::api::achievement::region_geometry(id).is_err());
+    let missing_asset = || -> DartFnFuture<anyhow::Result<Vec<u8>>> {
+        Box::pin(std::future::ready(Err(anyhow::anyhow!("missing bundle"))))
+    };
+    assert!(activate_geo_data(Worldview::Usa, missing_asset)
+        .await
+        .is_err());
+    activate_geo_data(Worldview::Iso, missing_asset)
+        .await
+        .unwrap();
+    assert!(region_detail(id, Default).unwrap().is_some());
+    activate_geo_data(Worldview::Iso, &load_asset)
+        .await
+        .unwrap();
+    assert!(memolanes_core::api::achievement::region_geometry(id)
+        .unwrap()
+        .is_some());
 }

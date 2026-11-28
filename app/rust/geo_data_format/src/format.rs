@@ -4,23 +4,24 @@
 //! All integers little-endian. Border tiles are stored already
 //! `PackedTile`-compressed. [`GeoData::open`] keeps the tile index (sparse)
 //! and the compressed meta section in memory; border offsets and blobs stay
-//! on disk. Display tables are read on the first geometry lookup, and only
-//! the requested frame is decoded. A zero-length display span is raster-only.
+//! on disk. The display index is read on the first index or geometry lookup,
+//! and only the requested frame is decoded. A zero-length display span is raster-only.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs::File;
 use std::io::ErrorKind;
 use std::path::Path;
 use std::sync::OnceLock;
 
+use anyhow::Context;
 use bitmap_geometry::BitmapPlane;
 use serde::{Deserialize, Serialize};
 
 use crate::{
     display::{write_display_section, DisplayIndex},
     file_io::read_exact_at,
-    DisplayGeometry, DisplayRecord, GeoEntity, GeoEntityId, PackedTile, TileMembership,
-    ALL_PLANE_TILE_COUNT, MAGIC, PROVENANCE_HASH_END,
+    DisplayGeometry, DisplayRecord, GeoEntity, GeoEntityId, GeoEntityKind, PackedTile,
+    TileMembership, ALL_PLANE_TILE_COUNT, MAGIC, PROVENANCE_HASH_END,
 };
 
 /// magic(4) + provenance_hash(32) + 5 sections × (u32 offset, u32 len).
@@ -176,9 +177,49 @@ pub struct GeoData {
     meta_compressed: Box<[u8]>,
     display: anyhow::Result<Section>,
     display_index: OnceLock<anyhow::Result<DisplayIndex>>,
+    display_parity: OnceLock<anyhow::Result<()>>,
+}
+
+/// Check that every non-continent raster entity has exactly one display record.
+pub fn verify_display_ids(
+    entities: &[GeoEntity],
+    ids: impl IntoIterator<Item = GeoEntityId>,
+) -> anyhow::Result<()> {
+    let mut expected = BTreeSet::new();
+    for entity in entities
+        .iter()
+        .filter(|e| e.kind != GeoEntityKind::Continent)
+    {
+        anyhow::ensure!(
+            expected.insert(entity.id),
+            "duplicate raster entity ID {}",
+            entity.id.0
+        );
+    }
+    let mut actual = BTreeSet::new();
+    for id in ids {
+        anyhow::ensure!(actual.insert(id), "duplicate display ID {}", id.0);
+    }
+    if expected != actual {
+        let missing: Vec<_> = expected.difference(&actual).map(|id| id.0).collect();
+        let extra: Vec<_> = actual.difference(&expected).map(|id| id.0).collect();
+        anyhow::bail!(
+            "display IDs do not match raster entities: missing {missing:?}, extra {extra:?}"
+        );
+    }
+    Ok(())
 }
 
 impl GeoData {
+    /// Verify the installed display index on first use, without decoding any region frames.
+    pub fn validate_display_parity(&self) -> anyhow::Result<()> {
+        self.display_parity
+            .get_or_init(|| verify_display_ids(&self.entities()?, self.display_ids()?))
+            .as_ref()
+            .map(|_| ())
+            .map_err(|err| anyhow::anyhow!("{err:#}"))
+    }
+
     pub fn entities(&self) -> anyhow::Result<Vec<GeoEntity>> {
         Ok(decode_meta(&self.meta_compressed)?.entities)
     }
@@ -190,28 +231,42 @@ impl GeoData {
             .map_err(|err| anyhow::anyhow!("{err:#}"))
     }
 
-    /// Validate all embedded outlines for build-cache reuse, not runtime activation.
-    pub fn validate_display(&self) -> anyhow::Result<()> {
+    /// Decode and validate each indexed outline for build-cache reuse.
+    pub fn validate_display(
+        &self,
+        validate: impl FnMut(GeoEntityId, DisplayGeometry) -> anyhow::Result<()>,
+    ) -> anyhow::Result<()> {
+        let index = self
+            .load_display_index()?
+            .context("geo_data: no display section")?;
+        index.validate_frames(&self.border_blobs.file, validate)
+    }
+
+    fn load_display_index(&self) -> anyhow::Result<Option<&DisplayIndex>> {
         let section = self.display_section()?;
-        anyhow::ensure!(section.len != 0, "geo_data: no display section");
-        let file = &self.border_blobs.file;
-        DisplayIndex::read(file, section)?.validate_frames(file)
+        if section.len == 0 {
+            return Ok(None);
+        }
+        self.display_index
+            .get_or_init(|| DisplayIndex::read(&self.border_blobs.file, section))
+            .as_ref()
+            .map(Some)
+            .map_err(|err| anyhow::anyhow!("{err:#}"))
+    }
+
+    /// List sorted display IDs without reading any geometry frames. Raster-only files have no IDs.
+    pub fn display_ids(&self) -> anyhow::Result<Vec<GeoEntityId>> {
+        Ok(self
+            .load_display_index()?
+            .map_or_else(Vec::new, DisplayIndex::ids))
     }
 
     /// Read this entity's display geometry from the same open file as the border blobs.
     /// Missing geometry (including raster-only files) is not an error.
     pub fn display_geometry(&self, id: GeoEntityId) -> anyhow::Result<Option<DisplayGeometry>> {
-        let section = self.display_section()?;
-        if section.len == 0 {
-            return Ok(None);
-        }
-        let file = &self.border_blobs.file;
-        match self
-            .display_index
-            .get_or_init(|| DisplayIndex::read(file, section))
-        {
-            Ok(index) => index.get(file, id),
-            Err(err) => Err(anyhow::anyhow!("{err:#}")),
+        match self.load_display_index()? {
+            Some(index) => index.get(&self.border_blobs.file, id),
+            None => Ok(None),
         }
     }
 }
@@ -528,6 +583,7 @@ impl GeoData {
             meta_compressed,
             display,
             display_index: OnceLock::new(),
+            display_parity: OnceLock::new(),
         })
     }
 }

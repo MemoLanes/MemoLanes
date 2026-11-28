@@ -75,10 +75,11 @@ mod types;
 mod worldview;
 
 pub use cldr::*;
-pub use display::{DisplayBounds, DisplayGeometry, DisplayRecord};
+pub use display::{DisplayBounds, DisplayGeometry, DisplayPolygons, DisplayRecord};
 pub use format::{
-    read_header, write_geo_data, write_geo_data_planes, write_geo_data_planes_with_display,
-    BorderBlobs, GeoData, Header, PlaneRaster, Section, TileEntry, TileIndex, HEADER_LEN,
+    read_header, verify_display_ids, write_geo_data, write_geo_data_planes,
+    write_geo_data_planes_with_display, BorderBlobs, GeoData, Header, PlaneRaster, Section,
+    TileEntry, TileIndex, HEADER_LEN,
 };
 pub use locale::*;
 pub use packed_tile::PackedTile;

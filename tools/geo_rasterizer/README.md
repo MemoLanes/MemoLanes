@@ -28,32 +28,34 @@ file format. To force regeneration locally, remove the relevant
 `assets/geo/geo_data_<worldview>.bin` (from `app/`) and run `just rasterize-geo`.
 
 The asset contains display copies of the resolved admin-0/admin-1 shapes and
-pinned Overture admin-2 shapes, indexed by the IDs actually present in the raster.
-It does not contain continents and is not an input to ownership, area or stats.
+pinned Overture admin-2 shapes, indexed by every non-continent ID in the final
+raster entity table. This includes parents whose children own their blocks.
 
 The exporter cuts crossing polygons at the dateline, preserves explicit polar
 closures, and computes camera bounds from the normalized, validated source. It
-nodes coincident boundaries using existing source vertices, splits at junctions,
-and simplifies each arc using its strictest user's fit budget (approximately
-one pixel at a 640 × 480 Mercator fit). The global `0.0001°` grid is the default;
-failed validation retries with unsimplified arcs on the aligned `0.00001°`
-grid, propagating precision to shared endpoints and revalidating the users.
-It checks ring winding, polygon validity, symmetric difference from source
-coverage, newly introduced shared segments or crossings, and positive-area
-interior overlap between components that had disjoint source interiors.
-The overlap check includes holes and does not reject pre-existing area overlap
-or boundary-only contact. If a new area overlap survives the fine-grid retry,
-the exporter keeps the greater entity extent (lower ID on ties) and logs both
-IDs. Source repair is limited to validated polygonization or union of affected
-source components; these changes apply only to display geometry.
+splits exactly coincident segments at source vertices, including collinear
+vertices present in only one ring. It splits shared arcs at junctions and
+simplifies each arc once using the strictest fit budget across its owners
+(approximately one pixel at a 640 × 480 Mercator fit). Divergent source
+segments follow separate arcs. The exporter reconstructs each entity's rings
+from the arcs and writes independently readable compressed geometry frames.
 
-Generation logs are prefixed `[display:<worldview>]`. Summary lines report
-record/source counts, fallback requests, fine arcs, repairs and unavailable
-outlines. Per-ID messages record the reason for a retry, repair or omission.
-An unavailable outline is not a missing raster entity or a loss of its stats.
-`just test-geo` ensures the assets are current and checks fixture behavior and
-the shipped China, Guangdong, Guangzhou, Macao, Antarctica and Fiji records
-across all three worldviews.
+The default grid is `0.0001°`. Failed validation retries with unsimplified arcs
+on the aligned `0.00001°` grid, then retains source coordinates if the grid still
+changes topology. Each retry propagates precision to shared endpoints and
+revalidates their users. Validation compares polygon validity, winding and
+covered area with the prepared source. It also checks boundary contacts,
+crossing order, the order of arcs at junctions, and the nesting of shells and
+holes. A gap that closes to even a single point triggers a retry, including
+when its shores occupy opposite copies of the dateline.
+
+Before atomic publication, the exporter reopens the staged file, checks the
+exact non-continent ID set and compares each decoded outline and its bounds
+with the validated record. Cache reuse checks ID parity, validates each
+decoded polygon, and verifies that its camera bounds fit the outline within
+the simplification tolerance. Generation logs (`[display:<worldview>]`) report repairs
+and precision fallbacks. `just test-geo` checks ID parity in all shipped
+worldviews and the distinct Alaska and U.S. vertices between their shared arcs.
 
 ## What `geo_entity_registry/` is
 

@@ -3,10 +3,7 @@
 
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Mutex,
-};
+use std::sync::Mutex;
 
 use anyhow::Result;
 use geo_data_format::{
@@ -61,20 +58,19 @@ pub struct GeoIndex {
     child_offsets: Vec<u32>,
     child_ids: Vec<GeoEntityId>,
     decoded: Mutex<Option<(u32, PackedTile)>>,
-    display_needs_repair: AtomicBool,
 }
 
 impl GeoIndex {
     /// border tiles on disk, decoded on demand
     pub fn open(path: &Path) -> Result<Self> {
-        Self::new(GeoData::open(path)?)
+        Self::from_data(GeoData::open(path)?)
     }
 
     pub fn open_installed(path: &Path) -> Result<Self> {
-        Self::new(GeoData::open_for_coverage(path)?)
+        Self::from_data(GeoData::open_for_coverage(path)?)
     }
 
-    fn new(data: GeoData) -> Result<Self> {
+    pub(crate) fn from_data(data: GeoData) -> Result<Self> {
         let entities = data.entities()?;
         let slots = entities
             .iter()
@@ -113,7 +109,6 @@ impl GeoIndex {
             child_offsets,
             child_ids,
             decoded: Mutex::new(None),
-            display_needs_repair: AtomicBool::new(false),
         })
     }
 
@@ -130,13 +125,8 @@ impl GeoIndex {
     }
 
     pub fn display_geometry(&self, id: GeoEntityId) -> Result<Option<DisplayGeometry>> {
-        self.data.display_geometry(id).inspect_err(|_| {
-            self.display_needs_repair.store(true, Ordering::Relaxed);
-        })
-    }
-
-    pub fn display_needs_repair(&self) -> bool {
-        self.display_needs_repair.load(Ordering::Relaxed)
+        self.data.validate_display_parity()?;
+        self.data.display_geometry(id)
     }
 }
 

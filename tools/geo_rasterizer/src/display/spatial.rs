@@ -24,23 +24,11 @@ impl Bounds {
         Self::from_rect(Rect::new(a, b))
     }
 
-    pub(super) fn expanded(self, by: f64) -> Self {
-        Self::new(
-            (self.min.x - by, self.min.y - by).into(),
-            (self.max.x + by, self.max.y + by).into(),
-        )
-    }
-
     pub(super) fn union(self, b: Self) -> Self {
         Self::new(
             (self.min.x.min(b.min.x), self.min.y.min(b.min.y)).into(),
             (self.max.x.max(b.max.x), self.max.y.max(b.max.y)).into(),
         )
-    }
-
-    pub(super) fn has_area_in_common(self, b: Self) -> bool {
-        self.min.x.max(b.min.x) < self.max.x.min(b.max.x)
-            && self.min.y.max(b.min.y) < self.max.y.min(b.max.y)
     }
 
     pub(super) fn intersects(self, b: Self) -> bool {
@@ -92,9 +80,5 @@ mod tests {
             .query(query, |id| ids.push(id));
         ids.sort_unstable();
         assert_eq!(ids, [0, 2, 3, 4]);
-        for contact in [point, vertical, horizontal] {
-            assert!(!query.has_area_in_common(contact));
-        }
-        assert!(query.has_area_in_common(overlap));
     }
 }

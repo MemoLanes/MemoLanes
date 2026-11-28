@@ -14,8 +14,8 @@ use crate::main_db::{self, Action, MainDb};
 use anyhow::{Context, Ok, Result};
 use auto_context::auto_context;
 use chrono::NaiveDate;
-use geo_data_format::GeoEntityId;
-use std::fs::{remove_file, OpenOptions};
+use geo_data_format::{GeoData, GeoEntityId};
+use std::fs::{remove_file, File, OpenOptions};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{
@@ -30,7 +30,11 @@ type FinalizedJourneyChangedCallback = Box<dyn Fn(&Storage) + Send + Sync + 'sta
 
 static GEO_INSTALL: Mutex<()> = Mutex::new(());
 
-fn remove_geo_staging_file(path: &Path) -> io::Result<()> {
+fn display_repair_marker(installed: &Path) -> PathBuf {
+    installed.with_extension("bin.repair")
+}
+
+fn remove_if_present(path: &Path) -> io::Result<()> {
     match remove_file(path) {
         Err(error) if error.kind() == io::ErrorKind::NotFound => std::result::Result::Ok(()),
         result => result,
@@ -90,7 +94,7 @@ impl Storage {
             let path = self
                 .installed_geo_data_file(worldview)
                 .with_extension("bin.tmp");
-            if let Err(error) = remove_geo_staging_file(&path) {
+            if let Err(error) = remove_if_present(&path) {
                 warn!("[storage] could not remove {}: {error}", path.display());
             }
         }
@@ -104,7 +108,17 @@ impl Storage {
                 dbs.geo.clone().context("no active geo data")?,
             )
         };
-        let geometry = geo.display_geometry(id).and_then(|geometry| {
+        let display = geo.display_geometry(id);
+        if let Err(error) = &display {
+            self.mark_display_for_repair(worldview, id)
+                .with_context(|| {
+                    format!(
+                        "recording display repair after reading ID {} failed: {error:#}",
+                        id.0
+                    )
+                })?;
+        }
+        let geometry = display.and_then(|geometry| {
             geometry
                 .map(|geometry| display_geometry::feature(id, worldview.into(), geometry))
                 .transpose()
@@ -117,6 +131,27 @@ impl Storage {
             "active geo data changed during display lookup"
         );
         geometry
+    }
+
+    fn mark_display_for_repair(
+        &self,
+        worldview: geo_data_format::Worldview,
+        id: GeoEntityId,
+    ) -> Result<()> {
+        let _install = GEO_INSTALL.lock().unwrap();
+        let path = self.installed_geo_data_file(worldview);
+        let marker = display_repair_marker(&path);
+        // A reader can hold an old file across replacement. Confirm the failure
+        // against the installed copy before recording a durable repair request.
+        if !marker.try_exists()?
+            && path.try_exists()?
+            && GeoIndex::open_installed(&path)
+                .and_then(|geo| geo.display_geometry(id))
+                .is_err()
+        {
+            File::create_new(&marker)?.sync_all()?;
+        }
+        Ok(())
     }
 
     pub fn installed_geo_data_file(&self, worldview: geo_data_format::Worldview) -> PathBuf {
@@ -317,9 +352,11 @@ impl Storage {
     ) -> Result<()> {
         let _install = GEO_INSTALL.lock().unwrap();
         let path = self.installed_geo_data_file(worldview);
+        let repair_marker = display_repair_marker(&path);
+        let repairing = repair_marker.try_exists()?;
         let staged = path.with_extension("bin.tmp");
         std::fs::create_dir_all(path.parent().expect("installed geo path has a parent"))?;
-        remove_geo_staging_file(&staged)?;
+        remove_if_present(&staged)?;
         let mut file = OpenOptions::new()
             .write(true)
             .create_new(true)
@@ -328,7 +365,13 @@ impl Storage {
             file.write_all(bytes)?;
             file.sync_all()?;
             drop(file);
-            let geo = GeoIndex::open(&staged)?;
+            let data = GeoData::open(&staged)?;
+            if repairing {
+                data.validate_display_parity()?;
+                data.validate_display(|_, _| Ok(()))
+                    .context("checking display frames before replacing damaged installation")?;
+            }
+            let geo = GeoIndex::from_data(data)?;
             anyhow::ensure!(
                 geo.provenance_hash() == expected_provenance_hash,
                 "geo asset provenance {:?} does not match the expected {:?}",
@@ -339,12 +382,15 @@ impl Storage {
             // The old index cannot discard the newly published file before the swap.
             let mut dbs = self.dbs.lock().unwrap();
             std::fs::rename(&staged, &path)?;
+            if repairing {
+                remove_if_present(&repair_marker)?;
+            }
             dbs.geo = Some(Arc::new(geo));
             dbs.worldview = Some(worldview);
             Ok(())
         })();
         if result.is_err() {
-            if let Err(error) = remove_geo_staging_file(&staged) {
+            if let Err(error) = remove_if_present(&staged) {
                 warn!("[storage] could not remove {}: {error}", staged.display());
             }
         }
@@ -357,17 +403,14 @@ impl Storage {
         worldview: geo_data_format::Worldview,
         expected_provenance_hash: [u8; 32],
     ) -> Result<bool> {
+        let _install = GEO_INSTALL.lock().unwrap();
         let mut dbs = self.dbs.lock().unwrap();
-        if dbs.worldview == Some(worldview)
-            && dbs
-                .geo
-                .as_ref()
-                .is_some_and(|geo| geo.display_needs_repair())
-        {
+        let path = self.installed_geo_data_file(worldview);
+        let needs_repair = display_repair_marker(&path).try_exists()?;
+        if needs_repair && dbs.geo.is_some() {
             return Ok(false);
         }
-        let path = self.installed_geo_data_file(worldview);
-        if !path.exists() {
+        if !path.try_exists()? {
             return Ok(false);
         }
         let geo = match GeoIndex::open_installed(&path) {
@@ -387,7 +430,23 @@ impl Storage {
         }
         dbs.geo = Some(Arc::new(geo));
         dbs.worldview = Some(worldview);
-        Ok(true)
+        // On a cold start a known damaged display can still serve coverage
+        // while the caller obtains the replacement from the bundle.
+        Ok(!needs_repair)
+    }
+
+    pub(crate) fn has_coverage_during_display_repair(
+        &self,
+        worldview: geo_data_format::Worldview,
+        provenance: [u8; 32],
+    ) -> bool {
+        let dbs = self.dbs.lock().unwrap();
+        dbs.worldview == Some(worldview)
+            && dbs
+                .geo
+                .as_ref()
+                .is_some_and(|geo| geo.provenance_hash() == provenance)
+            && display_repair_marker(&self.installed_geo_data_file(worldview)).is_file()
     }
 
     fn check_worldview(geo: &GeoIndex, worldview: geo_data_format::Worldview) -> Result<()> {

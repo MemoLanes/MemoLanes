@@ -19,7 +19,6 @@ const DISPLAY_RECIPE_VERSION: u32 = 1;
 /// `policy_path` and `admin2_inputs`, then the asset's `worldview_id`
 /// (length-prefixed), in that order.
 ///
-///
 /// `worldview_id` is folded in (length-prefixed) so a bin retagged to a
 /// different worldview rebuilds even if the geojson/registry are unchanged.
 pub fn compute_provenance_hash(
@@ -40,8 +39,8 @@ pub fn compute_provenance_hash(
         .chain([policy_path])
         .chain(admin2_inputs.iter().map(PathBuf::as_path));
     for path in paths {
-        let f = File::open(path).with_context(|| format!("opening {}", path.display()))?;
-        let mut reader = BufReader::new(f);
+        let file = File::open(path).with_context(|| format!("opening {}", path.display()))?;
+        let mut reader = BufReader::new(file);
         let mut buf = [0u8; 64 * 1024];
         loop {
             let n = reader.read(&mut buf)?;

@@ -210,3 +210,145 @@ fn bytes_with_an_unexpected_provenance_are_rejected() {
     assert!(!storage.installed_geo_data_file(Worldview::Iso).exists());
     assert_eq!(active_hash(&storage), None);
 }
+
+fn asset_with_outline(worldview: Worldview) -> Vec<u8> {
+    use geo_data_format::{
+        write_geo_data_planes_with_display, DisplayBounds, DisplayPolygons, DisplayRecord,
+        GeoEntity, GeoEntityKind,
+    };
+    let entity = GeoEntity {
+        id: FR,
+        kind: GeoEntityKind::Admin0,
+        canonical_code: "FR".into(),
+        iso_a3_eh: None,
+        name_key: "k.FR".into(),
+        parent_id: None,
+        total_area_m2: 1,
+    };
+    let record = DisplayRecord {
+        worldview,
+        entity_id: FR,
+        bounds: DisplayBounds {
+            west: 0.0,
+            south: 0.0,
+            east: 1.0,
+            north: 1.0,
+        },
+        polygons: DisplayPolygons::Exact(vec![vec![vec![
+            [0.0, 0.0],
+            [1.0, 0.0],
+            [0.0, 1.0],
+            [0.0, 0.0],
+        ]]]),
+    };
+    write_geo_data_planes_with_display(&[entity], worldview.spec().id, &[], HASH_A, &[record])
+        .unwrap()
+}
+
+fn damage_outline(bytes: &[u8], installed: &std::path::Path) -> Vec<u8> {
+    let display = geo_data_format::read_header(installed)
+        .unwrap()
+        .unwrap()
+        .display
+        .off;
+    let frames = u64::from_le_bytes(bytes[display + 16..display + 24].try_into().unwrap());
+    let mut damaged = bytes.to_vec();
+    damaged[display + frames as usize] ^= 1;
+    fs::write(installed, &damaged).unwrap();
+    damaged
+}
+
+#[test]
+fn known_display_damage_survives_worldview_changes_and_restart_until_repaired() {
+    let dir = TempDir::new("geo_display_repair").unwrap();
+    let iso = Worldview::Iso;
+    let usa = Worldview::Usa;
+    let bytes = asset_with_outline(iso);
+    let first = storage(&dir);
+    first.init_or_change_geo_data(iso, HASH_A, &bytes).unwrap();
+    let installed = first.installed_geo_data_file(iso);
+    let damaged = damage_outline(&bytes, &installed);
+    assert!(first.region_geometry(FR).is_err());
+    assert_eq!(active_hash(&first), Some(HASH_A));
+    first
+        .init_or_change_geo_data(usa, HASH_A, &asset_with_outline(usa))
+        .unwrap();
+    assert!(!first.open_installed_geo_data(iso, HASH_A).unwrap());
+    assert_eq!(
+        first.region_geometry(FR).unwrap().unwrap().worldview,
+        usa.into()
+    );
+    drop(first);
+
+    let restarted = storage(&dir);
+    assert!(!restarted.open_installed_geo_data(iso, HASH_A).unwrap());
+    assert_eq!(active_hash(&restarted), Some(HASH_A));
+    assert!(restarted
+        .init_or_change_geo_data(iso, HASH_A, &damaged)
+        .is_err());
+    assert_eq!(fs::read(&installed).unwrap(), damaged);
+    assert!(!restarted.open_installed_geo_data(iso, HASH_A).unwrap());
+    restarted
+        .init_or_change_geo_data(iso, HASH_A, &bytes)
+        .unwrap();
+    drop(restarted);
+
+    let repaired = storage(&dir);
+    assert!(repaired.open_installed_geo_data(iso, HASH_A).unwrap());
+    assert!(repaired.region_geometry(FR).unwrap().is_some());
+}
+
+#[test]
+fn a_relabelled_outline_is_detected_and_cannot_clear_a_repair_request() {
+    let dir = TempDir::new("geo_wrong_display_id").unwrap();
+    let iso = Worldview::Iso;
+    let bytes = asset_with_outline(iso);
+    let first = storage(&dir);
+    first.init_or_change_geo_data(iso, HASH_A, &bytes).unwrap();
+    let path = first.installed_geo_data_file(iso);
+    let display = geo_data_format::read_header(&path)
+        .unwrap()
+        .unwrap()
+        .display
+        .off;
+    let index = u64::from_le_bytes(bytes[display..display + 8].try_into().unwrap()) as usize;
+    let forged = GeoEntityId(2_000);
+    let mut damaged = bytes.clone();
+    let first_row = display + index;
+    damaged[first_row..first_row + 4].copy_from_slice(&forged.0.to_le_bytes());
+    fs::write(&path, &damaged).unwrap();
+    assert!(first.region_geometry(FR).is_err());
+    assert!(first.region_geometry(forged).is_err());
+    drop(first);
+
+    let restarted = storage(&dir);
+    assert!(!restarted.open_installed_geo_data(iso, HASH_A).unwrap());
+    assert!(restarted
+        .init_or_change_geo_data(iso, HASH_A, &damaged)
+        .is_err());
+    assert_eq!(active_hash(&restarted), Some(HASH_A));
+    restarted
+        .init_or_change_geo_data(iso, HASH_A, &bytes)
+        .unwrap();
+    assert!(restarted.region_geometry(FR).unwrap().is_some());
+    assert!(restarted.region_geometry(forged).unwrap().is_none());
+}
+
+#[test]
+fn a_stale_display_read_cannot_mark_a_newly_installed_copy() {
+    let dir = TempDir::new("geo_stale_display").unwrap();
+    let iso = Worldview::Iso;
+    let bytes = asset_with_outline(iso);
+    let old = storage(&dir);
+    old.init_or_change_geo_data(iso, HASH_A, &bytes).unwrap();
+    damage_outline(&bytes, &old.installed_geo_data_file(iso));
+
+    let replacement = storage(&dir);
+    replacement
+        .init_or_change_geo_data(iso, HASH_A, &bytes)
+        .unwrap();
+    assert!(old.region_geometry(FR).is_err());
+    assert!(old.open_installed_geo_data(iso, HASH_A).unwrap());
+    assert!(old.region_geometry(FR).unwrap().is_some());
+    assert!(replacement.open_installed_geo_data(iso, HASH_A).unwrap());
+}
