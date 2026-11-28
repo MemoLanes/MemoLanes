@@ -14,7 +14,7 @@ pub const MAGIC: &[u8; 4] = b"MGEO";
 /// `compute_provenance_hash`), so bumping it makes the rasterizer's
 /// smart-skip rebuild and invalidates any runtime consumer cache
 /// without relying on a manual "delete the .bin" step.
-pub const GEO_DATA_VERSION: u32 = 6;
+pub const GEO_DATA_VERSION: u32 = 7;
 
 pub const PROVENANCE_HASH_OFFSET: usize = 4; // MAGIC.len()
 pub const PROVENANCE_HASH_LEN: usize = 32;
@@ -66,6 +66,8 @@ pub fn cell_index(x: u8, y: u8) -> usize {
 }
 
 mod cldr;
+mod display;
+mod file_io;
 mod format;
 mod locale;
 mod packed_tile;
@@ -73,9 +75,11 @@ mod types;
 mod worldview;
 
 pub use cldr::*;
+pub use display::{DisplayBounds, DisplayGeometry, DisplayPolygons, DisplayRecord};
 pub use format::{
-    expected_total_len, read_header, read_provenance_hash, write_geo_data, write_geo_data_planes,
-    BorderBlobs, GeoData, Header, PlaneRaster, Section, TileEntry, TileIndex, HEADER_LEN,
+    read_header, verify_display_ids, write_geo_data, write_geo_data_planes,
+    write_geo_data_planes_with_display, BorderBlobs, GeoData, Header, PlaneRaster, Section,
+    TileEntry, TileIndex, HEADER_LEN,
 };
 pub use locale::*;
 pub use packed_tile::PackedTile;

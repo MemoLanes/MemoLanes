@@ -59,10 +59,11 @@ fn generate_geo_provenance() {
         let id = worldview.spec().id;
         let bin = assets.join(format!("geo_data_{id}.bin"));
         println!("cargo:rerun-if-changed={}", bin.display());
-        let arm = match geo_data_format::read_provenance_hash(&bin)
+        let arm = match geo_data_format::read_header(&bin)
             .unwrap_or_else(|e| panic!("reading {}: {e:#}", bin.display()))
+            .filter(|header| header.display.len != 0)
         {
-            Some(hash) => format!("Some({hash:?})"),
+            Some(header) => format!("Some({:?})", header.provenance_hash),
             None => {
                 missing.push(bin.display().to_string());
                 "None".to_owned()

@@ -1,67 +1,59 @@
-//! Atomic publish: stream bytes into a deterministic `<path>.tmp`, fsync,
-//! then rename over `path`. The rename is the only thing readers and the
-//! smart-skip cache rely on — an observer ever sees the old complete file or
-//! the new complete file, never a half-written one.
-//!
-//! The temp name is intentionally `<path>.tmp` (a fixed sibling), not a
-//! random tempfile name:
-//!   * `.gitignore` matches `*.bin.tmp` / `natural_earth/*.tmp`, so a
-//!     leftover from a killed run never appears as an untracked file;
-//!   * the fixed name self-heals — the next run's `File::create` truncates
-//!     any leftover in place.
-//!
-//! The tradeoff: two *concurrent* writers of the same `path` would race on
-//! the shared `.tmp` inode. That can't happen in this tool — the three worldview
-//! bins use distinct paths and `just rasterize-geo` runs them sequentially.
-//! If same-path parallelism is ever added, switch to random temp names (the
-//! `tempfile` crate, whose `persist` is also cross-device-safe) rather than
-//! reintroducing a lock.
-//!
-//! `tmp` must be a sibling of `path` (same directory): `std::fs::rename` is
-//! not cross-device.
+//! Atomic publish: stream into an exclusively created sibling, fsync, then
+//! replace the destination. Readers see either the old or new complete file.
+//! Random `.geo-publish-*.tmp` names never reuse existing staging aliases;
+//! gitignore covers residue from killed processes. Normal errors clean up only
+//! the newly created temporary file. Parent-directory fsync is deliberately
+//! skipped for these regenerable artifacts.
 
 use std::fs::File;
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use anyhow::{Context, Result};
 
-/// `path` with `suffix` appended, e.g. `geo_data.bin` -> `geo_data.bin.tmp`.
-/// Uses `OsString::push` (append), NOT `Path::with_extension`, which would
-/// *replace* the extension (`geo_data.tmp`) and break both the `*.bin.tmp`
-/// gitignore glob and the sibling-tmp convention.
-fn sibling(path: &Path, suffix: &str) -> PathBuf {
-    let mut s = path.as_os_str().to_owned();
-    s.push(suffix);
-    PathBuf::from(s)
-}
-
-/// Atomically replace `path` with whatever `write` streams into the temp
-/// file. On error the partial `<path>.tmp` is left behind and reclaimed by
-/// the next run's `File::create`. The `fsync` is belt-and-suspenders for a
-/// regenerable artifact; the parent-dir fsync is deliberately skipped.
+/// Atomically replace `path` with streamed bytes, preserving the previous
+/// destination if writing or publication fails. The temporary file must be in
+/// the destination directory so replacement stays on the same filesystem.
 pub fn write_atomically_with(
     path: &Path,
     write: impl FnOnce(&mut File) -> Result<()>,
 ) -> Result<()> {
-    let tmp = sibling(path, ".tmp");
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)
-            .with_context(|| format!("creating {}", parent.display()))?;
-    }
+    publish_atomically(path, write, |_| Ok(()))
+}
+
+pub(crate) fn publish_atomically(
+    path: &Path,
+    write: impl FnOnce(&mut File) -> Result<()>,
+    verify: impl FnOnce(&Path) -> Result<()>,
+) -> Result<()> {
+    let parent = path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or(Path::new("."));
+    std::fs::create_dir_all(parent).with_context(|| format!("creating {}", parent.display()))?;
+    let mut builder = tempfile::Builder::new();
+    builder.prefix(".geo-publish-").suffix(".tmp");
+    // Match File::create's normal umask-controlled mode, not tempfile's 0600.
+    #[cfg(unix)]
     {
-        let mut f = File::create(&tmp).with_context(|| format!("creating {}", tmp.display()))?;
-        write(&mut f).with_context(|| format!("writing {}", tmp.display()))?;
-        f.sync_all()
-            .with_context(|| format!("fsync {}", tmp.display()))?;
+        use std::os::unix::fs::PermissionsExt;
+        builder.permissions(std::fs::Permissions::from_mode(0o666));
     }
-    // Windows: rename over an existing file fails. Remove first.
-    #[cfg(windows)]
-    if path.exists() {
-        std::fs::remove_file(path).with_context(|| format!("removing {}", path.display()))?;
-    }
-    std::fs::rename(&tmp, path)
-        .with_context(|| format!("renaming {} → {}", tmp.display(), path.display()))
+    let mut tmp = builder
+        .tempfile_in(parent)
+        .with_context(|| format!("creating temporary file for {}", path.display()))?;
+    write(tmp.as_file_mut()).with_context(|| format!("writing {}", tmp.path().display()))?;
+    tmp.as_file()
+        .sync_all()
+        .with_context(|| format!("fsync {}", tmp.path().display()))?;
+    verify(tmp.path()).with_context(|| format!("verifying staged {}", path.display()))?;
+    let temporary_path = tmp.path().to_owned();
+    // persist replaces existing files on Windows too, without unlinking first.
+    tmp.persist(path)
+        // Drop the returned temporary file even while callers retain the error.
+        .map_err(|error| error.error)
+        .with_context(|| format!("renaming {} → {}", temporary_path.display(), path.display()))?;
+    Ok(())
 }
 
 /// Convenience wrapper: atomically write an in-memory buffer to `path`.

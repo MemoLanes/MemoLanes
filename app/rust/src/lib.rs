@@ -17,6 +17,7 @@ pub mod achievement;
 pub mod api;
 pub mod archive;
 pub mod cache_db;
+mod display_geometry;
 pub mod export_data;
 pub mod flight_track_processor;
 pub mod geo;

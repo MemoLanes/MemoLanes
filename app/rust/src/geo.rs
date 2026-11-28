@@ -7,8 +7,8 @@ use std::sync::Mutex;
 
 use anyhow::Result;
 use geo_data_format::{
-    plane_tile_index, GeoData, GeoEntity, GeoEntityId, GeoEntityKind, PackedTile, TileEntry,
-    TileMembership,
+    plane_tile_index, DisplayGeometry, GeoData, GeoEntity, GeoEntityId, GeoEntityKind, PackedTile,
+    TileEntry, TileMembership,
 };
 
 use crate::journey_bitmap::{BlockKey, TileKey};
@@ -63,10 +63,14 @@ pub struct GeoIndex {
 impl GeoIndex {
     /// border tiles on disk, decoded on demand
     pub fn open(path: &Path) -> Result<Self> {
-        Self::new(GeoData::open(path)?)
+        Self::from_data(GeoData::open(path)?)
     }
 
-    fn new(data: GeoData) -> Result<Self> {
+    pub fn open_installed(path: &Path) -> Result<Self> {
+        Self::from_data(GeoData::open_for_coverage(path)?)
+    }
+
+    pub(crate) fn from_data(data: GeoData) -> Result<Self> {
         let entities = data.entities()?;
         let slots = entities
             .iter()
@@ -118,6 +122,11 @@ impl GeoIndex {
 
     pub fn worldview_id(&self) -> &str {
         &self.data.worldview_id
+    }
+
+    pub fn display_geometry(&self, id: GeoEntityId) -> Result<Option<DisplayGeometry>> {
+        self.data.validate_display_parity()?;
+        self.data.display_geometry(id)
     }
 }
 

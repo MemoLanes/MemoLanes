@@ -3,10 +3,10 @@
 Offline build tool. Converts Natural Earth GeoJSON into the geo-reference data
 shipped in `app/assets/geo/`:
 
-- `geo_data_<worldview>.bin` — the packed entity/tile data (one per worldview).
-  Its header carries a provenance hash of the inputs; `app/rust/build.rs` reads
-  that hash and compiles it in, so the app can recognize a stale installed copy
-  without loading the asset.
+- `geo_data_<worldview>.bin` — the packed entity/tile data and offline display
+  outlines for one worldview. `app/rust/build.rs` compiles in each file's
+  provenance hash so the app can recognize a stale installed copy without
+  reading the bundled asset.
 - `region_names.<locale>.json` — the localized region-name maps (one per
   locale), resolved from Unicode CLDR (see "Region names" below).
 
@@ -17,6 +17,45 @@ Three things in this crate are **hand-curated state**, committed as source of
 truth: `geo_entity_registry/` (frozen ids), `geo_policy.toml` (editorial
 policy), and `geo_names_overrides.toml` (name overrides). This README covers
 the registry first, then policy, then names.
+
+## Display outlines
+
+The rasterizer generates coverage and display geometry together for each
+worldview and publishes them as one file. Both sections share the same
+provenance. Bump `DISPLAY_RECIPE_VERSION` in `src/cache.rs` when exporter
+changes affect the generated outlines without changing the data inputs or
+file format. To force regeneration locally, remove the relevant
+`assets/geo/geo_data_<worldview>.bin` (from `app/`) and run `just rasterize-geo`.
+
+The asset contains display copies of the resolved admin-0/admin-1 shapes and
+pinned Overture admin-2 shapes, indexed by every non-continent ID in the final
+raster entity table. This includes parents whose children own their blocks.
+
+The exporter cuts crossing polygons at the dateline, preserves explicit polar
+closures, and computes camera bounds from the normalized, validated source. It
+splits exactly coincident segments at source vertices, including collinear
+vertices present in only one ring. It splits shared arcs at junctions and
+simplifies each arc once using the strictest fit budget across its owners
+(approximately one pixel at a 640 × 480 Mercator fit). Divergent source
+segments follow separate arcs. The exporter reconstructs each entity's rings
+from the arcs and writes independently readable compressed geometry frames.
+
+The default grid is `0.0001°`. Failed validation retries with unsimplified arcs
+on the aligned `0.00001°` grid, then retains source coordinates if the grid still
+changes topology. Each retry propagates precision to shared endpoints and
+revalidates their users. Validation compares polygon validity, winding and
+covered area with the prepared source. It also checks boundary contacts,
+crossing order, the order of arcs at junctions, and the nesting of shells and
+holes. A gap that closes to even a single point triggers a retry, including
+when its shores occupy opposite copies of the dateline.
+
+Before atomic publication, the exporter reopens the staged file, checks the
+exact non-continent ID set and compares each decoded outline and its bounds
+with the validated record. Cache reuse checks ID parity, validates each
+decoded polygon, and verifies that its camera bounds fit the outline within
+the simplification tolerance. Generation logs (`[display:<worldview>]`) report repairs
+and precision fallbacks. `just test-geo` checks ID parity in all shipped
+worldviews and the distinct Alaska and U.S. vertices between their shared arcs.
 
 ## What `geo_entity_registry/` is
 
