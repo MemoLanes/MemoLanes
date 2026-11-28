@@ -10,6 +10,7 @@ class MMKVKey {
   static const String dbOptimizationCheck = "dbOptimizationCheck";
   static const String mainMapState = "MainMap.mapState";
   static const String isRecording = "GpsManager.isRecording";
+  static const String recordingStartedAtMs = "GpsManager.recordingStartedAtMs";
   static const String privacyAgreementAccepted = "privacyAgreementAccepted";
   static const String firstLaunchSetupCompletedVersion =
       "FirstLaunchSetup.completedVersion";

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/widgets.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:memolanes/common/journey_idle_timer.dart';
 import 'package:memolanes/common/log.dart';
 import 'package:memolanes/common/mmkv_util.dart';
 import 'package:memolanes/common/recording_health_service.dart';
@@ -23,13 +24,6 @@ enum GpsRecordingStatus { none, recording, paused }
 
 // `recording` requires background location but `justForTracking` does not.
 enum _InternalState { off, recording, justForTracking }
-
-class _RecordingLocationUpdate {
-  final LocationData data;
-  final DateTime receivedAt;
-
-  _RecordingLocationUpdate(this.data, this.receivedAt);
-}
 
 bool _positionTooOld(LocationData data, {int staleThresholdMs = 12 * 1000}) {
   final now = DateTime.now().millisecondsSinceEpoch;
@@ -67,41 +61,31 @@ class GpsManager extends ChangeNotifier {
 
   StreamSubscription<LocationData>? _locationUpdateSub;
 
-  final _recordingLocationUpdatePipe =
-      StreamController<_RecordingLocationUpdate>();
-  int _pendingRecordingLocationUpdates = 0;
-  Completer<void>? _recordingLocationUpdatesDrained;
+  final _recordingQueue = Mutex();
 
   // Notify the user that the recording was unexpectedly stopped.
   // The app is a little hacky so I minted: https://github.com/flutter/flutter/issues/156139
   final _notificationWhenAppIsKilledPlugin = NotificationWhenAppIsKilled();
 
-  // basically, we try to finalize every 30 mins + when there isn't a meaningful update in a while.
-  DateTime? _tryFinalizeJourneyCountDown;
+  late final _idleTimer = JourneyIdleTimer(_checkIdleJourney);
+  Timer? _pausedResumeTimer;
+  late final AppLifecycleListener _lifecycle;
 
   // We only start listening to the location service after this.
   // Otherwise we may start it before the app is fully ready (e.g. i18n not ready).
   bool _fullyReady = false;
 
-  GpsManager() {
+  GpsManager({bool? wasRecording}) {
     _locationService = GeoLocatorService();
-    unawaited(_processRecordingLocationUpdatePipe());
-    _initState();
+    _lifecycle = AppLifecycleListener(onResume: _onResume);
+    _initState(wasRecording ?? MMKVUtil.getBool(MMKVKey.isRecording));
   }
 
   LocationBackend get locationBackend => _locationService.locationBackend;
 
-  void _initState() async {
+  void _initState(bool wasRecording) async {
     await _m.protect(() async {
-      Timer.periodic(const Duration(minutes: 30), (timer) async {
-        await _m.protect(() async {
-          await _tryFinalizeJourneyWithoutLock();
-        });
-        _tryFinalizeJourneyCountDown = DateTime.now();
-      });
-
-      if (MMKVUtil.getBool(MMKVKey.isRecording) &&
-          await PermissionService().checkLocationPermission()) {
+      if (wasRecording && await PermissionService().checkLocationPermission()) {
         recordingStatus = GpsRecordingStatus.recording;
       } else if (await api.hasOngoingJourney()) {
         recordingStatus = GpsRecordingStatus.paused;
@@ -111,19 +95,47 @@ class GpsManager extends ChangeNotifier {
     });
   }
 
-  Future<void> _tryFinalizeJourneyWithoutLock() async {
-    if (await api.tryAutoFinalizeJourney()) {
-      Fluttertoast.showToast(msg: tr("journey.finalize_saved"));
-      if (recordingStatus == GpsRecordingStatus.paused) {
-        recordingStatus = GpsRecordingStatus.none;
-        notifyListeners();
-        await _syncInternalStateWithoutLock();
-      }
-      _notifyJourneyFinalized();
+  void _onResume() {
+    if (!_fullyReady) return;
+    if (recordingStatus == GpsRecordingStatus.recording) {
+      _idleTimer.onResume();
+    } else if (recordingStatus == GpsRecordingStatus.paused) {
+      // Let foreground work settle before checking a paused journey.
+      _pausedResumeTimer ??= Timer(const Duration(seconds: 5), () {
+        _pausedResumeTimer = null;
+        unawaited(
+          _checkIdleJourney(() => recordingStatus == GpsRecordingStatus.paused),
+        );
+      });
     }
   }
 
-  void _notifyJourneyFinalized() {
+  Future<void> _checkIdleJourney(bool Function() isCurrent) async {
+    try {
+      await _m.protect(() async {
+        if (recordingStatus == GpsRecordingStatus.none || !isCurrent()) return;
+        _locationService.flushPendingUpdates();
+        final finalized = await _recordingQueue.protect(
+          () async => isCurrent() && await api.tryAutoFinalizeJourney(),
+        );
+        if (finalized) await _handleIdleFinalization();
+      });
+    } catch (error, stackTrace) {
+      log.error("[GpsManager] idle finalization failed: $error", stackTrace);
+    }
+  }
+
+  Future<void> _handleIdleFinalization() async {
+    if (recordingStatus == GpsRecordingStatus.paused) {
+      recordingStatus = GpsRecordingStatus.none;
+      notifyListeners();
+      await _syncInternalStateWithoutLock();
+    }
+    _showJourneySaved();
+  }
+
+  void _showJourneySaved() {
+    Fluttertoast.showToast(msg: tr("journey.finalize_saved"));
     _journeyFinalizedController.add(null);
   }
 
@@ -164,6 +176,8 @@ class GpsManager extends ChangeNotifier {
         _lastPositionTooOldTimer?.cancel();
         _lastPositionTooOldTimer = null;
         if (oldState == _InternalState.recording) {
+          // The stopped source has flushed its last batch into the queue.
+          await _recordingQueue.protect(() async {});
           await _notificationWhenAppIsKilledPlugin
               .cancelNotificationOnKillService();
         }
@@ -176,7 +190,15 @@ class GpsManager extends ChangeNotifier {
         // A backend can deliver its first fix before startLocationUpdates
         // completes. Subscribe first so a broadcast stream cannot drop it.
         _internalState = newState;
+        final recordingStartedAtMs = MMKVUtil.getInt(
+          MMKVKey.recordingStartedAtMs,
+        );
         _locationUpdateSub = _locationService.onLocationUpdate((data) {
+          if (_internalState == _InternalState.recording &&
+              data.timestampMs >= recordingStartedAtMs) {
+            final receivedAt = DateTime.now().millisecondsSinceEpoch;
+            unawaited(_recordingQueue.protect(() => _record(data, receivedAt)));
+          }
           if (_positionTooOld(data)) {
             return;
           }
@@ -187,10 +209,6 @@ class GpsManager extends ChangeNotifier {
             lastKnownPosition = null;
           }
           notifyListeners();
-
-          if (_internalState == _InternalState.recording) {
-            _enqueueRecordingLocationUpdate(data);
-          }
         });
 
         try {
@@ -274,67 +292,27 @@ class GpsManager extends ChangeNotifier {
     return ageMs >= 0 && ageMs <= _lastKnownPositionMaxAge.inMilliseconds;
   }
 
-  void _enqueueRecordingLocationUpdate(LocationData data) {
-    if (_pendingRecordingLocationUpdates == 0) {
-      _recordingLocationUpdatesDrained = Completer<void>();
-    }
-    _pendingRecordingLocationUpdates += 1;
-    _recordingLocationUpdatePipe.add(
-      _RecordingLocationUpdate(data, DateTime.now()),
-    );
-  }
-
-  Future<void> _processRecordingLocationUpdatePipe() async {
-    await for (final update in _recordingLocationUpdatePipe.stream) {
-      try {
-        if (_internalState != _InternalState.recording) {
-          continue;
-        }
-        var last = _tryFinalizeJourneyCountDown;
-        if (last != null &&
-            update.receivedAt.difference(last).inSeconds >= 60) {
-          await _m.protect(() async {
-            await _tryFinalizeJourneyWithoutLock();
-          });
-          _tryFinalizeJourneyCountDown = update.receivedAt;
-        }
-
-        var meaningful = await api.onLocationUpdate(
-          data: ExtendedRawGPSPoint(
-            rawGpsPoint: RawGPSPoint(
-              point: Point(
-                latitude: update.data.latitude,
-                longitude: update.data.longitude,
-              ),
-              timestampMs: update.data.timestampMs,
-              accuracy: update.data.accuracy,
-              altitude: update.data.altitude,
-              speed: update.data.speed,
-            ),
-            receivedTimestampMs: update.receivedAt.millisecondsSinceEpoch,
+  Future<void> _record(LocationData data, int receivedAtMs) async {
+    try {
+      final result = await api.onLocationUpdate(
+        data: ExtendedRawGPSPoint(
+          rawGpsPoint: RawGPSPoint(
+            point: Point(latitude: data.latitude, longitude: data.longitude),
+            timestampMs: data.timestampMs,
+            accuracy: data.accuracy,
+            altitude: data.altitude,
+            speed: data.speed,
           ),
-        );
-
-        if (meaningful) {
-          _tryFinalizeJourneyCountDown = update.receivedAt;
-        }
-      } catch (error, stackTrace) {
-        log.error(
-          "[GpsManager] record location update failed: $error",
-          stackTrace,
-        );
-      } finally {
-        _pendingRecordingLocationUpdates -= 1;
-        if (_pendingRecordingLocationUpdates == 0) {
-          _recordingLocationUpdatesDrained?.complete();
-          _recordingLocationUpdatesDrained = null;
-        }
-      }
+          receivedTimestampMs: receivedAtMs,
+        ),
+      );
+      if (result.previousJourneyFinalized) _showJourneySaved();
+    } catch (error, stackTrace) {
+      log.error(
+        "[GpsManager] record location update failed: $error",
+        stackTrace,
+      );
     }
-  }
-
-  Future<void> _drainRecordingLocationUpdates() {
-    return _recordingLocationUpdatesDrained?.future ?? Future<void>.value();
   }
 
   Future<void> changeRecordingState(GpsRecordingStatus to) async {
@@ -344,11 +322,15 @@ class GpsManager extends ChangeNotifier {
       }
     }
 
-    var needToFinalize = false;
-    await _drainRecordingLocationUpdates();
-
     await _m.protect(() async {
-      needToFinalize = recordingStatus != to && to == GpsRecordingStatus.none;
+      final needToFinalize =
+          recordingStatus != to && to == GpsRecordingStatus.none;
+      if (to == GpsRecordingStatus.recording && recordingStatus != to) {
+        MMKVUtil.putInt(
+          MMKVKey.recordingStartedAtMs,
+          DateTime.now().millisecondsSinceEpoch,
+        );
+      }
       recordingStatus = to;
 
       notifyListeners();
@@ -365,7 +347,7 @@ class GpsManager extends ChangeNotifier {
         } else {
           Fluttertoast.showToast(msg: tr("journey.finalize_empty"));
         }
-        _notifyJourneyFinalized();
+        _journeyFinalizedController.add(null);
       }
     });
   }
@@ -383,12 +365,17 @@ class GpsManager extends ChangeNotifier {
   }
 
   void readyToStart() {
-    _fullyReady = true;
+    _idleTimer.restart();
     // sync internal state for the first time
     unawaited(
       _m
           .protect(() async {
-            await _tryFinalizeJourneyWithoutLock();
+            _fullyReady = true;
+            // A restored recording may still receive fixes sampled before launch.
+            if (recordingStatus == GpsRecordingStatus.paused &&
+                await api.tryAutoFinalizeJourney()) {
+              await _handleIdleFinalization();
+            }
             await _syncInternalStateWithoutLock();
           })
           .catchError((Object error, StackTrace stackTrace) {
@@ -402,10 +389,14 @@ class GpsManager extends ChangeNotifier {
 
   @override
   void dispose() {
+    _lifecycle.dispose();
+    _idleTimer.cancel();
+    _pausedResumeTimer?.cancel();
     _lastPositionTooOldTimer?.cancel();
+    _locationService.flushPendingUpdates();
+    unawaited(_locationUpdateSub?.cancel());
     unawaited(_locationService.stopLocationUpdates());
-    unawaited(_recordingLocationUpdatePipe.close());
-    unawaited(_journeyFinalizedController.close());
+    unawaited(_recordingQueue.protect(_journeyFinalizedController.close));
     RecordingHealthService.instance.stop();
     super.dispose();
   }

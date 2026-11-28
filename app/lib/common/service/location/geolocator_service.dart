@@ -49,7 +49,9 @@ class GeoLocatorService implements ILocationService {
   Timer? _tooOldTimer;
   RestartableTimer? _bufferFlushTimer;
 
-  final _locationUpdateController = StreamController<LocationData>.broadcast();
+  final _locationUpdateController = StreamController<LocationData>.broadcast(
+    sync: true,
+  );
 
   LocationData? _latestLocation;
   final List<LocationData> _buffer = [];
@@ -95,8 +97,8 @@ class GeoLocatorService implements ILocationService {
     _bufferFlushTimer?.cancel();
     _bufferFlushTimer = null;
 
-    _buffer.clear();
-    _firstBufferReceiveTime = null;
+    // Deliver the final sorted batch before GpsManager drains the recording queue.
+    flushPendingUpdates();
   }
 
   void _onPositionReceived(Position pos) {
@@ -118,14 +120,15 @@ class GeoLocatorService implements ILocationService {
     if (_bufferFlushTimer == null) {
       _bufferFlushTimer = RestartableTimer(
         const Duration(milliseconds: 100),
-        _flushBuffer,
+        flushPendingUpdates,
       );
     } else {
       _bufferFlushTimer?.reset();
     }
   }
 
-  void _flushBuffer() {
+  @override
+  void flushPendingUpdates() {
     if (_buffer.isEmpty) return;
 
     final sorted = List<LocationData>.from(_buffer)
@@ -192,8 +195,8 @@ class GeoLocatorService implements ILocationService {
     }
   }
 
-  void dispose() {
-    stopLocationUpdates();
-    _locationUpdateController.close();
+  Future<void> dispose() async {
+    await stopLocationUpdates();
+    await _locationUpdateController.close();
   }
 }
